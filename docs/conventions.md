@@ -12,6 +12,7 @@ All components are named after figures from Norse mythology, reflecting their ro
 | **Mimir** | Wisest of the Aesir | Guardian of wisdom's well | File archive |
 | **Heimdall** | Watchman of the gods | Sees all from Bifröst | Monitoring dashboard |
 | **Skuld** | Norn of the future | Shapes what shall be | Daily intelligence briefing |
+| **Ratatoskr** | Squirrel on Yggdrasil | Carries messages between eagle and serpent | Telegram message router |
 
 ## Port assignments
 
@@ -21,6 +22,7 @@ All components are named after figures from Norse mythology, reflecting their ro
 | 3031 | Mimir | Pi 2 |
 | 3032 | Hugin | Pi 1 |
 | 3033 | Heimdall | Pi 1 |
+| 3034 | Ratatoskr | Pi 1 |
 | 3040 | Skuld | Pi 1 |
 
 ## Deploy paths on Pi
@@ -32,6 +34,7 @@ All services deploy to `~/repos/<service-name>/` on their respective Pi. No exce
 /home/magnus/repos/hugin/          # Pi 1
 /home/magnus/repos/heimdall/       # Pi 1
 /home/magnus/repos/skuld/          # Pi 1
+/home/magnus/repos/ratatoskr/      # Pi 1
 /home/magnus/repos/mimir/          # Pi 2
 ```
 
@@ -48,6 +51,7 @@ Repos are named after the component, lowercase. The GitHub org matches the opera
 - `Magnus-Gille/heimdall`
 - `Magnus-Gille/mimir`
 - `Magnus-Gille/fortnox-mcp`
+- `Magnus-Gille/ratatoskr`
 - `grimnir-bot/skuld` (exception: created by Hugin task under bot account)
 
 ## Service patterns

@@ -34,6 +34,7 @@ Three principles guide every decision:
 | **Munin Memory** | Persistent memory MCP server | 3030 | Pi 1 | `munin-memory` |
 | **Hugin** | Task dispatcher | 3032 | Pi 1 | `hugin` |
 | **Heimdall** | Monitoring dashboard | 3033 | Pi 1 | `heimdall` |
+| **Ratatoskr** | Telegram router + concierge | 3034 | Pi 1 | `ratatoskr` |
 | **Skuld** | Daily intelligence briefing | 3040 | Pi 1 | `skuld` (grimnir-bot) |
 | **Mimir** | Authenticated file server | 3031 | Pi 2 (NAS) | `mimir` |
 | **noxctl** | Accounting CLI + MCP | — | Laptop (global) | `fortnox-mcp` |
@@ -50,6 +51,7 @@ graph TB
         CF[Cloudflare Edge]
         Claude_Web[Claude.ai / Mobile]
         Claude_Desktop[Claude Desktop]
+        Telegram[Telegram]
     end
 
     subgraph MacBook["MacBook Air (Development)"]
@@ -64,6 +66,7 @@ graph TB
         Munin["Munin Memory<br/>:3030 (MCP + HTTP)"]
         Hugin["Hugin Dispatcher<br/>:3032 (health only)"]
         Heimdall_Svc["Heimdall Dashboard<br/>:3033 (Fastify + HTMX)"]
+        Ratatoskr_Svc["Ratatoskr Router<br/>:3034 (Telegram bot)"]
         Skuld_Svc["Skuld Briefing<br/>:3040 (web UI)"]
         Claude_Pi[Claude Code / Codex<br/>spawned by Hugin]
         Tunnel_Pi1["cloudflared tunnel"]
@@ -101,6 +104,11 @@ graph TB
     %% Backup flows
     Munin -->|hourly sqlite3 .backup| Backups
     Mimir -->|hourly rsync| TimeMachine
+
+    %% Telegram → Ratatoskr
+    Telegram -->|long-poll| Ratatoskr_Svc
+    Ratatoskr_Svc -->|submit task| Munin
+    Ratatoskr_Svc -->|Haiku triage| Internet
 
     %% Task flow
     CC -->|submit task| Munin
@@ -349,24 +357,89 @@ sequenceDiagram
 
 ### Task schema
 
-Any Claude environment can submit a task by writing to Munin:
+Any Claude environment (or Ratatoskr) can submit a task by writing to Munin:
 
 ```markdown
 Namespace: tasks/<task-id>
 Key: status
-Tags: ["pending", "runtime:claude"]
+Tags: ["pending", "runtime:claude", "type:code"]
 
 ## Task: <title>
 
 - **Runtime:** claude | codex
-- **Working dir:** /home/magnus/workspace
+- **Context:** repo:heimdall | scratch | files | /absolute/path
 - **Timeout:** 300000
-- **Submitted by:** claude-desktop
+- **Submitted by:** claude-desktop | ratatoskr
 - **Submitted at:** 2026-03-14T10:00:00Z
+- **Reply-to:** telegram:12345678 | none
+- **Reply-format:** summary | full
+- **Group:** 20260323-140000-deploy-cycle
+- **Sequence:** 1
 
 ### Prompt
 <the actual prompt for the AI runtime>
 ```
+
+**Context resolution:** Hugin resolves the `Context` field to an absolute working directory:
+
+| Context value | Resolved path | Use case |
+|---------------|---------------|----------|
+| `repo:<name>` | `/home/magnus/repos/<name>` | Code tasks in a specific repo |
+| `scratch` | `/home/magnus/scratch` | Research, email, admin, non-code work |
+| `files` | `/home/magnus/mimir` | File organization, document work |
+| `/absolute/path` | Used as-is | Backward compat, custom paths |
+| *(omitted)* | `/home/magnus/workspace` | Legacy default |
+
+`Working dir:` is still accepted for backward compatibility but `Context:` takes priority.
+
+**Reply routing:** When `Reply-to` is set (e.g., `telegram:12345678`), Ratatoskr polls the task result and delivers it back to the specified channel. Without `Reply-to`, results are only available via Munin.
+
+**Task groups:** `Group` and `Sequence` fields link related sub-tasks. Hugin processes them in FIFO order (submission order). Each sub-task's prompt includes a check for the previous step's success.
+
+---
+
+## Ratatoskr — Telegram Router
+
+Ratatoskr is the messenger. Named after the squirrel that carries messages between the eagle and serpent on Yggdrasil, it lets Magnus interact with Grimnir from Telegram — sending tasks from a phone and receiving results back.
+
+### Architecture
+
+- **Runtime:** Node.js 20+, TypeScript (strict mode)
+- **Framework:** Express (health endpoint only) + grammy (Telegram bot)
+- **AI:** @anthropic-ai/sdk (Haiku for intent triage)
+- **Deployment:** systemd on Pi 1, long-polling mode (no inbound HTTP from internet)
+
+### How it works
+
+Ratatoskr is NOT an AI agent. It's plumbing with a thin intelligence layer:
+
+1. **Receive** — Telegram message arrives from an allowlisted user
+2. **Triage** — Concierge layer calls Claude Haiku with the message + recent Munin context. Haiku decides: ready to submit, needs clarification, or can answer directly
+3. **Clarify** — If ambiguous, replies on Telegram asking for more detail. Conversational loop until intent is clear
+4. **Submit** — Writes a well-formed Hugin task to Munin with context, reply routing, and timeout
+5. **Monitor** — Polls Munin for task completion every 30 seconds
+6. **Deliver** — Sends result summary back on Telegram
+
+The concierge uses Haiku (~$0.001/call) for triage, not the Max plan. The actual task execution runs through Hugin → Claude Code (Max plan).
+
+### Task schema fields set by Ratatoskr
+
+| Field | Value |
+|-------|-------|
+| `Context` | Inferred by concierge (default: `scratch`) |
+| `Runtime` | Always `claude` |
+| `Reply-to` | `telegram:<chat_id>` |
+| `Submitted by` | `ratatoskr` |
+
+### Telegram commands
+
+| Command | Action |
+|---------|--------|
+| `/status` | Show active/recent tasks |
+| `/cancel <id>` | Cancel a pending task |
+| `/raw <prompt>` | Skip concierge, submit verbatim |
+| `/repo <name> <prompt>` | Submit to a specific repo context |
+| Any other text | Triaged by concierge, then submitted |
 
 ---
 
@@ -523,12 +596,14 @@ This isn't just convenience; it's necessity. Claude.ai and Claude Mobile can acc
 
 ### Access matrix
 
-| Environment | Munin | Mimir | Hugin (tasks) | Heimdall | Skuld | noxctl |
-|-------------|-------|-------|---------------|----------|-------|--------|
-| Claude Code (laptop) | HTTP Bearer | HTTPS Bearer | Submit via Munin | Browser | — | CLI |
-| Claude Desktop | HTTP Bearer (mcp-remote) | — | Submit via Munin | — | — | MCP |
-| Claude Web/Mobile | HTTP OAuth 2.1 | — | Submit via Munin | — | — | MCP |
-| Claude Code (Pi/Hugin) | HTTP Bearer (localhost) | HTTPS Bearer | IS the dispatcher | — | — | — |
+| Environment | Munin | Mimir | Hugin (tasks) | Ratatoskr | Heimdall | Skuld | noxctl |
+|-------------|-------|-------|---------------|-----------|----------|-------|--------|
+| Claude Code (laptop) | HTTP Bearer | HTTPS Bearer | Submit via Munin | — | Browser | — | CLI |
+| Claude Desktop | HTTP Bearer (mcp-remote) | — | Submit via Munin | — | — | — | MCP |
+| Claude Web/Mobile | HTTP OAuth 2.1 | — | Submit via Munin | — | — | — | MCP |
+| Telegram (phone) | — | — | Via Ratatoskr | Send message | — | — | — |
+| Claude Code (Pi/Hugin) | HTTP Bearer (localhost) | HTTPS Bearer | IS the dispatcher | — | — | — | — |
+| Ratatoskr | HTTP Bearer (localhost) | — | Submit via Munin | IS the router | — | — | — |
 
 ### Deployment patterns
 
