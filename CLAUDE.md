@@ -14,6 +14,7 @@ No service code lives here — each component has its own repo.
 | Hugin | `hugin` | Task dispatcher |
 | Mimir | `mimir` | Authenticated file server |
 | Heimdall | `heimdall` | Monitoring dashboard |
+| Ratatoskr | `ratatoskr` | Telegram router + concierge |
 | Skuld | `skuld` (grimnir-bot org) | Daily intelligence briefing |
 | Fortnox MCP | `fortnox-mcp` | Accounting CLI + MCP |
 
