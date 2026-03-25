@@ -1,1 +1,4 @@
 debate/
+node_modules/
+.env
+*.log
