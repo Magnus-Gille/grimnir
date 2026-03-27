@@ -645,8 +645,8 @@ Deploy drift UI needs wiring (collector exists). Skuld status card depends on th
 ### Fortnox integration in Skuld
 Phase 2 of Skuld: invoice aging, revenue pulse, payment status — pulling data from Fortnox via noxctl.
 
-### Email delivery
-Currently, results are only readable via Munin. Adding email delivery would let Hugin push critical results directly to Magnus's inbox.
+### Notification delivery
+Task completion notifications are delivered via **Telegram** (Ratatoskr's `POST /api/send` endpoint). Email delivery via Heimdall was implemented in March 2026 but deprecated due to Microsoft consumer account restrictions (AADSTS70000 "service abuse" flag on `grimnir-bot@outlook.com`). The email code remains in Heimdall but is disabled (`NOTIFY_ENABLED=false`).
 
 ### The north star
 
