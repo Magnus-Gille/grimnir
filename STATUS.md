@@ -1,40 +1,52 @@
 # Grimnir System — Status
 
-**Last session:** 2026-03-23
+**Last session:** 2026-03-27
 **Branch:** main
 
 ## Completed This Session
 
-### Ratatoskr — Operational
-Full design, implementation, and deployment of Ratatoskr (Telegram router + concierge):
-- Architecture: thin router with Haiku concierge, submits Hugin tasks, polls results, replies on Telegram
-- Repo: `Magnus-Gille/ratatoskr` — scaffold created locally, implementation done by Hugin task
-- Pi Task A (`hugin-context-fields`) — completed: Context field, reply routing, groups, type tags. Commit `b0fa2b5`
-- Pi Task B (`ratatoskr-impl`) — completed: full implementation, 16 tests. Commit `bd28ebc`
-- Pi Task C (`ratatoskr-deploy`) — completed: systemd service, Heimdall integration
-- Telegram bot: `@RatatoskrGrimnirBot` — live and tested end-to-end
-- Fixed: Anthropic API key in `.env` (Skuld's was commented out, created new `grimnir-pi` key)
+### Heimdall — Projects Tab (Pi task)
+- New `/projects` page pulling from Munin `projects/*` namespace
+- Groups by lifecycle (active, maintenance, stopped, completed, archived)
+- Parses structured markdown sections (Vision, Current Work, etc.)
+- 5-minute Munin cache, HTMX auto-refresh
+- Commit `6ee2f49` on heimdall
 
-### Hugin Task Schema Enhancements
-- `Context:` field with aliases: `repo:<name>`, `scratch`, `files`
-- `Reply-to:` for result delivery routing
-- `Group:` + `Sequence:` for multi-step orchestration
-- `type:*` tag forwarding
-- Backward compatible with `Working dir:`
-- Hugin restarted with new parser
+### Heimdall — Deployments Tab (Pi task)
+- New `/deployments` page with full Pi audit
+- Services grid (6 Grimnir services, incl. mimir via SSH to Pi 2)
+- Git repo status, node process audit, orphan detection
+- Cleanup suggestions (stale scratch, old logs, merged branches)
+- 10-minute collection cycle
+- Commit `bbaaeb6` on heimdall
 
-### Submit-task Skill Overhaul
-- Context field, multi-task decomposition, non-code templates, actions/pending pattern
+### Architecture Generator (Pi task)
+- `scripts/generate-architecture.sh` in grimnir repo
+- Generates `docs/full-architecture.md` (2121 lines, 77KB)
+- Pulls from all 7 component repos, Munin, systemd, env files
+- `make docs` convenience target
+- Commit `16f8bb9` on grimnir (Pi local — not yet on GitHub)
 
-### Documentation
-- `e2f953e` docs: add Ratatoskr and updated task schema to architecture
-- `8088e5c` docs: add Ratatoskr to component table in CLAUDE.md
+### Munin Project Status Formalization
+- All 13 active project entries updated with structured headers: `## Vision`, `## Current Work`, `## Blockers`, `## Next Steps`, `## Roadmap`
+- Tombstoned `projects/jarvis-architecture` (duplicate of grimnir)
+- Tombstoned `projects/fortnox-mcp` (canonical is noxctl)
+- Fixed `projects/mimir` conflicting lifecycle tags → maintenance
+- Fixed `projects/munin-memory` → maintenance
+
+### Configuration
+- Added WebFetch/WebSearch auto-accept to global settings
+- Added model selection guidance to CLAUDE.md (haiku/sonnet/opus tiers)
+
+## Pending Tasks (submitted to Pi)
+- `20260326-080000-heimdall-projects-polish` — Visual redesign of projects page
+- `20260326-080000-heimdall-action-buttons` — Fix/restart/deploy/clean buttons on deployments page
 
 ## Blockers
-- None
+- Pi task `16f8bb9` (arch generator commit) is on Pi's local grimnir repo but not pushed to GitHub — Pi may have different remote URL. Need to verify and push.
 
 ## Next Steps
-- Polish Ratatoskr result formatting (too verbose — trim to Response section only)
-- Update Skuld's `.env` with real Anthropic API key (uncommented but placeholder)
-- Test multi-step task groups via Telegram
-- Consider adding SMHI weather API to concierge's direct-answer capabilities
+- Check results of pending Heimdall polish + action buttons tasks
+- Verify arch generator commit lands on GitHub
+- Formalize remaining project statuses (playdate-game, hackathon-web, sovereign-ai-compliance) — low priority, already structured
+- Re-run `make docs` after Heimdall changes land to get updated architecture doc

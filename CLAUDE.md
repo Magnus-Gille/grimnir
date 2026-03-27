@@ -21,4 +21,5 @@ No service code lives here — each component has its own repo.
 ## Key documents
 
 - `docs/architecture.md` — Full system architecture guide (topology, components, security, data flow)
+- `docs/full-architecture.md` — Auto-generated comprehensive doc (run `make docs` or `scripts/generate-architecture.sh` to regenerate)
 - `docs/conventions.md` — Naming, deploy paths, GitHub ownership, port assignments
