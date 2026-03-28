@@ -20,10 +20,10 @@ REPOS_DIR="$HOME/repos"
 # Component repos (order matters for presentation)
 COMPONENTS=(munin-memory hugin heimdall skuld ratatoskr noxctl mimir)
 
-# Port assignments (canonical)
+# Port assignments (derived from docs/conventions.md — do not edit here)
 declare -A PORTS=(
   [munin-memory]=3030
-  [hugin]=3035
+  [hugin]=3032
   [heimdall]=3033
   [skuld]=3040
   [ratatoskr]=3034
@@ -492,7 +492,7 @@ All services bind to \`127.0.0.1\` (localhost only). External access is via **Cl
 | 3031 | mimir | HTTP (file server) |
 | 3033 | heimdall | HTTP (Fastify dashboard) |
 | 3034 | ratatoskr | HTTP (health only; Telegram via long-poll) |
-| 3035 | hugin | HTTP (health only) |
+| 3032 | hugin | HTTP (health only) |
 | 3040 | skuld | HTTP (briefing web UI) |
 
 ### Architecture Diagram
@@ -516,7 +516,7 @@ All services bind to \`127.0.0.1\` (localhost only). External access is via **Cl
     │    │          │            │              │
 ┌───▼──┐│   ┌──────▼───┐ ┌─────▼────┐  ┌──────▼───┐
 │Hugin ││   │  Skuld   │ │ Heimdall │  │  Mimir   │
-│:3035 ││   │  :3040   │ │  :3033   │  │  :3031   │
+│:3032 ││   │  :3040   │ │  :3033   │  │  :3031   │
 │Task  ││   │ Briefing │ │ Monitor  │  │  Files   │
 │Exec  ││   └──────────┘ └──────────┘  └──────────┘
 └──────┘│
