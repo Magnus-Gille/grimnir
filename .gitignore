@@ -2,3 +2,5 @@ debate/
 node_modules/
 .env
 *.log
+docs/snapshot.md
+docs/full-architecture.md

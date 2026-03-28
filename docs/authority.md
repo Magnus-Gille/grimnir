@@ -39,6 +39,30 @@ The generator should warn on discrepancies it can detect:
 - Port in `conventions.md` vs port hardcoded in the generator itself
 - Service name mismatches between conventions and actual repos
 
+## Document boundary: `architecture.md` vs `snapshot.md`
+
+The generator assembles `full-architecture.md` from two sources. This table defines what belongs where.
+
+| Fact domain | Owned by | Examples |
+|-------------|----------|----------|
+| System topology, hardware, network model | `architecture.md` | Pi specs, Tailscale IPs, port assignments, architecture diagram |
+| Component roles, design rationale | `architecture.md` | What Munin does, why Hugin is single-threaded, security model |
+| Deployment patterns, access matrix | `architecture.md` | How deploys work, which env can access which service |
+| Tech stack, conventions | `architecture.md` | Node.js version, SQLite choice, systemd for scheduling |
+| Roadmap, design philosophy | `architecture.md` | "What's Next", north star, debate process |
+| GitHub ownership, naming | `architecture.md` (derived from `conventions.md`) | Repo names, org accounts |
+| **Service runtime state** | `snapshot.md` | systemd active/inactive, PID, memory, uptime |
+| **Health check results** | `snapshot.md` | HTTP status codes from `/health` endpoints |
+| **Git version per repo** | `snapshot.md` | Current commit hash, branch, dirty status |
+| **Munin project statuses** | `snapshot.md` | Current phase, blockers, recent activity (from Munin) |
+| **Dependency inventory** | `snapshot.md` (optional appendix) | npm packages across all repos |
+
+**Rules:**
+1. `snapshot.md` must never contain roles, ports, or topology — those are architecture facts.
+2. `architecture.md` must never contain timestamped operational state.
+3. The generator reads `architecture.md` as-is and appends `snapshot.md`. No parsing, no splicing, no placeholders.
+4. If a fact could go in either place, it belongs in `architecture.md` (stable wins).
+
 ## Change protocol
 
 When a fact changes (e.g., a service moves to a new port):
