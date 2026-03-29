@@ -49,6 +49,12 @@ log_verbose() {
   fi
 }
 
+# Node.js 25+ strips TypeScript by default, misparses object literals
+# in -e scripts. --input-type=commonjs fixes it. Also, complex node
+# invocations inside $() suffer bash quoting issues — use heredoc-to-stdin
+# for multi-line code blocks instead.
+
+
 # ─── Find Munin bearer token ─────────────────────────────────
 if [[ -z "$MUNIN_TOKEN" ]]; then
   for envfile in "$REPOS_DIR/hugin/.env" "$REPOS_DIR/ratatoskr/.env" "$REPOS_DIR/heimdall/.env"; do
@@ -83,12 +89,12 @@ munin_call() {
 munin_tool_call() {
   local tool_name="$1" args_json="$2"
   local payload
-  payload=$(TOOL_NAME="$tool_name" ARGS_JSON="$args_json" node -e "
+  payload=$(TOOL_NAME="$tool_name" ARGS_JSON="$args_json" node --input-type=commonjs -e '
     console.log(JSON.stringify({
-      jsonrpc: '2.0', id: 1, method: 'tools/call',
+      jsonrpc: "2.0", id: 1, method: "tools/call",
       params: { name: process.env.TOOL_NAME, arguments: JSON.parse(process.env.ARGS_JSON) }
     }))
-  ")
+  ')
   munin_call "$payload"
 }
 
@@ -197,8 +203,32 @@ for repo in $SCAN_COMPONENTS; do
     continue
   fi
 
-  # Validate JSON
-  if ! echo "$audit_raw" | jq empty 2>/dev/null; then
+  # Parse npm audit JSON: validate, extract severities, collect package names
+  # Single node call writes individual results to temp files (avoids $() quoting issues)
+  printf '%s' "$audit_raw" > "$SCAN_TMP/_audit_raw"
+  OUTDIR="$SCAN_TMP" node --input-type=commonjs -e '
+    var fs = require("fs");
+    var out = process.env.OUTDIR;
+    try {
+      var d = JSON.parse(fs.readFileSync(out + "/_audit_raw", "utf8"));
+      var v = (d.metadata && d.metadata.vulnerabilities) || {};
+      var c = v.critical || 0, h = v.high || 0, m = v.moderate || 0, l = v.low || 0;
+      fs.writeFileSync(out + "/_a_ok", "true");
+      fs.writeFileSync(out + "/_a_crit", String(c));
+      fs.writeFileSync(out + "/_a_high", String(h));
+      fs.writeFileSync(out + "/_a_mod", String(m));
+      fs.writeFileSync(out + "/_a_low", String(l));
+      fs.writeFileSync(out + "/_a_total", String(c + h + m + l));
+      var vulns = d.vulnerabilities || {};
+      var pkgs = Object.entries(vulns).map(function(e) { return {name: e[0], severity: e[1].severity}; });
+      var json = {critical: c, high: h, moderate: m, low: l, total: c+h+m+l, packages: pkgs};
+      fs.writeFileSync(out + "/_a_json", JSON.stringify(json));
+    } catch(e) {
+      fs.writeFileSync(out + "/_a_ok", "false");
+    }
+  ' 2>/dev/null
+
+  if [[ "$(cat "$SCAN_TMP/_a_ok" 2>/dev/null)" != "true" ]]; then
     repo_set "$repo" "audit_status" "error:invalid-json"
     repo_set "$repo" "audit_critical" "0"
     repo_set "$repo" "audit_high" "0"
@@ -210,12 +240,11 @@ for repo in $SCAN_COMPONENTS; do
     continue
   fi
 
-  # Parse severity counts from .metadata.vulnerabilities
-  crit="$(echo "$audit_raw" | jq '.metadata.vulnerabilities.critical // 0')"
-  high="$(echo "$audit_raw" | jq '.metadata.vulnerabilities.high // 0')"
-  mod="$(echo "$audit_raw"  | jq '.metadata.vulnerabilities.moderate // 0')"
-  low="$(echo "$audit_raw"  | jq '.metadata.vulnerabilities.low // 0')"
-  total="$(echo "$audit_raw" | jq '(.metadata.vulnerabilities.critical // 0) + (.metadata.vulnerabilities.high // 0) + (.metadata.vulnerabilities.moderate // 0) + (.metadata.vulnerabilities.low // 0)')"
+  crit="$(cat "$SCAN_TMP/_a_crit")"
+  high="$(cat "$SCAN_TMP/_a_high")"
+  mod="$(cat "$SCAN_TMP/_a_mod")"
+  low="$(cat "$SCAN_TMP/_a_low")"
+  total="$(cat "$SCAN_TMP/_a_total")"
 
   repo_set "$repo" "audit_critical" "$crit"
   repo_set "$repo" "audit_high" "$high"
@@ -228,9 +257,6 @@ for repo in $SCAN_COMPONENTS; do
   TOTAL_MODERATE=$((TOTAL_MODERATE + mod))
   TOTAL_LOW=$((TOTAL_LOW + low))
 
-  # Collect package names for JSON (names and severity only — no CVE details)
-  vuln_packages="$(echo "$audit_raw" | jq -c '[.vulnerabilities // {} | to_entries[] | {name: .key, severity: .value.severity}]' 2>/dev/null || echo '[]')"
-
   if [[ "$total" -eq 0 ]]; then
     repo_set "$repo" "audit_status" "ok"
     echo "  $repo: OK (no vulnerabilities)"
@@ -239,14 +265,7 @@ for repo in $SCAN_COMPONENTS; do
     echo "  $repo: VULNERABILITIES FOUND — critical:$crit high:$high moderate:$mod low:$low"
   fi
 
-  repo_set "$repo" "audit_json" "$(jq -cn \
-    --argjson crit "$crit" \
-    --argjson high "$high" \
-    --argjson mod "$mod" \
-    --argjson low "$low" \
-    --argjson total "$total" \
-    --argjson pkgs "$vuln_packages" \
-    '{critical:$crit, high:$high, moderate:$mod, low:$low, total:$total, packages:$pkgs}')"
+  repo_set "$repo" "audit_json" "$(cat "$SCAN_TMP/_a_json")"
 done
 
 echo ""
@@ -296,7 +315,7 @@ for repo in $SCAN_COMPONENTS; do
 
   log_verbose "  $repo: scanning tracked files for secrets..."
 
-  findings_json="[]"
+  findings_tsv=""   # accumulates: repo<TAB>file<TAB>line<TAB>category, one per line
   finding_count=0
 
   # Get list of tracked files
@@ -353,25 +372,36 @@ for repo in $SCAN_COMPONENTS; do
       [[ -z "$real_matches" ]] && continue
 
       # Record file:line:category ONLY — never the actual secret value
+      # Accumulate as TSV; convert to JSON array in one node call after loops
       while IFS= read -r match_line; do
         line_num="$(echo "$match_line" | cut -d: -f1)"
         finding_count=$((finding_count + 1))
-
-        new_finding="$(REPO_VAL="$repo" FILE_VAL="$relfile" LINE_VAL="$line_num" CAT_VAL="$category" node -e "
-          console.log(JSON.stringify({
-            repo: process.env.REPO_VAL,
-            file: process.env.FILE_VAL,
-            line: parseInt(process.env.LINE_VAL) || 0,
-            category: process.env.CAT_VAL
-          }))
-        ")"
-
-        findings_json="$(echo "$findings_json" | jq --argjson f "$new_finding" '. + [$f]')"
+        if [[ -z "$findings_tsv" ]]; then
+          findings_tsv="${repo}	${relfile}	${line_num}	${category}"
+        else
+          findings_tsv="${findings_tsv}
+${repo}	${relfile}	${line_num}	${category}"
+        fi
       done <<< "$real_matches"
     done < "$SECRET_PATTERNS_FILE"
   done <<< "$tracked_files"
 
   repo_set "$repo" "secret_count" "$finding_count"
+  # Convert accumulated TSV findings to JSON array in a single node call
+  findings_json=""
+  if [[ -z "$findings_tsv" ]]; then
+    findings_json="[]"
+  else
+    findings_json="$(printf '%s' "$findings_tsv" | OUTDIR="$SCAN_TMP" node --input-type=commonjs -e '
+      var lines = require("fs").readFileSync("/dev/stdin", "utf8").split("\n").filter(Boolean);
+      var arr = lines.map(function(l) {
+        var p = l.split("\t");
+        return { repo: p[0], file: p[1], line: parseInt(p[2]) || 0, category: p[3] };
+      });
+      process.stdout.write(JSON.stringify(arr));
+    ')"
+  fi
+
   repo_set "$repo" "secret_findings" "$findings_json"
   TOTAL_SECRETS=$((TOTAL_SECRETS + finding_count))
 
@@ -382,7 +412,10 @@ for repo in $SCAN_COMPONENTS; do
     repo_set "$repo" "secret_status" "found"
     echo "  $repo: SECRETS FOUND — $finding_count potential secret(s)"
     if [[ "$VERBOSE" == "true" ]]; then
-      echo "$findings_json" | jq -r '.[] | "    [" + .category + "] " + .file + ":" + (.line|tostring)' 2>/dev/null || true
+      printf '%s' "$findings_json" | node --input-type=commonjs -e '
+        var d=JSON.parse(require("fs").readFileSync("/dev/stdin","utf8"));
+        d.forEach(function(f) { console.log("    [" + f.category + "] " + f.file + ":" + f.line); });
+      ' 2>/dev/null || true
     fi
   fi
 done
@@ -451,7 +484,9 @@ fi
 echo "Writing to Munin..."
 
 # Build per-repo JSON and aggregate into full scan JSON
-all_repos_json="[]"
+# Each repo object is written as one line to a temp file; assembled into array at end
+REPO_OBJS_FILE="$SCAN_TMP/repo_objs.ndjson"
+: > "$REPO_OBJS_FILE"
 for repo in $SCAN_COMPONENTS; do
   audit_data="$(repo_get "$repo" audit_json)"; [[ -z "$audit_data" ]] && audit_data="null"
   secret_findings="$(repo_get "$repo" secret_findings)"; [[ -z "$secret_findings" ]] && secret_findings="[]"
@@ -460,46 +495,55 @@ for repo in $SCAN_COMPONENTS; do
   commit="$(repo_get "$repo" commit)"; [[ -z "$commit" ]] && commit="unknown"
   branch="$(repo_get "$repo" branch)"; [[ -z "$branch" ]] && branch="unknown"
 
-  repo_obj="$(REPO_VAL="$repo" AUDIT_ST="$audit_st" SECRET_ST="$secret_st" \
-    COMMIT_VAL="$commit" BRANCH_VAL="$branch" \
-    ARGS_AUDIT="$audit_data" ARGS_SECRETS="$secret_findings" node -e "
-      const audit = JSON.parse(process.env.ARGS_AUDIT || 'null');
-      const secrets = JSON.parse(process.env.ARGS_SECRETS || '[]');
-      console.log(JSON.stringify({
-        repo: process.env.REPO_VAL,
-        audit_status: process.env.AUDIT_ST,
+  printf '%s' "$audit_data"     > "$SCAN_TMP/_ro_audit"
+  printf '%s' "$secret_findings" > "$SCAN_TMP/_ro_secrets"
+  REPO_VAL="$repo" AUDIT_ST="$audit_st" SECRET_ST="$secret_st" \
+    COMMIT_VAL="$commit" BRANCH_VAL="$branch" OUTDIR="$SCAN_TMP" \
+    node --input-type=commonjs -e '
+      var fs = require("fs"), out = process.env.OUTDIR;
+      var audit   = JSON.parse(fs.readFileSync(out + "/_ro_audit",   "utf8") || "null");
+      var secrets = JSON.parse(fs.readFileSync(out + "/_ro_secrets", "utf8") || "[]");
+      process.stdout.write(JSON.stringify({
+        repo:          process.env.REPO_VAL,
+        audit_status:  process.env.AUDIT_ST,
         secret_status: process.env.SECRET_ST,
-        commit: process.env.COMMIT_VAL,
-        branch: process.env.BRANCH_VAL,
-        audit: audit,
-        secrets: secrets
-      }))
-  ")"
-
-  all_repos_json="$(echo "$all_repos_json" | jq --argjson r "$repo_obj" '. + [$r]')"
+        commit:        process.env.COMMIT_VAL,
+        branch:        process.env.BRANCH_VAL,
+        audit:         audit,
+        secrets:       secrets
+      }) + "\n");
+    ' >> "$REPO_OBJS_FILE"
 done
 
-scan_summary_json="$(SCAN_DATE="$SCAN_DATE" TIMESTAMP="$TIMESTAMP" HOST="$HOSTNAME_VAL" \
+# Assemble array from NDJSON file and build full scan summary — one node call
+OUTDIR="$SCAN_TMP" SCAN_DATE="$SCAN_DATE" TIMESTAMP="$TIMESTAMP" HOST="$HOSTNAME_VAL" \
   TOTAL_C="$TOTAL_CRITICAL" TOTAL_H="$TOTAL_HIGH" TOTAL_M="$TOTAL_MODERATE" \
   TOTAL_L="$TOTAL_LOW" TOTAL_S="$TOTAL_SECRETS" OVERALL="$OVERALL_STATUS" \
-  REPOS="$all_repos_json" SCANNER_VER="$SCANNER_VERSION" node -e "
-    const repos = JSON.parse(process.env.REPOS || '[]');
-    console.log(JSON.stringify({
-      scan_date: process.env.SCAN_DATE,
-      timestamp: process.env.TIMESTAMP,
-      host: process.env.HOST,
+  SCANNER_VER="$SCANNER_VERSION" \
+  node --input-type=commonjs -e '
+    var fs = require("fs"), out = process.env.OUTDIR;
+    var lines = fs.readFileSync(out + "/repo_objs.ndjson", "utf8").split("\n").filter(Boolean);
+    var repos = lines.map(function(l) { return JSON.parse(l); });
+    var summary = JSON.stringify({
+      scan_date:       process.env.SCAN_DATE,
+      timestamp:       process.env.TIMESTAMP,
+      host:            process.env.HOST,
       scanner_version: process.env.SCANNER_VER,
-      overall_status: process.env.OVERALL,
+      overall_status:  process.env.OVERALL,
       totals: {
         critical: parseInt(process.env.TOTAL_C),
-        high: parseInt(process.env.TOTAL_H),
+        high:     parseInt(process.env.TOTAL_H),
         moderate: parseInt(process.env.TOTAL_M),
-        low: parseInt(process.env.TOTAL_L),
-        secrets: parseInt(process.env.TOTAL_S)
+        low:      parseInt(process.env.TOTAL_L),
+        secrets:  parseInt(process.env.TOTAL_S)
       },
       repos: repos
-    }))
-")"
+    });
+    fs.writeFileSync(out + "/_scan_summary_json", summary);
+    fs.writeFileSync(out + "/_all_repos_json", JSON.stringify(repos));
+  '
+scan_summary_json="$(cat "$SCAN_TMP/_scan_summary_json")"
+all_repos_json="$(cat "$SCAN_TMP/_all_repos_json")"
 
 # Write 1: Full scan summary
 echo "  Writing scan summary to security/scans/${SCAN_DATE}..."
@@ -527,14 +571,14 @@ ${scan_summary_json}
 \`\`\`"
 
 summary_args="$(NAMESPACE_VAL="security/scans/${SCAN_DATE}" KEY_VAL="summary" \
-  CONTENT_VAL="$summary_content" node -e "
+  CONTENT_VAL="$summary_content" node --input-type=commonjs -e '
     console.log(JSON.stringify({
       namespace: process.env.NAMESPACE_VAL,
       key: process.env.KEY_VAL,
       content: process.env.CONTENT_VAL,
-      tags: ['security', 'scan', 'automated']
+      tags: ["security", "scan", "automated"]
     }))
-")"
+')"
 munin_tool_call "memory_write" "$summary_args" > /dev/null || echo "  WARNING: Failed to write scan summary to Munin"
 
 # Write 2: Per-repo latest state
@@ -549,12 +593,14 @@ for repo in $SCAN_COMPONENTS; do
   branch="$(repo_get "$repo" branch)"; [[ -z "$branch" ]] && branch="unknown"
   secrets_count="$(repo_get "$repo" secret_count)"; [[ -z "$secrets_count" ]] && secrets_count=0
 
-  repo_detail_json="$(AUDIT_DATA="$audit_data" SECRETS_DATA="$secret_findings" node -e "
-    console.log(JSON.stringify({
-      audit: JSON.parse(process.env.AUDIT_DATA || 'null'),
-      secrets: JSON.parse(process.env.SECRETS_DATA || '[]')
-    }, null, 2))
-  ")"
+  printf '%s' "$audit_data"       > "$SCAN_TMP/_rd_audit"
+  printf '%s' "$secret_findings"  > "$SCAN_TMP/_rd_secrets"
+  repo_detail_json="$(OUTDIR="$SCAN_TMP" node --input-type=commonjs -e '
+    var fs = require("fs"), out = process.env.OUTDIR;
+    var audit   = JSON.parse(fs.readFileSync(out + "/_rd_audit",   "utf8") || "null");
+    var secrets = JSON.parse(fs.readFileSync(out + "/_rd_secrets", "utf8") || "[]");
+    process.stdout.write(JSON.stringify({ audit: audit, secrets: secrets }, null, 2));
+  ')"
 
   repo_content="## ${repo} — Security State
 
@@ -570,27 +616,27 @@ ${repo_detail_json}
 
   log_verbose "  Writing per-repo state for $repo..."
   repo_args="$(NAMESPACE_VAL="security/repos/${repo}" KEY_VAL="latest" \
-    CONTENT_VAL="$repo_content" REPO_TAG="$repo" node -e "
+    CONTENT_VAL="$repo_content" REPO_TAG="$repo" node --input-type=commonjs -e '
       console.log(JSON.stringify({
         namespace: process.env.NAMESPACE_VAL,
         key: process.env.KEY_VAL,
         content: process.env.CONTENT_VAL,
-        tags: ['security', 'repo', process.env.REPO_TAG]
+        tags: ["security", "repo", process.env.REPO_TAG]
       }))
-  ")"
+  ')"
   munin_tool_call "memory_write" "$repo_args" > /dev/null || echo "  WARNING: Failed to write repo state for $repo"
 done
 
 # Write 3: Scan event log
 echo "  Logging scan event..."
 log_content="Security scan completed at ${TIMESTAMP} on ${HOSTNAME_VAL}. Overall: ${OVERALL_STATUS}. Totals — critical:${TOTAL_CRITICAL} high:${TOTAL_HIGH} moderate:${TOTAL_MODERATE} low:${TOTAL_LOW} secrets:${TOTAL_SECRETS}. Scanner v${SCANNER_VERSION}."
-log_args="$(NAMESPACE_VAL="security/" CONTENT_VAL="$log_content" node -e "
+log_args="$(NAMESPACE_VAL="security/" CONTENT_VAL="$log_content" node --input-type=commonjs -e '
   console.log(JSON.stringify({
     namespace: process.env.NAMESPACE_VAL,
     content: process.env.CONTENT_VAL,
-    tags: ['security', 'scan-event']
+    tags: ["security", "scan-event"]
   }))
-")"
+')"
 munin_tool_call "memory_log" "$log_args" > /dev/null || echo "  WARNING: Failed to write scan event log to Munin"
 
 echo "Done."
