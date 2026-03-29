@@ -264,7 +264,7 @@ cat "$CURATED" "$SNAPSHOT" > "$OUT"
 
 # ─── Verify no secrets leaked ─────────────────────────────
 
-SECRET_CHECK="$(grep -iE '(Bearer [a-f0-9]{10,}|sk-[a-zA-Z0-9]{20,}|[a-f0-9]{32,})' "$OUT" | grep -v '***' | grep -v 'sha256\|Source hash\|SOURCE_HASH' || true)"
+SECRET_CHECK="$(grep -E '(Bearer [A-Za-z0-9_/+=-]{10,}|eyJ[A-Za-z0-9_-]{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{30,}|gho_[a-zA-Z0-9]{30,}|glpat-[a-zA-Z0-9-]{20,}|xox[bpas]-[a-zA-Z0-9-]{20,}|AKIA[A-Z0-9]{16}|[a-f0-9]{32,})' "$OUT" | grep -v '\*\*\*\|<TOKEN>\|<key>\|<same key' | grep -v 'sha256\|Source hash\|SOURCE_HASH\|commit hash' || true)"
 if [[ -n "$SECRET_CHECK" ]]; then
   echo "⚠️  WARNING: Possible secret detected in output! Review before committing:"
   echo "$SECRET_CHECK"
