@@ -583,6 +583,32 @@ Each service requires its own Bearer token (timing-safe comparison) or OAuth 2.1
 | Mimir artifacts | Hourly | rsync to external disk | NAS external disk |
 | MacBook | Continuous | Time Machine via Samba | NAS external disk (1.5 TB) |
 
+### Automated security scanning
+
+A weekly security scan runs across all Grimnir repos via `scripts/security-scan.sh` in the `grimnir` repo. This was chosen over a dedicated "Syn" service after an adversarial debate concluded that Phase 1 doesn't justify a separate component.
+
+| Property | Value |
+|----------|-------|
+| Script | `grimnir/scripts/security-scan.sh` |
+| Schedule | Weekly, Sunday 03:00 (systemd timer: `grimnir-security-scan.timer`) |
+| Host | Pi 1 (huginmunin) |
+| Checks | `npm audit` (dependency vulnerabilities), secret detection (regex on git-tracked files) |
+| Results | Munin (`security/scans/<date>`, `security/repos/<repo>`) + stdout |
+| Dashboard | Heimdall deploy status card (timer type: last run, next run, exit status) |
+
+**Munin schema:**
+
+| Namespace | Key | Type | Purpose |
+|-----------|-----|------|---------|
+| `security/scans/<YYYY-MM-DD>` | `summary` | state | Full scan results for all repos |
+| `security/repos/<repo>` | `latest` | state | Per-repo current security posture |
+| `security/` | — | log | Append-only scan event history |
+
+**Future expansion** (not committed, requires validation of Phase 1 signal quality):
+- AI-powered STRIDE analysis on architecture changes (not scheduled — triggered manually or on significant changes)
+- Security header probes on running services
+- Autonomous low-risk fix PRs via Hugin (dependency bumps only, never auto-merged)
+
 ---
 
 ## Cross-Cutting Concerns
@@ -636,11 +662,8 @@ Architecture decisions are stress-tested through a structured debate process:
 
 ## What's Next
 
-### Skuld daily timer
-Skuld currently runs on-demand. A `skuld.timer` systemd unit for daily 06:00 runs is the next operational step.
-
 ### Heimdall completeness
-Deploy drift UI needs wiring (collector exists). Skuld status card depends on the timer above.
+Deploy drift UI needs wiring (collector exists).
 
 ### Fortnox integration in Skuld
 Phase 2 of Skuld: invoice aging, revenue pulse, payment status — pulling data from Fortnox via noxctl.

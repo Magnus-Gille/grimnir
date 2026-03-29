@@ -55,6 +55,15 @@ Repos are named after the component, lowercase. The GitHub org matches the opera
 - `Magnus-Gille/ratatoskr`
 - `grimnir-bot/skuld` (exception: created by Hugin task under bot account)
 
+## Systemd timers
+
+| Timer | Schedule | Host | Purpose |
+|-------|----------|------|---------|
+| `heimdall-collect.timer` | Every 5 min | Pi 1 | Metric collection across both Pis |
+| `heimdall-maintain.timer` | Daily 03:00 | Pi 1 | Database maintenance and retention |
+| `skuld.timer` | Daily 06:00 | Pi 1 | Morning intelligence briefing |
+| `grimnir-security-scan.timer` | Weekly Sun 03:00 | Pi 1 | Dependency audit + secret scan across all repos |
+
 ## Service patterns
 
 Every Grimnir service follows these patterns:

@@ -1,0 +1,34 @@
+[Unit]
+Description=Grimnir security scan — npm audit + secret detection across all repos
+After=network-online.target munin-memory.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=magnus
+WorkingDirectory=/home/magnus/repos/grimnir
+ExecStart=/usr/bin/bash scripts/security-scan.sh
+
+# Timeout — full scan across 7 repos can take a few minutes
+TimeoutStartSec=300
+
+# Sandboxing — needs read access to all repos, write to Munin via HTTP
+ProtectSystem=strict
+ReadOnlyPaths=/home/magnus/repos
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+PrivateDevices=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+ProtectClock=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=default.target
