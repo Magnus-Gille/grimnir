@@ -5,29 +5,12 @@
 
 ## Completed This Session
 
-### 1. Security review of grimnir repo
-- Full 3-phase security review: threat model, vulnerability scan, validation
-- 2 confirmed findings, 2 theoretical, plus architectural observations
-- Produced prioritized remediation list (5 items)
-
-### 2. Hugin task submitter allowlist (security fix #1)
-- Added `HUGIN_ALLOWED_SUBMITTERS` env var — rejects tasks from unknown submitters
-- Default allowlist: `claude-code,claude-desktop,ratatoskr,claude-web,claude-mobile,hugin`
-- Restricted `resolveContext` absolute paths to `/home/magnus/` (was unrestricted)
-- Fixed pre-existing SDK executor test (hardcoded Pi-only path)
-- Hugin commit `c6f9dd8`
-
-### 3. Hardened secret detection regex (security fix #2)
-- Expanded `generate-architecture.sh` secret scan to catch JWT, base64 Bearer, GitHub/GitLab/Slack/AWS tokens
-- Fixed unescaped glob in exclusion filter
-- Grimnir commit `c611213`
-
-### 4. Redacted Tailscale IPs (security fix #4)
-- Removed internal Tailscale IPs from `docs/architecture.md` ahead of making repo public
-
-### 5. Hardened shell interpolation (security fix #5)
-- `munin_tool_call` now passes variables via `process.env` instead of shell string interpolation
-- Grimnir commit `2a4ccc5`
+### Skills sync investigation
+- Confirmed skills live in `~/.claude/skills/` (separate `claude-skills` git repo), not in grimnir
+- Verified Pi (`huginmunin.local`) has grimnir repo — was 4 commits behind, pulled up to `800f6d5`
+- Compared all 13 skills between laptop and Pi — all match
+- Discussed symlinking skills into grimnir for unified sync — **parked** (existing `claude-skills` repo already provides git tracking)
+- Ran `/insights` — 69 sessions over 9 days, top friction: wrong initial approach (22 events), recurring git drift on Pi
 
 ## Security Review — Remaining Items
 
@@ -60,7 +43,7 @@ Scope Munin API keys per service (read-only for Heimdall, read-write for Hugin).
 Hugin and Heimdall have path watchers. Munin, Ratatoskr, Skuld, and Mimir don't. Same pattern.
 
 ### Lower priority
-- Reconcile Syn proposal with critique: if pursued, scope to deterministic Phase 1 task first
+- If pursuing Syn, implement a minimal deterministic scan from `grimnir/scripts/` and write provenance-rich results to Munin before considering any separate component
 - Munin query error messages — small fix, improves agent DX
 - Fortnox integration in Skuld (Phase 2 of Skuld roadmap)
 
