@@ -1,7 +1,13 @@
-.PHONY: docs clean
+.PHONY: docs clean security security-dry
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
+
+security: ## Run security scan across all Grimnir repos
+	@./scripts/security-scan.sh
+
+security-dry: ## Run security scan (dry run, no Munin writes)
+	@./scripts/security-scan.sh --dry-run
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
