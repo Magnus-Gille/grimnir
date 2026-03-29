@@ -5,12 +5,19 @@
 
 ## Completed This Session
 
-### Skills sync investigation
-- Confirmed skills live in `~/.claude/skills/` (separate `claude-skills` git repo), not in grimnir
-- Verified Pi (`huginmunin.local`) has grimnir repo — was 4 commits behind, pulled up to `800f6d5`
-- Compared all 13 skills between laptop and Pi — all match
-- Discussed symlinking skills into grimnir for unified sync — **parked** (existing `claude-skills` repo already provides git tracking)
-- Ran `/insights` — 69 sessions over 9 days, top friction: wrong initial approach (22 events), recurring git drift on Pi
+### Heimdall deploy drift UI wiring (`d29e3fc` in heimdall)
+- `getDriftHistory()` query in db.js — window ROW_NUMBER() over service_versions, last N samples per service
+- `deployDriftHistoryCard()` in html.js �� collapsible `<details>` per service, last 2h of 5-min samples with status badges
+- Wired into `/deployments` page via `deploymentsFullCard(data, driftRows)`
+- Sustained-drift alerting in collector.js — fires warning alert when service behind for 3+ consecutive checks (~15 min), auto-resolves
+- 5 files changed, 88 insertions
+
+## Also Discussed
+
+### SCION patterns reassessment
+- Reviewed Hugin task history: 50+ tasks in 2 weeks (Mar 14–23), including 1 timeout kill (7200s) and long-running tasks (12-22 min)
+- Black-box problem IS real at current usage volume — previous assessment that "it's not happening yet" was wrong
+- SCION Phase A1+A2 (phase transitions, ~6h) would be high-value next step for observability
 
 ## Security Review — Remaining Items
 
@@ -24,28 +31,24 @@
 
 ## Next Session — Recommended Order
 
-### 1. Persona interview #2 — verify MCP injection (15 min)
-Submit a persona interview targeting Munin read/write. The main question: do task-spawned agents now get native MCP tools? If yes, the #1 finding from interview #1 is resolved. If no, debug the SDK `mcpServers` option.
+### 1. SCION Phase A1+A2 — Agent state model (Phase transitions)
+High value given task volume. Define phase enum + Munin entry format (A1), emit phase transitions from Hugin lifecycle (A2). ~6h. Plan at `docs/GRIMNIR_DEVELOPMENT_PLAN.md`.
 
-### 2. Timeout calibration check (5 min)
-Check Heimdall dashboard — is the calibration row showing data? If parsing is wrong (no tasks with Duration in result), fix the regex in `getTimeoutCalibration()`.
+### 2. Review first timer-triggered security scan results (after April 5)
+Check Munin for `security/scans/2026-04-05` — verify the timer ran and results were written.
 
-### 3. Implement Hugin timeout actuator (if calibration data looks good)
-The debate concluded: "revisit Hugin-local signals when an actuator exists." If calibration shows many under-utilized tasks, build a simple default timeout recommender. This closes the loop from signal → action.
+### 3. Triage scan findings
+- 10 high-severity dependency vulns across repos — likely shared deps, investigate and bump
+- 7 secret findings in munin-memory test files — confirm test fixtures, consider test file allowlist
 
-### 4. Skuld systemd timer
-Skuld currently runs on-demand. A `skuld.timer` for daily 06:00 runs is the next operational step (from architecture.md roadmap). Skuld could also reference timeout calibration in briefings.
-
-### 5. Per-service Munin tokens (security #3)
-Scope Munin API keys per service (read-only for Heimdall, read-write for Hugin). Requires Munin-side changes first.
-
-### 6. Extend auto-deploy to remaining services
-Hugin and Heimdall have path watchers. Munin, Ratatoskr, Skuld, and Mimir don't. Same pattern.
+### 4. Skuld Fortnox integration
+Phase 2 of Skuld: invoice aging, revenue pulse, payment status via noxctl.
 
 ### Lower priority
-- If pursuing Syn, implement a minimal deterministic scan from `grimnir/scripts/` and write provenance-rich results to Munin before considering any separate component
-- Munin query error messages — small fix, improves agent DX
-- Fortnox integration in Skuld (Phase 2 of Skuld roadmap)
+- Per-service Munin tokens (security #3)
+- Extend auto-deploy to remaining services
+- SCION Phase B (worktree isolation) — after A is proven
+- SCION Phase C (template chain) — after B
 
 ## Blockers
 None
