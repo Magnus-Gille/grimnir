@@ -117,10 +117,10 @@ graph TB
 
 ### Hardware
 
-| Unit | Hostname | Tailscale IP | Role | Key Services |
-|------|----------|-------------|------|-------------|
-| Pi 1 | `huginmunin.local` | `100.97.117.37` | AI infrastructure (compute) | Munin, Hugin, Heimdall, Skuld |
-| Pi 2 | NAS | `100.99.119.52` | Storage & backup | Mimir, Samba, Time Machine |
+| Unit | Hostname | Role | Key Services |
+|------|----------|------|-------------|
+| Pi 1 | `huginmunin.local` | AI infrastructure (compute) | Munin, Hugin, Heimdall, Skuld |
+| Pi 2 | NAS | Storage & backup | Mimir, Samba, Time Machine |
 
 Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication.
 

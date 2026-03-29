@@ -83,7 +83,12 @@ munin_call() {
 munin_tool_call() {
   local tool_name="$1" args_json="$2"
   local payload
-  payload=$(node -e "console.log(JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'$tool_name',arguments:$args_json}}))")
+  payload=$(TOOL_NAME="$tool_name" ARGS_JSON="$args_json" node -e "
+    console.log(JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'tools/call',
+      params: { name: process.env.TOOL_NAME, arguments: JSON.parse(process.env.ARGS_JSON) }
+    }))
+  ")
   munin_call "$payload"
 }
 
