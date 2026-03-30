@@ -5,6 +5,13 @@
 
 ## Completed This Session
 
+### Tallriksvis deployment — Caddy on Pi
+- Installed Caddy 2.11.2 on huginmunin, port 80, systemd-enabled
+- Web root: `/home/magnus/www/tallriksvis/`
+- Authorized Sara's SSH key (`sara@saras-mac`) for rsync deploys
+- Deploy instructions saved to `~/Desktop/tallriksvis-deploy-instructions.md`
+- Waiting for Sara to run rsync to complete first deploy
+
 ### Ollama runtime for Hugin — implemented and deployed (`b51a601` in hugin)
 - Added `ollama` as third Hugin runtime alongside `claude` and `codex`
 - New files: `ollama-executor.ts` (streaming), `ollama-hosts.ts` (lazy resolution), `context-loader.ts` (declarative Munin context injection)
@@ -47,25 +54,22 @@
 ## In Progress
 
 ### Ollama experiment — next tasks
-- Journal analysis daily task (smoke test) — script written but systemd timer not yet set up
+- ~~Journal analysis daily task (smoke test)~~ — systemd timer deployed and verified (2026-03-30)
 - Stale-status review task (real experiment) — defined in plan but not yet submitted
 - Need to observe whether qwen2.5:3b quality is adequate for bounded Grimnir tasks
 
 ## Next Session — Recommended Order
 
-### 1. Set up systemd timer for daily journal analysis
-Script exists at `hugin/scripts/submit-daily-analysis.sh`. Needs systemd timer on Pi at 07:00 daily.
-
-### 2. Submit the real experiment task (Munin stale-status review)
+### 1. Submit the real experiment task (Munin stale-status review)
 The portability test: read project statuses via Context-refs, apply conventions, produce structured review. This exercises context bootstrap, conventions awareness, and judgment.
 
-### 3. SCION Phase A1+A2 — Agent state model
+### 2. SCION Phase A1+A2 — Agent state model
 High value given task volume. Define phase enum + Munin entry format (A1), emit phase transitions from Hugin lifecycle (A2). ~6h. Plan at `docs/GRIMNIR_DEVELOPMENT_PLAN.md`.
 
-### 4. Review first timer-triggered security scan results (after April 5)
+### 3. Review first timer-triggered security scan results (after April 5)
 Check Munin for `security/scans/2026-04-05`.
 
-### 5. Skuld Fortnox integration
+### 4. Skuld Fortnox integration
 Phase 2 of Skuld: invoice aging, revenue pulse, payment status via noxctl.
 
 ### Lower priority
