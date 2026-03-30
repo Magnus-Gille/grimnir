@@ -1,54 +1,83 @@
 # Grimnir System — Status
 
-**Last session:** 2026-03-29
+**Last session:** 2026-03-30
 **Branch:** main
 
 ## Completed This Session
 
-### Heimdall deploy drift UI wiring (`d29e3fc` in heimdall)
-- `getDriftHistory()` query in db.js — window ROW_NUMBER() over service_versions, last N samples per service
-- `deployDriftHistoryCard()` in html.js �� collapsible `<details>` per service, last 2h of 5-min samples with status badges
-- Wired into `/deployments` page via `deploymentsFullCard(data, driftRows)`
-- Sustained-drift alerting in collector.js — fires warning alert when service behind for 3+ consecutive checks (~15 min), auto-resolves
-- 5 files changed, 88 insertions
+### Ollama runtime for Hugin — implemented and deployed (`b51a601` in hugin)
+- Added `ollama` as third Hugin runtime alongside `claude` and `codex`
+- New files: `ollama-executor.ts` (streaming), `ollama-hosts.ts` (lazy resolution), `context-loader.ts` (declarative Munin context injection)
+- Task schema extensions: `Ollama-host`, `Fallback`, `Context-refs`, `Context-budget`
+- Fallback restricted to infra failures only (unreachable, 5xx) — semantic failure is experiment data
+- Extended invocation journal with 15+ fields for experiment observability (host/model requested vs effective, memory snapshots, token counts, context resolution)
+- 7 new test cases, all 44 tests passing
+- Deployed to Pi and validated end-to-end: task submitted → Hugin claimed → ollama inference → result in Munin
 
-## Also Discussed
+### Ollama installed on Pi
+- Installed ollama 0.19.0, systemd service enabled
+- Pulled `qwen2.5:3b` (1.9 GB, fits comfortably, no swap) and `qwen2.5:7b` (4.7 GB, tight, uses swap)
+- Default model set to `qwen2.5:3b`
+- Listening on `0.0.0.0:11434` for Tailscale/LAN access
+- Pi 1 memory: ~800 MB services, 6.7 GB available before model load, ~4.6 GB with 3b loaded
 
-### SCION patterns reassessment
-- Reviewed Hugin task history: 50+ tasks in 2 weeks (Mar 14–23), including 1 timeout kill (7200s) and long-running tasks (12-22 min)
-- Black-box problem IS real at current usage volume — previous assessment that "it's not happening yet" was wrong
-- SCION Phase A1+A2 (phase transitions, ~6h) would be high-value next step for observability
+### Pi 1 resource baseline measured
+- Munin: 417 MB, Ratatoskr: 112 MB, Hugin: 104 MB, Heimdall: 66 MB
+- Total services + system: ~1.2 GB used, 6.7 GB available
+- qwen2.5:3b: +2.1 GB when loaded, 4.6 GB remaining — safe
+- qwen2.5:7b: +4.9 GB when loaded, 2.0 GB remaining + 427 MB swap — risky with concurrent Claude tasks
 
-## Security Review — Remaining Items
+### Seidr architecture debate (2 rounds)
+- Debated Seidr (Agent Context Server) proposal with Codex
+- Outcome: Don't build Seidr yet. Build one concrete non-Claude worker first, then decide on abstraction.
+- Key finding: "portable skills" as proposed are a category error — only intent/constraints/capabilities are portable, not execution strategy
+- Documented in `debate/seidr-architecture-*.md`
 
-| # | Recommendation | Status |
-|---|---|---|
-| 1 | Hugin task submitter allowlist | Done (`c6f9dd8`) |
-| 2 | Harden secret detection regex | Done (`c611213`) |
-| 3 | Per-service Munin tokens | Open — architecture change across repos |
-| 4 | Redact Tailscale IPs | Done (`2a4ccc5`) |
-| 5 | Harden shell interpolation | Done (`2a4ccc5`) |
+### Ollama runtime debate (2 rounds)
+- Debated the implementation plan with Codex
+- 6 design improvements: streaming (not non-streaming), lazy host resolution (not polling), infra-only fallback, Context-refs in task schema (not Hugin semantic policy), journal analysis as smoke test (not the experiment), extended journal schema
+- Documented in `debate/ollama-runtime-*.md`
+
+### End-to-end smoke test passed
+- Submitted `qwen2.5:3b` task via Munin → Hugin claimed → ollama streamed response → result written to Munin
+- Response: correct markdown table of Swedish cities by population
+- Duration: 41s (including cold model load), exit code 0
+- Journal entry verified with all extended fields populated
+
+## In Progress
+
+### Ollama experiment — next tasks
+- Journal analysis daily task (smoke test) — script written but systemd timer not yet set up
+- Stale-status review task (real experiment) — defined in plan but not yet submitted
+- Need to observe whether qwen2.5:3b quality is adequate for bounded Grimnir tasks
 
 ## Next Session — Recommended Order
 
-### 1. SCION Phase A1+A2 — Agent state model (Phase transitions)
+### 1. Set up systemd timer for daily journal analysis
+Script exists at `hugin/scripts/submit-daily-analysis.sh`. Needs systemd timer on Pi at 07:00 daily.
+
+### 2. Submit the real experiment task (Munin stale-status review)
+The portability test: read project statuses via Context-refs, apply conventions, produce structured review. This exercises context bootstrap, conventions awareness, and judgment.
+
+### 3. SCION Phase A1+A2 — Agent state model
 High value given task volume. Define phase enum + Munin entry format (A1), emit phase transitions from Hugin lifecycle (A2). ~6h. Plan at `docs/GRIMNIR_DEVELOPMENT_PLAN.md`.
 
-### 2. Review first timer-triggered security scan results (after April 5)
-Check Munin for `security/scans/2026-04-05` — verify the timer ran and results were written.
+### 4. Review first timer-triggered security scan results (after April 5)
+Check Munin for `security/scans/2026-04-05`.
 
-### 3. Triage scan findings
-- 10 high-severity dependency vulns across repos — likely shared deps, investigate and bump
-- 7 secret findings in munin-memory test files — confirm test fixtures, consider test file allowlist
-
-### 4. Skuld Fortnox integration
+### 5. Skuld Fortnox integration
 Phase 2 of Skuld: invoice aging, revenue pulse, payment status via noxctl.
 
 ### Lower priority
 - Per-service Munin tokens (security #3)
 - Extend auto-deploy to remaining services
 - SCION Phase B (worktree isolation) — after A is proven
-- SCION Phase C (template chain) — after B
 
 ## Blockers
 None
+
+## Key References
+- Implementation plan: `~/.claude/plans/floating-knitting-shell.md`
+- Seidr debate: `debate/seidr-architecture-summary.md`
+- Ollama debate: `debate/ollama-runtime-summary.md`
+- Pi ollama endpoint: `http://100.97.117.37:11434` (Tailscale) or `http://huginmunin.local:11434` (mDNS)
