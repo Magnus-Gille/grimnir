@@ -1,70 +1,46 @@
 # Grimnir System — Status
 
-**Last session:** 2026-03-31
+**Last session:** 2026-03-31 (afternoon)
 **Branch:** main
 
-## Completed This Session (2026-03-31)
+## Completed This Session
 
-### Item 1: Fé — Commercial Pulse (design complete)
-- Revenue Radar proposal debated with Codex (2 rounds, 15 critique points)
-- Reframed from market scanner to commercial follow-through layer
-- Decision logged at `decisions/fe-commercial-pulse` in Munin
-- `business/*` namespace created for commercial state
-- Implementation: enhance Skuld daily briefing with follow-up nudges (not yet started)
+### Pi follow-ups (all done)
+- Heimdall restarted (Tallriksvis widget now live)
+- Hugin auto-push commit verified on Pi
+- Ratatoskr debounce commit verified, rebuilt, and restarted (was running old code from Mar 28)
 
-### Item 3: Token throttling investigation (complete)
-- Analyzed energy monitor data: usage doubled post Mar-17, driven by own usage patterns not throttling
-- Found community root cause: two cache-invalidation bugs in Codex binaries (Bun string replacement + --resume)
-- Magnus NOT affected (99.9-100% cache hit rate)
-- Filed 4 enhancement ideas in Munin
+### Munin session fragmentation fix (deployed)
+- Root cause: each HTTP request got a unique randomUUID() as session ID
+- Fix: `deriveSessionId()` hashes clientId + 30-min time bucket → stable session ID
+- Commit 0d206ff (rebased to 81550b5), deployed to Pi
+- `memory_insights` will start accumulating real data going forward
 
-### Item 5+6+7: Multi-principal Munin (design complete)
-- Debated with Codex (2 rounds, 20 critique points, all valid, 5 critical)
-- Narrowed from "multi-user Grimnir" to "multi-principal Munin"
-- Key decisions: AccessContext in every tool, users/<id>/* namespace, hashed tokens, invisible denial, full cutover before Sara onboarding
-- Decision logged at `decisions/multi-principal-munin` in Munin
-- Before building: write complete authorization matrix for every Munin tool
+### Fé v1 — Commercial Pulse (shipped)
+- New `src/collectors/commercial.ts` in Skuld reads `business/*` from Munin
+- Commercial Pulse section added to daily briefing (system prompt + user prompt)
+- 3 items seeded in Munin: VIP AI coaching, Munin Memory product, Grimnir ecosystem productization
+- Commit eb02488, pushed and deployed to Pi
+- Will appear in tomorrow's 06:00 briefing
 
-### Item 9: Ollama MLX research (complete + benchmark running)
-- Ollama v0.19.0 uses Apple MLX framework — ~2x decode throughput on Apple Silicon
-- Ollama updated on laptop to 0.19.0
-- Benchmark running: m4air-mlx-v019 batch, 2 models (GLM4 + Qwen3-14B), 30 tasks
-
-### Item 10: Codex plugin research (complete)
-- No official Claude Code plugin for Codex exists
-- Our /debate-codex is ahead of the ecosystem
-
-### Item 11: Agentic Dev Days presentation (updated)
-- Added "The Agentic Loop" slide (Context → Execute → Signal → Improve → Repeat)
-- Added "Production Data" slide (9 debates, 118 critique points, 20% self-review catch rate)
-- Added 2026 entry to Historical Record ("no official tooling exists")
-- Presentation now 10 slides
-
-### Item 12: Codex Review Toolkit plugin (packaged)
-- Created `/Users/magnus/repos/codex-review-toolkit/`
-- Initial commit: a3a799b
-
-### Hugin tasks (4 submitted, all completed)
-- **Tallriksvis → Heimdall** — DONE. Commit 0ef57ae. Needs `sudo systemctl restart heimdall`.
-- **Munin insights** — DONE. Zero outcomes — HTTP session fragmentation. Needs mcp-session-id fix.
-- **Ratatoskr long-msg** — DONE. Debounce implemented. Verify commit + restart.
-- **Hugin auto-push** — Partially done. Improved postTaskGitPush(). Aborted during restart.
-
-### Bug fixes
-- Fixed submit-task skill: `claude-code-laptop` → `claude-code`
+### Multi-principal Munin authorization matrix (written)
+- Complete tool-by-tool spec for all 13 Munin tools
+- Namespace rules, invisible denial semantics, AccessContext structure, principals table, fail-closed test matrix
+- Commit 6cc70dd (rebased to 81550b5) in munin-memory repo
+- Satisfies Codex Round 2 demand: authz matrix before implementation
 
 ## In Progress
 
 ### Benchmark: m4air-mlx-v019
-Running on laptop. 60 runs, estimated 5-10h.
+- Running on laptop (PID 20176). Qwen3-14B: 4 completed, 9 failed (timeouts), 17 pending. GLM4: 30 pending.
+- ~70% failure rate on Qwen3 due to 10-min timeout. Left running to collect partial data.
 
-## Needs Discussion (queued, one at a time)
+## Next Steps
 
-1. Pi follow-ups: restart Heimdall, verify Hugin/Ratatoskr commits
-2. Munin session fragmentation fix (blocks self-improving experiment)
-3. Benchmark results + publish decision
-4. Fé implementation planning
-5. Multi-principal Munin implementation planning
+1. Review benchmark results when complete — decide publish/no-publish
+2. Multi-principal Munin Phase 1 implementation (authz matrix is the spec)
+3. Fé observation — check tomorrow's briefing for Commercial Pulse quality
+4. Skuld Phase 4: meeting prep cards
 
 ## Blockers
 None
