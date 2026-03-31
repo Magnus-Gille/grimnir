@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry
+.PHONY: docs clean security security-dry deploy
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -8,6 +8,9 @@ security: ## Run security scan across all Grimnir repos
 
 security-dry: ## Run security scan (dry run, no Munin writes)
 	@./scripts/security-scan.sh --dry-run
+
+deploy: ## Deploy all services to Pi (or: make deploy ARGS="munin-memory hugin")
+	@./scripts/deploy.sh $(ARGS)
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md

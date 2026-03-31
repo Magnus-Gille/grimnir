@@ -31,13 +31,15 @@ All components are named after figures from Norse mythology, reflecting their ro
 All services deploy to `~/repos/<service-name>/` on their respective Pi. No exceptions.
 
 ```
-/home/magnus/repos/munin-memory/   # Pi 1
+/home/magnus/repos/munin-memory/   # Pi 1 (huginmunin.local)
 /home/magnus/repos/hugin/          # Pi 1
 /home/magnus/repos/heimdall/       # Pi 1
 /home/magnus/repos/skuld/          # Pi 1
 /home/magnus/repos/ratatoskr/      # Pi 1
-/home/magnus/repos/mimir/          # Pi 2
+/home/magnus/repos/mimir/          # Pi 2 (nas.local)
 ```
+
+Deploy all services from the laptop with `make deploy` (from the grimnir repo), or selectively with `make deploy ARGS="munin-memory hugin"`. The script handles git pull, npm install, build (if needed), and systemd restart.
 
 ## GitHub ownership
 
