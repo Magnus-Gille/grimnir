@@ -5,22 +5,27 @@
 
 ## Completed This Session
 
-### Ongoing experiments audit
-- Surveyed all active experiments/measurements across the ecosystem via Munin
-- Found 8 ongoing things: Munin self-improvement loop, energy monitor, home-server eval, m4air benchmark, persona interviews, Fe commercial pulse, network security, AXON
+### Security patching (all 7 repos)
+- `npm audit fix` across munin-memory, hugin, heimdall, skuld, ratatoskr, mimir, fortnox-mcp
+- Fixed path-to-regexp (ReDoS) and picomatch (method injection + ReDoS) — both high severity
+- All repos at 0 vulnerabilities, committed, pushed, and deployed
 
-### Munin self-improvement loop — unblocked
-- Root cause: Hugin's MuninClient sent no `mcp-session-id` header, so every HTTP request got an ephemeral session — outcome correlation never fired (0 outcomes in 9,866 events over 4 days)
-- Fix: MuninClient now generates `crypto.randomUUID()` at construction, sends as `mcp-session-id` on every request
-- Commit 65453a5 in hugin, pushed and deployed to Pi
-- Outcome-aware retrieval should start accumulating real data now — check in ~2 weeks
+### Centralized deploy script
+- `scripts/deploy.sh` — deploy all or selective services via SSH
+- `make deploy` or `make deploy ARGS="munin-memory hugin"`
+- Handles git pull, npm install, build (mimir), systemd restart
+- Created `/deploy` skill for Claude Code
 
-### Prompt capture → eval tasks (second mining pass)
-- Analyzed 350 captured prompts (hook active since Mar 29), 137 usable after filtering
-- Clustered into 11 categories, compared against existing 30 tasks
-- Created 5 new real-world tasks filling biggest gaps: LLM hardware reasoning (18 hits), rich session continuity (22 hits), systemd deployment (15 hits), business model reasoning (12 hits), benchmark interpretation (10 hits)
-- Commit 9c38fab in home-server-inference-evaluation, pushed
-- Total tasks: 30 → 35
+### Mimir migration (Pi 2)
+- Moved from `~/mimir-server/` (non-git copy) to `~/repos/mimir/` (proper git clone via Pi 1)
+- SSH key pair set up between Pi 2 → Pi 1 for git access
+- Systemd unit updated, verified healthy
+
+### Global CLAUDE.md cleanup
+- Removed stale `meta/workbench` references (replaced March 12 by computed dashboard in `memory_orient`)
+
+### Heimdall alignment check
+- All 6 deployable services correctly wired into Heimdall monitoring
 
 ## In Progress
 
@@ -37,6 +42,7 @@
 5. **Run Qwen3.5 judges** — quality scores still missing for the MLX model
 6. Multi-principal Munin Phase 1 implementation
 7. Skuld Phase 4: meeting prep cards
+8. Investigate munin-memory secrets scan false positives (7 flagged)
 
 ## Blockers
 None

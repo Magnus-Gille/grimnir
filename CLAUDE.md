@@ -28,5 +28,6 @@ No service code lives here — each component has its own repo.
 
 | Script | Purpose | Run with |
 |--------|---------|----------|
+| `scripts/deploy.sh` | Deploy services to Pi hosts (all or selective) | `make deploy` or `make deploy ARGS="munin-memory"` |
 | `scripts/generate-architecture.sh` | Generate deployment snapshot + full-architecture.md | `make docs` (Pi only) |
 | `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets | `make security` |
