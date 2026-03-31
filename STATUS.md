@@ -1,74 +1,70 @@
 # Grimnir System — Status
 
-**Last session:** 2026-03-30
+**Last session:** 2026-03-31
 **Branch:** main
 
-## Completed This Session
+## Completed This Session (2026-03-31)
 
-### Daily journal analysis timer — deployed and verified
-- Created `hugin/systemd/hugin-daily-analysis.{service,timer}` — fires at 07:00 daily
-- Deployed on Pi, test run submitted successfully (2 journal entries found)
-- Added to Heimdall monitoring via `heimdall.config.json`
+### Item 1: Fé — Commercial Pulse (design complete)
+- Revenue Radar proposal debated with Codex (2 rounds, 15 critique points)
+- Reframed from market scanner to commercial follow-through layer
+- Decision logged at `decisions/fe-commercial-pulse` in Munin
+- `business/*` namespace created for commercial state
+- Implementation: enhance Skuld daily briefing with follow-up nudges (not yet started)
 
-### Ollama experiment results — qwen2.5:7b not viable on Pi
-- Both 7b tasks timed out: 85°C temp spike, 95% RAM, zero tokens produced
-- Switched daily analysis to `qwen2.5:3b` with 300s timeout
-- 3b also can't handle large context prompts (~6000 chars) — prompt eval alone exceeds 180s
-- **Conclusion:** ollama on Pi is viable for short/simple prompts only. Context-heavy tasks should use Claude.
+### Item 3: Token throttling investigation (complete)
+- Analyzed energy monitor data: usage doubled post Mar-17, driven by own usage patterns not throttling
+- Found community root cause: two cache-invalidation bugs in Codex binaries (Bun string replacement + --resume)
+- Magnus NOT affected (99.9-100% cache hit rate)
+- Filed 4 enhancement ideas in Munin
 
-### Stale-status review switched to Claude runtime
-- Ollama version failed (context too large for Pi). Switched to `Runtime: claude`
-- Claude agent successfully connected to Munin and fetched all 6 project statuses
-- Timed out at 120s (agent overhead). Bumped to 300s — needs one more test run.
+### Item 5+6+7: Multi-principal Munin (design complete)
+- Debated with Codex (2 rounds, 20 critique points, all valid, 5 critical)
+- Narrowed from "multi-user Grimnir" to "multi-principal Munin"
+- Key decisions: AccessContext in every tool, users/<id>/* namespace, hashed tokens, invisible denial, full cutover before Sara onboarding
+- Decision logged at `decisions/multi-principal-munin` in Munin
+- Before building: write complete authorization matrix for every Munin tool
 
-### Scheduled tasks registry
-- Created `docs/scheduled-tasks.md` — central reference for all 6 Pi timers/crons
-- Documents purpose, schedule, output, and how to add new tasks
+### Item 9: Ollama MLX research (complete + benchmark running)
+- Ollama v0.19.0 uses Apple MLX framework — ~2x decode throughput on Apple Silicon
+- Ollama updated on laptop to 0.19.0
+- Benchmark running: m4air-mlx-v019 batch, 2 models (GLM4 + Qwen3-14B), 30 tasks
 
-### Heimdall monitoring expanded
-- Added `hugin-daily-analysis` timer to Heimdall config
+### Item 10: Codex plugin research (complete)
+- No official Claude Code plugin for Codex exists
+- Our /debate-codex is ahead of the ecosystem
+
+### Item 11: Agentic Dev Days presentation (updated)
+- Added "The Agentic Loop" slide (Context → Execute → Signal → Improve → Repeat)
+- Added "Production Data" slide (9 debates, 118 critique points, 20% self-review catch rate)
+- Added 2026 entry to Historical Record ("no official tooling exists")
+- Presentation now 10 slides
+
+### Item 12: Codex Review Toolkit plugin (packaged)
+- Created `/Users/magnus/repos/codex-review-toolkit/`
+- Initial commit: a3a799b
+
+### Hugin tasks (4 submitted, all completed)
+- **Tallriksvis → Heimdall** — DONE. Commit 0ef57ae. Needs `sudo systemctl restart heimdall`.
+- **Munin insights** — DONE. Zero outcomes — HTTP session fragmentation. Needs mcp-session-id fix.
+- **Ratatoskr long-msg** — DONE. Debounce implemented. Verify commit + restart.
+- **Hugin auto-push** — Partially done. Improved postTaskGitPush(). Aborted during restart.
+
+### Bug fixes
+- Fixed submit-task skill: `claude-code-laptop` → `claude-code`
 
 ## In Progress
 
-### Stale-status review — needs retest
-- Script updated, pushed, timeout bumped to 300s
-- Needs `git pull` on Pi and one more submission to confirm Claude runtime completes
+### Benchmark: m4air-mlx-v019
+Running on laptop. 60 runs, estimated 5-10h.
 
-### Ollama experiment — observation phase
-- Daily analysis timer will run tomorrow at 07:00 with qwen2.5:3b — first real test
-- Ollama best suited for: simple summarization, short prompts, no context injection
+## Needs Discussion (queued, one at a time)
 
-## Next Session — Recommended Order
-
-### 1. Retest stale-status review (quick)
-Pull latest on Pi and resubmit. Should work with 300s timeout.
-
-### 2. Deploy automation
-The copy-paste workflow for deploying to the Pi is painful. Options discussed:
-- Single deploy script on Pi triggered via SSH
-- Hugin task-based deploys
-- systemd path watchers (Heimdall already has this)
-
-### 3. SCION Phase A1+A2 — Agent state model
-High value given task volume. Define phase enum + Munin entry format (A1), emit phase transitions from Hugin lifecycle (A2). ~6h. Plan at `docs/GRIMNIR_DEVELOPMENT_PLAN.md`.
-
-### 4. Review first timer-triggered security scan results (after April 5)
-Check Munin for `security/scans/2026-04-05`.
-
-### 5. Skuld Fortnox integration
-Phase 2 of Skuld: invoice aging, revenue pulse, payment status via noxctl.
-
-### Lower priority
-- Per-service Munin tokens (security #3)
-- Extend auto-deploy to remaining services
-- SCION Phase B (worktree isolation) — after A is proven
+1. Pi follow-ups: restart Heimdall, verify Hugin/Ratatoskr commits
+2. Munin session fragmentation fix (blocks self-improving experiment)
+3. Benchmark results + publish decision
+4. Fé implementation planning
+5. Multi-principal Munin implementation planning
 
 ## Blockers
 None
-
-## Key References
-- Scheduled tasks registry: `docs/scheduled-tasks.md`
-- Implementation plan: `~/.claude/plans/floating-knitting-shell.md`
-- Seidr debate: `debate/seidr-architecture-summary.md`
-- Ollama debate: `debate/ollama-runtime-summary.md`
-- Pi ollama endpoint: `http://100.97.117.37:11434` (Tailscale) or `http://huginmunin.local:11434` (mDNS)
