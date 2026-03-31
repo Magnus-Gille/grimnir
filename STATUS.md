@@ -1,48 +1,42 @@
 # Grimnir System — Status
 
-**Last session:** 2026-03-31 (evening)
+**Last session:** 2026-03-31 (late evening)
 **Branch:** main
 
 ## Completed This Session
 
-### Benchmark: m4air-mlx-v019 (complete)
-- **GLM-4.7-Flash**: 30/30 completed, avg 51s, ~11 tok/s. Quality: 83% (Opus-judged)
-- **Qwen3-14B**: 16/30 completed, 14 timed out, avg 250s, ~5.8 tok/s. Quality: 75% when it completes
-- **Qwen3.5-35B-A3B** (MLX model): 25/30 completed, 5 timed out, avg 240s, ~9.5 tok/s. Quality TBD (judges incomplete)
-- Judge evaluation completed for GLM + Qwen3-14B (both Opus + o4-mini). Qwen3.5 judges not yet run.
-- Key finding: Qwen3-14B got ~45% speedup vs previous run (not from MLX — MLX only supports Qwen3.5-35B-A3B currently)
-- No-MLX baseline comparison attempted but model too large for Air's 32GB with old engine
+### Ongoing experiments audit
+- Surveyed all active experiments/measurements across the ecosystem via Munin
+- Found 8 ongoing things: Munin self-improvement loop, energy monitor, home-server eval, m4air benchmark, persona interviews, Fe commercial pulse, network security, AXON
 
-### Mac Studio capacity model (written)
-- `docs/mac-studio-capacity-model.md` in eval repo (commit 7126ea5)
-- Mac Studio = Max (128GB) or Ultra (256GB+). No Pro chip available.
-- 128GB viable if small MoE models are "good enough" — that's the open question
-- Hybrid architecture: frontier models (Claude) for hard tasks, local models for fast worker tasks
+### Munin self-improvement loop — unblocked
+- Root cause: Hugin's MuninClient sent no `mcp-session-id` header, so every HTTP request got an ephemeral session — outcome correlation never fired (0 outcomes in 9,866 events over 4 days)
+- Fix: MuninClient now generates `crypto.randomUUID()` at construction, sends as `mcp-session-id` on every request
+- Commit 65453a5 in hugin, pushed and deployed to Pi
+- Outcome-aware retrieval should start accumulating real data now — check in ~2 weeks
 
-### Grimnir-specific benchmark tasks (designed, not yet wired up)
-- 12 tasks in `src/tasks/grimnir.ts` covering real Grimnir workloads:
-  briefing gen (2), memory synthesis (2), code triage (2), structured output (2),
-  intent routing (2), chat/translation (2)
-- Need to wire into task index + add category type before running
-- Purpose: answer "are small models good enough for actual Grimnir use cases?"
-
-### Model registry
-- Added Qwen3.5-35B-A3B to model registry (commit 7126ea5)
+### Prompt capture → eval tasks (second mining pass)
+- Analyzed 350 captured prompts (hook active since Mar 29), 137 usable after filtering
+- Clustered into 11 categories, compared against existing 30 tasks
+- Created 5 new real-world tasks filling biggest gaps: LLM hardware reasoning (18 hits), rich session continuity (22 hits), systemd deployment (15 hits), business model reasoning (12 hits), benchmark interpretation (10 hits)
+- Commit 9c38fab in home-server-inference-evaluation, pushed
+- Total tasks: 30 → 35
 
 ## In Progress
 
 ### Grimnir benchmark integration
 - `src/tasks/grimnir.ts` exists but not wired into `src/tasks/index.ts` or types
 - Need to run against GLM, Qwen3-14B, Qwen3.5-35B-A3B + judge the results
-- This data answers the Max 128GB vs Ultra question
 
 ## Next Steps
 
-1. **Wire up grimnir tasks** — add to index.ts, update TaskCategory type, run benchmark
-2. **Run Qwen3.5 judges** — quality scores still missing for the MLX model
-3. Multi-principal Munin Phase 1 implementation (authz matrix is the spec)
-4. Fé observation — check tomorrow's briefing for Commercial Pulse quality
-5. Skuld Phase 4: meeting prep cards
+1. **Check Munin outcome data** in ~2 weeks — verify session fix is producing correlated outcomes
+2. **Extend prompt capture expiry?** Current hook expires 2026-04-05 (4 days)
+3. **Hugin worker mode** — Plan and implement laptop-side Hugin worker
+4. **Wire up grimnir benchmark tasks** — add to index.ts, update TaskCategory type, run benchmark
+5. **Run Qwen3.5 judges** — quality scores still missing for the MLX model
+6. Multi-principal Munin Phase 1 implementation
+7. Skuld Phase 4: meeting prep cards
 
 ## Blockers
 None
