@@ -5,6 +5,27 @@
 
 ## Completed This Session
 
+### Centralized deploy contract hardening
+- Fixed the Grimnir centralized deploy model to match the documented rsync-from-laptop flow instead of remote `git pull`
+- `services.json` now carries explicit `deploy_path` values for deployable services, including real exceptions:
+  - `munin-memory` -> `/home/magnus/munin-memory`
+  - `mimir` -> `/home/magnus/mimir-server`
+- Corrected `needs_build` flags for services that run from untracked `dist/` artifacts:
+  - `munin-memory`, `hugin`, and `ratatoskr` now marked `true`
+- `scripts/deploy.sh` now:
+  - reads `repo`, `host`, `deploy_path`, `unit_type`, `needs_build` from the registry
+  - deploys the local working tree via `rsync` instead of relying on whatever branch is checked out on the Pi
+  - runs local builds for `needs_build` services before syncing
+  - preserves `.env` on the target host and restarts primary service units after sync
+  - resolves `.local` hosts with a Tailscale fallback, mirroring the repo-local Munin deploy behavior
+  - accepts per-invocation source overrides such as `munin-memory=/tmp/munin-memory-awesome` so worktree deploys are explicit and deterministic
+- Updated `docs/conventions.md` and `docs/authority.md` so deploy paths and the rsync-based centralized flow are the documented contract
+- Verified with:
+  - `bash -n scripts/deploy.sh`
+  - `REGISTRY_PATH=services.json QUERY=deploy node --input-type=commonjs scripts/lib/registry.js`
+  - `./scripts/deploy.sh munin-memory=/tmp/munin-memory-awesome`
+  - `ssh magnus@huginmunin curl -s http://127.0.0.1:3030/health` -> `{"status":"ok"}`
+
 ### Centralized service registry (services.json)
 - Created `services.json` at repo root — single source of truth for all 8 Grimnir components
 - Created `scripts/lib/registry.js` — proper Node.js helper (env vars, error handling, --input-type=commonjs)
@@ -31,7 +52,7 @@
 
 ## Next Steps
 
-1. **Deploy grimnir + heimdall to Pi** — `make deploy` to activate registry + validation timer
+1. **Deploy grimnir to Pi** — ship the centralized deploy-script fix itself
 2. **Install grimnir-validate timer on Pi** — `sudo systemctl enable --now grimnir-validate.timer`
 3. **Retry Ollama laptop task** on stable WiFi — verify end-to-end streaming works
 4. **Measure grimnir staleness** — collect data from validation runs before choosing sync cadence

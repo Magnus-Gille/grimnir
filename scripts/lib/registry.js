@@ -4,7 +4,7 @@
 //   REGISTRY_PATH=/path/to/services.json QUERY=<query> node --input-type=commonjs scripts/lib/registry.js
 //
 // Queries:
-//   deploy       — components where deploy=true, output: name|repo|host|unit_type|needs_build (deploy.sh format)
+//   deploy       — components where deploy=true, output: name|repo|host|deploy_path|unit_type|needs_build (deploy.sh format)
 //   scan         — components where scan=true, output: space-separated repo names
 //   components   — all component names, space-separated
 //   systemd      — all systemd unit names, space-separated
@@ -46,7 +46,8 @@ var components = data.components;
 
 switch (query) {
   case 'deploy': {
-    // Output format matches what deploy.sh needs: name|host|path|primary_unit_type|needs_build
+    // Output format matches what deploy.sh needs:
+    // name|repo|host|deploy_path|primary_unit_type|needs_build
     var deployable = components.filter(function (c) { return c.deploy; });
     deployable.forEach(function (c) {
       // Determine primary unit type from first systemd unit, default to "service"
@@ -54,9 +55,11 @@ switch (query) {
       if (c.systemd_units && c.systemd_units.length > 0) {
         unitType = c.systemd_units[0].type;
       }
-      var repoPath = '~/repos/' + c.repo;
+      var deployPath = c.deploy_path || ('/home/magnus/repos/' + c.repo);
       var needsBuild = c.needs_build ? 'true' : 'false';
-      process.stdout.write(c.name + '|' + c.host + '|' + repoPath + '|' + unitType + '|' + needsBuild + '\n');
+      process.stdout.write(
+        c.name + '|' + c.repo + '|' + c.host + '|' + deployPath + '|' + unitType + '|' + needsBuild + '\n'
+      );
     });
     break;
   }

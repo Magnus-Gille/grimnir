@@ -21,9 +21,9 @@ All components are named after figures from Norse mythology, reflecting their ro
 > All scripts (`deploy.sh`, `security-scan.sh`, `generate-architecture.sh`) read from it.
 > To add or change a service, edit `services.json` — no other files need updating.
 
-All services deploy to `~/repos/<service-name>/` on their respective Pi. No exceptions.
+Remote install paths live in `services.json` as `deploy_path`. Most services live under `~/repos/<service-name>/`, but a few have intentional exceptions such as `munin-memory` (`~/munin-memory`) and `mimir` (`~/mimir-server`).
 
-Deploy all services from the laptop with `make deploy` (from the grimnir repo), or selectively with `make deploy ARGS="munin-memory hugin"`. The script handles git pull, npm install, build (if needed), and systemd restart.
+Deploy all services from the laptop with `make deploy` (from the grimnir repo), or selectively with `make deploy ARGS="munin-memory hugin"`. The centralized script deploys the local working tree via rsync, runs a local build when `needs_build: true`, installs production dependencies on the target host, and restarts primary service units. For worktree-based deploys, pass an explicit source override such as `make deploy ARGS="munin-memory=/tmp/munin-memory-awesome"`.
 
 ## GitHub ownership
 
@@ -62,4 +62,4 @@ Every Grimnir service follows these patterns:
 - systemd for process management (Restart=always)
 - `/health` endpoint for Heimdall monitoring
 - `.env` file on Pi for secrets (never in git, never overwritten by deploy)
-- `scripts/deploy-pi.sh` for deployment
+- Centralized deploy via `grimnir/scripts/deploy.sh` is preferred; per-repo deploy scripts remain for bootstrap or repo-specific extras
