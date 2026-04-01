@@ -1,0 +1,101 @@
+{
+  "components": [
+    {
+      "name": "munin-memory",
+      "repo": "munin-memory",
+      "host": "huginmunin.local",
+      "port": 3030,
+      "deploy": true,
+      "scan": true,
+      "needs_build": false,
+      "systemd_units": [
+        { "name": "munin-memory", "type": "service" }
+      ]
+    },
+    {
+      "name": "hugin",
+      "repo": "hugin",
+      "host": "huginmunin.local",
+      "port": 3032,
+      "deploy": true,
+      "scan": true,
+      "needs_build": false,
+      "systemd_units": [
+        { "name": "hugin", "type": "service" }
+      ]
+    },
+    {
+      "name": "heimdall",
+      "repo": "heimdall",
+      "host": "huginmunin.local",
+      "port": 3033,
+      "deploy": true,
+      "scan": true,
+      "needs_build": false,
+      "systemd_units": [
+        { "name": "heimdall", "type": "service" },
+        { "name": "heimdall-collect", "type": "timer" },
+        { "name": "heimdall-maintain", "type": "timer" }
+      ]
+    },
+    {
+      "name": "ratatoskr",
+      "repo": "ratatoskr",
+      "host": "huginmunin.local",
+      "port": 3034,
+      "deploy": true,
+      "scan": true,
+      "needs_build": false,
+      "systemd_units": [
+        { "name": "ratatoskr", "type": "service" }
+      ]
+    },
+    {
+      "name": "skuld",
+      "repo": "skuld",
+      "host": "huginmunin.local",
+      "port": 3040,
+      "deploy": true,
+      "scan": true,
+      "needs_build": true,
+      "systemd_units": [
+        { "name": "skuld", "type": "timer" }
+      ]
+    },
+    {
+      "name": "mimir",
+      "repo": "mimir",
+      "host": "nas.local",
+      "port": 3031,
+      "deploy": true,
+      "scan": true,
+      "needs_build": true,
+      "systemd_units": [
+        { "name": "mimir", "type": "service" }
+      ]
+    },
+    {
+      "name": "fortnox-mcp",
+      "repo": "fortnox-mcp",
+      "host": null,
+      "port": null,
+      "deploy": false,
+      "scan": true,
+      "needs_build": false,
+      "systemd_units": []
+    },
+    {
+      "name": "grimnir",
+      "repo": "grimnir",
+      "host": "huginmunin.local",
+      "port": null,
+      "deploy": true,
+      "scan": false,
+      "needs_build": false,
+      "systemd_units": [
+        { "name": "grimnir-security-scan", "type": "timer" },
+        { "name": "grimnir-validate", "type": "timer" }
+      ]
+    }
+  ]
+}
