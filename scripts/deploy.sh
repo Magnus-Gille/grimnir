@@ -4,16 +4,24 @@ set -euo pipefail
 # Grimnir deploy script — deploys services to Pi hosts via SSH.
 # Usage: ./scripts/deploy.sh [service...]
 # No args = deploy all services. Pass one or more names to deploy selectively.
+#
+# Service list is read from services.json (the single source of truth).
 
-# Service registry: name|host|path|unit_type|needs_build
-SERVICES=(
-  "munin-memory|huginmunin.local|~/repos/munin-memory|service|false"
-  "hugin|huginmunin.local|~/repos/hugin|service|false"
-  "heimdall|huginmunin.local|~/repos/heimdall|service|false"
-  "ratatoskr|huginmunin.local|~/repos/ratatoskr|service|false"
-  "skuld|huginmunin.local|~/repos/skuld|timer|false"
-  "mimir|nas.local|~/repos/mimir|service|true"
-)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
+REGISTRY="$GRIMNIR_DIR/services.json"
+REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
+
+# Read deployable services from registry: name|host|path|unit_type|needs_build
+SERVICES=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && SERVICES+=("$line")
+done < <(REGISTRY_PATH="$REGISTRY" QUERY=deploy node --input-type=commonjs "$REGISTRY_JS")
+
+if [[ ${#SERVICES[@]} -eq 0 ]]; then
+  echo "ERROR: No deployable services found in $REGISTRY" >&2
+  exit 1
+fi
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -34,9 +42,9 @@ deploy_service() {
   # Build remote command sequence
   local cmd="cd ${path} || exit 1"
 
-  # Stash local changes, pull, install
+  # Stash local changes, pull, install (skip npm if no package-lock.json)
   cmd+=" && git stash -q 2>/dev/null; git pull --ff-only"
-  cmd+=" && npm ci --omit=dev 2>&1 | tail -1"
+  cmd+=" && if [ -f package-lock.json ]; then npm ci --omit=dev 2>&1 | tail -1; fi"
 
   # Build step for TypeScript services that serve from dist/
   if [[ "$needs_build" == "true" ]]; then

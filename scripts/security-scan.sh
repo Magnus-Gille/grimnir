@@ -25,7 +25,14 @@ TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 SCAN_DATE="$(date -u '+%Y-%m-%d')"
 HOSTNAME_VAL="$(hostname)"
 
-COMPONENTS="munin-memory hugin heimdall skuld ratatoskr mimir fortnox-mcp"
+# Read scannable components from the service registry (single source of truth)
+REGISTRY="$GRIMNIR_DIR/services.json"
+REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
+COMPONENTS="$(REGISTRY_PATH="$REGISTRY" QUERY=scan node --input-type=commonjs "$REGISTRY_JS")"
+if [[ -z "$COMPONENTS" ]]; then
+  echo "ERROR: No scannable components found in $REGISTRY" >&2
+  exit 1
+fi
 
 # ─── CLI args ────────────────────────────────────────────────
 MUNIN_TOKEN=""

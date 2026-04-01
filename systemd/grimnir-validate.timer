@@ -1,0 +1,10 @@
+[Unit]
+Description=Grimnir daily registry validation — runs before Skuld briefing
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

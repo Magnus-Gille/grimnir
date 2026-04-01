@@ -7,9 +7,10 @@
 
 | Fact type | Authoritative source | Derived by / consumers |
 |-----------|---------------------|------------------------|
-| **Port assignments** | `docs/conventions.md` | `generate-architecture.sh`, `docs/architecture.md`, per-repo CLAUDE.md |
-| **Hostnames / network topology** | `docs/conventions.md` | `docs/architecture.md`, generator |
-| **Deploy paths** | `docs/conventions.md` | per-repo deploy scripts, systemd units |
+| **Port assignments** | `services.json` | `generate-architecture.sh`, `deploy.sh`, `security-scan.sh`, `docs/architecture.md` |
+| **Hostnames / hosts** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
+| **Deploy targets & systemd units** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
+| **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |
 | **Repo names / GitHub ownership** | `docs/conventions.md` | `docs/architecture.md`, generator |
 | **Service patterns / conventions** | `docs/conventions.md` | per-repo CLAUDE.md |
 | **Component roles (short)** | `docs/conventions.md` | `docs/architecture.md`, generator |
@@ -24,7 +25,7 @@
 
 1. **Single writer per fact.** Each fact type has exactly one authoritative source. Other documents may restate the fact for readability, but the authoritative source is what gets updated first.
 
-2. **Generator reads, never invents.** `generate-architecture.sh` should read port assignments, roles, and hostnames from `docs/conventions.md` (or the repos themselves) rather than hardcoding them. Hardcoded values in the generator are bugs.
+2. **Scripts read from `services.json`, never hardcode.** `deploy.sh`, `security-scan.sh`, and `generate-architecture.sh` all read component metadata (ports, hosts, units) from `services.json` via `scripts/lib/registry.js`. Hardcoded service lists in scripts are bugs.
 
 3. **Restatements must cite.** When `docs/architecture.md` restates a port or hostname from `docs/conventions.md`, it should be understood as derived. If a discrepancy is found, `docs/conventions.md` wins.
 
@@ -35,9 +36,9 @@
 ## Validation
 
 The generator should warn on discrepancies it can detect:
-- Port in `conventions.md` vs port in component's source code / env config
-- Port in `conventions.md` vs port hardcoded in the generator itself
-- Service name mismatches between conventions and actual repos
+- Port in `services.json` vs port in component's source code / env config
+- Systemd units in `services.json` vs units actually present on the host
+- Component repos in `services.json` vs directories in `~/repos/`
 
 ## Document boundary: `architecture.md` vs `snapshot.md`
 
@@ -67,6 +68,6 @@ The generator assembles `full-architecture.md` from two sources. This table defi
 
 When a fact changes (e.g., a service moves to a new port):
 
-1. Update the authoritative source first
+1. Update the authoritative source first (`services.json` for ports/hosts/units, `conventions.md` for patterns/naming)
 2. Update all derived sources (or note them for the next session)
-3. If the generator hardcodes the value, fix the generator too
+3. No script should need updating — they all read from `services.json` via `scripts/lib/registry.js`

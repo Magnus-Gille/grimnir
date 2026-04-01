@@ -8,6 +8,9 @@ No service code lives here — each component has its own repo.
 
 ## Component repos
 
+> Component inventory (names, hosts, ports, systemd units) is defined in [`services.json`](services.json).
+> All scripts read from it — see `docs/authority.md` for the authority map.
+
 | Component | Repo | Role |
 |-----------|------|------|
 | Munin Memory | `munin-memory` | Persistent memory MCP server |
@@ -22,7 +25,8 @@ No service code lives here — each component has its own repo.
 
 - `docs/architecture.md` — Full system architecture guide (topology, components, security, data flow)
 - `docs/full-architecture.md` — Auto-generated comprehensive doc (run `make docs` or `scripts/generate-architecture.sh` to regenerate)
-- `docs/conventions.md` — Naming, deploy paths, GitHub ownership, port assignments
+- `docs/conventions.md` — Naming, GitHub ownership, service patterns
+- `services.json` — **Single source of truth** for component inventory (names, hosts, ports, systemd units). All scripts read from it via `scripts/lib/registry.js`
 
 ## Scripts
 

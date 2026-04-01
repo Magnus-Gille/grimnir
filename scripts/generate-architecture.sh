@@ -26,19 +26,233 @@ TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 HOSTNAME_VAL="$(hostname)"
 REPOS_DIR="$HOME/repos"
 
-COMPONENTS=(munin-memory hugin heimdall skuld ratatoskr noxctl mimir)
+# Read component lists from the service registry (single source of truth)
+REGISTRY="$GRIMNIR_DIR/services.json"
+REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
+
+read -ra COMPONENTS <<< "$(REGISTRY_PATH="$REGISTRY" QUERY=components node --input-type=commonjs "$REGISTRY_JS")"
 
 # ─── CLI args ───────────────────────────────────────────────
 MUNIN_TOKEN=""
+VALIDATE_MODE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --munin-token) MUNIN_TOKEN="$2"; shift 2 ;;
+    --validate) VALIDATE_MODE=true; shift ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
 
-# ─── Detect environment ────────────────────────────────────
+# ─── Validate mode ────────────────────────────────────────
+# Read-only comparison of registry vs live state.
+# Uses SSH for cross-host checks. Writes results to Munin.
+# Must run on huginmunin (needs SSH access to both Pis).
+
+if [[ "$VALIDATE_MODE" == "true" ]]; then
+  if [[ "$HOSTNAME_VAL" != "huginmunin" ]]; then
+    echo "⚠ Validation must run on huginmunin (needs SSH to both Pis)."
+    exit 1
+  fi
+
+  # Find Munin token (same logic as main mode)
+  if [[ -z "$MUNIN_TOKEN" ]]; then
+    for envfile in "$REPOS_DIR/hugin/.env" "$REPOS_DIR/ratatoskr/.env" "$REPOS_DIR/heimdall/.env"; do
+      if [[ -f "$envfile" ]]; then
+        val="$(grep -E '^MUNIN_API_KEY=' "$envfile" 2>/dev/null | head -1 | cut -d= -f2-)"
+        if [[ -n "$val" ]]; then
+          MUNIN_TOKEN="$val"
+          break
+        fi
+      fi
+    done
+  fi
+
+  echo ""
+  echo "Registry Validation — $TIMESTAMP"
+  echo "================================"
+  echo ""
+
+  PASS=0
+  WARN=0
+  FAIL=0
+  RESULTS=""
+
+  # Read host-aware registry data
+  while IFS='|' read -r v_name v_host v_port v_repo v_units_json; do
+    [[ -z "$v_name" ]] && continue
+
+    # Skip components with no host (laptop-only, e.g. fortnox-mcp)
+    if [[ -z "$v_host" ]]; then
+      RESULTS+="⏭  $v_name: skipped (no host — laptop-only component)\n"
+      continue
+    fi
+
+    STATUS_LINE=""
+    COMPONENT_OK=true
+
+    # Determine if host is local or remote
+    if [[ "$v_host" == "huginmunin.local" ]] || [[ "$v_host" == "huginmunin" ]]; then
+      IS_LOCAL=true
+    else
+      IS_LOCAL=false
+    fi
+
+    # Check systemd units
+    if [[ "$v_units_json" != "[]" ]] && [[ -n "$v_units_json" ]]; then
+      # Parse unit names from JSON
+      unit_names="$(echo "$v_units_json" | node --input-type=commonjs -e '
+        var d = JSON.parse(require("fs").readFileSync("/dev/stdin","utf8"));
+        d.forEach(function(u) { process.stdout.write(u.name + "." + u.type + "\n"); });
+      ' 2>/dev/null)"
+
+      while IFS= read -r unit; do
+        [[ -z "$unit" ]] && continue
+        if [[ "$IS_LOCAL" == "true" ]]; then
+          active="$(systemctl is-active "$unit" 2>/dev/null || echo 'unknown')"
+        else
+          active="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "systemctl is-active $unit" 2>/dev/null || echo 'unknown')"
+        fi
+
+        if [[ "$active" == "active" ]]; then
+          STATUS_LINE+=" unit:$unit=active"
+        else
+          STATUS_LINE+=" unit:$unit=$active"
+          COMPONENT_OK=false
+        fi
+      done <<< "$unit_names"
+    fi
+
+    # Check port / health endpoint
+    if [[ -n "$v_port" ]]; then
+      if [[ "$IS_LOCAL" == "true" ]]; then
+        health_status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://localhost:$v_port/health" 2>/dev/null || echo '000')"
+        if [[ "$health_status" == "000" ]] || [[ "$health_status" == "404" ]]; then
+          health_status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://localhost:$v_port/api/health" 2>/dev/null || echo '000')"
+        fi
+      else
+        health_status="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://localhost:$v_port/health 2>/dev/null || echo 000" 2>/dev/null || echo '000')"
+        if [[ "$health_status" == "000" ]] || [[ "$health_status" == "404" ]]; then
+          health_status="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://localhost:$v_port/api/health 2>/dev/null || echo 000" 2>/dev/null || echo '000')"
+        fi
+      fi
+
+      if [[ "$health_status" == "200" ]]; then
+        STATUS_LINE+=" health:$v_port=ok"
+      else
+        STATUS_LINE+=" health:$v_port=http$health_status"
+        COMPONENT_OK=false
+      fi
+    fi
+
+    # Check repo staleness (git fetch --dry-run to see if behind)
+    if [[ -n "$v_repo" ]]; then
+      repo_path="$HOME/repos/$v_repo"
+      if [[ "$IS_LOCAL" == "true" ]]; then
+        if [[ -d "$repo_path/.git" ]]; then
+          behind="$(cd "$repo_path" && git fetch --dry-run 2>&1 | grep -c '\.\.') " || behind="0"
+          behind="${behind// /}"
+          if [[ "$behind" -gt 0 ]]; then
+            STATUS_LINE+=" repo:behind-origin"
+            COMPONENT_OK=false
+          else
+            STATUS_LINE+=" repo:current"
+          fi
+        else
+          STATUS_LINE+=" repo:not-found"
+          COMPONENT_OK=false
+        fi
+      else
+        remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "cd ~/repos/$v_repo 2>/dev/null && git fetch --dry-run 2>&1 | grep -c '\.\.' || echo 0" 2>/dev/null || echo '-1')"
+        remote_check="${remote_check// /}"
+        if [[ "$remote_check" == "-1" ]]; then
+          STATUS_LINE+=" repo:ssh-failed"
+          COMPONENT_OK=false
+        elif [[ "$remote_check" -gt 0 ]]; then
+          STATUS_LINE+=" repo:behind-origin"
+          COMPONENT_OK=false
+        else
+          STATUS_LINE+=" repo:current"
+        fi
+      fi
+    fi
+
+    # Emit result line
+    if [[ "$COMPONENT_OK" == "true" ]]; then
+      RESULTS+="✅ $v_name:$STATUS_LINE\n"
+      PASS=$((PASS + 1))
+    else
+      RESULTS+="❌ $v_name:$STATUS_LINE\n"
+      FAIL=$((FAIL + 1))
+    fi
+  done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")
+
+  # Print results
+  echo -e "$RESULTS"
+  echo ""
+  echo "Summary: $PASS ok, $FAIL issues, $WARN warnings"
+  echo ""
+
+  # Write to Munin if token available
+  if [[ -n "$MUNIN_TOKEN" ]]; then
+    # Munin helpers (inline — validation mode is self-contained)
+    _munin_call() {
+      curl -s --max-time 10 \
+        -X POST http://localhost:3030/mcp \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/json, text/event-stream" \
+        -H "Authorization: Bearer $MUNIN_TOKEN" \
+        -d "$1" 2>/dev/null | \
+        sed -n 's/^data: //p' | head -1 || echo "{}"
+    }
+
+    validation_content="## Registry Validation — $TIMESTAMP
+
+$PASS ok, $FAIL issues, $WARN warnings
+
+$(echo -e "$RESULTS")"
+
+    write_payload="$(CONTENT_VAL="$validation_content" node --input-type=commonjs -e '
+      console.log(JSON.stringify({
+        jsonrpc: "2.0", id: 1, method: "tools/call",
+        params: {
+          name: "memory_write",
+          arguments: {
+            namespace: "validation/registry",
+            key: "latest",
+            content: process.env.CONTENT_VAL,
+            tags: ["validation", "registry", "automated"]
+          }
+        }
+      }))
+    ')"
+    _munin_call "$write_payload" > /dev/null 2>&1 || echo "⚠ Failed to write validation results to Munin"
+
+    # Also log the event
+    log_payload="$(CONTENT_VAL="Registry validation: $PASS ok, $FAIL issues at $TIMESTAMP" node --input-type=commonjs -e '
+      console.log(JSON.stringify({
+        jsonrpc: "2.0", id: 1, method: "tools/call",
+        params: {
+          name: "memory_log",
+          arguments: {
+            namespace: "validation/",
+            content: process.env.CONTENT_VAL,
+            tags: ["validation", "registry", "automated"]
+          }
+        }
+      }))
+    ')"
+    _munin_call "$log_payload" > /dev/null 2>&1 || true
+
+    echo "📡 Results written to Munin (validation/registry/latest)"
+  else
+    echo "⚠ No Munin token — results printed to stdout only"
+  fi
+
+  exit 0
+fi
+
+# ─── Detect environment (normal mode) ────────────────────────
 if [[ "$HOSTNAME_VAL" != "huginmunin" ]]; then
   echo "⚠ This script must run on huginmunin (needs systemd, repos, Munin)."
   exit 1
@@ -123,7 +337,7 @@ echo ""
 # ─── Service status ───────────────────────────────────────
 
 echo "🔍 Collecting service status..."
-SYSTEMD_SERVICES=(munin-memory hugin heimdall heimdall-collect heimdall-maintain ratatoskr mimir skuld)
+read -ra SYSTEMD_SERVICES <<< "$(REGISTRY_PATH="$REGISTRY" QUERY=systemd node --input-type=commonjs "$REGISTRY_JS")"
 DEPLOYMENT_TABLE=""
 for svc in "${SYSTEMD_SERVICES[@]}"; do
   DEPLOYMENT_TABLE+="$(service_status_row "$svc")\n"
@@ -151,14 +365,10 @@ done
 # ─── Health checks ────────────────────────────────────────
 
 echo "🔍 Running health checks..."
-declare -A PORTS=(
-  [munin-memory]=3030
-  [hugin]=3032
-  [heimdall]=3033
-  [skuld]=3040
-  [ratatoskr]=3034
-  [mimir]=3031
-)
+declare -A PORTS=()
+while IFS='|' read -r pname pport; do
+  [[ -n "$pname" ]] && PORTS[$pname]=$pport
+done < <(REGISTRY_PATH="$REGISTRY" QUERY=ports node --input-type=commonjs "$REGISTRY_JS")
 
 HEALTH_RESULTS=""
 for comp in "${COMPONENTS[@]}"; do

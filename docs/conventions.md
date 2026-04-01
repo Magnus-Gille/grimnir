@@ -15,29 +15,13 @@ All components are named after figures from Norse mythology, reflecting their ro
 | **Ratatoskr** | Squirrel on Yggdrasil | Carries messages between eagle and serpent | Telegram message router |
 | **noxctl** | — (not Norse) | — | Fortnox accounting CLI + MCP server |
 
-## Port assignments
+## Port assignments, hosts, and deploy paths
 
-| Port | Service | Host |
-|------|---------|------|
-| 3030 | Munin Memory | Pi 1 |
-| 3031 | Mimir | Pi 2 |
-| 3032 | Hugin | Pi 1 |
-| 3033 | Heimdall | Pi 1 |
-| 3034 | Ratatoskr | Pi 1 |
-| 3040 | Skuld | Pi 1 |
-
-## Deploy paths on Pi
+> **Source of truth:** [`services.json`](../services.json) in the repo root.
+> All scripts (`deploy.sh`, `security-scan.sh`, `generate-architecture.sh`) read from it.
+> To add or change a service, edit `services.json` — no other files need updating.
 
 All services deploy to `~/repos/<service-name>/` on their respective Pi. No exceptions.
-
-```
-/home/magnus/repos/munin-memory/   # Pi 1 (huginmunin.local)
-/home/magnus/repos/hugin/          # Pi 1
-/home/magnus/repos/heimdall/       # Pi 1
-/home/magnus/repos/skuld/          # Pi 1
-/home/magnus/repos/ratatoskr/      # Pi 1
-/home/magnus/repos/mimir/          # Pi 2 (nas.local)
-```
 
 Deploy all services from the laptop with `make deploy` (from the grimnir repo), or selectively with `make deploy ARGS="munin-memory hugin"`. The script handles git pull, npm install, build (if needed), and systemd restart.
 
@@ -59,12 +43,16 @@ Repos are named after the component, lowercase. The GitHub org matches the opera
 
 ## Systemd timers
 
-| Timer | Schedule | Host | Purpose |
-|-------|----------|------|---------|
-| `heimdall-collect.timer` | Every 5 min | Pi 1 | Metric collection across both Pis |
-| `heimdall-maintain.timer` | Daily 03:00 | Pi 1 | Database maintenance and retention |
-| `skuld.timer` | Daily 06:00 | Pi 1 | Morning intelligence briefing |
-| `grimnir-security-scan.timer` | Weekly Sun 03:00 | Pi 1 | Dependency audit + secret scan across all repos |
+> Timer/service unit names and hosts are defined in [`services.json`](../services.json).
+> This table documents schedules and purposes (not in the registry).
+
+| Timer | Schedule | Purpose |
+|-------|----------|---------|
+| `heimdall-collect.timer` | Every 5 min | Metric collection across both Pis |
+| `heimdall-maintain.timer` | Daily 03:00 | Database maintenance and retention |
+| `skuld.timer` | Daily 06:00 | Morning intelligence briefing |
+| `grimnir-security-scan.timer` | Weekly Sun 03:00 | Dependency audit + secret scan across all repos |
+| `grimnir-validate.timer` | Daily 04:30 | Registry vs live state validation, results to Munin |
 
 ## Service patterns
 
