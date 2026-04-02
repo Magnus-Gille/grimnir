@@ -5,6 +5,14 @@
 
 ## Completed This Session
 
+### Observability and self-improving loop architecture guide
+- Research sprint: LangChain traces article, agent observability platforms (Langfuse, Phoenix, OpenLIT, AgentOps), DSPy/TextGrad prompt optimization, Reflexion/Generative Agents memory patterns, LLM-as-judge best practices
+- Wrote `docs/observability-and-improvement.md` — architectural guidance for the improvement loop
+- Defines: trace schema (OTel-aligned), three-tier scoring (heuristic → LLM judge → human), reflection synthesis, failure mode taxonomy, per-component signals, 10-step implementation sequence
+- Key design decisions: traces stored in Munin, binary pass/fail over numeric scales, no new services, reflection recommends but doesn't auto-deploy
+- Added reference in CLAUDE.md
+- Commit 73aaa84
+
 ### Hugin v2 pipeline orchestrator plan
 - Designed architecture for evolving Hugin from flat task dispatcher to multi-phase pipeline orchestrator
 - Researched landscape: Portkey Gateway, LiteLLM, RouteLLM, LangGraph, Conductor, CrewAI, AutoGen, etc.
