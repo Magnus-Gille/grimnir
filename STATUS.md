@@ -1,9 +1,27 @@
 # Grimnir System — Status
 
-**Last session:** 2026-04-01
+**Last session:** 2026-04-02
 **Branch:** main
 
 ## Completed This Session
+
+### Hugin v2 pipeline orchestrator plan
+- Designed architecture for evolving Hugin from flat task dispatcher to multi-phase pipeline orchestrator
+- Researched landscape: Portkey Gateway, LiteLLM, RouteLLM, LangGraph, Conductor, CrewAI, AutoGen, etc.
+- Key finding: no single project covers all needs; privacy-aware routing is unsolved in open source
+- Investigated Pi AI HAT+ — rejected for LLMs (CPU outperforms the accelerator)
+- Created initial plan: `docs/hugin-v2-pipeline-orchestrator.md`
+- Debated with Codex (2 rounds, 15 critique points, 33% self-review catch rate)
+- Major amendments from debate:
+  - Three sequential bets (workflow → routing → methodology) instead of one 8-step roadmap
+  - Markdown compiles to validated JSON IR (not executed directly)
+  - Monotonic sensitivity propagation (no phase-level downgrades)
+  - Authority model added alongside confidentiality (side effects are gated by default)
+  - Router is opt-in (`Runtime: auto`), not a replacement of all dispatch
+  - Templates versioned in git, not mutable Munin state
+  - Success gates defined per bet
+  - OpenRouter, eval routing, Mac Studio deferred
+- Updated plan with all debate outcomes
 
 ### Centralized deploy contract hardening
 - Fixed the Grimnir centralized deploy model to match the documented rsync-from-laptop flow instead of remote `git pull`
@@ -50,13 +68,18 @@
 - Heimdall still has its own config (heimdall.config.json) separate from services.json — long-term alignment deferred
 - Auto-remediation deferred — detect + report first
 
+### Deployment completion
+- Deployed `grimnir` from `main` to `huginmunin` via `./scripts/deploy.sh grimnir`
+- Installed and enabled `grimnir-validate.timer`; next scheduled run is Thu 2026-04-02 04:30 CEST
+- Smoke-tested the on-host registry query from `/home/magnus/repos/grimnir`
+
 ## Next Steps
 
-1. **Deploy grimnir to Pi** — ship the centralized deploy-script fix itself
-2. **Install grimnir-validate timer on Pi** — `sudo systemctl enable --now grimnir-validate.timer`
+1. **Hugin Step 1: parent/child joins** — implement the already-specced dependency tracking
+2. **Hugin Step 2: pipeline IR + compiler** — Zod schema, markdown→JSON compilation
 3. **Retry Ollama laptop task** on stable WiFi — verify end-to-end streaming works
 4. **Measure grimnir staleness** — collect data from validation runs before choosing sync cadence
-5. **Heimdall registry alignment** — long-term: have Heimdall read from services.json instead of its own config
+5. **Heimdall registry alignment** — long-term: have Heimdall read from `services.json` instead of its own config
 6. **Hugin host metrics in Heimdall** — surface invocation-journal data (Phase 1 from debate)
 7. **Hugin portability audit** — remove Pi-only paths, portable Git identity (Phase 2)
 8. **Run Qwen3.5 judges** — quality scores still missing
@@ -65,4 +88,3 @@
 
 ## Blockers
 - WiFi instability affecting Ollama streaming over Tailscale (transient)
-- grimnir-validate.timer not yet installed on Pi (needs deploy + enable)
