@@ -103,6 +103,19 @@
         { "name": "grimnir-security-scan", "type": "timer" },
         { "name": "grimnir-validate", "type": "timer" }
       ]
+    },
+    {
+      "name": "verdandi",
+      "repo": "verdandi",
+      "host": "huginmunin.local",
+      "port": 3036,
+      "deploy": true,
+      "scan": true,
+      "deploy_path": "/home/magnus/repos/verdandi",
+      "needs_build": true,
+      "systemd_units": [
+        { "name": "verdandi", "type": "service" }
+      ]
     }
   ]
 }
