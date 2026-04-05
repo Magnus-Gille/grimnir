@@ -1,98 +1,34 @@
 # Grimnir System — Status
 
-**Last session:** 2026-04-02
+**Last session:** 2026-04-04
 **Branch:** main
 
 ## Completed This Session
 
-### Observability and self-improving loop architecture guide
-- Research sprint: LangChain traces article, agent observability platforms (Langfuse, Phoenix, OpenLIT, AgentOps), DSPy/TextGrad prompt optimization, Reflexion/Generative Agents memory patterns, LLM-as-judge best practices
-- Wrote `docs/observability-and-improvement.md` — architectural guidance for the improvement loop
-- Defines: trace schema (OTel-aligned), three-tier scoring (heuristic → LLM judge → human), reflection synthesis, failure mode taxonomy, per-component signals, 10-step implementation sequence
-- Key design decisions: traces stored in Munin, binary pass/fail over numeric scales, no new services, reflection recommends but doesn't auto-deploy
-- Added reference in CLAUDE.md
-- Commit 73aaa84
+### Hugin Pi repo cleanup and security docs convention
+- Investigated where Hugin task 0404-1352 (Lethal Trifecta Codebase Audit) landed — found at `/home/magnus/repos/hugin/docs/security/lethal-trifecta-assessment.md` on Pi, uncommitted
+- Audited Pi Hugin repo state: 17 commits behind GitHub, 39 dirty files, `dist/` built from uncommitted local code, service inactive
+- Compared all Pi local files against `origin/main` — all pipeline source files identical (0 lines differing), all untracked docs already on origin, only STATUS.md had meaningful differences (and the Pi version was stale)
+- Reset Pi repo to `origin/main` (`git fetch && git reset --hard`), rebuilt `dist/` — zero data loss
+- Copied lethal trifecta report from Pi, committed to Hugin repo on laptop
+- Established security docs convention in Hugin CLAUDE.md: `docs/security/` for assessments, open findings become GitHub Issues, Hugin tasks should commit reports
+- Filed 7 GitHub Issues (#7–#13) for all open security findings from the report, labeled `security`, added to Grimnir roadmap
+- Filed hugin#15 for installing `hugin.service` systemd unit on Pi + cleaning up stale `hugin-munin-discord` and `hugin-munin-rituals` units
+- Commit 3c791db (hugin)
 
-### Hugin v2 pipeline orchestrator plan
-- Designed architecture for evolving Hugin from flat task dispatcher to multi-phase pipeline orchestrator
-- Researched landscape: Portkey Gateway, LiteLLM, RouteLLM, LangGraph, Conductor, CrewAI, AutoGen, etc.
-- Key finding: no single project covers all needs; privacy-aware routing is unsolved in open source
-- Investigated Pi AI HAT+ — rejected for LLMs (CPU outperforms the accelerator)
-- Created initial plan: `docs/hugin-v2-pipeline-orchestrator.md`
-- Debated with Codex (2 rounds, 15 critique points, 33% self-review catch rate)
-- Major amendments from debate:
-  - Three sequential bets (workflow → routing → methodology) instead of one 8-step roadmap
-  - Markdown compiles to validated JSON IR (not executed directly)
-  - Monotonic sensitivity propagation (no phase-level downgrades)
-  - Authority model added alongside confidentiality (side effects are gated by default)
-  - Router is opt-in (`Runtime: auto`), not a replacement of all dispatch
-  - Templates versioned in git, not mutable Munin state
-  - Success gates defined per bet
-  - OpenRouter, eval routing, Mac Studio deferred
-- Updated plan with all debate outcomes
-
-### Centralized deploy contract hardening
-- Fixed the Grimnir centralized deploy model to match the documented rsync-from-laptop flow instead of remote `git pull`
-- `services.json` now carries explicit `deploy_path` values for deployable services, including real exceptions:
-  - `munin-memory` -> `/home/magnus/munin-memory`
-  - `mimir` -> `/home/magnus/mimir-server`
-- Corrected `needs_build` flags for services that run from untracked `dist/` artifacts:
-  - `munin-memory`, `hugin`, and `ratatoskr` now marked `true`
-- `scripts/deploy.sh` now:
-  - reads `repo`, `host`, `deploy_path`, `unit_type`, `needs_build` from the registry
-  - deploys the local working tree via `rsync` instead of relying on whatever branch is checked out on the Pi
-  - runs local builds for `needs_build` services before syncing
-  - preserves `.env` on the target host and restarts primary service units after sync
-  - resolves `.local` hosts with a Tailscale fallback, mirroring the repo-local Munin deploy behavior
-  - accepts per-invocation source overrides such as `munin-memory=/tmp/munin-memory-awesome` so worktree deploys are explicit and deterministic
-- Updated `docs/conventions.md` and `docs/authority.md` so deploy paths and the rsync-based centralized flow are the documented contract
-- Verified with:
-  - `bash -n scripts/deploy.sh`
-  - `REGISTRY_PATH=services.json QUERY=deploy node --input-type=commonjs scripts/lib/registry.js`
-  - `./scripts/deploy.sh munin-memory=/tmp/munin-memory-awesome`
-  - `ssh magnus@huginmunin curl -s http://127.0.0.1:3030/health` -> `{"status":"ok"}`
-
-### Centralized service registry (services.json)
-- Created `services.json` at repo root — single source of truth for all 8 Grimnir components
-- Created `scripts/lib/registry.js` — proper Node.js helper (env vars, error handling, --input-type=commonjs)
-- Refactored `deploy.sh`, `security-scan.sh`, `generate-architecture.sh` to read from registry
-- Zero hardcoded service lists remain in scripts
-- Updated `authority.md`: services.json owns ports, hosts, units, component inventory
-- Updated `conventions.md`: removed duplicated port table and deploy paths, references registry
-- Debated with Codex (2 rounds): resolved fortnox-mcp modeling question, node -e safety, authority split
-- Commit 5f0b865
-
-### Daily registry validation (--validate)
-- Added `--validate` flag to `generate-architecture.sh`: read-only, host-aware (SSH for Pi 2), writes results to Munin
-- Created `systemd/grimnir-validate.timer` + `.service` — daily at 04:30 before Skuld's 06:00 briefing
-- Added `grimnir-validate` to Heimdall config (`heimdall.config.json`) for dashboard visibility
-- Debated with Codex (2 rounds): killed hourly sync timer, killed standalone validator, narrowed to generator --validate mode
-- Commits: 5f0b865 (grimnir), 68b214d (heimdall)
-
-### Key decisions (from debates)
-- Registry covers ALL components (not just deployed services) — fortnox-mcp included with null host
-- No hourly git pull — measure staleness first, choose cadence from data
-- No standalone validate-registry.sh — reuse generator's collection path
-- Heimdall still has its own config (heimdall.config.json) separate from services.json — long-term alignment deferred
-- Auto-remediation deferred — detect + report first
-
-### Deployment completion
-- Deployed `grimnir` from `main` to `huginmunin` via `./scripts/deploy.sh grimnir`
-- Installed and enabled `grimnir-validate.timer`; next scheduled run is Thu 2026-04-02 04:30 CEST
-- Smoke-tested the on-host registry query from `/home/magnus/repos/grimnir`
+### Findings
+- Hugin service not registered with systemd on Pi — unit file exists in repo but never symlinked to `~/.config/systemd/user/`
+- Stale systemd units from old `hugin-munin` Python project still present on Pi (discord bot, ritual scheduler)
+- Old `hugin-munin` project directory still exists at `/home/magnus/projects/hugin-munin/`
 
 ## Next Steps
 
-1. **Hugin Step 1: parent/child joins** — implement the already-specced dependency tracking
-2. **Hugin Step 2: pipeline IR + compiler** — Zod schema, markdown→JSON compilation
-3. **Retry Ollama laptop task** on stable WiFi — verify end-to-end streaming works
-4. **Measure grimnir staleness** — collect data from validation runs before choosing sync cadence
-5. **Heimdall registry alignment** — long-term: have Heimdall read from `services.json` instead of its own config
-6. **Hugin host metrics in Heimdall** — surface invocation-journal data (Phase 1 from debate)
-7. **Hugin portability audit** — remove Pi-only paths, portable Git identity (Phase 2)
-8. **Run Qwen3.5 judges** — quality scores still missing
-9. Multi-principal Munin Phase 1
-10. Skuld Phase 4: meeting prep cards
+1. **Hugin security hardening** — work through issues #7–#13 (egress filtering, context-ref classification, remove legacy spawn, etc.)
+2. **Install hugin.service on Pi** — hugin#15
+3. **Clean up old hugin-munin project** on Pi (`/home/magnus/projects/hugin-munin/`)
+4. **Heimdall registry alignment** — have Heimdall read from `services.json`
+5. Multi-principal Munin Phase 1
+6. Skuld Phase 4: meeting prep cards
 
 ## Blockers
-- WiFi instability affecting Ollama streaming over Tailscale (transient)
+- None
