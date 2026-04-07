@@ -1,23 +1,14 @@
 # Grimnir System — Status
 
-**Last session:** 2026-04-06
+**Last session:** 2026-04-07
 **Branch:** main
 
 ## Completed This Session
 
-### Power outage recovery and infrastructure hardening
-- Both Pis (huginmunin.local + nas.local) came back up after power outage — all services were running but most lacked systemd management
-- Created and enabled systemd user units for **munin-memory**, **hugin**, **heimdall**, **ratatoskr** on huginmunin (with `Restart=always`, security hardening, proper dependency ordering on munin-memory)
-- Installed **smartmontools** on nas.local — SMART daemon active, drive healthy (Samsung T7 2TB, 0% wear, 0 integrity errors, 3 unsafe shutdowns from outages)
-- Created **Avahi Time Machine service file** on nas.local for proper macOS mDNS discovery
-- Enabled **periodic fsck** on NAS HDD (every 30 mounts or 3 months, next check 2026-05-04)
-- Filed grimnir#4 (UPS for both Pis) and heimdall#7 (boot health check + Telegram alerting) on roadmap
-
-### Findings
-- huginmunin: verdandi + skuld were the only services with systemd units; the rest ran as bare processes with no crash recovery
-- nas: mimir runs as a system-level service (auto-starts fine); Samba/Time Machine share was configured but not advertised via Avahi
-- nas: HDD had `Maximum mount count: -1` and `Check interval: 0` — no periodic fsck was scheduled
-- Registry in services.json was accurate for what *should* exist — now matches reality for huginmunin services
+### Architecture doc update
+- Added Verdandi (tamper-evident audit log, :3036) to `docs/architecture.md` — component table, topology diagram, hardware row, access matrix, and dedicated section
+- Updated "last updated" date to 2026-04-07
+- Commit: 6cee9c9
 
 ## Next Steps
 
