@@ -1,7 +1,7 @@
 # The Grimnir System — Architecture Guide
 
 > Internal reference document for the Grimnir personal AI infrastructure.
-> Last updated: 2026-03-21.
+> Last updated: 2026-04-07.
 
 ---
 
@@ -36,6 +36,7 @@ Three principles guide every decision:
 | **Heimdall** | Monitoring dashboard | 3033 | Pi 1 | `heimdall` |
 | **Ratatoskr** | Telegram router + concierge | 3034 | Pi 1 | `ratatoskr` |
 | **Skuld** | Daily intelligence briefing | 3040 | Pi 1 | `skuld` (grimnir-bot) |
+| **Verdandi** | Tamper-evident audit log | 3036 | Pi 1 | `verdandi` |
 | **Mimir** | Authenticated file server | 3031 | Pi 2 (NAS) | `mimir` |
 | **noxctl** | Accounting CLI + MCP | — | Laptop (global) | `fortnox-mcp` |
 
@@ -68,6 +69,7 @@ graph TB
         Heimdall_Svc["Heimdall Dashboard<br/>:3033 (Fastify + HTMX)"]
         Ratatoskr_Svc["Ratatoskr Router<br/>:3034 (Telegram bot)"]
         Skuld_Svc["Skuld Briefing<br/>:3040 (web UI)"]
+        Verdandi_Svc["Verdandi Audit<br/>:3036 (Fastify)"]
         Claude_Pi[Claude Code / Codex<br/>spawned by Hugin]
         Tunnel_Pi1["cloudflared tunnel"]
     end
@@ -119,7 +121,7 @@ graph TB
 
 | Unit | Hostname | Role | Key Services |
 |------|----------|------|-------------|
-| Pi 1 | `huginmunin.local` | AI infrastructure (compute) | Munin, Hugin, Heimdall, Skuld |
+| Pi 1 | `huginmunin.local` | AI infrastructure (compute) | Munin, Hugin, Heimdall, Skuld, Verdandi |
 | Pi 2 | NAS | Storage & backup | Mimir, Samba, Time Machine |
 
 Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication.
@@ -528,6 +530,48 @@ Phase 1 (MVP) is complete. Phases 2-8 extend from Fortnox financial awareness th
 
 ---
 
+## Verdandi — Audit Log
+
+Verdandi is the accountability layer. Named after the Norn of the present, it records what agents did, what humans decided, and the reasoning behind both — as a tamper-evident event log.
+
+### Architecture
+
+- **Runtime:** Node.js 22+, TypeScript (strict mode, ESM)
+- **Framework:** Fastify 5
+- **Database:** SQLite with WAL mode
+- **Deployment:** systemd on Pi 1 (:3036), localhost only (accessed via Tailscale)
+
+### Design principles
+
+- **Server-authoritative** — all derived fields (timestamp, identity, hash chain) are recomputed server-side; client values are advisory only.
+- **Fail-open for operations, fail-loud for audit** — Verdandi never blocks business operations, but every audit gap is recorded and surfaced.
+- **Redact before persist** — a 14-rule secret redaction pipeline strips sensitive data at intake before any write.
+- **Honest about evidence** — two grades: `mechanism` (proven/automatic) and `convention` (unverified/self-reported).
+
+### Ingest pipeline
+
+Events flow through a 10-stage atomic pipeline: auth → validation → redaction → override → classification → canonicalization → queue → atomic append → idempotency → optional debug layer.
+
+Hash chain integrity uses SHA-256 over RFC 8785 deterministic JSON canonicalization, with a single append worker to prevent race conditions.
+
+### Endpoints
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `GET /health` | None | Health check + event count |
+| `POST /api/events` | Bearer (per-component key) | Ingest single event |
+| `POST /api/events/batch` | Bearer | Batch ingest (up to 1000) |
+| `POST /api/events/hook` | Bearer | Claude Code hook payload ingestion |
+| `GET /api/events` | Bearer | Query with filters (trace_id, type, component, severity, time range) |
+| `GET /api/events/:eventId` | Bearer | Single event retrieval |
+| `GET /api/verify` | Bearer | Hash chain integrity verification |
+
+### Event taxonomy
+
+Events are classified by severity (`critical`, `significant`, `routine`, `debug`) and retention class (`accounting` 7y, `security` 12m, `operational` 6m, `debug` 1-3m). Per-component API keys provide identity attribution.
+
+---
+
 ## Fortnox MCP / noxctl — Accounting
 
 noxctl is a CLI and MCP server for Fortnox, the Swedish accounting platform. It handles invoices, customers, bookkeeping, and VAT.
@@ -622,14 +666,14 @@ This isn't just convenience; it's necessity. Claude.ai and Claude Mobile can acc
 
 ### Access matrix
 
-| Environment | Munin | Mimir | Hugin (tasks) | Ratatoskr | Heimdall | Skuld | noxctl |
-|-------------|-------|-------|---------------|-----------|----------|-------|--------|
-| Claude Code (laptop) | HTTP Bearer | HTTPS Bearer | Submit via Munin | — | Browser | — | CLI |
-| Claude Desktop | HTTP Bearer (mcp-remote) | — | Submit via Munin | — | — | — | MCP |
-| Claude Web/Mobile | HTTP OAuth 2.1 | — | Submit via Munin | — | — | — | MCP |
-| Telegram (phone) | — | — | Via Ratatoskr | Send message | — | — | — |
-| Claude Code (Pi/Hugin) | HTTP Bearer (localhost) | HTTPS Bearer | IS the dispatcher | — | — | — | — |
-| Ratatoskr | HTTP Bearer (localhost) | — | Submit via Munin | IS the router | — | — | — |
+| Environment | Munin | Mimir | Hugin (tasks) | Ratatoskr | Heimdall | Skuld | Verdandi | noxctl |
+|-------------|-------|-------|---------------|-----------|----------|-------|----------|--------|
+| Claude Code (laptop) | HTTP Bearer | HTTPS Bearer | Submit via Munin | — | Browser | — | HTTP Bearer | CLI |
+| Claude Desktop | HTTP Bearer (mcp-remote) | — | Submit via Munin | — | — | — | — | MCP |
+| Claude Web/Mobile | HTTP OAuth 2.1 | — | Submit via Munin | — | — | — | — | MCP |
+| Telegram (phone) | — | — | Via Ratatoskr | Send message | — | — | — | — |
+| Claude Code (Pi/Hugin) | HTTP Bearer (localhost) | HTTPS Bearer | IS the dispatcher | — | — | — | HTTP Bearer | — |
+| Ratatoskr | HTTP Bearer (localhost) | — | Submit via Munin | IS the router | — | — | — | — |
 
 ### Deployment patterns
 
