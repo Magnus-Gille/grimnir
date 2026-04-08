@@ -13,6 +13,7 @@ All components are named after figures from Norse mythology, reflecting their ro
 | **Heimdall** | Watchman of the gods | Sees all from Bifröst | Monitoring dashboard |
 | **Skuld** | Norn of the future | Shapes what shall be | Daily intelligence briefing |
 | **Ratatoskr** | Squirrel on Yggdrasil | Carries messages between eagle and serpent | Telegram message router |
+| **Verdandi** | Norn of the present | Carves what is happening now | Tamper-evident audit log |
 | **noxctl** | — (not Norse) | — | Fortnox accounting CLI + MCP server |
 
 ## Port assignments, hosts, and deploy paths
