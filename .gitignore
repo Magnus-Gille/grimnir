@@ -1,4 +1,7 @@
-debate/
+debate/*
+!debate/INDEX.md
+!debate/*-summary.md
+!debate/*-critique-log.json
 node_modules/
 .env
 *.log

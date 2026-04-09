@@ -1,0 +1,137 @@
+[
+  {
+    "id": "ecosystem-review-C01",
+    "source": "codex-round-1",
+    "text": "Workspace strategy inside munin-memory/packages/ is under-specified: consumers are separate repos with independent package.json files, no shared workspace root, and deploy.sh has no cross-repo package resolution. The plan quietly chose cross-repo distribution without defining the mechanism.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "ecosystem-review-C02",
+    "source": "codex-round-1",
+    "text": "Phase 0 is not a read-only baseline; the proposed runner requires build/lint/format:check/typecheck/deadcode scripts that most repos don't define, and heimdall has no build script at all. Phase 0 is already a multi-repo implementation task disguised as setup.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ecosystem-review-C03",
+    "source": "codex-round-1",
+    "text": "Phase ordering overfits the motivating bug. munin-memory, hugin, and ratatoskr have the highest blast-radius security concerns and should get targeted security review immediately, not wait for Phase 1 to complete.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "ecosystem-review-C04",
+    "source": "codex-round-1",
+    "text": "Five-phase sequential program is poorly matched to stated pain. The 'done' definition is project-completion, not bug-fix. Solo-maintainer-friendly shape is 2-3 phases not 5. No baseline evidence for how often cross-agent bugs occur or what Phase 1 alone would fix.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "ecosystem-review-C05",
+    "source": "codex-round-1",
+    "text": "Heimdall last in Phase 3 is half-right: consolidation is integration debt and belongs early; TS migration is aesthetic and not on the critical path. Bundling them turned heimdall into a procrastination target.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ecosystem-review-C06",
+    "source": "codex-round-1",
+    "text": "Dead-code tooling (knip + shared ESLint + shared prettier + shared tsconfig + CI template + finding schema) is too much machinery given that no evidence shows dead code is a current failure source. Badly prioritized; add after a basic CI floor, not as Phase 0.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ecosystem-review-C07",
+    "source": "codex-round-1",
+    "text": "The plan says phases are sequential but the risks section concedes Phase 1 and Phase 2 are functionally independent. Self-contradiction; phases should be decoupled and parallelizable.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "ecosystem-review-C08",
+    "source": "codex-round-1",
+    "text": "Scale/ops claims unsupported: munin-memory src/tools.ts alone is 6,460 lines (single security-review pass may not fit); weekly runner <5 min claim has no basis (existing security scan does less work and takes longer); finding lifecycle is missing (schema exists, workflow doesn't).",
+    "classification": "valid",
+    "impact": "partially_changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "ecosystem-review-C09",
+    "source": "codex-round-2",
+    "text": "Copy-and-normalize creates a TS-to-JS equivalence problem the original didn't have. Hugin's client has TS interfaces, union types, private fields, typed returns. Heimdall is CommonJS JS with no build step. So the client can't be literally copied into heimdall — it must be translated, which breaks byte-level hash drift detection.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ecosystem-review-C10",
+    "source": "codex-round-2",
+    "text": "'Phase A and B concurrent' understates coupling: munin-memory security review can surface auth/session/retry findings that invalidate the transport assumptions baked into Hugin's canonical client. Phase B is not independent of Phase A's standardization.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ecosystem-review-C11",
+    "source": "codex-round-2",
+    "text": "Canonical source moved from 'shared package host' to 'Hugin by fiat'. Hugin is a consumer of the Munin protocol, not the protocol owner. Declaring it canonical because it has the mature client is expedient but makes consumer implementation detail masquerade as ecosystem contract authority.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ecosystem-review-C12",
+    "source": "codex-round-2",
+    "text": "Revised plan compressed three distinct contract surfaces (Munin HTTP client behavior, Heimdall→Hugin task submission shape, Skuld SQLite vs HTTP fallback equivalence, wire-format drift) into one regression test. Too much compression; one test can't cover the matrix.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ecosystem-review-C13",
+    "source": "codex-round-2",
+    "text": "Phase C is rhetorical not real: fortnox-mcp's CI actually runs npm ci / build / test / format:check, not 'npm test + build + tsc --noEmit' as claimed; heimdall has no build script; grimnir is a shell repo. 'Copy fortnox CI' is not literal — it's shorthand for 'design a new variant', and conditional-on-value for a solo maintainer means it will never ship.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ecosystem-review-C14",
+    "source": "codex-round-2",
+    "text": "Both versions of the plan missed contract ownership. Neither explicitly states who owns the Munin HTTP client contract, the Hugin task submission schema, or Skuld's fast-path vs fallback contract. Without ownership, 'canonical' is just whichever file was copied first.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ecosystem-review-C15",
+    "source": "codex-round-2",
+    "text": "Final verdict: write the contract spec first. Before any copying or parallel security work, a short grimnir/docs/architecture.md section should name the canonical contracts, their owners, and the minimum regression matrix required to protect them.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  }
+]

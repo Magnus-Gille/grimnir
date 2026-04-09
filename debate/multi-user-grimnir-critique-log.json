@@ -1,0 +1,182 @@
+[
+  {
+    "id": "multi-user-C01",
+    "source": "codex-round-1",
+    "text": "Auth must be inside tool handlers (AccessContext), not just HTTP middleware — memory_orient, memory_attention, memory_history, memory_get all bypass namespace filtering",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C02",
+    "source": "codex-round-1",
+    "text": "memory_orient leaks owner-global dashboard on first call by any user",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C03",
+    "source": "codex-round-1",
+    "text": "Blast radius analysis incomplete — direct SQLite readers (Skuld, Heimdall), Hugin code execution, and Mimir are all bypass surfaces",
+    "classification": "valid",
+    "impact": "partially_changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "multi-user-C04",
+    "source": "codex-round-1",
+    "text": "Grace period migration creates unauthenticated window alongside new users",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C05",
+    "source": "codex-round-1",
+    "text": "Token storage must be hashed, not raw — follow existing OAuth pattern",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C06",
+    "source": "codex-round-1",
+    "text": "conversations/* leaks social graph metadata even with pair scoping",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "multi-user-C07",
+    "source": "codex-round-1",
+    "text": "403 errors violate silent-block requirement and reveal hidden namespaces",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C08",
+    "source": "codex-round-1",
+    "text": "Namespace taxonomy should use users/<id>/* not name-based roots — inconsistent and fragile",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C09",
+    "source": "codex-round-1",
+    "text": "Sara's /collab UX needs inbox abstraction, not manual polling",
+    "classification": "valid",
+    "impact": "partially_changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C10",
+    "source": "codex-round-1",
+    "text": "Prefix matching needs segment-based comparison after canonicalization, not raw startsWith",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "multi-user-C11",
+    "source": "codex-round-1",
+    "text": "Rate limiting must be per-principal, not global bucket",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C12",
+    "source": "codex-round-1",
+    "text": "Principal-aware audit records needed — current agent_id is 'default'",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C13",
+    "source": "codex-round-1",
+    "text": "Admin CLI essential — without it Magnus becomes a human SQLite parser",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C14",
+    "source": "codex-round-1",
+    "text": "Mimir multi-user must be explicitly deferred, not silently assumed",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "multi-user-C15",
+    "source": "codex-round-2",
+    "text": "User-safe denial semantics can create false-success bugs — agent needs machine-readable denial signal even if human sees 'not found'",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C16",
+    "source": "codex-round-2",
+    "text": "Need complete tool-by-tool authorization matrix, not just fixing named dangerous tools",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C17",
+    "source": "codex-round-2",
+    "text": "memory_orient needs a principal-specific entry experience, not just filtered output",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C18",
+    "source": "codex-round-2",
+    "text": "Inbox-based collab needs unread/pickup/duplicate/expiry semantics defined",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C19",
+    "source": "codex-round-2",
+    "text": "Telegram notifications should stay out of Phase 1 — widens trust surface",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "multi-user-C20",
+    "source": "codex-round-2",
+    "text": "Direct-SQLite readers (Skuld, Heimdall) must be explicitly classified as owner-only in Phase 1",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  }
+]

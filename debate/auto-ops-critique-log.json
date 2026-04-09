@@ -1,0 +1,83 @@
+[
+  {
+    "id": "AO-C01",
+    "source": "codex-round-1",
+    "text": "No baseline data for hourly sync frequency — cadence is aesthetic, not empirical",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "AO-C02",
+    "source": "codex-round-1",
+    "text": "validate-registry.sh duplicates generator's collection logic (systemctl, health, Munin plumbing) — third copy of same pattern",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "AO-C03",
+    "source": "codex-round-1",
+    "text": "Cross-host problem is design requirement, not implementation detail — mimir on Pi 2 can't be checked locally",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "AO-C04",
+    "source": "codex-round-1",
+    "text": "Adding 4+ systemd units to fix maintenance doesn't reduce complexity, just relocates it",
+    "classification": "partially_valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "AO-C05",
+    "source": "codex-round-1",
+    "text": "Detect+report without act is observability increment, not autonomous operations",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "AO-C06",
+    "source": "codex-round-1",
+    "text": "Skuld integration is speculative — no proven consumer contract for validation results",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "AO-C07",
+    "source": "codex-round-2",
+    "text": "Job-scoped git pull conflicts with security scan's read-only hardening (ProtectSystem=strict, ReadOnlyPaths)",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "AO-C08",
+    "source": "codex-round-2",
+    "text": "registry.js discards host metadata — QUERY=systemd and QUERY=ports return names without hosts, so collector is structurally host-blind",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "AO-C09",
+    "source": "codex-round-2",
+    "text": "Adding pull-before-run to generator changes it from idempotent doc tool to state-mutating maintenance command",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  }
+]

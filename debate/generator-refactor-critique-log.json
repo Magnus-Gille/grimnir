@@ -1,0 +1,92 @@
+[
+  {
+    "id": "generator-refactor-C01",
+    "source": "codex-round-1",
+    "text": "docs/sections/ directory is unjustified complexity for single-maintainer repo",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "generator-refactor-C02",
+    "source": "codex-round-1",
+    "text": "{{PLACEHOLDER}} substitution is home-grown templating after rejecting templating",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "generator-refactor-C03",
+    "source": "codex-round-1",
+    "text": "Full CLAUDE.md inlining is bloat — operational instructions, not architecture",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "generator-refactor-C04",
+    "source": "codex-round-1",
+    "text": "Concrete drift already exists between script and architecture.md (noxctl naming, ownership, MacBook node)",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "generator-refactor-C05",
+    "source": "codex-round-1",
+    "text": "Component deep dives are mostly repo inventory dump, not architecture",
+    "classification": "partially_valid",
+    "impact": "partially_changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "generator-refactor-C06",
+    "source": "codex-round-1",
+    "text": "Use existing architecture.md as curated source instead of inventing new section files",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "generator-refactor-C07",
+    "source": "codex-round-2",
+    "text": "Slim component table with role/port is still mixing stable facts with snapshot — role and port belong in curated doc",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "generator-refactor-C08",
+    "source": "codex-round-2",
+    "text": "Dependency appendix status unresolved (optional vs included)",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "generator-refactor-C09",
+    "source": "codex-round-2",
+    "text": "Assembled doc mixes curated future-state and generated roadmap — different truth types with different update rhythms",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "generator-refactor-C10",
+    "source": "codex-round-2",
+    "text": "Must define authority boundary (which facts belong to architecture.md vs snapshot.md) BEFORE touching the generator",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  }
+]

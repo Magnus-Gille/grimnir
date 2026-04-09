@@ -1,0 +1,119 @@
+[
+  {
+    "id": "doc-arch-C01",
+    "source": "codex-round-1",
+    "text": "Five layers is over-engineered for a 7-component personal system; no evidence of current documentation failure justifying this",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "doc-arch-C02",
+    "source": "codex-round-1",
+    "text": "Nightly persona interviews will produce noise, not signal — system doesn't change enough between nights",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "doc-arch-C03",
+    "source": "codex-round-1",
+    "text": "Generator is wired around CLAUDE.md; introducing ARCHITECTURE.md without rewiring creates immediate drift",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "doc-arch-C04",
+    "source": "codex-round-1",
+    "text": "Hugin port disagreement (3032 vs 3035) proves authority problem, not layering problem",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "doc-arch-C05",
+    "source": "codex-round-1",
+    "text": "Diff-based digest is underspecified; LLM text variance makes naive diff noisy",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "doc-arch-C06",
+    "source": "codex-round-1",
+    "text": "Munin already acts as documentation layer; plan understates duplication risk",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "doc-arch-C07",
+    "source": "codex-round-1",
+    "text": "ADR-lite (docs/decisions/) might suffice instead of per-repo ARCHITECTURE.md",
+    "classification": "partially_valid",
+    "impact": "partially_changed",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "doc-arch-C08",
+    "source": "codex-round-1",
+    "text": "L5 operationally coupled to huginmunin host — should be explicitly documented",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "doc-arch-C09",
+    "source": "codex-round-2",
+    "text": "User perspectives layer preserved by assertion of novelty, not evidence of value",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "doc-arch-C10",
+    "source": "codex-round-2",
+    "text": "Folding vision into architecture.md increases blast radius of staleness",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "doc-arch-C11",
+    "source": "codex-round-2",
+    "text": "Structured interviews create new schema/governance problem without clear ownership",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "doc-arch-C12",
+    "source": "codex-round-2",
+    "text": "Need enforcement, not just placement — authority map must have teeth (generator inputs, lint, routing rules)",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "doc-arch-C13",
+    "source": "codex-round-2",
+    "text": "Generator already blurs live snapshot and curated architecture — needs sharper boundaries before adding layers",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  }
+]

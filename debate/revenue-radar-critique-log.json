@@ -1,0 +1,137 @@
+[
+  {
+    "id": "revenue-radar-C01",
+    "source": "codex-round-1",
+    "text": "Skuld is being stretched past its single-purpose role — weekly deep-dive is a separate business ritual, not a briefing",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C02",
+    "source": "codex-round-1",
+    "text": "Munin namespace design mixes too many concerns and violates the two-layer state model",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C03",
+    "source": "codex-round-1",
+    "text": "Value-map scoring (1-5 composite) is pseudo-quantitative and not tied to revenue",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C04",
+    "source": "codex-round-1",
+    "text": "Self-hosted analytics unjustified — adds operational burden without proven value",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "revenue-radar-C05",
+    "source": "codex-round-1",
+    "text": "VIP mentoring needs sales experiments not automated research",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "revenue-radar-C06",
+    "source": "codex-round-1",
+    "text": "Help-me-sell features will produce generic sludge without real case studies and client language",
+    "classification": "valid",
+    "impact": "partially_changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "revenue-radar-C07",
+    "source": "codex-round-1",
+    "text": "Business thesis is backward — should optimize for follow-through and account expansion, not visibility",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C08",
+    "source": "codex-round-1",
+    "text": "Missing revenue streams: account expansion, post-talk follow-on, productized audits, retainers",
+    "classification": "valid",
+    "impact": "partially_changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C09",
+    "source": "codex-round-1",
+    "text": "Proposal assumes bottleneck is signal discovery when real bottleneck is follow-through and packaging",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C10",
+    "source": "codex-round-2",
+    "text": "Outcome metrics proposed but no instrumentation path defined — where do follow-ups/meetings/proposals get captured?",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C11",
+    "source": "codex-round-2",
+    "text": "Source of truth for commercial state (client follow-ups, leads, offers) is undefined",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C12",
+    "source": "codex-round-2",
+    "text": "Proof-point extraction from client deliverables crosses unsettled trust boundaries",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C13",
+    "source": "codex-round-2",
+    "text": "Weekly review risks duplicating daily briefing unless it answers a distinct question",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C14",
+    "source": "codex-round-2",
+    "text": "Revenue Radar name now misleading — scope is commercial follow-through, not market scanning",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "revenue-radar-C15",
+    "source": "codex-round-2",
+    "text": "GitHub signals remain weakly justified unless tied to specific commercial proof assets",
+    "classification": "partially_valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  }
+]

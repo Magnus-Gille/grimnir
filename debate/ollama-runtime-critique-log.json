@@ -1,0 +1,119 @@
+[
+  {
+    "id": "ollama-C01",
+    "source": "codex-round-1",
+    "text": "RAM budget is unmeasured speculation; overlap of ollama model residency + Claude SDK subprocess is the real risk",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "ollama-C02",
+    "source": "codex-round-1",
+    "text": "Fallback collapses 'host unreachable' and 'model inadequate' into same escape hatch, erasing experiment signal",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "ollama-C03",
+    "source": "codex-round-1",
+    "text": "Background polling laptop every 60s is noise; lazy resolution with negative caching is better",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ollama-C04",
+    "source": "codex-round-1",
+    "text": "Journal analysis proves plumbing, not portability; too easy for the Seidr experiment bar",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "ollama-C05",
+    "source": "codex-round-1",
+    "text": "Context injection via loadContextForOllama() makes Hugin responsible for semantic context policy — ad-hoc Seidr risk",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ollama-C06",
+    "source": "codex-round-1",
+    "text": "Non-streaming breaks Hugin's existing operational contract (incremental logs, partial capture on timeout)",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ollama-C07",
+    "source": "codex-round-1",
+    "text": "Adding a third bespoke branch in pollOnce() creates maintenance burden; should use clean executor interface",
+    "classification": "partially_valid",
+    "impact": "partially_changed",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ollama-C08",
+    "source": "codex-round-2",
+    "text": "'Harder task within first week' is too vague — name the task before implementation, it shapes what metadata the runtime must preserve",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ollama-C09",
+    "source": "codex-round-2",
+    "text": "Context-refs needs a precise contract: grammar, serialization order, missing-ref handling, truncation logging",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ollama-C10",
+    "source": "codex-round-2",
+    "text": "Byte budget is wrong abstraction; need deterministic character budget with explicit truncation rules",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ollama-C11",
+    "source": "codex-round-2",
+    "text": "RAM measurement needs an admission rule at runtime, not just a pre-implementation gate",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ollama-C12",
+    "source": "codex-round-2",
+    "text": "Journal needs host_requested vs host_effective, model_requested vs model_effective, context refs resolved, truncation status",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "ollama-C13",
+    "source": "codex-round-2",
+    "text": "Laptop support risks mixing model/host/network variables in first experiment; should be controlled",
+    "classification": "partially_valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  }
+]

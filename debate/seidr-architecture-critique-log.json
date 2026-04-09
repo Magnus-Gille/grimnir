@@ -1,0 +1,110 @@
+[
+  {
+    "id": "seidr-C01",
+    "source": "codex-round-1",
+    "text": "Seidr is premature: building abstraction before second consumer exists means choosing shape blind",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "seidr-C02",
+    "source": "codex-round-1",
+    "text": "Portable skill definitions are a category error: execution strategy is scaffolding-specific, only intent/constraints/capabilities are portable",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "seidr-C03",
+    "source": "codex-round-1",
+    "text": "MCP-only interface contradicts stated model-agnostic goals — should be HTTP REST with MCP adapter",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "seidr-C04",
+    "source": "codex-round-1",
+    "text": "Pi resource analysis used wrong spec (4GB vs documented 8GB), overall analysis was sloppy",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "seidr-C05",
+    "source": "codex-round-1",
+    "text": "Munin can serve conventions as documents for now — Seidr's delta is mostly template expansion (~50 lines of logic)",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "seidr-C06",
+    "source": "codex-round-1",
+    "text": "Multi-agent coordination belongs in execution layer (Hugin), not context layer (Seidr) — draft conflated the two",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "seidr-C07",
+    "source": "codex-round-1",
+    "text": "SCION/Hugin improvements are the grounded near-term priority based on observed pain, not hypothetical portability",
+    "classification": "partially_valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "seidr-C08",
+    "source": "codex-round-1",
+    "text": "'Build the second thing first, abstract later' is wiser — turns portability from imagined to observed requirement",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "seidr-C09",
+    "source": "codex-round-2",
+    "text": "Setting up ollama is not the same as building the second consumer — model routing != scaffolding independence",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "seidr-C10",
+    "source": "codex-round-2",
+    "text": "First experiment task must exercise real portability boundary (conventions, capability discovery, tool discipline), not just summarization",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "seidr-C11",
+    "source": "codex-round-2",
+    "text": "Revised plan lacks explicit decision gates — what findings would justify Munin-only vs shared library vs Seidr?",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "seidr-C12",
+    "source": "codex-round-2",
+    "text": "Skills audit should be grounded by implementation experience, not done as desk taxonomy before the consumer exists",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  }
+]

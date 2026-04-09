@@ -1,0 +1,110 @@
+[
+  {
+    "id": "hugin-signals-C01",
+    "source": "codex-round-1",
+    "text": "Heimdall already computes success rate via getTaskSuccessRate() — Option B duplicates existing work",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "hugin-signals-C02",
+    "source": "codex-round-1",
+    "text": "Journal doesn't contain type tags — by_type breakdown can't be computed from current data",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "hugin-signals-C03",
+    "source": "codex-round-1",
+    "text": "Parse failures and stale-recovery failures bypass the journal entirely — journal is not authoritative for all outcomes",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "hugin-signals-C04",
+    "source": "codex-round-1",
+    "text": "Schema is over-designed — 9 analytic concepts for a 2-day-old journal with <20 entries",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "hugin-signals-C05",
+    "source": "codex-round-1",
+    "text": "Thermometer reframing is valid — vision says measurable signal, not self-computed analytics",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "hugin-signals-C06",
+    "source": "codex-round-1",
+    "text": "Timeout calibration is a better next signal than another success rate layer",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "hugin-signals-C07",
+    "source": "codex-round-1",
+    "text": "Existing Heimdall queue metrics have a bug — runtime parsed as duration string",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "hugin-signals-C08",
+    "source": "codex-round-2",
+    "text": "Revised plan has unresolved fork — 'journal or Munin task results' are not interchangeable inputs",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "hugin-signals-C09",
+    "source": "codex-round-2",
+    "text": "Plan bundles three separate jobs (telemetry, metric, publishing) that should be independent",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "hugin-signals-C10",
+    "source": "codex-round-2",
+    "text": "Munin summary needs explicit metadata (computed_at, window, sample_size, source) to be trustworthy",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "hugin-signals-C11",
+    "source": "codex-round-2",
+    "text": "Fix existing Heimdall metric integrity bug before layering new analytics on top",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "hugin-signals-C12",
+    "source": "codex-round-2",
+    "text": "Journal expansion for type tags is scope creep — not needed for timeout calibration",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false
+  }
+]

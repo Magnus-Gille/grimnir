@@ -1,0 +1,74 @@
+[
+  {
+    "id": "SR-C01",
+    "source": "codex-round-1",
+    "text": "The registry tries to unify too many concerns (deploy, monitoring, systemd, docs) into one schema with many optional/null fields",
+    "classification": "partially_valid",
+    "impact": "partially_changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "SR-C02",
+    "source": "codex-round-1",
+    "text": "The node -e helper interpolates shell values into JS source, omits --input-type=commonjs, has no error handling",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "SR-C03",
+    "source": "codex-round-1",
+    "text": "Authority split between services.json and conventions.md creates a third file to check, not fewer",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "SR-C04",
+    "source": "codex-round-1",
+    "text": "Validation via Heimdall is aspirational — listed as unknown in same draft that proposes it",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "SR-C05",
+    "source": "codex-round-1",
+    "text": "A TSV/bash manifest or direct fix of drift points may be sufficient for 7 services",
+    "classification": "partially_valid",
+    "impact": "rejected",
+    "severity": "minor",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "SR-C06",
+    "source": "codex-round-2",
+    "text": "The core entity definition excludes fortnox-mcp which is a real current consumer of security-scan.sh — forces a modeling decision about scope",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "SR-C07",
+    "source": "codex-round-2",
+    "text": "Generator validation is single-host but services span two hosts — cross-host validation not addressed",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "SR-C08",
+    "source": "codex-round-2",
+    "text": "Making registry truly authoritative requires updating architecture.md and authority.md, not just conventions.md port table",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false
+  }
+]
