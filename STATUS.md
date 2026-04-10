@@ -1,33 +1,29 @@
 # Grimnir System — Status
 
-**Last session:** 2026-04-09
+**Last session:** 2026-04-11
 **Branch:** main
 
 ## Completed This Session
 
-### Ecosystem review plan — post-debate, committed
-- Drafted cross-repo review plan for the 9-repo Grimnir system (divergent MuninClients, heimdall's hand-rolled JSON-RPC call sites, skuld's direct SQLite coupling, missing contract ownership)
-- Stress-tested via Codex debate (2 rounds, 15 critique points, 33% self-review catch rate)
-- Collapsed original 5-phase program to Step 0 + Phase A + Phase B + conditional Phase C
-- Plan committed to `docs/ecosystem-review-plan.md`
-- Tracking issue: Magnus-Gille/grimnir#7 (added to Grimnir Roadmap project)
-- Munin index entry at `projects/grimnir/ecosystem-review-plan` for cross-environment discoverability
+### Pi grimnir repo drift — fixed
+- Pi's `/home/magnus/repos/grimnir` was 29 commits behind `origin/main` with a pile of uncommitted modifications and untracked files
+- Verified every local change was stale echo of origin before touching anything:
+  - Tracked modifications were either byte-identical to origin (Makefile, scripts/security-scan.sh) or older versions of files origin had since rewritten
+  - Untracked files (services.json, scripts/deploy.sh, scripts/lib/registry.js, docs/scheduled-tasks.md, systemd/grimnir-validate.*) were byte-identical to origin — leftover from a pre-commit manual copy
+  - services.json was the only outlier — older, missing the verdandi block
+  - `git log origin/main..HEAD` empty; reflog's only local commit (`4d30000`, SCION plan) reachable from origin
+- Cleaned the conflicting files, discarded stale tracked modifications via `git checkout -- .`, fast-forwarded from `a3818b9` to `c6d54b0`
+- `.claude/` preserved (not touched)
+- Root cause not diagnosed — grimnir-validate.timer is supposed to catch drift like this, but didn't surface it; possibly the timer isn't installed on the Pi yet (it was listed as an open next-step from the 2026-04-01 session)
 
-### Debate corpus now tracked in git
-- Upgraded `.gitignore` from "ignore all `debate/`" to track `INDEX.md`, `*-summary.md`, `*-critique-log.json`
-- Pulled 14 existing debate summaries + critique logs into git history
-- Rationale: enables cross-debate pattern recognition (catch-rate trends, severity distribution) without committing raw drafts/rebuttals
-
-### Debate-codex skill updated
-- Git Handling section rewritten to match the new default pattern
-- Rationale and two exception cases documented
-- Change is in the skills repo HEAD (pushed)
-
-### Commits
-- `62c3130` docs: commit ecosystem review plan and debate summaries
+### Prior session context (2026-04-09)
+- Ecosystem review plan committed at `docs/ecosystem-review-plan.md`, tracking issue grimnir#7, plan stress-tested via Codex debate
+- Debate corpus now tracked in git via upgraded gitignore
+- Debate-codex skill updated with new default git-handling pattern
 
 ## Next Steps
 
+0. **Verify grimnir-validate.timer is installed on the Pi** — if it's missing, drift can reach 29+ commits unseen. Check `systemctl list-timers | grep grimnir-validate` on huginmunin. If absent, `systemctl enable --now grimnir-validate.timer` via deploy.
 1. **Step 0 — Write cross-service contracts section in `docs/architecture.md`** (grimnir#7). This blocks everything else in the ecosystem review program. Named contracts, named owners per contract, regression matrix, evolution rules.
 2. **Phase A — Integration fixes** (2-3 sessions). MuninClient copy for Ratatoskr, CommonJS adapter for Heimdall, Skuld interface wrap, three contract tests, per-file contract ownership comments.
 3. **Phase B — Targeted `/security-review`** (3 sessions, concurrent with A). munin-memory first (sharded), ratatoskr next, hugin after Phase A #1 stabilizes. Draft `docs/threat-model.md` afterward.
