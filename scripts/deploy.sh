@@ -174,6 +174,14 @@ deploy_service() {
 
   local cmd="cd '$deploy_path' && "
   if [[ "$unit_type" == "service" ]]; then
+    # Sync unit file from repo's systemd/ subdir if present (no placeholders expected there)
+    cmd+="if [ -f systemd/${name}.service ]; then"
+    cmd+=" sudo cp systemd/${name}.service /etc/systemd/system/${name}.service"
+    cmd+=" && sudo systemctl daemon-reload"
+    cmd+=" && echo '  unit file synced'; fi && "
+    # Kill any leftover user-unit instance holding the port before the system unit restarts
+    cmd+="systemctl --user stop ${name} 2>/dev/null || true && "
+    cmd+="systemctl --user disable ${name} 2>/dev/null || true && "
     cmd+="sudo systemctl restart ${name} && "
   fi
   cmd+="echo 'DEPLOY_OK'"
