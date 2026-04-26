@@ -1,0 +1,7 @@
+tunnel: 3ab992c7-9b35-4956-9d5f-558669c05293
+credentials-file: /etc/cloudflared/3ab992c7-9b35-4956-9d5f-558669c05293.json
+
+ingress:
+  - hostname: munin-memory.gille.ai
+    service: http://localhost:3030
+  - service: http_status:404

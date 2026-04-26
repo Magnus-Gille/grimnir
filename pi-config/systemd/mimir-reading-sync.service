@@ -1,0 +1,7 @@
+[Unit]
+Description=Pull mimir/reading/ from NAS for Heimdall /read
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rsync -a --delete --timeout=30 magnus@nas:/home/magnus/mimir/reading/ /home/magnus/mimir/reading/

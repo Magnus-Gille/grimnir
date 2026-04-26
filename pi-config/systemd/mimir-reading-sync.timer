@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic pull of mimir/reading/ from NAS
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=mimir-reading-sync.service
+
+[Install]
+WantedBy=timers.target
