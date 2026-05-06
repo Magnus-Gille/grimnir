@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-SCANNER_VERSION="1.0.0"
+SCANNER_VERSION="1.1.0"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
@@ -346,6 +346,20 @@ for repo in $SCAN_COMPONENTS; do
       log_verbose "    Skipping .env.example: $relfile"
       continue
     fi
+
+    # Skip test files. Detection tests intentionally embed realistic-looking
+    # patterns (e.g. sk-ant-... in tests/sensitivity.test.ts) to verify the
+    # sensitivity / exfiltration scanners. Real secrets should never live in
+    # tests — use env vars or placeholder fixtures.
+    case "$relfile" in
+      tests/*|test/*|*/tests/*|*/test/*|__tests__/*|*/__tests__/*|*/__mocks__/*|\
+      *.test.ts|*.test.tsx|*.test.js|*.test.jsx|*.test.mjs|*.test.cjs|\
+      *.spec.ts|*.spec.tsx|*.spec.js|*.spec.jsx|*.spec.mjs|*.spec.cjs|\
+      *_test.py|*_test.go)
+        log_verbose "    Skipping test file: $relfile"
+        continue
+        ;;
+    esac
 
     # Skip by extension (fast path)
     case "$relfile" in
