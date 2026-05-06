@@ -1,0 +1,55 @@
+# Egress restriction for the tallriksvis service user (Issue #14, Option A).
+#
+# Pi path: /etc/nftables.d/tallriksvis-egress.nft
+# (or merged into /etc/nftables.conf — depends on existing layout)
+#
+# Apply:
+#   sudo nft -f /etc/nftables.d/tallriksvis-egress.nft
+#   sudo nft list chain inet filter output_tallriksvis
+#
+# Persist across reboot:
+#   Ensure /etc/nftables.conf includes this file (e.g. `include "/etc/nftables.d/*.nft"`).
+#
+# IMPORTANT — fundamental limitation:
+#   nftables filters by IP, not domain. We can't say "allow only api.anthropic.com"
+#   directly because Anthropic uses Cloudflare/AWS IP ranges that change.
+#
+#   Realistic restriction here is "allow tcp/443 only, deny everything else
+#   from the tallriksvis user" — blocks UDP exfil, weird protocols, raw sockets.
+#
+#   For true domain-allowlisting: run an outbound HTTPS proxy (Squid with
+#   ssl-bump, or `tinyproxy` with an upstream allowlist) and force tallriksvis
+#   through HTTPS_PROXY env var. Document that as a follow-up if needed.
+
+table inet filter {
+    chain output_tallriksvis {
+        # This chain is jumped to from the main output chain — see the jump
+        # rule below. Set type/hook/priority on the parent chain, not here.
+
+        # Loopback always
+        oifname "lo" accept
+
+        # Established / related
+        ct state established,related accept
+
+        # DNS — needed to resolve api.anthropic.com. Restrict to common
+        # resolvers; adjust if your local resolver IP differs.
+        meta skuid "tallriksvis" ip daddr { 1.1.1.1, 1.0.0.1, 8.8.8.8, 8.8.4.4 } udp dport 53 accept
+        meta skuid "tallriksvis" ip daddr { 1.1.1.1, 1.0.0.1, 8.8.8.8, 8.8.4.4 } tcp dport 53 accept
+
+        # HTTPS only
+        meta skuid "tallriksvis" tcp dport 443 accept
+
+        # Log + drop everything else from this user
+        meta skuid "tallriksvis" log prefix "tallriksvis-egress-drop: " drop
+    }
+
+    # Hook into the main output chain. If you already have a chain named
+    # "output" with type/hook/priority set, add the jump rule there instead.
+    chain output {
+        type filter hook output priority 0; policy accept;
+
+        # Send tallriksvis user traffic through the restricted chain
+        meta skuid "tallriksvis" jump output_tallriksvis
+    }
+}

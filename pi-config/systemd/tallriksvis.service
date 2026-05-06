@@ -1,0 +1,79 @@
+# Hardened systemd unit for tallriksvis (Issue #14, Option A).
+#
+# Pi path: /etc/systemd/system/tallriksvis.service
+#
+# ONLY APPLY IF tallriksvis is a Node/backend process. If it's static files
+# served by Caddy, this unit is not needed — Caddy is the only process and
+# we don't want to lock down system-wide Caddy here (it serves other things).
+#
+# BEFORE APPLYING:
+#   1. Create a dedicated system user:
+#        sudo useradd --system --no-create-home --shell /usr/sbin/nologin tallriksvis
+#   2. Move the deploy directory ownership:
+#        sudo chown -R tallriksvis:tallriksvis /opt/tallriksvis
+#   3. Confirm `ExecStart` and `WorkingDirectory` match the actual layout.
+#   4. Confirm any required env vars (e.g. ANTHROPIC_API_KEY) are set in
+#      /etc/tallriksvis/env (mode 0640, owner root:tallriksvis).
+
+[Unit]
+Description=tallriksvis (sandboxed)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tallriksvis
+Group=tallriksvis
+
+# Adjust to actual layout:
+WorkingDirectory=/opt/tallriksvis
+ExecStart=/usr/bin/node /opt/tallriksvis/server.js
+EnvironmentFile=-/etc/tallriksvis/env
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+# ─── Sandboxing ─────────────────────────────────────────────────────────
+# Filesystem
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/log/tallriksvis
+ReadOnlyPaths=/opt/tallriksvis
+
+# Privileges
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+
+# Capabilities — drop all (Node doesn't need any for HTTP on >1024)
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Memory / CPU caps (adjust if app needs more)
+MemoryMax=256M
+TasksMax=64
+
+# System calls — allow common ones, deny obscure
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+
+# Network — see nftables/tallriksvis-egress.nft for egress filtering
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+PrivateDevices=true
+DevicePolicy=closed
+
+[Install]
+WantedBy=multi-user.target
