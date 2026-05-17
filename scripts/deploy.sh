@@ -13,7 +13,7 @@ GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
 REGISTRY="$GRIMNIR_DIR/services.json"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 
-# Read deployable services from registry: name|repo|host|deploy_path|unit_type|needs_build
+# Read deployable services from registry: name|repo|host|deploy_path|unit_type|needs_build|unit_scope
 SERVICES=()
 while IFS= read -r line; do
   [[ -n "$line" ]] && SERVICES+=("$line")
@@ -95,7 +95,7 @@ resolve_local_path() {
 }
 
 deploy_service() {
-  local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6
+  local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system}
   local local_path
   local remote_host
   local remote
@@ -173,8 +173,19 @@ deploy_service() {
   fi
 
   local cmd="cd '$deploy_path' && "
-  if [[ "$unit_type" == "service" ]]; then
-    # Sync unit file from repo's systemd/ subdir if present (no placeholders expected there)
+  if [[ "$unit_type" == "service" && "$unit_scope" == "user" ]]; then
+    # User unit (systemctl --user). Sync unit file from repo's systemd/
+    # subdir if present, then restart via the *user* manager. No sudo, and
+    # critically no stop/disable of the user instance — for a user-scoped
+    # service that instance IS the service, not a stray leftover.
+    cmd+="if [ -f systemd/${name}.service ]; then"
+    cmd+=" install -D -m644 systemd/${name}.service \"\$HOME/.config/systemd/user/${name}.service\""
+    cmd+=" && systemctl --user daemon-reload"
+    cmd+=" && echo '  user unit file synced'; fi && "
+    cmd+="systemctl --user restart ${name} && "
+  elif [[ "$unit_type" == "service" ]]; then
+    # System unit. Sync unit file from repo's systemd/ subdir if present
+    # (no placeholders expected there).
     cmd+="if [ -f systemd/${name}.service ]; then"
     cmd+=" sudo cp systemd/${name}.service /etc/systemd/system/${name}.service"
     cmd+=" && sudo systemctl daemon-reload"
@@ -210,7 +221,7 @@ deploy_service() {
 requested=("$@")
 
 for entry in "${SERVICES[@]}"; do
-  IFS='|' read -r name repo host deploy_path unit_type needs_build <<< "$entry"
+  IFS='|' read -r name repo host deploy_path unit_type needs_build unit_scope <<< "$entry"
 
   if [[ ${#requested[@]} -gt 0 ]]; then
     match=false
@@ -220,7 +231,7 @@ for entry in "${SERVICES[@]}"; do
     $match || continue
   fi
 
-  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build"
+  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}"
 done
 
 # Summary
