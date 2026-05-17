@@ -47,18 +47,23 @@ var components = data.components;
 switch (query) {
   case 'deploy': {
     // Output format matches what deploy.sh needs:
-    // name|repo|host|deploy_path|primary_unit_type|needs_build
+    // name|repo|host|deploy_path|primary_unit_type|needs_build|unit_scope
     var deployable = components.filter(function (c) { return c.deploy; });
     deployable.forEach(function (c) {
-      // Determine primary unit type from first systemd unit, default to "service"
+      // Determine primary unit type/scope from first systemd unit.
+      // type defaults to "service"; scope defaults to "system" (system
+      // manager). Units running under `systemctl --user` must set
+      // scope:"user" so deploy.sh restarts them correctly.
       var unitType = 'service';
+      var unitScope = 'system';
       if (c.systemd_units && c.systemd_units.length > 0) {
         unitType = c.systemd_units[0].type;
+        unitScope = c.systemd_units[0].scope || 'system';
       }
       var deployPath = c.deploy_path || ('/home/magnus/repos/' + c.repo);
       var needsBuild = c.needs_build ? 'true' : 'false';
       process.stdout.write(
-        c.name + '|' + c.repo + '|' + c.host + '|' + deployPath + '|' + unitType + '|' + needsBuild + '\n'
+        c.name + '|' + c.repo + '|' + c.host + '|' + deployPath + '|' + unitType + '|' + needsBuild + '|' + unitScope + '\n'
       );
     });
     break;

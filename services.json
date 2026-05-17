@@ -23,7 +23,7 @@
       "deploy_path": "/home/magnus/repos/hugin",
       "needs_build": true,
       "systemd_units": [
-        { "name": "hugin", "type": "service" }
+        { "name": "hugin", "type": "service", "scope": "user" }
       ]
     },
     {
@@ -114,7 +114,7 @@
       "deploy_path": "/home/magnus/repos/verdandi",
       "needs_build": true,
       "systemd_units": [
-        { "name": "verdandi", "type": "service" }
+        { "name": "verdandi", "type": "service", "scope": "user" }
       ]
     }
   ]
