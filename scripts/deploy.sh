@@ -117,6 +117,7 @@ deploy_service() {
 
   branch=$(git -C "$local_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
   commit=$(git -C "$local_path" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+  commit_full=$(git -C "$local_path" rev-parse HEAD 2>/dev/null || echo "$commit")
   if [[ -n "$(git -C "$local_path" status --porcelain 2>/dev/null)" ]]; then
     dirty_state="dirty"
     echo -e "${YELLOW}WARN${NC} Deploying local working tree with uncommitted changes"
@@ -157,6 +158,7 @@ deploy_service() {
     --exclude='.env' \
     --exclude='tests/' \
     --exclude='.DS_Store' \
+    --exclude='.deployed-commit' \
     "$local_path/" "$remote:$deploy_path/"; then
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
@@ -195,6 +197,11 @@ deploy_service() {
     cmd+="systemctl --user disable ${name} 2>/dev/null || true && "
     cmd+="sudo systemctl restart ${name} && "
   fi
+  # Stamp the deployed commit so Heimdall's drift detector has an authoritative
+  # source (excluded from rsync above so --delete won't clobber it). Heimdall
+  # reads <deploy_path>/.deployed-commit instead of trusting /health (often no
+  # commit) or the on-Pi .git (stale — rsync excludes it).
+  cmd+="printf '%s\\n' '${commit_full}' > .deployed-commit && "
   cmd+="echo 'DEPLOY_OK'"
 
   local output
