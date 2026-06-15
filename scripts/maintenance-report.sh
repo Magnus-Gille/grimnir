@@ -94,6 +94,12 @@ alert() { $DRY_RUN && { echo "  [dry-run] telegram: $1"; return 0; }; notify_tel
 os_probe_cmd() {
 cat <<'PROBE'
 RR=no; [ -e /var/run/reboot-required ] && RR=yes
+# Backup signal (Debian 13): needrestart kernel status >=2 means the running
+# kernel is older than the installed one — a reboot is recommended.
+if [ "$RR" = no ] && command -v needrestart >/dev/null 2>&1; then
+  KSTA=$(needrestart -b 2>/dev/null | awk -F: '/NEEDRESTART-KSTA/{print $2+0}')
+  [ "${KSTA:-0}" -ge 2 ] 2>/dev/null && RR=yes
+fi
 RRPKGS=0; [ -f /var/run/reboot-required.pkgs ] && RRPKGS=$(wc -l < /var/run/reboot-required.pkgs)
 UU=$(dpkg -l unattended-upgrades 2>/dev/null | grep -c '^ii' || true)
 if [ -x /usr/lib/update-notifier/apt-check ]; then

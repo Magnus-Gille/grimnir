@@ -74,9 +74,14 @@ for host in "${HOSTS[@]}"; do
     continue
   fi
 
-  # 1. Install the package (idempotent).
-  echo "  installing unattended-upgrades…"
-  if ! ssh "$remote" "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y unattended-upgrades >/dev/null 2>&1"; then
+  # 1. Refresh package lists (stale lists cause 404s on install), then install
+  #    the patcher + needrestart (on Debian 13/trixie needrestart is what
+  #    creates the /var/run/reboot-required flag the OS report relies on; the
+  #    old update-notifier-common is gone). Idempotent.
+  echo "  apt-get update…"
+  ssh "$remote" "sudo DEBIAN_FRONTEND=noninteractive apt-get update >/dev/null 2>&1 || true"
+  echo "  installing unattended-upgrades + needrestart…"
+  if ! ssh "$remote" "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y unattended-upgrades needrestart >/dev/null 2>&1"; then
     echo -e "  ${RED}apt install failed${NC}"
     results+=("${RED}✗${NC} $host (apt install)")
     continue
