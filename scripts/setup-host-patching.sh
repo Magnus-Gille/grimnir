@@ -113,17 +113,25 @@ for host in "${HOSTS[@]}"; do
     continue
   fi
 
-  # 3. Ensure the stock timers are enabled (idempotent).
-  ssh "$remote" "sudo systemctl enable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || true"
+  # 3. Ensure the stock timers are enabled (idempotent). These drive the
+  #    actual unattended-upgrade runs, so a failure here is a real failure.
+  if ! ssh "$remote" "sudo systemctl enable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1"; then
+    echo -e "  ${RED}failed to enable apt timers${NC}"
+    results+=("${RED}✗${NC} $host (timer enable)")
+    fail_count=$((fail_count + 1))
+    continue
+  fi
 
-  # 4. Validate the config parses and origins resolve.
+  # 4. Validate the config parses and origins resolve — the confirmation that
+  #    this host will actually apply security upgrades. A failure counts.
   echo "  validating…"
   if ssh "$remote" "sudo unattended-upgrade --dry-run >/dev/null 2>&1"; then
     echo -e "  ${GREEN}OK${NC}"
     results+=("${GREEN}✓${NC} $host")
   else
-    echo -e "  ${YELLOW}installed but --dry-run reported issues (check journalctl)${NC}"
-    results+=("${YELLOW}?${NC} $host (validate)")
+    echo -e "  ${RED}validation failed (unattended-upgrade --dry-run) — check journalctl${NC}"
+    results+=("${RED}✗${NC} $host (validate)")
+    fail_count=$((fail_count + 1))
   fi
 done
 
