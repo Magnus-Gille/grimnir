@@ -26,19 +26,22 @@ echo "=== grimnir-brew-update $ts ==="
 
 [[ -x "$BREW" ]] || { echo "brew not found at $BREW"; exit 1; }
 
-"$BREW" update >/dev/null 2>&1 || echo "warn: brew update failed"
+# Track failures so a broken update/upgrade is surfaced (not logged as healthy).
+fail=0
+"$BREW" update >/dev/null 2>&1 || { echo "warn: brew update failed"; fail=1; }
 
 # Formulae — auto-upgrade.
 n_formulae="$("$BREW" outdated --formula --quiet 2>/dev/null | grep -c . || true)"
 echo "upgrading $n_formulae outdated formula(e)…"
-"$BREW" upgrade --formula 2>&1 | tail -8
+if ! "$BREW" upgrade --formula 2>&1 | tail -8; then echo "warn: brew upgrade --formula had failures"; fail=1; fi
 "$BREW" cleanup -s >/dev/null 2>&1 || true
 
 # Casks — report only.
 casks="$("$BREW" outdated --cask --quiet 2>/dev/null | tr '\n' ' ' | sed 's/ *$//')"
 n_casks="$(printf '%s' "$casks" | wc -w | tr -d ' ')"
 
-summary="brew (laptop) @ $ts: upgraded ${n_formulae} formula(e); ${n_casks} cask(s) need manual upgrade${casks:+: $casks}"
+fail_note=""; [ "$fail" -eq 1 ] && fail_note=" [UPGRADE ERRORS — see log]"
+summary="brew (laptop) @ $ts: upgraded ${n_formulae} formula(e); ${n_casks} cask(s) need manual upgrade${casks:+: $casks}${fail_note}"
 echo "$summary"
 
 # ── Report to Munin + Telegram via a SINGLE heredoc-free SSH command into
@@ -49,7 +52,7 @@ b64="$(printf '%s' "$summary" | base64 | tr -d '\n')"
 reported=""
 for hop in $HOPS; do
   if ssh -o ConnectTimeout=10 -o BatchMode=yes "$hop" \
-       "BREW_SUMMARY_B64='$b64' BREW_NCASKS='$n_casks' bash /home/magnus/repos/grimnir/scripts/maintenance-report.sh brew"; then
+       "BREW_SUMMARY_B64='$b64' BREW_NCASKS='$n_casks' BREW_ALERT='$fail' bash /home/magnus/repos/grimnir/scripts/maintenance-report.sh brew"; then
     reported="$hop"; break
   fi
   echo "  report hop to $hop failed; trying next…"

@@ -141,6 +141,11 @@ run_os() {
       summary+=$'\n'"  $short: UNREACHABLE"
       alerts+=$'\n'"⚠️ $short unreachable for OS maintenance check"
       any_action=true
+      # Overwrite the per-host latest so consumers don't keep seeing a stale
+      # "healthy" value while the host is actually unreachable.
+      report_write "maintenance/os/$short" "latest" \
+        "$short OS status @ $TIMESTAMP"$'\n'"  $short: UNREACHABLE" \
+        "[\"maintenance\",\"os\",\"$short\",\"automated\",\"error\"]"
       continue
     fi
     local rr rrpkgs uu sec all disk kern
@@ -208,7 +213,7 @@ run_deps() {
   echo
 
   local repos; repos="$(REGISTRY_PATH="$REGISTRY" QUERY=scan node --input-type=commonjs "$REGISTRY_JS")"
-  local summary="npm outdated ($RUN_DATE):" grand_total=0 grand_major=0 checked=0
+  local summary="npm outdated ($RUN_DATE):" grand_total=0 grand_major=0 checked=0 errors=0
 
   for repo in $repos; do
     local dir="$REPOS_DIR/$repo"
@@ -216,10 +221,20 @@ run_deps() {
       log_verbose "skip $repo (no package.json under $dir)"; continue
     fi
     checked=$((checked + 1))
-    local out counts total major
-    out="$(cd "$dir" && npm_config_cache="${npm_config_cache:-/tmp/npm-cache}" npm outdated --json 2>/dev/null || true)"
-    counts="$(OUT="$out" node --input-type=commonjs -e '
-      let o={}; try{o=JSON.parse(process.env.OUT||"{}")}catch(e){}
+    local out rc counts total major
+    # npm outdated exits 0 when up to date, 1 when packages ARE outdated, and
+    # nonzero with empty/invalid stdout on a real error (network/registry).
+    # Capture both stdout and exit code so a failed check isn't read as "0".
+    set +e
+    out="$(cd "$dir" && npm_config_cache="${npm_config_cache:-/tmp/npm-cache}" npm outdated --json 2>/dev/null)"
+    rc=$?
+    set -e
+    counts="$(OUT="$out" RC="$rc" node --input-type=commonjs -e '
+      const out=(process.env.OUT||"").trim(), rc=process.env.RC||"0";
+      let o;
+      try { o = out === "" ? {} : JSON.parse(out); }
+      catch (e) { process.stdout.write("ERR"); process.exit(0); }
+      if (out === "" && rc !== "0") { process.stdout.write("ERR"); process.exit(0); }
       let total=0, major=0;
       for (const k of Object.keys(o)) {
         total++;
@@ -229,6 +244,15 @@ run_deps() {
       }
       process.stdout.write(total+" "+major);
     ')"
+    if [[ "$counts" == "ERR" ]]; then
+      errors=$((errors + 1))
+      printf "  %-16s CHECK FAILED (npm rc=%s)\n" "$repo" "$rc"
+      summary+=$'\n'"  $repo: CHECK FAILED"
+      report_write "maintenance/deps/$repo" "latest" \
+        "$repo dependency check FAILED @ $TIMESTAMP (npm outdated rc=$rc)" \
+        "[\"maintenance\",\"deps\",\"$repo\",\"automated\",\"error\"]"
+      continue
+    fi
     total="${counts%% *}"; major="${counts##* }"
     grand_total=$((grand_total + total)); grand_major=$((grand_major + major))
 
@@ -239,17 +263,17 @@ run_deps() {
       "[\"maintenance\",\"deps\",\"$repo\",\"automated\"]"
   done
 
-  summary+=$'\n'"TOTAL: $grand_total outdated across $checked repos ($grand_major major)"
+  summary+=$'\n'"TOTAL: $grand_total outdated across $checked repos ($grand_major major); $errors check error(s)"
   echo
   echo "$summary"
 
   report_write "maintenance/deps/$RUN_DATE" "summary" "$summary" \
     "[\"maintenance\",\"deps\",\"automated\"]"
-  report_log "maintenance/" "npm dependency report run @ $TIMESTAMP — $grand_total outdated ($grand_major major) across $checked repos" \
+  report_log "maintenance/" "npm dependency report run @ $TIMESTAMP — $grand_total outdated ($grand_major major) across $checked repos, $errors error(s)" \
     "[\"maintenance\",\"deps-event\",\"automated\"]"
 
-  if [[ "$grand_total" -gt 0 ]]; then
-    alert "📦 Grimnir deps ($RUN_DATE): $grand_total outdated across $checked repos ($grand_major major bump(s)). Review & bump deliberately.${summary#npm outdated ($RUN_DATE):}"
+  if [[ "$grand_total" -gt 0 || "$errors" -gt 0 ]]; then
+    alert "📦 Grimnir deps ($RUN_DATE): $grand_total outdated across $checked repos ($grand_major major bump(s)), $errors check error(s). Review & bump deliberately.${summary#npm outdated ($RUN_DATE):}"
   fi
   echo
   echo "Done — detect+report only, nothing auto-applied."
@@ -260,21 +284,23 @@ run_deps() {
 # Data arrives via env (heredoc-free single ssh command, robust under launchd):
 #   BREW_SUMMARY_B64  base64 of the one-line summary
 #   BREW_NCASKS       count of casks needing manual upgrade (>0 ⇒ Telegram)
+#   BREW_ALERT        "1" if the laptop run had update/upgrade failures (⇒ Telegram)
 # ═════════════════════════════════════════════════════════════════════════════
 run_brew() {
-  local summary ncasks
+  local summary ncasks balert
   summary="$(printf '%s' "${BREW_SUMMARY_B64:-}" | base64 -d 2>/dev/null || true)"
   [[ -n "$summary" ]] || summary="brew (laptop) @ $TIMESTAMP: (no summary provided)"
   ncasks="${BREW_NCASKS:-0}"
   case "$ncasks" in *[!0-9]*|'') ncasks=0 ;; esac
+  balert="${BREW_ALERT:-0}"
   echo "$summary"
 
   report_write "maintenance/brew/laptop" "latest" "$summary" \
     "[\"maintenance\",\"brew\",\"laptop\",\"automated\"]"
-  report_log "maintenance/" "brew laptop report @ $TIMESTAMP — $ncasks cask(s) need manual upgrade" \
+  report_log "maintenance/" "brew laptop report @ $TIMESTAMP — $ncasks cask(s) need manual upgrade, alert=$balert" \
     "[\"maintenance\",\"brew-event\",\"automated\"]"
 
-  [[ "$ncasks" -gt 0 ]] && alert "🍺 $summary"
+  { [[ "$ncasks" -gt 0 ]] || [[ "$balert" == "1" ]]; } && alert "🍺 $summary"
   echo "Done."
 }
 

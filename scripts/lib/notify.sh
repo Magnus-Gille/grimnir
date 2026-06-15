@@ -53,10 +53,11 @@ notify_telegram() {
     return 0
   fi
 
-  # Fallback: direct Telegram Bot API.
+  # Fallback: direct Telegram Bot API. Pass the token-bearing URL via curl's
+  # --config (stdin) so the bot token never appears in the process argv (ps).
   if [[ -n "$bot_token" ]]; then
-    curl -sS -m 8 -o /dev/null \
-      "https://api.telegram.org/bot${bot_token}/sendMessage" \
+    printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$bot_token" | \
+    curl -sS -m 8 -o /dev/null --config - \
       --data-urlencode "chat_id=${chat_id}" \
       --data-urlencode "text=${msg}" 2>/dev/null || true
   else

@@ -203,9 +203,9 @@ deploy_service() {
     # (Previously timers were installed entirely by hand; this closes that gap.)
     # `|| continue` keeps a non-matching glob (left literal when nullglob is
     # unset) from leaking a failed `[ -f ]` status into the && chain.
-    cmd+="for u in systemd/*.service systemd/*.timer; do [ -f \"\$u\" ] || continue; sudo cp \"\$u\" /etc/systemd/system/; done && "
+    cmd+="for u in systemd/*.service systemd/*.timer; do [ -f \"\$u\" ] || continue; sudo cp \"\$u\" /etc/systemd/system/ || exit 1; done && "
     cmd+="sudo systemctl daemon-reload && "
-    cmd+="for t in systemd/*.timer; do [ -f \"\$t\" ] || continue; sudo systemctl enable --now \"\$(basename \"\$t\")\"; done && "
+    cmd+="for t in systemd/*.timer; do [ -f \"\$t\" ] || continue; sudo systemctl enable --now \"\$(basename \"\$t\")\" || exit 1; done && "
     cmd+="echo '  timers synced & enabled' && "
   fi
   # Stamp the deployed commit so Heimdall's drift detector has an authoritative

@@ -55,16 +55,29 @@ echo "Hosts: ${HOSTS[*]}"
 $DRY_RUN && echo -e "${YELLOW}DRY RUN — no changes will be made${NC}"
 echo
 
+# Resolve a reachable user@host: try the .local name, then the bare name over
+# Tailscale (mirrors deploy.sh's resolve_host — mDNS can flake under automation).
+resolve_remote() {
+  local host="$1" bare="${1%.local}"
+  if ssh -o ConnectTimeout=6 -o BatchMode=yes "$DEPLOY_USER@$host" true 2>/dev/null; then
+    echo "$DEPLOY_USER@$host"; return 0
+  fi
+  if [[ "$bare" != "$host" ]] && ssh -o ConnectTimeout=6 -o BatchMode=yes "$DEPLOY_USER@$bare" true 2>/dev/null; then
+    echo "$DEPLOY_USER@$bare"; return 0
+  fi
+  return 1
+}
+
 results=()
 for host in "${HOSTS[@]}"; do
   echo -e "${YELLOW}▶ $host${NC}"
-  remote="$DEPLOY_USER@$host"
 
-  if ! ssh -o ConnectTimeout=8 -o BatchMode=yes "$remote" true 2>/dev/null; then
-    echo -e "  ${RED}unreachable (ssh BatchMode failed)${NC}"
+  if ! remote="$(resolve_remote "$host")"; then
+    echo -e "  ${RED}unreachable (.local and Tailscale bare name both failed)${NC}"
     results+=("${RED}✗${NC} $host (unreachable)")
     continue
   fi
+  [[ "$remote" != "$DEPLOY_USER@$host" ]] && echo "  resolved via $remote"
 
   if $DRY_RUN; then
     echo "  would: apt-get install -y unattended-upgrades"

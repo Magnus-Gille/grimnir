@@ -4,9 +4,9 @@
 // Policy decisions (see docs/scheduled-tasks.md "OS auto-patching"):
 //   * SECURITY ONLY. Only the Debian-Security archive is auto-applied.
 //     Regular Debian and Raspberry Pi Foundation packages (incl. kernel /
-//     firmware) are deliberately NOT auto-upgraded — those land via the
-//     weekly maintenance report for deliberate, human-approved updates
-//     (the "deliberate-over-automatic" principle from the auto-ops debate).
+//     firmware) are deliberately NOT auto-upgraded — those surface via the
+//     daily OS maintenance report (grimnir-maintenance-os) for deliberate,
+//     human-approved updates (the "deliberate-over-automatic" principle).
 //   * NO automatic reboot. A kernel/libc patch that needs a reboot is
 //     surfaced by grimnir-maintenance-os (reboot-required → Munin + Telegram);
 //     Magnus reboots when convenient.
