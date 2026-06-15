@@ -1,7 +1,7 @@
 # Scheduled Tasks Registry
 
 > All automated tasks running on Grimnir infrastructure.
-> Last updated: 2026-03-30.
+> Last updated: 2026-06-15.
 
 ---
 
@@ -71,6 +71,30 @@ All scheduled tasks run on Pi 1 (huginmunin) via systemd timers, except where no
 | **Output** | Munin: `security/scans/{date}`, per-repo results in `security/repos/*` |
 | **Why it exists** | Automated dependency vulnerability and secret leak detection |
 
+### OS Maintenance Report
+
+| Field | Value |
+|-------|-------|
+| **Schedule** | Daily 07:00 local (+5 min jitter) |
+| **Unit** | `grimnir-maintenance-os.timer` / `grimnir-maintenance-os.service` |
+| **Repo** | `grimnir` |
+| **Script** | `scripts/maintenance-report.sh os` |
+| **Purpose** | Report pending security updates, reboot-required, and disk usage for every Pi host (local + SSH to nas) |
+| **Output** | Munin: `maintenance/os/{host}` and `maintenance/os/{date}`; Telegram alert on action-needed (reboot pending, security updates outstanding, disk tight, patcher missing) |
+| **Why it exists** | Surfaces the half of OS patching that unattended-upgrades cannot do itself — visibility + reboot prompting |
+
+### npm Dependency Report
+
+| Field | Value |
+|-------|-------|
+| **Schedule** | Weekly, Monday 02:10 local (+10 min jitter) |
+| **Unit** | `grimnir-maintenance-deps.timer` / `grimnir-maintenance-deps.service` |
+| **Repo** | `grimnir` |
+| **Script** | `scripts/maintenance-report.sh deps` |
+| **Purpose** | Run `npm outdated` across every service repo under ~/repos and count outdated/major deps |
+| **Output** | Munin: `maintenance/deps/{repo}` and `maintenance/deps/{date}`; weekly Telegram summary when anything is outdated |
+| **Why it exists** | Detect+report only — surfaces stale service dependencies for deliberate, human-approved upgrades (auto-ops debate verdict: never blind auto-bump) |
+
 ### Claude CLI Update
 
 | Field | Value |
@@ -83,10 +107,20 @@ All scheduled tasks run on Pi 1 (huginmunin) via systemd timers, except where no
 
 ---
 
+## OS auto-patching (unattended-upgrades)
+
+Both Pi hosts run `unattended-upgrades`, installed and configured by `scripts/setup-host-patching.sh` (`make patching`) from version-controlled config in `host-config/apt/`:
+- `20auto-upgrades` — enables the stock `apt-daily`/`apt-daily-upgrade` timers to refresh lists and run unattended-upgrades.
+- `50unattended-upgrades` — **security archive only** (`origin=Debian,...-security,label=Debian-Security`), **no automatic reboot**.
+
+Regular Debian and Raspberry Pi Foundation packages (including kernel/firmware) are deliberately NOT auto-upgraded — those surface via the daily OS Maintenance Report for deliberate, human-approved updates. Reboot-required is detected and pushed to Telegram by `grimnir-maintenance-os`; reboots are done by hand. Re-run `make patching` after changing the apt config; `make patching ARGS="--dry-run"` to preview.
+
+---
+
 ## Adding a new scheduled task
 
 1. Create the script in the relevant repo's `scripts/` directory.
 2. Create `systemd/{name}.service` (Type=oneshot) and `systemd/{name}.timer` in the same repo.
 3. Add the timer to Heimdall's `heimdall.config.json` as a `"type": "timer"` service entry.
 4. Update this document.
-5. Deploy: copy units to `/etc/systemd/system/`, `daemon-reload`, `enable --now`.
+5. Deploy: `make deploy ARGS="grimnir"` — `scripts/deploy.sh` now has a timer-install branch that copies units from `systemd/` to `/etc/systemd/system/`, runs `daemon-reload`, and `enable --now`s all timers automatically. No manual systemctl step needed for grimnir-repo timers.

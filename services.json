@@ -101,7 +101,9 @@
       "needs_build": false,
       "systemd_units": [
         { "name": "grimnir-security-scan", "type": "timer" },
-        { "name": "grimnir-validate", "type": "timer" }
+        { "name": "grimnir-validate", "type": "timer" },
+        { "name": "grimnir-maintenance-os", "type": "timer" },
+        { "name": "grimnir-maintenance-deps", "type": "timer" }
       ]
     },
     {
