@@ -69,12 +69,14 @@ resolve_remote() {
 }
 
 results=()
+fail_count=0
 for host in "${HOSTS[@]}"; do
   echo -e "${YELLOW}▶ $host${NC}"
 
   if ! remote="$(resolve_remote "$host")"; then
     echo -e "  ${RED}unreachable (.local and Tailscale bare name both failed)${NC}"
     results+=("${RED}✗${NC} $host (unreachable)")
+    fail_count=$((fail_count + 1))
     continue
   fi
   [[ "$remote" != "$DEPLOY_USER@$host" ]] && echo "  resolved via $remote"
@@ -97,6 +99,7 @@ for host in "${HOSTS[@]}"; do
   if ! ssh "$remote" "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y unattended-upgrades needrestart >/dev/null 2>&1"; then
     echo -e "  ${RED}apt install failed${NC}"
     results+=("${RED}✗${NC} $host (apt install)")
+    fail_count=$((fail_count + 1))
     continue
   fi
 
@@ -106,6 +109,7 @@ for host in "${HOSTS[@]}"; do
      || ! ssh "$remote" "sudo tee /etc/apt/apt.conf.d/50unattended-upgrades >/dev/null" < "$APT_DIR/50unattended-upgrades"; then
     echo -e "  ${RED}failed to write apt config${NC}"
     results+=("${RED}✗${NC} $host (config push)")
+    fail_count=$((fail_count + 1))
     continue
   fi
 
@@ -126,3 +130,10 @@ done
 echo
 echo "── Summary ──"
 for r in "${results[@]}"; do echo -e "  $r"; done
+
+# Non-zero exit if any host hard-failed (validate warnings don't count), so
+# `make patching` surfaces failures to callers/CI rather than reporting success.
+if [[ $fail_count -gt 0 ]]; then
+  echo -e "${RED}${fail_count} host(s) failed${NC}"
+  exit 1
+fi

@@ -114,6 +114,19 @@ echo "SEC_PENDING=${SEC:-0}"; echo "ALL_PENDING=${ALLUP:-0}"; echo "DISK=${DISK:
 PROBE
 }
 
+# Resolve a host to a usable SSH target, mirroring deploy.sh/setup-host-patching:
+# "LOCAL" if it's this machine, else user@.local, else user@bare (Tailscale),
+# else empty (unreachable). Avoids a transient mDNS blip false-flagging a host.
+resolve_remote() {
+  local host="$1" short="${1%%.*}" bare="${1%.local}"
+  if [[ "$short" == "$LOCAL_HOST" ]]; then echo "LOCAL"; return 0; fi
+  if ssh -o ConnectTimeout=6 -o BatchMode=yes "$DEPLOY_USER@$host" true 2>/dev/null; then
+    echo "$DEPLOY_USER@$host"; return 0; fi
+  if [[ "$bare" != "$host" ]] && ssh -o ConnectTimeout=6 -o BatchMode=yes "$DEPLOY_USER@$bare" true 2>/dev/null; then
+    echo "$DEPLOY_USER@$bare"; return 0; fi
+  return 1
+}
+
 run_os() {
   echo "Grimnir OS maintenance report — $TIMESTAMP (v$REPORT_VERSION)"
   echo
@@ -129,12 +142,16 @@ run_os() {
   local summary="OS patch status ($RUN_DATE):" alerts="" any_action=false
 
   for host in "${HOSTS[@]}"; do
-    local short="${host%%.*}" blob
+    local short="${host%%.*}" blob target
     echo "▶ $host"
-    if [[ "$short" == "$LOCAL_HOST" ]]; then
-      blob="$(bash -c "$probe" 2>/dev/null || true)"
+    if target="$(resolve_remote "$host")"; then
+      if [[ "$target" == "LOCAL" ]]; then
+        blob="$(bash -c "$probe" 2>/dev/null || true)"
+      else
+        blob="$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$target" "$probe" 2>/dev/null || true)"
+      fi
     else
-      blob="$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$DEPLOY_USER@$host" "$probe" 2>/dev/null || true)"
+      target=""; blob=""
     fi
     if [[ -z "$blob" ]]; then
       echo "  unreachable"
@@ -177,7 +194,7 @@ run_os() {
       "[\"maintenance\",\"os\",\"$short\",\"automated\"]"
 
     # Action-needed conditions
-    [[ "$rr" == "yes" ]] && { alerts+=$'\n'"🔁 $short needs a REBOOT ($rrpkgs pkg(s)): $(ssh_pkglist "$host" "$short")"; any_action=true; }
+    [[ "$rr" == "yes" ]] && { alerts+=$'\n'"🔁 $short needs a REBOOT ($rrpkgs pkg(s)): $(ssh_pkglist "$target")"; any_action=true; }
     [[ "${sec:-0}" -gt 0 ]] 2>/dev/null && { alerts+=$'\n'"🔒 $short has $sec security update(s) still pending"; any_action=true; }
     [[ "${uu:-0}" -eq 0 ]] 2>/dev/null && { alerts+=$'\n'"❗ $short: unattended-upgrades NOT installed"; any_action=true; }
     [[ "${disk:-0}" -ge "$DISK_WARN_PCT" ]] 2>/dev/null && { alerts+=$'\n'"💾 $short disk at ${disk}%"; any_action=true; }
@@ -198,11 +215,12 @@ run_os() {
   $any_action && echo "Action needed (alert sent)." || echo "All hosts patched & healthy."
 }
 
-# Best-effort fetch of the reboot-required package list (short) for the alert.
-ssh_pkglist() {  # host short
-  local host="$1" short="$2" cmd='head -3 /var/run/reboot-required.pkgs 2>/dev/null | tr "\n" "," | sed "s/,$//"'
-  if [[ "$short" == "$LOCAL_HOST" ]]; then bash -c "$cmd" 2>/dev/null || true
-  else ssh -o ConnectTimeout=6 -o BatchMode=yes "$DEPLOY_USER@$host" "$cmd" 2>/dev/null || true; fi
+# Best-effort fetch of the reboot-required package list for the alert.
+# Arg is a resolved target from resolve_remote ("LOCAL" or user@host).
+ssh_pkglist() {  # target
+  local target="$1" cmd='head -3 /var/run/reboot-required.pkgs 2>/dev/null | tr "\n" "," | sed "s/,$//"'
+  if [[ "$target" == "LOCAL" ]]; then bash -c "$cmd" 2>/dev/null || true
+  else ssh -o ConnectTimeout=6 -o BatchMode=yes "$target" "$cmd" 2>/dev/null || true; fi
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -234,12 +252,19 @@ run_deps() {
       let o;
       try { o = out === "" ? {} : JSON.parse(out); }
       catch (e) { process.stdout.write("ERR"); process.exit(0); }
-      if (out === "" && rc !== "0") { process.stdout.write("ERR"); process.exit(0); }
+      // Error states (only when rc!=0): empty output, or npm error envelope
+      // {"error":{code,summary,...}}. Distinguish that from a real dependency
+      // literally named "error" (which has current/wanted/latest fields).
+      const errEnv = o && o.error && typeof o.error === "object" &&
+        !("latest" in o.error || "current" in o.error || "wanted" in o.error);
+      if (rc !== "0" && (out === "" || errEnv)) { process.stdout.write("ERR"); process.exit(0); }
       let total=0, major=0;
       for (const k of Object.keys(o)) {
+        const e = o[k];
+        if (!e || typeof e !== "object") continue;   // skip non-dependency entries
         total++;
-        const cur=(o[k].current||o[k].wanted||"0").split(".")[0];
-        const lat=(o[k].latest||"0").split(".")[0];
+        const cur=(e.current||e.wanted||"0").split(".")[0];
+        const lat=(e.latest||"0").split(".")[0];
         if (Number(lat) > Number(cur)) major++;
       }
       process.stdout.write(total+" "+major);

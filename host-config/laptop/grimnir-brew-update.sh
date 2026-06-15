@@ -30,14 +30,21 @@ echo "=== grimnir-brew-update $ts ==="
 fail=0
 "$BREW" update >/dev/null 2>&1 || { echo "warn: brew update failed"; fail=1; }
 
-# Formulae — auto-upgrade.
-n_formulae="$("$BREW" outdated --formula --quiet 2>/dev/null | grep -c . || true)"
+# Formulae — auto-upgrade. Capture the outdated query separately so a failed
+# query (vs. genuinely nothing outdated) is flagged, not silently read as 0.
+if ! formula_list="$("$BREW" outdated --formula --quiet 2>/dev/null)"; then
+  echo "warn: brew outdated --formula query failed"; fail=1; formula_list=""
+fi
+n_formulae="$(printf '%s' "$formula_list" | grep -c . || true)"
 echo "upgrading $n_formulae outdated formula(e)…"
 if ! "$BREW" upgrade --formula 2>&1 | tail -8; then echo "warn: brew upgrade --formula had failures"; fail=1; fi
 "$BREW" cleanup -s >/dev/null 2>&1 || true
 
 # Casks — report only.
-casks="$("$BREW" outdated --cask --quiet 2>/dev/null | tr '\n' ' ' | sed 's/ *$//')"
+if ! casks_raw="$("$BREW" outdated --cask --quiet 2>/dev/null)"; then
+  echo "warn: brew outdated --cask query failed"; fail=1; casks_raw=""
+fi
+casks="$(printf '%s' "$casks_raw" | tr '\n' ' ' | sed 's/ *$//')"
 n_casks="$(printf '%s' "$casks" | wc -w | tr -d ' ')"
 
 fail_note=""; [ "$fail" -eq 1 ] && fail_note=" [UPGRADE ERRORS — see log]"
