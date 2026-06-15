@@ -54,6 +54,8 @@ Repos are named after the component, lowercase. The GitHub org matches the opera
 | `skuld.timer` | Daily 06:00 | Morning intelligence briefing |
 | `grimnir-security-scan.timer` | Weekly Sun 03:00 | Dependency audit + secret scan across all repos |
 | `grimnir-validate.timer` | Daily 04:30 | Registry vs live state validation, results to Munin |
+| `grimnir-maintenance-os.timer` | Daily 07:00 | OS patch status (pending security, reboot-required, disk) across all Pis → Munin + Telegram |
+| `grimnir-maintenance-deps.timer` | Weekly Mon 02:10 | npm outdated across service repos → Munin (detect+report only) |
 
 ## Service patterns
 
