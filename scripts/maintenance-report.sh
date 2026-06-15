@@ -100,7 +100,7 @@ if [ "$RR" = no ] && command -v needrestart >/dev/null 2>&1; then
   KSTA=$(needrestart -b 2>/dev/null | awk -F: '/NEEDRESTART-KSTA/{print $2+0}')
   [ "${KSTA:-0}" -ge 2 ] 2>/dev/null && RR=yes
 fi
-RRPKGS=0; [ -f /var/run/reboot-required.pkgs ] && RRPKGS=$(wc -l < /var/run/reboot-required.pkgs)
+RRPKGS=0; [ -f /var/run/reboot-required.pkgs ] && RRPKGS=$(wc -l < /var/run/reboot-required.pkgs | tr -d ' ')
 UU=$(dpkg -l unattended-upgrades 2>/dev/null | grep -c '^ii' || true)
 if [ -x /usr/lib/update-notifier/apt-check ]; then
   AC=$(/usr/lib/update-notifier/apt-check 2>&1); ALLUP=${AC%;*}; SEC=${AC#*;}

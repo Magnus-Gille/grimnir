@@ -139,8 +139,9 @@ echo
 echo "── Summary ──"
 for r in "${results[@]}"; do echo -e "  $r"; done
 
-# Non-zero exit if any host hard-failed (validate warnings don't count), so
-# `make patching` surfaces failures to callers/CI rather than reporting success.
+# Non-zero exit if any host hard-failed — unreachable, apt install, config push,
+# timer enable, or dry-run validation all count — so `make patching` surfaces
+# failures to callers/CI rather than reporting success.
 if [[ $fail_count -gt 0 ]]; then
   echo -e "${RED}${fail_count} host(s) failed${NC}"
   exit 1
