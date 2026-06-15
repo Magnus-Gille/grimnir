@@ -56,8 +56,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 case "$MODE" in
-  os|deps) ;;
-  *) echo "Usage: $0 {os|deps} [--dry-run] [--verbose] [--munin-token T]" >&2; exit 1 ;;
+  os|deps|brew) ;;
+  *) echo "Usage: $0 {os|deps|brew} [--dry-run] [--verbose] [--munin-token T]" >&2; exit 1 ;;
 esac
 
 log_verbose() { $VERBOSE && echo "  $*" >&2 || true; }
@@ -255,7 +255,31 @@ run_deps() {
   echo "Done — detect+report only, nothing auto-applied."
 }
 
+# ═════════════════════════════════════════════════════════════════════════════
+# BREW MODE — reports a laptop Homebrew run forwarded over SSH from the laptop.
+# Data arrives via env (heredoc-free single ssh command, robust under launchd):
+#   BREW_SUMMARY_B64  base64 of the one-line summary
+#   BREW_NCASKS       count of casks needing manual upgrade (>0 ⇒ Telegram)
+# ═════════════════════════════════════════════════════════════════════════════
+run_brew() {
+  local summary ncasks
+  summary="$(printf '%s' "${BREW_SUMMARY_B64:-}" | base64 -d 2>/dev/null || true)"
+  [[ -n "$summary" ]] || summary="brew (laptop) @ $TIMESTAMP: (no summary provided)"
+  ncasks="${BREW_NCASKS:-0}"
+  case "$ncasks" in *[!0-9]*|'') ncasks=0 ;; esac
+  echo "$summary"
+
+  report_write "maintenance/brew/laptop" "latest" "$summary" \
+    "[\"maintenance\",\"brew\",\"laptop\",\"automated\"]"
+  report_log "maintenance/" "brew laptop report @ $TIMESTAMP — $ncasks cask(s) need manual upgrade" \
+    "[\"maintenance\",\"brew-event\",\"automated\"]"
+
+  [[ "$ncasks" -gt 0 ]] && alert "🍺 $summary"
+  echo "Done."
+}
+
 case "$MODE" in
   os) run_os ;;
   deps) run_deps ;;
+  brew) run_brew ;;
 esac

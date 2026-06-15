@@ -14,7 +14,10 @@ set -uo pipefail
 # launchd runs with a minimal environment — set PATH explicitly.
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
 BREW="/opt/homebrew/bin/brew"
-HOP="magnus@huginmunin.local"
+# Reporting hop targets, tried in order. .local (mDNS) is flaky under launchd
+# ("No route to host"), so fall back to the bare name over Tailscale MagicDNS —
+# same strategy as deploy.sh's resolve_host.
+HOPS="magnus@huginmunin.local magnus@huginmunin"
 LOGDIR="$HOME/.local/share/grimnir-maintenance/logs"
 mkdir -p "$LOGDIR"
 
@@ -38,18 +41,20 @@ n_casks="$(printf '%s' "$casks" | wc -w | tr -d ' ')"
 summary="brew (laptop) @ $ts: upgraded ${n_formulae} formula(e); ${n_casks} cask(s) need manual upgrade${casks:+: $casks}"
 echo "$summary"
 
-# ── Report to Munin + Telegram via SSH-hop into huginmunin (best-effort) ──
-# base64 the message to sidestep all remote-shell quoting issues.
-b64="$(printf '%s' "$summary" | base64)"
-ssh -o ConnectTimeout=8 -o BatchMode=yes "$HOP" "N_CASKS=${n_casks} bash -s" <<REMOTE 2>/dev/null || echo "warn: report hop failed (offline?)"
-set -u
-MSG="\$(printf '%s' '$b64' | base64 -d)"
-source /home/magnus/repos/grimnir/scripts/lib/munin.sh
-source /home/magnus/repos/grimnir/scripts/lib/notify.sh
-munin_discover_token /home/magnus/repos || true
-ARGS="\$(NS='maintenance/brew/laptop' K='latest' C="\$MSG" T='["maintenance","brew","laptop","automated"]' node --input-type=commonjs -e 'console.log(JSON.stringify({namespace:process.env.NS,key:process.env.K,content:process.env.C,tags:JSON.parse(process.env.T)}))')"
-munin_tool_call memory_write "\$ARGS" >/dev/null 2>&1 || true
-if [ "\${N_CASKS:-0}" -gt 0 ]; then notify_telegram "🍺 \$MSG"; fi
-REMOTE
+# ── Report to Munin + Telegram via a SINGLE heredoc-free SSH command into
+# huginmunin, which runs the deployed reporter's `brew` mode. A single ssh
+# command (no heredoc on stdin) is robust under launchd; base64 sidesteps all
+# remote-shell quoting. Best-effort: stderr captured to the log, never fatal.
+b64="$(printf '%s' "$summary" | base64 | tr -d '\n')"
+reported=""
+for hop in $HOPS; do
+  if ssh -o ConnectTimeout=10 -o BatchMode=yes "$hop" \
+       "BREW_SUMMARY_B64='$b64' BREW_NCASKS='$n_casks' bash /home/magnus/repos/grimnir/scripts/maintenance-report.sh brew"; then
+    reported="$hop"; break
+  fi
+  echo "  report hop to $hop failed; trying next…"
+done
+[[ -n "$reported" ]] && echo "reported to Munin/Telegram via $reported" \
+  || echo "warn: report hop failed on all targets — formulae were still upgraded"
 
 echo "done."
