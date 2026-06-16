@@ -39,6 +39,7 @@ Three principles guide every decision:
 | **Verdandi** | Tamper-evident audit log | 3036 | Pi 1 | `verdandi` |
 | **Mimir** | Authenticated file server | 3031 | Pi 2 (NAS) | `mimir` |
 | **noxctl** | Accounting CLI + MCP | — | Laptop (global) | `fortnox-mcp` |
+| **Home-server gateway** | Local-inference gateway + micro-orchestrator | 8080 | BosGame M5 *(awaiting hw)* | `home-server-inference-evaluation` |
 
 ---
 
@@ -82,6 +83,12 @@ graph TB
         Tunnel_Pi2["cloudflared tunnel"]
     end
 
+    subgraph M5["BosGame M5 — Local Inference (planned)"]
+        Gateway_M5["Home-server Gateway<br/>:8080 (auth + admission)"]
+        LMStudio_M5["LM Studio / llama-swap<br/>:1234 (model serving)"]
+        Ledger_M5["Capability Ledger<br/>(verdict KB)"]
+    end
+
     %% Cloud → Edge → Services
     Claude_Web -->|OAuth 2.1| CF
     Claude_Desktop -->|Bearer + mcp-remote| CF
@@ -115,6 +122,9 @@ graph TB
     %% Task flow
     CC -->|submit task| Munin
     Hugin -->|spawn| Claude_Pi
+    Hugin -.->|macro-route: /delegate, /v1/chat| Gateway_M5
+    Gateway_M5 --> LMStudio_M5
+    Gateway_M5 --> Ledger_M5
 ```
 
 ### Hardware
@@ -123,8 +133,9 @@ graph TB
 |------|----------|------|-------------|
 | Pi 1 | `huginmunin.local` | AI infrastructure (compute) | Munin, Hugin, Heimdall, Skuld, Verdandi |
 | Pi 2 | NAS | Storage & backup | Mimir, Samba, Time Machine |
+| M5 | BosGame (TBD) | Local LLM inference (1–5 users) | Home-server gateway, LM Studio / llama-swap |
 
-Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication.
+Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication. The BosGame M5 (awaiting delivery) joins as a dedicated local-inference node — see *Home-server (M5) — Local Inference* below and the gateway API contract in the `home-server-inference-evaluation` repo.
 
 ### Network model
 
@@ -397,6 +408,26 @@ Tags: ["pending", "runtime:claude", "type:code"]
 **Reply routing:** When `Reply-to` is set (e.g., `telegram:12345678`), Ratatoskr polls the task result and delivers it back to the specified channel. Without `Reply-to`, results are only available via Munin.
 
 **Task groups:** `Group` and `Sequence` fields link related sub-tasks. Hugin processes them in FIFO order (submission order). Each sub-task's prompt includes a check for the previous step's success.
+
+---
+
+## Home-server (M5) — Local Inference
+
+The BosGame M5 is a dedicated local-inference node (awaiting delivery). It runs the **home-server gateway** (`home-server-inference-evaluation` repo, port 8080) — an authenticated, OpenAI-compatible front door to locally-served models, plus a deterministic micro-orchestrator and a capability ledger.
+
+### Routing ownership (ADR-004)
+
+- **Hugin owns *macro*-routing** — *which node* should handle a task (M5 / Orin / laptop / Pi). Agentic tasks still flow through Hugin's poll-claim-execute model; verifiable one-shot sub-tasks are macro-routed to an inference node.
+- **The gateway owns *micro*-routing** — *which local model* serves a request, plus external admission (per-key auth, sliding-window quota, owner-preempts-guest GPU admission). Model hot-swap at inference time is owned by `llama-swap`, not the gateway.
+- **`ledger.ts` is the single capability KB** — per-(task_type, model) verdicts with freeze-on-failure, read via `GET /ledger`. Nightly local sub-tasks route through `POST /delegate` so the ledger keeps learning what local models can be trusted with.
+
+### Gateway surface
+
+`GET /healthz` · `GET /models` · `GET /ledger` · `POST /v1/chat/completions` · `POST /delegate` (owner) · `POST /admin/models/{load,unload,download}` (owner). Full request/response schemas, auth tiers, and the OpenAI-shaped error envelope live in **`docs/gateway-api-contract.md`** in the `home-server-inference-evaluation` repo.
+
+### Why a dedicated node
+
+Offload the bulk of agentic sub-task tokens (classification, extraction, summarize, rewrite, short reasoning) to local models, keeping a frontier orchestrator for planning and escalation. Economics, model roster, and per-task viability are tracked in the home-server evaluation project. Until the M5 arrives, the gateway, ledger, improve-loop, and routing contract are validated against LM Studio on the MacBook Air (a "hosted-proxy / local upper bound").
 
 ---
 
@@ -713,7 +744,7 @@ Deploy drift UI needs wiring (collector exists).
 Phase 2 of Skuld: invoice aging, revenue pulse, payment status — pulling data from Fortnox via noxctl.
 
 ### Notification delivery
-Task completion notifications are delivered via **Telegram** (Ratatoskr's `POST /api/send` endpoint). Email delivery via Heimdall was implemented in March 2026 but deprecated due to Microsoft consumer account restrictions (AADSTS70000 "service abuse" flag on `grimnir-bot@outlook.com`). The email code remains in Heimdall but is disabled (`NOTIFY_ENABLED=false`).
+Task completion notifications are delivered via **Telegram** (Ratatoskr's `POST /api/send` endpoint). Email delivery via Heimdall (March 2026) was **retired** in June 2026 — Microsoft's consumer-account abuse block (AADSTS70000 on `grimnir-bot@outlook.com`) made it unreliable, so the dead MS-Graph notify path was removed (heimdall #23). All task notifications now route through Telegram (Ratatoskr).
 
 ### The north star
 
