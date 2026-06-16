@@ -12,6 +12,8 @@
 //   validate     — host-aware output for validation: name|host|port|units_json per line
 //   json:<field>=<value> — filter by field, output full JSON array
 //   all          — full JSON array of all components
+//   nodes        — infra/inference hosts (data.nodes): name|hostname|ssh_alias|role|status|llm|monitor per line
+//   nodes-json   — full JSON array of all nodes (data.nodes)
 
 var fs = require('fs');
 var path = require('path');
@@ -110,6 +112,27 @@ switch (query) {
     process.stdout.write(JSON.stringify(components) + '\n');
     break;
   }
+  case 'nodes': {
+    // Infra/inference hosts — a peer concept to components. Guarded so older
+    // services.json files without a "nodes" key still work (empty output).
+    var nodes = Array.isArray(data.nodes) ? data.nodes : [];
+    nodes.forEach(function (n) {
+      var llm = (n.llm_servers || [])
+        .map(function (s) { return s.type + ':' + s.port; })
+        .join(',') || '-';
+      var hostname = n.hostname || '';
+      var sshAlias = n.ssh_alias || '';
+      var monitor = n.monitor ? 'true' : 'false';
+      process.stdout.write(
+        n.name + '|' + hostname + '|' + sshAlias + '|' + n.role + '|' + n.status + '|' + llm + '|' + monitor + '\n'
+      );
+    });
+    break;
+  }
+  case 'nodes-json': {
+    process.stdout.write(JSON.stringify(Array.isArray(data.nodes) ? data.nodes : []) + '\n');
+    break;
+  }
   default: {
     // json:<field>=<value> — filter and return JSON
     var match = query.match(/^json:(\w+)=(.+)$/);
@@ -123,7 +146,7 @@ switch (query) {
       process.stdout.write(JSON.stringify(filtered) + '\n');
     } else {
       process.stderr.write('ERROR: Unknown query: ' + query + '\n');
-      process.stderr.write('Valid queries: deploy, scan, components, systemd, ports, all, json:<field>=<value>\n');
+      process.stderr.write('Valid queries: deploy, scan, components, systemd, ports, validate, all, nodes, nodes-json, json:<field>=<value>\n');
       process.exit(1);
     }
   }
