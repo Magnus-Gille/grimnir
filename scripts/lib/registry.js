@@ -117,14 +117,17 @@ switch (query) {
     // services.json files without a "nodes" key still work (empty output).
     var nodes = Array.isArray(data.nodes) ? data.nodes : [];
     nodes.forEach(function (n) {
-      var llm = (n.llm_servers || [])
-        .map(function (s) { return s.type + ':' + s.port; })
+      var llm = (Array.isArray(n.llm_servers) ? n.llm_servers : [])
+        .map(function (s) { return (s.type || '') + ':' + (s.port || ''); })
         .join(',') || '-';
+      var name = n.name || '';
       var hostname = n.hostname || '';
       var sshAlias = n.ssh_alias || '';
+      var role = n.role || '';
+      var status = n.status || '';
       var monitor = n.monitor ? 'true' : 'false';
       process.stdout.write(
-        n.name + '|' + hostname + '|' + sshAlias + '|' + n.role + '|' + n.status + '|' + llm + '|' + monitor + '\n'
+        name + '|' + hostname + '|' + sshAlias + '|' + role + '|' + status + '|' + llm + '|' + monitor + '\n'
       );
     });
     break;
