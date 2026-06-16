@@ -36,3 +36,5 @@ No service code lives here — each component has its own repo.
 | `scripts/deploy.sh` | Deploy services to Pi hosts (all or selective) | `make deploy` or `make deploy ARGS="munin-memory"` |
 | `scripts/generate-architecture.sh` | Generate deployment snapshot + full-architecture.md | `make docs` (Pi only) |
 | `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets | `make security` |
+| `scripts/setup-host-patching.sh` | Install/refresh `unattended-upgrades` (security-only, no auto-reboot) on all Pi hosts | `make patching` (`ARGS="--dry-run"`) |
+| `scripts/maintenance-report.sh` | OS patch-status + npm-outdated reports → Munin + Telegram (timers `grimnir-maintenance-os` daily, `grimnir-maintenance-deps` weekly) | `make maintenance-os` / `make maintenance-deps` |
