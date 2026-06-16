@@ -119,5 +119,82 @@
         { "name": "verdandi", "type": "service", "scope": "user" }
       ]
     }
+  ],
+  "nodes": [
+    {
+      "name": "huginmunin",
+      "hostname": "huginmunin.local",
+      "ssh_alias": null,
+      "hardware": "Raspberry Pi (aarch64), 8GB",
+      "role": "service-host",
+      "status": "active",
+      "llm_servers": [
+        { "type": "ollama", "port": 11434, "protocol": "ollama" }
+      ],
+      "monitor": true,
+      "notes": "Primary service host — runs munin-memory, hugin, heimdall, ratatoskr, skuld, grimnir, verdandi. Also Ollama :11434 for tiny models (qwen3.5:2b, gemma4:e2b)."
+    },
+    {
+      "name": "nas",
+      "hostname": "nas.local",
+      "ssh_alias": null,
+      "hardware": "NAS",
+      "role": "storage",
+      "status": "active",
+      "llm_servers": [],
+      "monitor": true,
+      "notes": "Runs mimir (authenticated file server). Not an inference node."
+    },
+    {
+      "name": "bosgame",
+      "hostname": null,
+      "ssh_alias": null,
+      "hardware": "BosGame M5 — AMD Strix Halo (Ryzen AI Max+ 395), 128GB unified memory",
+      "role": "inference",
+      "status": "planned",
+      "llm_servers": [
+        { "type": "homeserver-gateway", "port": 8080, "protocol": "openai" }
+      ],
+      "monitor": false,
+      "notes": "Flagship local inference — NOT YET ARRIVED. homeserver gateway :8080 fronts LM Studio :1234; Cloudflare Tunnel for external access. hostname/ssh alias TBD on arrival. See home-server-inference-evaluation docs/adr-004-m5-routing-ownership.md + docs/bosgame-m5-architecture.md."
+    },
+    {
+      "name": "orin",
+      "hostname": null,
+      "ssh_alias": "orin",
+      "hardware": "NVIDIA Jetson Orin Nano, 8GB",
+      "role": "inference",
+      "status": "active",
+      "llm_servers": [
+        { "type": "ollama", "port": 11434, "protocol": "ollama" }
+      ],
+      "monitor": false,
+      "notes": "Hugin GPU cell (orinUrl). Only ~3B fits (qwen2.5-coder:3b; 4B OOMs). Live state unverified 2026-06-16 (SSH needs FIDO2 key) — Ollama at :11434, ~192.168.0.230."
+    },
+    {
+      "name": "laptop",
+      "hostname": null,
+      "ssh_alias": null,
+      "hardware": "MacBook Air M4, 32GB unified memory",
+      "role": "inference",
+      "status": "active",
+      "llm_servers": [
+        { "type": "lmstudio", "port": 1234, "protocol": "openai" },
+        { "type": "ollama", "port": 11434, "protocol": "ollama" }
+      ],
+      "monitor": false,
+      "notes": "Not always-on (medium compute, intermittent). Hugin laptopUrl (disabled by default). Local LM Studio :1234 + Ollama :11434."
+    },
+    {
+      "name": "skald",
+      "hostname": "skald.local",
+      "ssh_alias": "skald",
+      "hardware": "Raspberry Pi + e-paper display",
+      "role": "display",
+      "status": "active",
+      "llm_servers": [],
+      "monitor": false,
+      "notes": "E-paper display / skald-display MCP node — NOT an inference node. Back online 2026-06-16."
+    }
   ]
 }
