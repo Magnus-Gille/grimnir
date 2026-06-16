@@ -196,6 +196,17 @@ deploy_service() {
     cmd+="systemctl --user stop ${name} 2>/dev/null || true && "
     cmd+="systemctl --user disable ${name} 2>/dev/null || true && "
     cmd+="sudo systemctl restart ${name} && "
+  elif [[ "$unit_type" == "timer" ]]; then
+    # Timer component (e.g. grimnir, skuld). These have no long-running service
+    # to restart; instead install ALL oneshot services + timers from systemd/,
+    # daemon-reload, and enable --now every timer. Idempotent — safe per deploy.
+    # (Previously timers were installed entirely by hand; this closes that gap.)
+    # `|| continue` keeps a non-matching glob (left literal when nullglob is
+    # unset) from leaking a failed `[ -f ]` status into the && chain.
+    cmd+="for u in systemd/*.service systemd/*.timer; do [ -f \"\$u\" ] || continue; sudo cp \"\$u\" /etc/systemd/system/ || exit 1; done && "
+    cmd+="sudo systemctl daemon-reload && "
+    cmd+="for t in systemd/*.timer; do [ -f \"\$t\" ] || continue; sudo systemctl enable --now \"\$(basename \"\$t\")\" || exit 1; done && "
+    cmd+="echo '  timers synced & enabled' && "
   fi
   # Stamp the deployed commit so Heimdall's drift detector has an authoritative
   # source (excluded from rsync above so --delete won't clobber it). Heimdall
