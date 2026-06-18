@@ -3,35 +3,69 @@
 #
 # notify_telegram "message"  → pushes a one-line alert to Magnus's Telegram.
 #
-# Preferred path: the running Ratatoskr bot's local HTTP endpoint
-#   POST http://127.0.0.1:3034/api/send  {chat_id:<number>, text:<string>}
-# (no auth header — the socket is 127.0.0.1-only and gated by an allowlist).
+# Preferred path: the Ratatoskr bot's /api/send endpoint, reached over the
+# tailnet with a Bearer key — works from ANY trusted tailnet host (the laptop
+# included), no SSH and no YubiKey required:
+#   POST http://huginmunin:3034/api/send  {chat_id:<number>, text:<string>}
+#   Authorization: Bearer <RATATOSKR_SEND_API_KEY>
 # Falls back to the direct Telegram Bot API if Ratatoskr is unreachable.
 #
-# Both paths source TELEGRAM_ALLOWED_USERS (chat id) and TELEGRAM_BOT_TOKEN
-# (fallback only) from the Ratatoskr .env — never hardcoded, never echoed.
-# Best-effort by design: a notify failure NEVER fails the calling script.
-# Compatible with bash 3.2+.
+# Config sources, in precedence order (per value):
+#   1. environment ($RATATOSKR_URL, $RATATOSKR_SEND_API_KEY,
+#      $TELEGRAM_ALLOWED_USERS, $TELEGRAM_BOT_TOKEN)
+#   2. the Ratatoskr .env       ($RATATOSKR_ENV — present on the Pi)
+#   3. a fleet secrets file      ($NOTIFY_ENV, ~/.config/grimnir/notify.env) for
+#      off-box hosts (e.g. laptop) that have no Ratatoskr .env — see
+#      scripts/lib/notify.env.example and ratatoskr/docs/remote-send.md.
+#
+# The Bearer key and bot token are passed via curl --config (stdin) so neither
+# credential ever appears in the process argv (ps) — the message body itself is
+# on the command line via -d. Config files are read with grep, never sourced.
+# Best-effort by design: a notify failure NEVER fails the calling script (callers
+# such as maintenance-report.sh run under `set -euo pipefail`). bash 3.2+.
 
-RATATOSKR_URL="${RATATOSKR_URL:-http://127.0.0.1:3034/api/send}"
 RATATOSKR_ENV="${RATATOSKR_ENV:-$HOME/repos/ratatoskr/.env}"
+NOTIFY_ENV="${NOTIFY_ENV:-$HOME/.config/grimnir/notify.env}"
+RATATOSKR_URL_DEFAULT="http://huginmunin:3034/api/send"
 
 # JSON-escape an arbitrary string into a quoted JSON string literal.
 _notify_json_string() {
   MSG="$1" node --input-type=commonjs -e 'process.stdout.write(JSON.stringify(process.env.MSG||""))'
 }
 
+# Read VAR= from a config file (grep only — never sources the file).
+# $1 = config file path, $2 = variable name. Prints the value (may be empty).
+# Strips wrapping double-quotes and any CR so a CRLF-saved file still parses.
+_notify_cfg_get() {
+  [[ -f "$1" ]] || return 0
+  grep -E "^$2=" "$1" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"\r'
+}
+
 notify_telegram() {
   local msg="$1"
   [[ -z "$msg" ]] && return 0
 
-  # Load chat id (+ token, used only by the fallback) from Ratatoskr's .env.
-  local chat_id="" bot_token=""
+  # Choose the config file: prefer the Ratatoskr .env (Pi), else the fleet file.
+  local cfg=""
   if [[ -f "$RATATOSKR_ENV" ]]; then
-    chat_id="$(grep -E '^TELEGRAM_ALLOWED_USERS=' "$RATATOSKR_ENV" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' )"
-    chat_id="${chat_id%%,*}"   # first allowed user if comma-separated
-    bot_token="$(grep -E '^TELEGRAM_BOT_TOKEN=' "$RATATOSKR_ENV" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')"
+    cfg="$RATATOSKR_ENV"
+  elif [[ -f "$NOTIFY_ENV" ]]; then
+    cfg="$NOTIFY_ENV"
   fi
+
+  # Resolve each value: environment wins, else the chosen config file.
+  local url send_key chat_id bot_token
+  url="${RATATOSKR_URL:-$(_notify_cfg_get "$cfg" RATATOSKR_URL)}"
+  url="${url:-$RATATOSKR_URL_DEFAULT}"
+  send_key="${RATATOSKR_SEND_API_KEY:-$(_notify_cfg_get "$cfg" RATATOSKR_SEND_API_KEY)}"
+  # A newline in the key would terminate the curl --config header line and let a
+  # malformed key inject a second directive — strip CR/LF defensively.
+  send_key="${send_key//$'\n'/}"
+  send_key="${send_key//$'\r'/}"
+  chat_id="${TELEGRAM_ALLOWED_USERS:-$(_notify_cfg_get "$cfg" TELEGRAM_ALLOWED_USERS)}"
+  chat_id="${chat_id%%,*}"   # first allowed user if comma-separated
+  bot_token="${TELEGRAM_BOT_TOKEN:-$(_notify_cfg_get "$cfg" TELEGRAM_BOT_TOKEN)}"
+
   if [[ -z "$chat_id" ]]; then
     echo "  notify: no Telegram chat id available — skipping alert" >&2
     return 0
@@ -41,12 +75,20 @@ notify_telegram() {
     return 0
   fi
 
+  # `|| text_json='""'` keeps the contract: if node is missing/crashes, the
+  # assignment still exits 0 (no set -e abort in the caller) and the empty JSON
+  # string forces a non-200, falling through to the node-free direct-API path.
   local text_json
-  text_json="$(_notify_json_string "$msg")"
+  text_json="$(_notify_json_string "$msg")" || text_json='""'
 
-  # Preferred: Ratatoskr local endpoint (chat_id MUST be an unquoted JSON number).
+  # Preferred: Ratatoskr endpoint. The Bearer header (if any) goes via curl
+  # --config (stdin) so the key never lands in argv. chat_id MUST be an unquoted
+  # JSON number; text_json is a pre-escaped JSON string literal.
+  local auth_cfg=""
+  [[ -n "$send_key" ]] && auth_cfg="header = \"Authorization: Bearer ${send_key}\""
   local code
-  code="$(curl -sS -m 8 -o /dev/null -w '%{http_code}' -X POST "$RATATOSKR_URL" \
+  code="$(printf '%s\n' "$auth_cfg" | curl -sS -m 8 -o /dev/null -w '%{http_code}' --config - \
+       -X POST "$url" \
        -H "Content-Type: application/json" \
        -d "{\"chat_id\": ${chat_id}, \"text\": ${text_json}}" 2>/dev/null || echo 000)"
   if [[ "$code" == "200" ]]; then
@@ -61,7 +103,7 @@ notify_telegram() {
       --data-urlencode "chat_id=${chat_id}" \
       --data-urlencode "text=${msg}" 2>/dev/null || true
   else
-    echo "  notify: Ratatoskr unreachable and no bot token for fallback" >&2
+    echo "  notify: Ratatoskr unreachable (HTTP ${code}) and no bot token for fallback" >&2
   fi
   return 0
 }
