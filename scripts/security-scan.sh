@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-SCANNER_VERSION="1.1.0"
+SCANNER_VERSION="1.2.0"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
@@ -66,7 +66,7 @@ log_verbose() {
 if [[ -z "$MUNIN_TOKEN" ]]; then
   for envfile in "$REPOS_DIR/hugin/.env" "$REPOS_DIR/ratatoskr/.env" "$REPOS_DIR/heimdall/.env"; do
     if [[ -f "$envfile" ]]; then
-      val="$(grep -E '^MUNIN_API_KEY=' "$envfile" 2>/dev/null | head -1 | cut -d= -f2-)"
+      val="$(grep -E '^MUNIN_API_KEY=' "$envfile" 2>/dev/null | head -1 | cut -d= -f2-)" || true
       if [[ -n "$val" ]]; then
         MUNIN_TOKEN="$val"
         log_verbose "Found Munin token in $envfile"
@@ -347,16 +347,25 @@ for repo in $SCAN_COMPONENTS; do
       continue
     fi
 
-    # Skip test files. Detection tests intentionally embed realistic-looking
-    # patterns (e.g. sk-ant-... in tests/sensitivity.test.ts) to verify the
-    # sensitivity / exfiltration scanners. Real secrets should never live in
-    # tests — use env vars or placeholder fixtures.
+    # Skip test and evaluation fixture files. These directories intentionally
+    # embed realistic-looking patterns (e.g. sk-ant-... in
+    # tests/sensitivity.test.ts, synthetic PII in eval/privacy-filter/fixtures/)
+    # to verify the sensitivity / exfiltration scanners.  Real secrets should
+    # never live in tests or eval fixtures — use env vars or placeholder values.
+    #
+    # NOTE: In bash `case`, `*` matches any string INCLUDING `/`, so
+    # `tests/*` correctly skips nested paths like
+    # tests/broker/openrouter-executor.test.ts.
+    # eval/: only skip fixture subdirectories (eval/fixtures/*, eval/*/fixtures/*),
+    # NOT entire eval/ trees — runner scripts or configs under eval/ are still scanned.
     case "$relfile" in
-      tests/*|test/*|*/tests/*|*/test/*|__tests__/*|*/__tests__/*|*/__mocks__/*|\
+      tests/*|test/*|*/tests/*|*/test/*|\
+      __tests__/*|*/__tests__/*|*/__mocks__/*|\
+      eval/fixtures/*|eval/*/fixtures/*|*/eval/fixtures/*|*/eval/*/fixtures/*|\
       *.test.ts|*.test.tsx|*.test.js|*.test.jsx|*.test.mjs|*.test.cjs|\
       *.spec.ts|*.spec.tsx|*.spec.js|*.spec.jsx|*.spec.mjs|*.spec.cjs|\
       *_test.py|*_test.go)
-        log_verbose "    Skipping test file: $relfile"
+        log_verbose "    Skipping test/fixture file: $relfile"
         continue
         ;;
     esac
@@ -564,7 +573,6 @@ OUTDIR="$SCAN_TMP" SCAN_DATE="$SCAN_DATE" TIMESTAMP="$TIMESTAMP" HOST="$HOSTNAME
     fs.writeFileSync(out + "/_all_repos_json", JSON.stringify(repos));
   '
 scan_summary_json="$(cat "$SCAN_TMP/_scan_summary_json")"
-all_repos_json="$(cat "$SCAN_TMP/_all_repos_json")"
 
 # Write 1: Full scan summary
 echo "  Writing scan summary to security/scans/${SCAN_DATE}..."
