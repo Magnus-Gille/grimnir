@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy patching maintenance-os maintenance-deps
+.PHONY: docs clean security security-dry deploy patching maintenance-os maintenance-deps test-security-skip
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -20,6 +20,9 @@ maintenance-os: ## Run the OS maintenance report on the Pi now (ARGS="--dry-run 
 
 maintenance-deps: ## Run the npm dependency report on the Pi now (ARGS="--dry-run --verbose")
 	@ssh magnus@huginmunin.local 'cd /home/magnus/repos/grimnir && bash scripts/maintenance-report.sh deps $(ARGS)'
+
+test-security-skip: ## Regression test: assert security-scan skips test/eval fixtures (issue #22)
+	@bash tests/scripts/test-security-scan-skip.sh
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
