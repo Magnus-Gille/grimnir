@@ -8,7 +8,8 @@
 # creates a minimal fake git repo containing:
 #   - tests/foo.test.ts          (a *.test.ts file with a fake secret)
 #   - tests/nested/bar.test.ts   (nested under tests/)
-#   - eval/fixtures/pii.jsonl    (evaluation fixture with fake patterns)
+#   - eval/fixtures/pii.jsonl    (evaluation fixture with fake patterns — SKIPPED)
+#   - eval/runner.ts             (non-fixture eval file — should be SCANNED, not skipped)
 #   - src/real.ts                (a non-test file WITHOUT secrets)
 #
 # It then runs the Phase-2 scan logic directly (without npm audit) and asserts
@@ -55,10 +56,15 @@ cat > "$TMP_REPO/tests/nested/bar.test.ts" << 'EOF'
 const fakeGHToken = 'ghp_FakeGitHubTokenABCDEFGHIJKLMNOPQRSTUVWX';
 EOF
 
-# Evaluation fixture (should also be skipped via eval/* pattern)
+# Evaluation fixture (should be skipped via eval/fixtures/* pattern)
 mkdir -p "$TMP_REPO/eval/fixtures"
 cat > "$TMP_REPO/eval/fixtures/pii.jsonl" << 'EOF'
 {"text":"CI echoed GH_TOKEN=ghp_FakeGitHubTokenABCDEFGHIJKLMNOPQRSTUVWX","spans":{}}
+EOF
+
+# Non-fixture eval file — NOT a fixture, must be scanned (no secrets in it)
+cat > "$TMP_REPO/eval/runner.ts" << 'EOF'
+export function runEval() { return "ok"; }
 EOF
 
 # Real source file WITHOUT secrets (should be scanned but produce 0 findings)
@@ -105,7 +111,7 @@ while IFS= read -r relfile; do
   case "$relfile" in
     tests/*|test/*|*/tests/*|*/test/*|\
     __tests__/*|*/__tests__/*|*/__mocks__/*|\
-    eval/*|*/eval/*|\
+    eval/fixtures/*|eval/*/fixtures/*|*/eval/fixtures/*|*/eval/*/fixtures/*|\
     *.test.ts|*.test.tsx|*.test.js|*.test.jsx|*.test.mjs|*.test.cjs|\
     *.spec.ts|*.spec.tsx|*.spec.js|*.spec.jsx|*.spec.mjs|*.spec.cjs|\
     *_test.py|*_test.go)
@@ -135,14 +141,15 @@ echo ""
 echo "Running assertions..."
 
 # 1. test files (tests/foo.test.ts, tests/nested/bar.test.ts) and
-#    eval fixture (eval/fixtures/pii.jsonl) must all be skipped — 3 files
-assert_eq "skipped_count == 3 (tests/ + nested tests/ + eval/)" "3" "$skipped_count"
+#    eval fixture (eval/fixtures/pii.jsonl) must all be skipped — 3 files.
+#    eval/runner.ts is NOT a fixture and must NOT be skipped.
+assert_eq "skipped_count == 3 (tests/ + nested tests/ + eval/fixtures/)" "3" "$skipped_count"
 
 # 2. No secrets must be reported (even though test files contain fake keys)
 assert_eq "finding_count == 0 (no secrets from test/eval files)" "0" "$finding_count"
 
-# 3. The non-test src/real.ts was scanned
-assert_eq "processed_count == 1 (src/real.ts is scanned)" "1" "$processed_count"
+# 3. Both src/real.ts and eval/runner.ts (non-fixture eval) were scanned
+assert_eq "processed_count == 2 (src/real.ts and eval/runner.ts are scanned)" "2" "$processed_count"
 
 echo ""
 if [[ "$FAIL" -eq 0 ]]; then

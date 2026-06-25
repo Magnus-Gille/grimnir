@@ -356,10 +356,12 @@ for repo in $SCAN_COMPONENTS; do
     # NOTE: In bash `case`, `*` matches any string INCLUDING `/`, so
     # `tests/*` correctly skips nested paths like
     # tests/broker/openrouter-executor.test.ts.
+    # eval/: only skip fixture subdirectories (eval/fixtures/*, eval/*/fixtures/*),
+    # NOT entire eval/ trees — runner scripts or configs under eval/ are still scanned.
     case "$relfile" in
       tests/*|test/*|*/tests/*|*/test/*|\
       __tests__/*|*/__tests__/*|*/__mocks__/*|\
-      eval/*|*/eval/*|\
+      eval/fixtures/*|eval/*/fixtures/*|*/eval/fixtures/*|*/eval/*/fixtures/*|\
       *.test.ts|*.test.tsx|*.test.js|*.test.jsx|*.test.mjs|*.test.cjs|\
       *.spec.ts|*.spec.tsx|*.spec.js|*.spec.jsx|*.spec.mjs|*.spec.cjs|\
       *_test.py|*_test.go)
@@ -571,7 +573,6 @@ OUTDIR="$SCAN_TMP" SCAN_DATE="$SCAN_DATE" TIMESTAMP="$TIMESTAMP" HOST="$HOSTNAME
     fs.writeFileSync(out + "/_all_repos_json", JSON.stringify(repos));
   '
 scan_summary_json="$(cat "$SCAN_TMP/_scan_summary_json")"
-all_repos_json="$(cat "$SCAN_TMP/_all_repos_json")"
 
 # Write 1: Full scan summary
 echo "  Writing scan summary to security/scans/${SCAN_DATE}..."
