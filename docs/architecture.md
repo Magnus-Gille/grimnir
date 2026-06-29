@@ -1,7 +1,7 @@
 # The Grimnir System — Architecture Guide
 
 > Internal reference document for the Grimnir personal AI infrastructure.
-> Last updated: 2026-04-07.
+> Last updated: 2026-06-29.
 
 ---
 
@@ -39,7 +39,7 @@ Three principles guide every decision:
 | **Verdandi** | Tamper-evident audit log | 3036 | Pi 1 | `verdandi` |
 | **Mimir** | Authenticated file server | 3031 | Pi 2 (NAS) | `mimir` |
 | **noxctl** | Accounting CLI + MCP | — | Laptop (global) | `fortnox-mcp` |
-| **Home-server gateway** | Local-inference gateway + micro-orchestrator | 8080 | BosGame M5 *(awaiting hw)* | `home-server-inference-evaluation` |
+| **Home-server gateway** | Local-inference gateway + micro-orchestrator | 8080 | BosGame M5 (`inference.gille.ai`, live) | `home-server-inference-evaluation` |
 
 ---
 
@@ -329,6 +329,10 @@ Hugin is the system's hands. It polls Munin for pending tasks, spawns AI runtime
 - **Framework:** Express (health endpoint only)
 - **Deployment:** systemd on Pi 1, co-located with Munin
 - **Integration:** Munin HTTP API via JSON-RPC 2.0
+- **Agent loop:** the in-process Claude runtime is the **Claude Agent SDK** (`@anthropic-ai/claude-agent-sdk`, `sdk-executor.ts`) — Hugin no longer shells out to `claude -p`. Codex still runs as a subprocess (`codex exec`).
+- **Multi-runtime:** a `runtime-registry.ts` + `router.ts` select per task between the Agent SDK, local **Ollama** (`ollama-executor.ts`), **OpenRouter** (`openrouter-client.ts`), and the **M5 home-server** (`homeserver-executor.ts`), with fallback to Claude on local-infra failure.
+
+> **Repo note:** `hugin` is the deployed service. `hugin-orchestrator` is a feature line (broker + workflow expansion) that should either land back into `hugin` or formally supersede it — two repos for one service is drift risk. `hugin-munin` is an archived bootstrap/reference scaffold, not a running service.
 
 ### The poll-claim-execute-report lifecycle
 
@@ -361,12 +365,24 @@ sequenceDiagram
 
 ### Execution model
 
-- **One task at a time** — no parallelism. Simplicity over throughput.
+- **One task at a time** — the poll loop claims and runs a single task at a time. Simplicity over throughput. (Multi-step *pipelines* fan out within a single claimed task; see below.)
 - **Compare-and-swap claiming** — uses Munin's `expected_updated_at` to prevent double-claiming.
 - **Output capture** — ring buffer keeps the last 50,000 characters of combined stdout/stderr. Full output also streamed to per-task log files in `~/.hugin/logs/`.
 - **Timeout handling** — SIGTERM after configured timeout, SIGKILL after an additional 10 seconds.
 - **Stale task recovery** — on startup, scans for `running` tasks; marks as `failed` if elapsed time exceeds 2x timeout.
 - **Graceful shutdown** — SIGTERM forwarded to child process with 30-second grace period.
+
+### Pipelines (multi-step task graphs)
+
+Beyond single prompts, Hugin compiles declarative multi-step work into a DAG and executes it: `pipeline-compiler.ts` → `pipeline-ir.ts` / `task-graph.ts` → `pipeline-dispatch.ts`, with `pipeline-gates.ts` enforcing inter-step conditions and `pipeline-summary-manager.ts` rolling up results. This is the structured successor to the older `Group`/`Sequence` FIFO sub-task fields — it lets one submitted task expand into a routed, gated, multi-runtime chain.
+
+### Delegation broker (cloud-side)
+
+`src/broker/` exposes an HTTP delegation API (`server.ts`, `handlers.ts`) so a cloud Claude session can hand Hugin a bounded sub-task without writing a Munin task by hand. It carries idempotency keys (`idempotency.ts`), a durable journal (`journal.ts`), reconciliation (`reconciliation.ts`), and its own OpenRouter executor — this is the `orchestrator-v1` broker behind the `/delegate` skill.
+
+### Safety gating
+
+Because Hugin runs untrusted prompts against real credentials and the tailnet, every task passes a gating layer: `prompt-injection-scanner.ts`, `exfiltration-scanner.ts`, `egress-policy.ts`, a `privacy-filter/`, content `sensitivity.ts` classification, plus `task-signing.ts` / `provenance.ts` for attribution. This is the harness-level analogue of Verdandi's redact-before-persist and Munin's secret-scan.
 
 ### Task schema
 
@@ -413,7 +429,7 @@ Tags: ["pending", "runtime:claude", "type:code"]
 
 ## Home-server (M5) — Local Inference
 
-The BosGame M5 is a dedicated local-inference node (awaiting delivery). It runs the **home-server gateway** (`home-server-inference-evaluation` repo, port 8080) — an authenticated, OpenAI-compatible front door to locally-served models, plus a deterministic micro-orchestrator and a capability ledger.
+The BosGame M5 is a dedicated local-inference node, **live** at `inference.gille.ai` (public, Cloudflare) and on the tailnet (`m5`, port 8080). It runs the **home-server gateway** (`home-server-inference-evaluation` repo) — an authenticated, OpenAI-compatible front door to locally-served models (llama-swap on `:8091` loopback), plus a deterministic micro-orchestrator and a capability ledger. It is registered as the `m5` MCP server (`ask` / `list_models`) and is the target of Hugin's local-runtime offload.
 
 ### Routing ownership (ADR-004)
 
@@ -427,7 +443,7 @@ The BosGame M5 is a dedicated local-inference node (awaiting delivery). It runs 
 
 ### Why a dedicated node
 
-Offload the bulk of agentic sub-task tokens (classification, extraction, summarize, rewrite, short reasoning) to local models, keeping a frontier orchestrator for planning and escalation. Economics, model roster, and per-task viability are tracked in the home-server evaluation project. Until the M5 arrives, the gateway, ledger, improve-loop, and routing contract are validated against LM Studio on the MacBook Air (a "hosted-proxy / local upper bound").
+Offload the bulk of agentic sub-task tokens (classification, extraction, summarize, rewrite, short reasoning) to local models, keeping a frontier orchestrator for planning and escalation. Economics, model roster, and per-task viability are tracked in the home-server evaluation project, whose **offloadability trend** (which task types local models can be trusted with) now publishes nightly to a Heimdall panel — the data-grounded feedback loop that drives routing decisions.
 
 ---
 
