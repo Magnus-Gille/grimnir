@@ -1,32 +1,33 @@
 # Grimnir System — Status
 
-**Last session:** 2026-06-16
+**Last session:** 2026-06-29
 **Branch:** main
 
-## Completed This Session (2026-06-15 → 16)
+## Completed This Session (2026-06-29)
 
-### Automated software-update system — built, Codex-reviewed, merged, live
-- Closed the gap where nothing kept software updated on the two Pis or the laptop.
-- **grimnir PR #26** (squash `fa66789`) + **heimdall PR #21** (squash `46cb6f9`) merged;
-  both re-deployed from `main` so `.deployed-commit` matches HEAD (no Heimdall drift).
-- Survived a **4-round Codex (gpt-5.5 xhigh) cross-model review** (7 → 4 → 1 → 2 findings, all fixed).
-- Mechanisms now running:
-  - `unattended-upgrades` (security-archive only, **no auto-reboot**) on **both** Pis; `needrestart`
-    provides the reboot-required flag (Debian 13 dropped update-notifier-common). 12 pending
-    security updates were applied during deploy; 0 remaining.
-  - `grimnir-maintenance-os.timer` (daily 07:00) — pending security / reboot-required / disk for
-    both hosts (SSHes to nas) → Munin `maintenance/os/*` + Telegram on action-needed.
-    **First autonomous run fired 2026-06-16 07:04, confirmed in Munin.**
-  - `grimnir-maintenance-deps.timer` (weekly Mon 02:10) — `npm outdated` across all service repos →
-    Munin `maintenance/deps/*`. **Detect+report only** (per auto-ops debate — never blind auto-bump).
-  - Laptop `com.magnusgille.brew-update` LaunchAgent (weekly Sun 11:00) — formulae auto-upgrade,
-    casks notify, reports via a Tailscale-fallback SSH-hop (mDNS flaky under launchd).
-- **Infra fix:** `deploy.sh` gained a timer-install branch — timer-only components (grimnir, skuld)
-  now auto-install + `enable --now` their units (previously installed entirely by hand). This also
-  addresses the long-standing "verify grimnir-validate.timer installed" concern.
-- Shared `scripts/lib/munin.sh` + `lib/notify.sh`; new make targets `patching` / `maintenance-os` /
-  `maintenance-deps`; apt config in `host-config/apt/`, laptop job in `host-config/laptop/`.
-- Munin: `decisions/auto-updates`, `projects/grimnir` logs updated.
+### Vision re-centered + architecture synced to reality — PR #35 merged (`61bc3d0`)
+- **Trigger:** "educate me" session — how much of Grimnir is an agent harness, how much overlaps
+  with nanoclaw / OpenClaw / Hermes-agent, and where to build vs reuse. Two subagents ran: an
+  external-harness research briefing + an audit of the agent-orchestration repos.
+- **`docs/vision.md` v0.1 → v0.2:** re-centered from "autonomous collaborator that does my work"
+  to **"a sovereign, self-knowing personal-AI substrate that any agent can safely act through."**
+  Two protected pillars — **Sovereign Memory** (Munin/Mimir/Verdandi) + **Self-Knowing Inference**
+  (M5 gateway + capability ledger + offloadability eval). Decision rule: *build only what touches a
+  pillar; reuse the harness layer when it's OSS and plugs into Munin + the gateway.* Preserved the
+  4-phase Arc + Open Questions, reframed as what Grimnir *does* on the substrate, not its identity.
+  → **Closes the carried-over "reconcile DRAFT v0.1 docs with reality" next-step.**
+- **`docs/architecture.md` synced:** Hugin corrected to current reality (Claude Agent SDK +
+  multi-runtime router + pipeline DAGs + delegation broker + safety scanners — no longer "spawns
+  `claude -p`"); M5 marked **live** at `inference.gille.ai`; offloadability-on-Heimdall noted;
+  `hugin`/`hugin-orchestrator` repo drift flagged.
+- **Munin:** `decisions/grimnir-vision` (thesis + decision log) written.
+- **Cross-repo cleanup filed:** **hugin#117** "Consolidate agent-orchestration repo sprawl"
+  (merge `hugin-orchestrator`→`hugin`; archive `hugin-munin`; delete `meta-agent`+`agentic-eval`;
+  converge/retire `agent-council`) — on Roadmap board #1. Recorded, **not executed**.
+
+> **Previously (2026-06-15→16):** automated software-update system shipped (grimnir #26 + heimdall #21,
+> unattended-upgrades + maintenance timers on both Pis + laptop brew job). Detail in Munin
+> `decisions/auto-updates` + `projects/grimnir`.
 
 ## Next Steps (carried over — ecosystem review program)
 1. **grimnir#7** — cross-service contracts section in `docs/architecture.md` (blocks integration work)
