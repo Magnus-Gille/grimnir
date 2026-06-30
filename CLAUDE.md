@@ -20,6 +20,7 @@ No service code lives here — each component has its own repo.
 | Ratatoskr | `ratatoskr` | Telegram router + concierge |
 | Skuld | `skuld` (grimnir-bot org) | Daily intelligence briefing |
 | Fortnox MCP | `fortnox-mcp` | Accounting CLI + MCP |
+| Brokkr | `brokkr` | Platform/substrate layer — hardware, OS, storage, backups (peer, not a service) |
 
 ## Key documents
 

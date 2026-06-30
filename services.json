@@ -118,6 +118,19 @@
       "systemd_units": [
         { "name": "verdandi", "type": "service", "scope": "user" }
       ]
+    },
+    {
+      "name": "brokkr",
+      "repo": "brokkr",
+      "host": "nas.local",
+      "port": null,
+      "deploy": false,
+      "scan": true,
+      "deploy_path": "/home/magnus/repos/brokkr",
+      "needs_build": false,
+      "systemd_units": [
+        { "name": "brokkr-health", "type": "timer" }
+      ]
     }
   ],
   "nodes": [

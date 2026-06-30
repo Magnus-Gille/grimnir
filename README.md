@@ -16,6 +16,9 @@ Runs on two Raspberry Pis and a MacBook. All data stays on your hardware.
 | **Skuld** | Daily intelligence briefing | [skuld](https://github.com/grimnir-bot/skuld) |
 | **Verdandi** | Tamper-evident audit log | [verdandi](https://github.com/Magnus-Gille/verdandi) |
 | **noxctl** | Fortnox accounting CLI + MCP | [fortnox-mcp](https://github.com/Magnus-Gille/fortnox-mcp) |
+| **Brokkr** | Platform / substrate — hardware park, OS, storage, network, backups | [brokkr](https://github.com/Magnus-Gille/brokkr) |
+
+Brokkr is the **substrate layer** the others run on (peer to this repo, not a service): it owns the boxes, their OS, the NAS backup disk + Time Machine, and hardware-level health. The hardware inventory itself stays canonical in [`services.json`](services.json) (`nodes`).
 
 All components are named after figures from Norse mythology. See [docs/conventions.md](docs/conventions.md) for the naming guide.
 
