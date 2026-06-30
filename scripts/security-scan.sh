@@ -21,6 +21,11 @@ SCANNER_VERSION="1.2.0"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
 REPOS_DIR="$HOME/repos"
+
+# ─── Source shared helpers ─────────────────────────────────────
+# shellcheck source=scripts/lib/notify.sh
+# shellcheck disable=SC1091  # dynamic path; use shellcheck -x to follow
+source "$SCRIPT_DIR/lib/notify.sh"
 TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 SCAN_DATE="$(date -u '+%Y-%m-%d')"
 HOSTNAME_VAL="$(hostname)"
@@ -55,6 +60,11 @@ log_verbose() {
     echo "$*" >&2
   fi
 }
+
+# scan_escalated lives in lib/escalation.sh (shared with the delta unit test).
+# shellcheck source=scripts/lib/escalation.sh
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/escalation.sh"
 
 # Node.js 25+ strips TypeScript by default, misparses object literals
 # in -e scripts. --input-type=commonjs fixes it. Also, complex node
@@ -496,6 +506,87 @@ fi
 
 echo "Overall status: $OVERALL_STATUS"
 echo ""
+
+# ─── Delta computation (escalation detection) ─────────────────
+# For each repo: read the previous scan from Munin (if available and not dry-run),
+# compare critical/high/secret counts, and track any repo that escalated.
+# In dry-run mode, prev counts are treated as 0 (simulates first run).
+
+ESCALATED_REPOS=""
+ESCALATION_MSG_LINES=""
+
+for repo in $SCAN_COMPONENTS; do
+  cur_c="$(repo_get "$repo" audit_critical)"; [[ -z "$cur_c" ]] && cur_c=0
+  cur_h="$(repo_get "$repo" audit_high)";    [[ -z "$cur_h" ]] && cur_h=0
+  cur_s="$(repo_get "$repo" secret_count)";  [[ -z "$cur_s" ]] && cur_s=0
+
+  prev_c=0; prev_h=0; prev_s=0
+  # baseline_ok = we have a trustworthy previous snapshot to diff against. A
+  # read failure / missing token / poisoned record must NOT look like a "0 0 0"
+  # baseline — otherwise every existing finding reads as newly-escalated and the
+  # alert fires (falsely) on every run. Only an "ok" parse enables alerting.
+  baseline_ok=false
+
+  if [[ "$DRY_RUN" == "true" ]]; then
+    # Dry-run has no Munin read; simulate a first-run baseline so the smoke test
+    # can demonstrate what an alert would look like.
+    baseline_ok=true
+  elif [[ -n "$MUNIN_TOKEN" ]]; then
+    # `|| printf '{}'` keeps a node failure from aborting the whole scan under
+    # set -e (this runs before the alert + Munin writes). The '{}' sentinel
+    # parses to status=unavailable → no false escalation.
+    read_args="$(REPO_NS="security/repos/${repo}" node --input-type=commonjs -e \
+      'console.log(JSON.stringify({namespace: process.env.REPO_NS, key: "latest"}))' \
+      2>/dev/null || printf '%s' '{}')"
+    prev_raw="$(munin_tool_call "memory_read" "$read_args" 2>/dev/null || printf '%s' '{}')"
+    # parse_prev_counts (lib/escalation.sh) emits "crit<TAB>high<TAB>secrets<TAB>status"
+    # with strict integer/array validation. Tab-separated; read via IFS.
+    prev_parsed="$(printf '%s' "$prev_raw" | parse_prev_counts)"
+    IFS=$'\t' read -r prev_c prev_h prev_s baseline_status <<< "$prev_parsed"
+    prev_c="${prev_c:-0}"; prev_h="${prev_h:-0}"; prev_s="${prev_s:-0}"
+    [[ "${baseline_status:-unavailable}" == "ok" ]] && baseline_ok=true
+  fi
+
+  # Defense-in-depth for the delta_desc comparisons below (which use prev_*
+  # directly): canonicalize to base-10 ints, mirroring scan_escalated.
+  [[ "$prev_c" =~ ^[0-9]{1,9}$ ]] && prev_c=$((10#$prev_c)) || prev_c=0
+  [[ "$prev_h" =~ ^[0-9]{1,9}$ ]] && prev_h=$((10#$prev_h)) || prev_h=0
+  [[ "$prev_s" =~ ^[0-9]{1,9}$ ]] && prev_s=$((10#$prev_s)) || prev_s=0
+
+  if [[ "$baseline_ok" != "true" ]]; then
+    log_verbose "  $repo: previous baseline unavailable — skipping delta alert"
+  elif [[ "$(scan_escalated "$prev_c" "$prev_h" "$prev_s" "$cur_c" "$cur_h" "$cur_s")" == "yes" ]]; then
+    delta_desc=""
+    [[ "$cur_c" -gt "$prev_c" ]] && delta_desc="${delta_desc} critical:${prev_c}->${cur_c}"
+    [[ "$cur_h" -gt "$prev_h" ]] && delta_desc="${delta_desc} high:${prev_h}->${cur_h}"
+    [[ "$cur_s" -gt "$prev_s" ]] && delta_desc="${delta_desc} secrets:${prev_s}->${cur_s}"
+    delta_desc="${delta_desc# }"  # trim leading space
+    if [[ -z "$ESCALATED_REPOS" ]]; then
+      ESCALATED_REPOS="$repo"
+      ESCALATION_MSG_LINES="  - ${repo}: ${delta_desc}"
+    else
+      ESCALATED_REPOS="${ESCALATED_REPOS} ${repo}"
+      ESCALATION_MSG_LINES="${ESCALATION_MSG_LINES}
+  - ${repo}: ${delta_desc}"
+    fi
+  fi
+done
+
+# ─── Telegram alert — high/critical status + at least one escalation ──────
+# Stays silent when overall is clean/low/moderate, or when nothing escalated.
+
+if [[ "$OVERALL_STATUS" == "high" ]] || [[ "$OVERALL_STATUS" == "critical" ]]; then
+  if [[ -n "$ESCALATED_REPOS" ]]; then
+    OVERALL_UPPER="$(echo "$OVERALL_STATUS" | tr '[:lower:]' '[:upper:]')"
+    ALERT_MSG="[Grimnir security] ${OVERALL_UPPER} — escalated findings (${SCAN_DATE}):
+${ESCALATION_MSG_LINES}"
+    if [[ "$DRY_RUN" == "true" ]]; then
+      echo "[dry-run] telegram: ${ALERT_MSG}"
+    else
+      notify_telegram "$ALERT_MSG"
+    fi
+  fi
+fi
 
 # ─── Munin writes ─────────────────────────────────────────────
 
