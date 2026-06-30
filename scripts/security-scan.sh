@@ -521,50 +521,41 @@ for repo in $SCAN_COMPONENTS; do
   cur_s="$(repo_get "$repo" secret_count)";  [[ -z "$cur_s" ]] && cur_s=0
 
   prev_c=0; prev_h=0; prev_s=0
+  # baseline_ok = we have a trustworthy previous snapshot to diff against. A
+  # read failure / missing token / poisoned record must NOT look like a "0 0 0"
+  # baseline — otherwise every existing finding reads as newly-escalated and the
+  # alert fires (falsely) on every run. Only an "ok" parse enables alerting.
+  baseline_ok=false
 
-  if [[ "$DRY_RUN" != "true" ]] && [[ -n "$MUNIN_TOKEN" ]]; then
+  if [[ "$DRY_RUN" == "true" ]]; then
+    # Dry-run has no Munin read; simulate a first-run baseline so the smoke test
+    # can demonstrate what an alert would look like.
+    baseline_ok=true
+  elif [[ -n "$MUNIN_TOKEN" ]]; then
     # `|| printf '{}'` keeps a node failure from aborting the whole scan under
-    # set -e (this runs before the alert + Munin writes). A '{}' read_args makes
-    # memory_read a no-op, prev counts fall back to 0 → silent, correct.
-    read_args="$(REPO_NS="security/repos/${repo}" node --input-type=commonjs -e '
-      console.log(JSON.stringify({namespace: process.env.REPO_NS, key: "latest"}))
-    ' 2>/dev/null || printf '%s' '{}')"
-    prev_raw="$(munin_tool_call "memory_read" "$read_args" 2>/dev/null || echo "{}")"
-    # Parse the embedded ```json block from the Munin response's text content.
-    # Response is a JSON-RPC result: {result:{content:[{type:"text",text:"..."}]}}
-    # shellcheck disable=SC2016  # single quotes intentional — node JS, not bash expansion
-    prev_counts="$(printf '%s' "$prev_raw" | node --input-type=commonjs -e '
-      var d;
-      try { d = JSON.parse(require("fs").readFileSync("/dev/stdin","utf8")); }
-      catch(e) { d = {}; }
-      var text = (d.result && d.result.content &&
-                  Array.isArray(d.result.content) &&
-                  d.result.content[0] && d.result.content[0].text) || "";
-      var m = text.match(/```json\s*([\s\S]*?)```/);
-      var obj = {};
-      if (m) { try { obj = JSON.parse(m[1]); } catch(e) {} }
-      var audit = obj.audit || {};
-      // Coerce to integers — a non-numeric value here must not flow into bash
-      // arithmetic downstream. parseInt(NaN-ish) -> 0.
-      var n = function (x) { var i = parseInt(x, 10); return Number.isFinite(i) ? i : 0; };
-      process.stdout.write(
-        n(audit.critical) + "\t" +
-        n(audit.high) + "\t" +
-        ((obj.secrets || []).length)
-      );
-    ' 2>/dev/null || printf '%s' "0	0	0")"
-    prev_c="$(printf '%s' "$prev_counts" | cut -f1)"
-    prev_h="$(printf '%s' "$prev_counts" | cut -f2)"
-    prev_s="$(printf '%s' "$prev_counts" | cut -f3)"
-    # Guard against empty/unparseable/non-numeric output. The numeric regex
-    # protects the `delta_desc` block below (which compares the caller's prev_*
-    # directly) the same way scan_escalated guards its own copies.
-    [[ "$prev_c" =~ ^[0-9]+$ ]] || prev_c=0
-    [[ "$prev_h" =~ ^[0-9]+$ ]] || prev_h=0
-    [[ "$prev_s" =~ ^[0-9]+$ ]] || prev_s=0
+    # set -e (this runs before the alert + Munin writes). The '{}' sentinel
+    # parses to status=unavailable → no false escalation.
+    read_args="$(REPO_NS="security/repos/${repo}" node --input-type=commonjs -e \
+      'console.log(JSON.stringify({namespace: process.env.REPO_NS, key: "latest"}))' \
+      2>/dev/null || printf '%s' '{}')"
+    prev_raw="$(munin_tool_call "memory_read" "$read_args" 2>/dev/null || printf '%s' '{}')"
+    # parse_prev_counts (lib/escalation.sh) emits "crit<TAB>high<TAB>secrets<TAB>status"
+    # with strict integer/array validation. Tab-separated; read via IFS.
+    prev_parsed="$(printf '%s' "$prev_raw" | parse_prev_counts)"
+    IFS=$'\t' read -r prev_c prev_h prev_s baseline_status <<< "$prev_parsed"
+    prev_c="${prev_c:-0}"; prev_h="${prev_h:-0}"; prev_s="${prev_s:-0}"
+    [[ "${baseline_status:-unavailable}" == "ok" ]] && baseline_ok=true
   fi
 
-  if [[ "$(scan_escalated "$prev_c" "$prev_h" "$prev_s" "$cur_c" "$cur_h" "$cur_s")" == "yes" ]]; then
+  # Defense-in-depth for the delta_desc comparisons below (which use prev_*
+  # directly): canonicalize to base-10 ints, mirroring scan_escalated.
+  [[ "$prev_c" =~ ^[0-9]{1,9}$ ]] && prev_c=$((10#$prev_c)) || prev_c=0
+  [[ "$prev_h" =~ ^[0-9]{1,9}$ ]] && prev_h=$((10#$prev_h)) || prev_h=0
+  [[ "$prev_s" =~ ^[0-9]{1,9}$ ]] && prev_s=$((10#$prev_s)) || prev_s=0
+
+  if [[ "$baseline_ok" != "true" ]]; then
+    log_verbose "  $repo: previous baseline unavailable — skipping delta alert"
+  elif [[ "$(scan_escalated "$prev_c" "$prev_h" "$prev_s" "$cur_c" "$cur_h" "$cur_s")" == "yes" ]]; then
     delta_desc=""
     [[ "$cur_c" -gt "$prev_c" ]] && delta_desc="${delta_desc} critical:${prev_c}->${cur_c}"
     [[ "$cur_h" -gt "$prev_h" ]] && delta_desc="${delta_desc} high:${prev_h}->${cur_h}"

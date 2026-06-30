@@ -71,6 +71,43 @@ else
   echo "  PASS: arithmetic injection inert (no marker)"; PASS=$((PASS + 1))
 fi
 
+# ── Leading-zero / octal inputs: `[[ -gt ]]` would treat 08/09 as invalid octal
+# and error → silent miss. Must be canonicalized base-10, not rejected to 0.
+assert_eq "octal-looking escalation (08->09)"  "yes" "$(scan_escalated 08 0 0 09 0 0)"
+assert_eq "octal-looking no-change (09 vs 08)" "no"  "$(scan_escalated 09 0 0 08 0 0)"
+assert_eq "octal high 08->09"                  "yes" "$(scan_escalated 0 08 0 0 09 0)"
+assert_eq "overlong digit string -> 0"         "no"  "$(scan_escalated 0 0 0 99999999999 0 0)"
+
+echo ""
+echo "parse_prev_counts tests"
+echo "======================================="
+
+# Build a realistic Munin memory_read response wrapping the scanner's stored
+# per-repo content (a markdown body with an embedded ```json block).
+mk_munin() {  # $1 = inner json block content
+  local block="$1"
+  REPO_TEXT="## repo — Security State
+\`\`\`json
+${block}
+\`\`\`" node --input-type=commonjs -e \
+    'console.log(JSON.stringify({result:{content:[{type:"text",text:process.env.REPO_TEXT}]}}))'
+}
+
+assert_eq "valid baseline -> counts + ok" "2	3	1	ok" \
+  "$(mk_munin '{"audit":{"critical":2,"high":3},"secrets":[{"file":"a"}]}' | parse_prev_counts)"
+assert_eq "first run (envelope, no block) -> 0 0 0 ok" "0	0	0	ok" \
+  "$(node --input-type=commonjs -e 'console.log(JSON.stringify({result:{content:[{type:"text",text:"no scans yet"}]}}))' | parse_prev_counts)"
+assert_eq "rpc failure sentinel {} -> unavailable" "0	0	0	unavailable" \
+  "$(printf '%s' '{}' | parse_prev_counts)"
+assert_eq "malformed json block -> unavailable" "0	0	0	unavailable" \
+  "$(mk_munin '{not valid json' | parse_prev_counts)"
+assert_eq "poisoned partial-numeric (999junk) -> unavailable" "0	0	0	unavailable" \
+  "$(mk_munin '{"audit":{"critical":"999junk","high":0},"secrets":[]}' | parse_prev_counts)"
+assert_eq "poisoned fake-array secrets {length:999} -> unavailable" "0	0	0	unavailable" \
+  "$(mk_munin '{"audit":{"critical":0,"high":0},"secrets":{"length":999}}' | parse_prev_counts)"
+assert_eq "garbage (not json at all) -> unavailable" "0	0	0	unavailable" \
+  "$(printf '%s' 'totally not json' | parse_prev_counts)"
+
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
 if [[ "$FAIL" -gt 0 ]]; then
