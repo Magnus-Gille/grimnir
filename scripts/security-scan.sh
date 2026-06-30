@@ -61,17 +61,10 @@ log_verbose() {
   fi
 }
 
-# scan_escalated — pure escalation check; echoes "yes" or "no".
-# A repo escalated if any tracked severity count increased vs the previous scan.
-# Usage: scan_escalated prev_crit prev_high prev_secrets cur_crit cur_high cur_secrets
-scan_escalated() {
-  local prev_c="$1" prev_h="$2" prev_s="$3" cur_c="$4" cur_h="$5" cur_s="$6"
-  if [[ "$cur_c" -gt "$prev_c" ]] || [[ "$cur_h" -gt "$prev_h" ]] || [[ "$cur_s" -gt "$prev_s" ]]; then
-    echo "yes"
-  else
-    echo "no"
-  fi
-}
+# scan_escalated lives in lib/escalation.sh (shared with the delta unit test).
+# shellcheck source=scripts/lib/escalation.sh
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/escalation.sh"
 
 # Node.js 25+ strips TypeScript by default, misparses object literals
 # in -e scripts. --input-type=commonjs fixes it. Also, complex node
@@ -530,9 +523,12 @@ for repo in $SCAN_COMPONENTS; do
   prev_c=0; prev_h=0; prev_s=0
 
   if [[ "$DRY_RUN" != "true" ]] && [[ -n "$MUNIN_TOKEN" ]]; then
+    # `|| printf '{}'` keeps a node failure from aborting the whole scan under
+    # set -e (this runs before the alert + Munin writes). A '{}' read_args makes
+    # memory_read a no-op, prev counts fall back to 0 → silent, correct.
     read_args="$(REPO_NS="security/repos/${repo}" node --input-type=commonjs -e '
       console.log(JSON.stringify({namespace: process.env.REPO_NS, key: "latest"}))
-    ')"
+    ' 2>/dev/null || printf '%s' '{}')"
     prev_raw="$(munin_tool_call "memory_read" "$read_args" 2>/dev/null || echo "{}")"
     # Parse the embedded ```json block from the Munin response's text content.
     # Response is a JSON-RPC result: {result:{content:[{type:"text",text:"..."}]}}
@@ -548,17 +544,24 @@ for repo in $SCAN_COMPONENTS; do
       var obj = {};
       if (m) { try { obj = JSON.parse(m[1]); } catch(e) {} }
       var audit = obj.audit || {};
+      // Coerce to integers — a non-numeric value here must not flow into bash
+      // arithmetic downstream. parseInt(NaN-ish) -> 0.
+      var n = function (x) { var i = parseInt(x, 10); return Number.isFinite(i) ? i : 0; };
       process.stdout.write(
-        (audit.critical || 0) + "\t" +
-        (audit.high || 0) + "\t" +
+        n(audit.critical) + "\t" +
+        n(audit.high) + "\t" +
         ((obj.secrets || []).length)
       );
     ' 2>/dev/null || printf '%s' "0	0	0")"
     prev_c="$(printf '%s' "$prev_counts" | cut -f1)"
     prev_h="$(printf '%s' "$prev_counts" | cut -f2)"
     prev_s="$(printf '%s' "$prev_counts" | cut -f3)"
-    # Guard against empty/unparseable output
-    prev_c="${prev_c:-0}"; prev_h="${prev_h:-0}"; prev_s="${prev_s:-0}"
+    # Guard against empty/unparseable/non-numeric output. The numeric regex
+    # protects the `delta_desc` block below (which compares the caller's prev_*
+    # directly) the same way scan_escalated guards its own copies.
+    [[ "$prev_c" =~ ^[0-9]+$ ]] || prev_c=0
+    [[ "$prev_h" =~ ^[0-9]+$ ]] || prev_h=0
+    [[ "$prev_s" =~ ^[0-9]+$ ]] || prev_s=0
   fi
 
   if [[ "$(scan_escalated "$prev_c" "$prev_h" "$prev_s" "$cur_c" "$cur_h" "$cur_s")" == "yes" ]]; then

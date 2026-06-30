@@ -2,7 +2,8 @@
 # security-scan-delta.test.sh — unit tests for the scan_escalated helper.
 # Tests the pure escalation logic in isolation (no Munin, no network, no node).
 #
-# The function definition below MUST match scan_escalated() in security-scan.sh.
+# Sources the REAL scan_escalated from lib/escalation.sh (no duplicated copy)
+# so the test can never silently drift from the production logic.
 # Compatible with bash 3.2+ (macOS default).
 
 set -euo pipefail
@@ -10,17 +11,10 @@ set -euo pipefail
 PASS=0
 FAIL=0
 
-# ── Pure escalation function (must match security-scan.sh) ──────────────────
-# Returns "yes" if current findings exceed the previous snapshot on any
-# tracked dimension (critical vulns, high vulns, secret count); "no" otherwise.
-scan_escalated() {
-  local prev_c="$1" prev_h="$2" prev_s="$3" cur_c="$4" cur_h="$5" cur_s="$6"
-  if [[ "$cur_c" -gt "$prev_c" ]] || [[ "$cur_h" -gt "$prev_h" ]] || [[ "$cur_s" -gt "$prev_s" ]]; then
-    echo "yes"
-  else
-    echo "no"
-  fi
-}
+# Source the production function under test.
+# shellcheck source=scripts/lib/escalation.sh
+# shellcheck disable=SC1091
+source "$(dirname "$0")/../lib/escalation.sh"
 
 # ── Test harness ─────────────────────────────────────────────────────────────
 assert_eq() {
@@ -58,6 +52,24 @@ assert_eq "secrets increased (non-zero)"   "yes" "$(scan_escalated 0 0 2 0 0 4)"
 assert_eq "first-run critical"             "yes" "$(scan_escalated 0 0 0 3 0 0)"
 assert_eq "first-run high"                 "yes" "$(scan_escalated 0 0 0 0 5 0)"
 assert_eq "first-run secrets"              "yes" "$(scan_escalated 0 0 0 0 0 2)"
+
+# ── Robustness: non-numeric inputs (e.g. a poisoned multi-writer Munin record)
+# must be treated as 0, never reach the `[[ -gt ]]` arithmetic context, and must
+# not abort the function under `set -euo pipefail`. A bare name like `a[...]`
+# would otherwise trip nounset ("a: unbound variable") and kill the whole scan.
+rm -f /tmp/sce_inject_marker
+assert_eq "non-numeric prev -> treated as 0" "no" "$(scan_escalated abc 0 0 0 0 0)"
+assert_eq "non-numeric cur  -> treated as 0" "no" "$(scan_escalated 0 0 0 xyz 0 0)"
+# Single quotes are intentional: pass the literal payload so coercion (not the
+# test harness) decides its fate. Coerced to 0, cur also 0 -> "no".
+# shellcheck disable=SC2016
+assert_eq "arith-injection prev is inert"    "no" "$(scan_escalated 'a[$(touch /tmp/sce_inject_marker)]' 0 0 0 0 0)"
+if [[ -e /tmp/sce_inject_marker ]]; then
+  echo "  FAIL: arithmetic injection executed (marker created)"; FAIL=$((FAIL + 1))
+  rm -f /tmp/sce_inject_marker
+else
+  echo "  PASS: arithmetic injection inert (no marker)"; PASS=$((PASS + 1))
+fi
 
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
