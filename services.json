@@ -101,9 +101,7 @@
       "needs_build": false,
       "systemd_units": [
         { "name": "grimnir-security-scan", "type": "timer" },
-        { "name": "grimnir-validate", "type": "timer" },
-        { "name": "grimnir-maintenance-os", "type": "timer" },
-        { "name": "grimnir-maintenance-deps", "type": "timer" }
+        { "name": "grimnir-validate", "type": "timer" }
       ]
     },
     {
@@ -129,7 +127,9 @@
       "deploy_path": "/home/magnus/repos/brokkr",
       "needs_build": false,
       "systemd_units": [
-        { "name": "brokkr-health", "type": "timer" }
+        { "name": "brokkr-health", "type": "timer" },
+        { "name": "brokkr-maintenance-os", "type": "timer" },
+        { "name": "brokkr-maintenance-deps", "type": "timer" }
       ]
     }
   ],
