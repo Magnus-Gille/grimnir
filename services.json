@@ -128,7 +128,9 @@
       "scan": true,
       "deploy_path": "/home/magnus/repos/brokkr",
       "needs_build": false,
-      "systemd_units": []
+      "systemd_units": [
+        { "name": "brokkr-health", "type": "timer" }
+      ]
     }
   ],
   "nodes": [
