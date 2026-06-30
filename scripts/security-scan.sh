@@ -21,6 +21,11 @@ SCANNER_VERSION="1.2.0"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
 REPOS_DIR="$HOME/repos"
+
+# ─── Source shared helpers ─────────────────────────────────────
+# shellcheck source=scripts/lib/notify.sh
+# shellcheck disable=SC1091  # dynamic path; use shellcheck -x to follow
+source "$SCRIPT_DIR/lib/notify.sh"
 TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 SCAN_DATE="$(date -u '+%Y-%m-%d')"
 HOSTNAME_VAL="$(hostname)"
@@ -53,6 +58,18 @@ done
 log_verbose() {
   if [[ "$VERBOSE" == "true" ]]; then
     echo "$*" >&2
+  fi
+}
+
+# scan_escalated — pure escalation check; echoes "yes" or "no".
+# A repo escalated if any tracked severity count increased vs the previous scan.
+# Usage: scan_escalated prev_crit prev_high prev_secrets cur_crit cur_high cur_secrets
+scan_escalated() {
+  local prev_c="$1" prev_h="$2" prev_s="$3" cur_c="$4" cur_h="$5" cur_s="$6"
+  if [[ "$cur_c" -gt "$prev_c" ]] || [[ "$cur_h" -gt "$prev_h" ]] || [[ "$cur_s" -gt "$prev_s" ]]; then
+    echo "yes"
+  else
+    echo "no"
   fi
 }
 
@@ -496,6 +513,86 @@ fi
 
 echo "Overall status: $OVERALL_STATUS"
 echo ""
+
+# ─── Delta computation (escalation detection) ─────────────────
+# For each repo: read the previous scan from Munin (if available and not dry-run),
+# compare critical/high/secret counts, and track any repo that escalated.
+# In dry-run mode, prev counts are treated as 0 (simulates first run).
+
+ESCALATED_REPOS=""
+ESCALATION_MSG_LINES=""
+
+for repo in $SCAN_COMPONENTS; do
+  cur_c="$(repo_get "$repo" audit_critical)"; [[ -z "$cur_c" ]] && cur_c=0
+  cur_h="$(repo_get "$repo" audit_high)";    [[ -z "$cur_h" ]] && cur_h=0
+  cur_s="$(repo_get "$repo" secret_count)";  [[ -z "$cur_s" ]] && cur_s=0
+
+  prev_c=0; prev_h=0; prev_s=0
+
+  if [[ "$DRY_RUN" != "true" ]] && [[ -n "$MUNIN_TOKEN" ]]; then
+    read_args="$(REPO_NS="security/repos/${repo}" node --input-type=commonjs -e '
+      console.log(JSON.stringify({namespace: process.env.REPO_NS, key: "latest"}))
+    ')"
+    prev_raw="$(munin_tool_call "memory_read" "$read_args" 2>/dev/null || echo "{}")"
+    # Parse the embedded ```json block from the Munin response's text content.
+    # Response is a JSON-RPC result: {result:{content:[{type:"text",text:"..."}]}}
+    # shellcheck disable=SC2016  # single quotes intentional — node JS, not bash expansion
+    prev_counts="$(printf '%s' "$prev_raw" | node --input-type=commonjs -e '
+      var d;
+      try { d = JSON.parse(require("fs").readFileSync("/dev/stdin","utf8")); }
+      catch(e) { d = {}; }
+      var text = (d.result && d.result.content &&
+                  Array.isArray(d.result.content) &&
+                  d.result.content[0] && d.result.content[0].text) || "";
+      var m = text.match(/```json\s*([\s\S]*?)```/);
+      var obj = {};
+      if (m) { try { obj = JSON.parse(m[1]); } catch(e) {} }
+      var audit = obj.audit || {};
+      process.stdout.write(
+        (audit.critical || 0) + "\t" +
+        (audit.high || 0) + "\t" +
+        ((obj.secrets || []).length)
+      );
+    ' 2>/dev/null || printf '%s' "0	0	0")"
+    prev_c="$(printf '%s' "$prev_counts" | cut -f1)"
+    prev_h="$(printf '%s' "$prev_counts" | cut -f2)"
+    prev_s="$(printf '%s' "$prev_counts" | cut -f3)"
+    # Guard against empty/unparseable output
+    prev_c="${prev_c:-0}"; prev_h="${prev_h:-0}"; prev_s="${prev_s:-0}"
+  fi
+
+  if [[ "$(scan_escalated "$prev_c" "$prev_h" "$prev_s" "$cur_c" "$cur_h" "$cur_s")" == "yes" ]]; then
+    delta_desc=""
+    [[ "$cur_c" -gt "$prev_c" ]] && delta_desc="${delta_desc} critical:${prev_c}->${cur_c}"
+    [[ "$cur_h" -gt "$prev_h" ]] && delta_desc="${delta_desc} high:${prev_h}->${cur_h}"
+    [[ "$cur_s" -gt "$prev_s" ]] && delta_desc="${delta_desc} secrets:${prev_s}->${cur_s}"
+    delta_desc="${delta_desc# }"  # trim leading space
+    if [[ -z "$ESCALATED_REPOS" ]]; then
+      ESCALATED_REPOS="$repo"
+      ESCALATION_MSG_LINES="  - ${repo}: ${delta_desc}"
+    else
+      ESCALATED_REPOS="${ESCALATED_REPOS} ${repo}"
+      ESCALATION_MSG_LINES="${ESCALATION_MSG_LINES}
+  - ${repo}: ${delta_desc}"
+    fi
+  fi
+done
+
+# ─── Telegram alert — high/critical status + at least one escalation ──────
+# Stays silent when overall is clean/low/moderate, or when nothing escalated.
+
+if [[ "$OVERALL_STATUS" == "high" ]] || [[ "$OVERALL_STATUS" == "critical" ]]; then
+  if [[ -n "$ESCALATED_REPOS" ]]; then
+    OVERALL_UPPER="$(echo "$OVERALL_STATUS" | tr '[:lower:]' '[:upper:]')"
+    ALERT_MSG="[Grimnir security] ${OVERALL_UPPER} — escalated findings (${SCAN_DATE}):
+${ESCALATION_MSG_LINES}"
+    if [[ "$DRY_RUN" == "true" ]]; then
+      echo "[dry-run] telegram: ${ALERT_MSG}"
+    else
+      notify_telegram "$ALERT_MSG"
+    fi
+  fi
+fi
 
 # ─── Munin writes ─────────────────────────────────────────────
 
