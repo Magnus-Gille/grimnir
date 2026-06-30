@@ -59,7 +59,7 @@ b64="$(printf '%s' "$summary" | base64 | tr -d '\n')"
 reported=""
 for hop in $HOPS; do
   if ssh -o ConnectTimeout=10 -o BatchMode=yes "$hop" \
-       "BREW_SUMMARY_B64='$b64' BREW_NCASKS='$n_casks' BREW_ALERT='$fail' bash /home/magnus/repos/grimnir/scripts/maintenance-report.sh brew"; then
+       "BREW_SUMMARY_B64='$b64' BREW_NCASKS='$n_casks' BREW_ALERT='$fail' bash /home/magnus/repos/brokkr/scripts/maintenance-report.sh brew"; then
     reported="$hop"; break
   fi
   echo "  report hop to $hop failed; trying next…"
