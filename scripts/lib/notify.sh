@@ -22,7 +22,7 @@
 # credential ever appears in the process argv (ps) — the message body itself is
 # on the command line via -d. Config files are read with grep, never sourced.
 # Best-effort by design: a notify failure NEVER fails the calling script (callers
-# such as maintenance-report.sh run under `set -euo pipefail`). bash 3.2+.
+# such as security-scan.sh run under `set -euo pipefail`). bash 3.2+.
 
 RATATOSKR_ENV="${RATATOSKR_ENV:-$HOME/repos/ratatoskr/.env}"
 NOTIFY_ENV="${NOTIFY_ENV:-$HOME/.config/grimnir/notify.env}"

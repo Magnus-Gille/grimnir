@@ -54,7 +54,7 @@ Triaged the Roadmap board (86 items → 59 open) and cleared the trivials + the 
    Skuld interface wrap, three contract tests, per-file contract ownership comments
 3. **Phase B — Targeted `/security-review`** — munin-memory → ratatoskr → hugin; draft `docs/threat-model.md`
 4. **hugin#26** — autonomous dependency bump (note: the **detect+report** half now exists via
-   `grimnir-maintenance-deps`; the auto-bump half is still deliberately deferred)
+   `brokkr-maintenance-deps`; the auto-bump half is still deliberately deferred)
 5. **grimnir#5** — doc drift detection
 6. **review-pr-codex skill** — fix the prereq check: it bails on missing `OPENAI_API_KEY` even when
    Codex is authenticated via ChatGPT sign-in (caused both review subagents to abort on first try)

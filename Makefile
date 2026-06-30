@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy patching maintenance-os maintenance-deps test-security-skip
+.PHONY: docs clean security security-dry deploy test-security-skip
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -11,15 +11,6 @@ security-dry: ## Run security scan (dry run, no Munin writes)
 
 deploy: ## Deploy all services to Pi (or: make deploy ARGS="munin-memory hugin")
 	@./scripts/deploy.sh $(ARGS)
-
-patching: ## Install/refresh unattended-upgrades on all Pi hosts (ARGS="--dry-run" or a host)
-	@./scripts/setup-host-patching.sh $(ARGS)
-
-maintenance-os: ## Run the OS maintenance report on the Pi now (ARGS="--dry-run --verbose")
-	@ssh magnus@huginmunin.local 'cd /home/magnus/repos/grimnir && bash scripts/maintenance-report.sh os $(ARGS)'
-
-maintenance-deps: ## Run the npm dependency report on the Pi now (ARGS="--dry-run --verbose")
-	@ssh magnus@huginmunin.local 'cd /home/magnus/repos/grimnir && bash scripts/maintenance-report.sh deps $(ARGS)'
 
 test-security-skip: ## Regression test: assert security-scan skips test/eval fixtures (issue #22)
 	@bash tests/scripts/test-security-scan-skip.sh

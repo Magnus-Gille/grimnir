@@ -101,9 +101,7 @@
       "needs_build": false,
       "systemd_units": [
         { "name": "grimnir-security-scan", "type": "timer" },
-        { "name": "grimnir-validate", "type": "timer" },
-        { "name": "grimnir-maintenance-os", "type": "timer" },
-        { "name": "grimnir-maintenance-deps", "type": "timer" }
+        { "name": "grimnir-validate", "type": "timer" }
       ]
     },
     {
@@ -122,14 +120,15 @@
     {
       "name": "brokkr",
       "repo": "brokkr",
-      "host": "nas.local",
+      "host": "huginmunin.local",
       "port": null,
       "deploy": false,
       "scan": true,
       "deploy_path": "/home/magnus/repos/brokkr",
       "needs_build": false,
       "systemd_units": [
-        { "name": "brokkr-health", "type": "timer" }
+        { "name": "brokkr-maintenance-os", "type": "timer" },
+        { "name": "brokkr-maintenance-deps", "type": "timer" }
       ]
     }
   ],
@@ -156,7 +155,7 @@
       "status": "active",
       "llm_servers": [],
       "monitor": true,
-      "notes": "Runs mimir (authenticated file server). Not an inference node."
+      "notes": "Runs mimir (authenticated file server) and Brokkr's hardware-health timer (brokkr-health, pushes to Heimdall). Not an inference node."
     },
     {
       "name": "bosgame",
