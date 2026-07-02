@@ -158,21 +158,21 @@
       "notes": "Runs mimir (authenticated file server) and Brokkr's hardware-health timer (brokkr-health, pushes to Heimdall). Not an inference node."
     },
     {
-      "name": "bosgame",
-      "hostname": null,
-      "ssh_alias": null,
-      "hardware": "BosGame M5 — AMD Strix Halo (Ryzen AI Max+ 395), 128GB unified memory",
+      "name": "m5",
+      "hostname": "100.76.72.59",
+      "ssh_alias": "m5",
+      "hardware": "BosGame M5 (BeyondMax) — AMD Strix Halo (Ryzen AI Max+ 395), 128GB unified memory",
       "role": "inference",
-      "status": "planned",
+      "status": "active",
       "llm_servers": [
         { "type": "homeserver-gateway", "port": 8080, "protocol": "openai" }
       ],
       "monitor": false,
-      "notes": "Flagship local inference — NOT YET ARRIVED. homeserver gateway :8080 fronts LM Studio :1234; Cloudflare Tunnel for external access. hostname/ssh alias TBD on arrival. See home-server-inference-evaluation docs/adr-004-m5-routing-ownership.md + docs/bosgame-m5-architecture.md."
+      "notes": "Flagship local inference — LIVE. homeserver gateway :8080 fronts llama-swap :8091 (loopback); public via Cloudflare at inference.gille.ai. Tailnet 100.76.72.59 (MagicDNS/ssh alias `m5`). Under Brokkr apt patching + memory limits. See home-server-inference-evaluation docs/adr-004-m5-routing-ownership.md + docs/bosgame-m5-architecture.md."
     },
     {
       "name": "orin",
-      "hostname": null,
+      "hostname": "100.127.176.78",
       "ssh_alias": "orin",
       "hardware": "NVIDIA Jetson Orin Nano, 8GB",
       "role": "inference",
@@ -181,7 +181,7 @@
         { "type": "ollama", "port": 11434, "protocol": "ollama" }
       ],
       "monitor": false,
-      "notes": "Hugin GPU cell (orinUrl). Only ~3B fits (qwen2.5-coder:3b; 4B OOMs). Live state unverified 2026-06-16 (SSH needs FIDO2 key) — Ollama at :11434, ~192.168.0.230."
+      "notes": "Hugin GPU cell (orinUrl). L4T R36.4.7 / JetPack 6. Only ~3B fits (qwen2.5-coder:3b; 4B OOMs). Tailnet 100.127.176.78 (MagicDNS `orin-nano`); LAN ~192.168.0.230, Ollama :11434. ssh_alias `orin` not yet defined on huginmunin — resolve via tailnet host."
     },
     {
       "name": "laptop",
