@@ -83,7 +83,7 @@ graph TB
         Tunnel_Pi2["cloudflared tunnel"]
     end
 
-    subgraph M5["BosGame M5 — Local Inference (planned)"]
+    subgraph M5["BosGame M5 — Local Inference (live)"]
         Gateway_M5["Home-server Gateway<br/>:8080 (auth + admission)"]
         LMStudio_M5["LM Studio / llama-swap<br/>:1234 (model serving)"]
         Ledger_M5["Capability Ledger<br/>(verdict KB)"]
@@ -133,7 +133,7 @@ graph TB
 |------|----------|------|-------------|
 | Pi 1 | `huginmunin.local` | AI infrastructure (compute) | Munin, Hugin, Heimdall, Skuld, Verdandi |
 | Pi 2 | NAS | Storage & backup | Mimir, Samba, Time Machine |
-| M5 | BosGame (TBD) | Local LLM inference (1–5 users) | Home-server gateway, LM Studio / llama-swap |
+| M5 | `m5` (tailnet `100.76.72.59`) | Local LLM inference (1–5 users) | Home-server gateway, llama-swap |
 
 Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication. The BosGame M5 (awaiting delivery) joins as a dedicated local-inference node — see *Home-server (M5) — Local Inference* below and the gateway API contract in the `home-server-inference-evaluation` repo.
 
