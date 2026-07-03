@@ -40,6 +40,24 @@ run_validator() {
   echo "$rc"
 }
 
+# Runs the validator and asserts it fails cleanly (exit 1, a controlled
+# "validation FAILED" message on stderr) rather than crashing with a raw
+# Node stack trace (TypeError) on malformed/null entries.
+assert_clean_failure() {
+  local desc="$1" fixture="$2"
+  local rc=0
+  local stderr
+  stderr="$(REGISTRY_PATH="$fixture" node --input-type=commonjs "$VALIDATOR" 2>&1 >/dev/null)" || rc=$?
+  assert_eq "$desc: exit 1" "1" "$rc"
+  if [[ "$stderr" == *"TypeError"* ]]; then
+    echo "  FAIL: $desc: stderr must not contain an uncaught TypeError — got: $stderr"
+    FAIL=$((FAIL + 1))
+  else
+    echo "  PASS: $desc: stderr has no uncaught TypeError"
+    PASS=$((PASS + 1))
+  fi
+}
+
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -168,6 +186,27 @@ assert_eq "duplicate node name -> exit 1" "1" "$(run_validator "$TMP_DIR/dup-nod
 
 # ── Missing file entirely ───────────────────────────────────────────────────
 assert_eq "missing file -> exit 1" "1" "$(run_validator "$TMP_DIR/does-not-exist.json")"
+
+# ── Malformed shapes must fail cleanly, not crash with an uncaught TypeError ─
+echo 'null' > "$TMP_DIR/top-level-null.json"
+assert_clean_failure "top-level null" "$TMP_DIR/top-level-null.json"
+
+echo '[]' > "$TMP_DIR/top-level-array.json"
+assert_clean_failure "top-level array" "$TMP_DIR/top-level-array.json"
+
+echo '{ "components": [null] }' > "$TMP_DIR/null-component.json"
+assert_clean_failure "null entry in components" "$TMP_DIR/null-component.json"
+
+cat > "$TMP_DIR/null-unit.json" << 'EOF'
+{ "components": [
+  { "name": "alpha", "repo": "alpha", "host": null, "port": null, "deploy": false, "scan": true, "needs_build": false,
+    "systemd_units": [null] }
+] }
+EOF
+assert_clean_failure "null entry in systemd_units" "$TMP_DIR/null-unit.json"
+
+echo '{ "components": [], "nodes": [null] }' > "$TMP_DIR/null-node.json"
+assert_clean_failure "null entry in nodes" "$TMP_DIR/null-node.json"
 
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"

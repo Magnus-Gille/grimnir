@@ -20,6 +20,10 @@ function fail(msg) {
   errors.push(msg);
 }
 
+function isPlainObject(x) {
+  return x !== null && typeof x === 'object' && !Array.isArray(x);
+}
+
 var raw;
 try {
   raw = fs.readFileSync(registryPath, 'utf8');
@@ -36,6 +40,11 @@ try {
   process.exit(1);
 }
 
+if (!isPlainObject(data)) {
+  fail('top-level document must be a JSON object');
+  printAndExit();
+}
+
 if (!Array.isArray(data.components)) {
   fail('top-level "components" must be an array');
   printAndExit();
@@ -49,7 +58,11 @@ var seenPorts = {};
 
 data.components.forEach(function (c, i) {
   var label = '(index ' + i + ')';
-  if (c && typeof c.name === 'string' && c.name) {
+  if (!isPlainObject(c)) {
+    fail(label + ': component must be an object');
+    return;
+  }
+  if (typeof c.name === 'string' && c.name) {
     label = c.name;
   } else {
     fail(label + ': missing/invalid required field "name" (non-empty string)');
@@ -102,6 +115,10 @@ data.components.forEach(function (c, i) {
   } else {
     c.systemd_units.forEach(function (u, ui) {
       var uLabel = label + '.systemd_units[' + ui + ']';
+      if (!isPlainObject(u)) {
+        fail(uLabel + ': unit must be an object');
+        return;
+      }
       if (typeof u.name !== 'string' || !u.name) {
         fail(uLabel + ': missing/invalid "name"');
       }
@@ -121,7 +138,12 @@ if (data.nodes !== undefined) {
   } else {
     var seenNodeNames = {};
     data.nodes.forEach(function (n, i) {
-      var label = (n && typeof n.name === 'string' && n.name) ? n.name : '(nodes index ' + i + ')';
+      var label = '(nodes index ' + i + ')';
+      if (!isPlainObject(n)) {
+        fail(label + ': node must be an object');
+        return;
+      }
+      label = (typeof n.name === 'string' && n.name) ? n.name : label;
       if (typeof n.name !== 'string' || !n.name) {
         fail(label + ': missing/invalid required field "name" (non-empty string)');
       }
