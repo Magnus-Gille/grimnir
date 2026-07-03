@@ -350,6 +350,7 @@ GIT_VERSIONS=""
 for comp in "${COMPONENTS[@]}"; do
   dir="$REPOS_DIR/$comp"
   if [[ -d "$dir/.git" ]]; then
+    # shellcheck disable=SC2016 # single-quoted --format is a literal git format string, not shell expansion
     info="$(git -C "$dir" log -1 --format='`%h` %s (%ar)' 2>/dev/null || echo '(unknown)')"
     branch="$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
     dirty=""

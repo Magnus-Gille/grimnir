@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-registry-smoke test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -14,6 +14,14 @@ deploy: ## Deploy all services to Pi (or: make deploy ARGS="munin-memory hugin")
 
 test-security-skip: ## Regression test: assert security-scan skips test/eval fixtures (issue #22)
 	@bash tests/scripts/test-security-scan-skip.sh
+
+test-security-delta: ## Unit tests for the scan_escalated/parse_prev_counts helpers
+	@bash scripts/tests/security-scan-delta.test.sh
+
+test-registry-smoke: ## Schema/consistency smoke check for services.json (issue #48)
+	@bash scripts/tests/registry-smoke.test.sh
+
+test: test-security-skip test-security-delta test-registry-smoke ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md

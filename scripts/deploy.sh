@@ -146,6 +146,7 @@ deploy_service() {
   fi
 
   echo "==> Syncing to ${remote}:${deploy_path}..."
+  # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
   if ! ssh "$remote" "mkdir -p '$deploy_path'"; then
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
@@ -167,6 +168,7 @@ deploy_service() {
   fi
 
   echo "==> Installing production dependencies on ${remote_host}..."
+  # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
   if ! ssh "$remote" "cd '$deploy_path' && if [ -f package.json ]; then npm install --omit=dev; fi"; then
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
