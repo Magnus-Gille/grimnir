@@ -1,5 +1,12 @@
 # Grimnir Ecosystem Review — Plan (Revision 2, post-debate)
 
+> ℹ️ **Context note (2026-07-03):** this plan predates `vision.md` v0.2 but its core —
+> cross-service contracts (Step 0, grimnir#7) — remains the active program and serves the
+> current vision directly. Read `docs/vision.md` (decision rule) first; where this plan and
+> v0.2 conflict, v0.2 wins. The 2026-07-03 gap analysis (`docs/gap-analysis-2026-07-03.md`)
+> re-confirmed this plan's motivating findings (divergent MuninClients, skuld's direct
+> SQLite writes, hand-rolled JSON-RPC in heimdall) are still live.
+
 ## Context
 
 The Grimnir ecosystem has grown to 9 repos (~89K LOC) and cross-agent bugs are
