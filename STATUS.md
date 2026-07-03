@@ -1,9 +1,47 @@
 # Grimnir System — Status
 
-**Last session:** 2026-06-30
-**Branch:** main
+**Last session:** 2026-07-03
+**Branch:** chore/gap-analysis-2026-07-03
 
-## Completed This Session (2026-06-30) — roadmap quick-wins + deploy cluster
+## Completed This Session (2026-07-03) — vision-v0.2 gap analysis + cut execution
+
+Ran a 17-agent gap analysis of all 11 components against vision v0.2 (11 assessors + 2 bloat
+auditors + synthesis + 3 adversarial critics). Durable artifact: **`docs/gap-analysis-2026-07-03.md`**
+(ranked gaps, 10 sequenced quick wins, safety-verified cut list, corrections log).
+
+- **Ranked gaps:** (1) self-knowing loop closes almost nowhere (emit→consume→decide arc);
+  (2) Pillar 2 severed at both ends (Hugin↔ledger, routing table has no writers, no production
+  workload feeds it); (3) accountability record laptop-only + mis-classified + unintegrated —
+  **critic correction: Verdandi is ALIVE (67k+ events), not dead**; (4) Phase 2 can't maintain
+  itself (registry poisoned again, 7/10 repos no CI); (5) sovereignty seam leaks; (6) tenant
+  replaceability unvalidated (no non-Claude agent has ever acted through the substrate).
+- **23 `from:grimnir` tickets filed** across owning repos + board-verified (repo-ownership
+  convention — tickets, not tree edits): verdandi#9/#10/#11, ratatoskr#27/#28, skuld#3/#4/#5,
+  mimir#13/#14, hugin#139, brokkr#26/#27, heimdall#104/#105, noxctl#53, gille-inference#145/#146,
+  munin-memory#189, grimnir#45/#46/#47/#48. Full table in the gap-analysis doc §4.
+- **hugin#117:** 2 of 5 cut-list boxes were **already done and tracking never noticed**
+  (hugin-orchestrator merged via PR #108 on 2026-06-17; hugin-munin archived) — ticked with
+  evidence. Worktree retained for in-flight PR2 (`.env` keys to salvage before removal).
+- **Cuts prepared:** snapshots of meta-agent / agentic-eval / codex-review-toolkit /
+  claude-playground / transcriber → `~/mimir/archive/repo-snapshots-2026-07-03/` (meta-agent +
+  codex-review-toolkit have no remote — snapshots are the only copies). `rm -rf` of the 7 targets
+  + the Pi checkout reconcile/redeploy (#44) blocked by the permission classifier → handed to
+  Magnus as one-liners. agent-council deferred (needs re-fetch + 30-min diff vs gille-inference).
+- **Doc stamps:** `GRIMNIR_DEVELOPMENT_PLAN.md` marked SUPERSEDED (contradicts v0.2);
+  `ecosystem-review-plan.md` got a context note (NOT superseded — backs live Step-0 work, #7).
+- **Discovered:** fortnox-mcp repo renamed → `noxctl` on GitHub; `services.json` still says
+  `fortnox-mcp` (registry drift, reconcile with #47/#48 work). ⚠️ Concurrent session live on
+  hugin (`feat/orchestrator-homeserver-provider`) — implements the Pillar-2 ledger wiring;
+  coordinate, don't duplicate.
+
+### Pending / next
+- Magnus: run the Pi reconcile + `make deploy ARGS="grimnir"` (#44), then the 7-repo `rm -rf`.
+- Quick-win queue (sequenced in gap doc §2): verdandi#9 hygiene → validate delta-alert (#2) →
+  CI stamp-out (7 repos) → mimir#11/#12 revival → ratatoskr#27 evidence emitter → doc-truth sweep.
+- Carry-over: #9 (Sara key revoke re-test), #11 (router check on home LAN), #33 (self-update
+  grimnir — subsumed by #44/#47 role separation).
+
+## Completed Previous Session (2026-06-30) — roadmap quick-wins + deploy cluster
 
 Triaged the Roadmap board (86 items → 59 open) and cleared the trivials + the deploy cluster.
 

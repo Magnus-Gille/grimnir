@@ -135,10 +135,26 @@ skill path — no hidden scheduler or registry dependency anywhere.
 - verdandi dead schema surface (unused tables, permanently-null checkpoint fields) → drop or
   move behind the Phase-3 migration; do in the same session as the hygiene win.
 
-## 4. Cross-repo tickets filed (2026-07-03, `from:grimnir`)
+## 4. Cross-repo tickets filed (2026-07-03, `from:grimnir`, all on the Roadmap board)
 
-See the Roadmap board; the filing list is recorded in `projects/grimnir` (Munin) and the
-2026-07-03 STATUS.md entry.
+| Ticket | Scope |
+|--------|-------|
+| verdandi#9 | Audit hygiene: Keychain token, post-MCP severity mapping, GET auth, sync-outbox fix |
+| verdandi#10 | Multi-environment ingest coverage (only laptop CC emits today) |
+| verdandi#11, ratatoskr#28, skuld#4, mimir#14, heimdall#104, brokkr#26, grimnir#48 | Minimal CI per repo (the 7 with none) |
+| ratatoskr#27 | Emit competence evidence: triage logging + real descriptor metrics |
+| skuld#3 | Stop writing directly into Munin's SQLite — use the authenticated API seam |
+| skuld#5, brokkr#27, heimdall#105, munin-memory#189 | Doc-truth sweep per repo |
+| mimir#13 | Secret-scan the rsync ingest path |
+| hugin#139 | Configurable task-workspace root (registry-poisoning class fix, hugin side) |
+| grimnir#47 | Separate deploy target / git checkout / hugin workspace roles (grimnir side) |
+| noxctl#53 | Dependabot + semver-signaled LEGACY_DUAL_WRITE/legacy-reader removal |
+| gille-inference#145 | Auto-regenerate m5-routing.json (writers for the routing table) |
+| gille-inference#146 | Retire improve-loop + flip lmstudio backend default |
+| grimnir#45 | Vision gap: tenant replaceability unvalidated |
+| grimnir#46 | Vision gap: no failure-recovery / undo story |
+
+*(Repo note: fortnox-mcp was renamed `noxctl` on GitHub — services.json still says `fortnox-mcp`; registry drift to reconcile.)*
 
 ## 5. Corrections log (what the adversarial pass changed)
 
