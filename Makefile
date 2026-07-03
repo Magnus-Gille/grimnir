@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-registry-smoke test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-registry-smoke test-failure-recovery-doc test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -21,7 +21,10 @@ test-security-delta: ## Unit tests for the scan_escalated/parse_prev_counts help
 test-registry-smoke: ## Schema/consistency smoke check for services.json (issue #48)
 	@bash scripts/tests/registry-smoke.test.sh
 
-test: test-security-skip test-security-delta test-registry-smoke ## Run all test suites
+test-failure-recovery-doc: ## Regression test: assert docs/failure-recovery.md defines the undo convention (issue #46)
+	@bash tests/scripts/test-failure-recovery-doc.sh
+
+test: test-security-skip test-security-delta test-registry-smoke test-failure-recovery-doc ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
