@@ -125,13 +125,18 @@ auto-merged)" as a **future, not-yet-committed** expansion. When that lands:
 ### Hugin task-dispatched code changes
 
 Hugin (separate repo) dispatches agent tasks that produce commits/PRs across
-service repos. Today these are traced (per the trace schema) but the trace
-does not currently capture a reversal pointer.
+service repos. Today Hugin writes task status/result records to Munin, but
+task-level trace instrumentation (the `trace_id`-bearing schema in
+[`observability-and-improvement.md`](observability-and-improvement.md)) is
+still an open implementation-sequence item there, not shipped — so no
+reversal pointer exists on task output today, on either record type.
 
 - **Reversal recipe:** `git_revert` for the overwhelming majority — task
-  output is a commit or PR. `trace_id` already exists on every Hugin trace;
-  adding the resulting commit/PR ref to that same trace record (or as a
-  linked Verdandi event) is the adoption path, not a new mechanism.
+  output is a commit or PR. Until Hugin trace instrumentation lands, the
+  Verdandi event should reference the Hugin task id/result ref directly;
+  once `trace_id` is implemented, link the event via `trace_id` instead and
+  add the commit/PR ref to that same trace record. Either way, adding the
+  reversal pointer is the adoption path here, not a new mechanism.
 - **Edge case:** a task that calls out to an external system (e.g. sends a
   message, calls a third-party API) as a side effect of an otherwise
   code-only task is `irreversible` for that side effect specifically, even
