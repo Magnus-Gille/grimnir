@@ -1,5 +1,12 @@
 # Grimnir Development Plan — SCION Pattern Integration
 
+> ⛔ **SUPERSEDED by `vision.md` v0.2 (2026-06-29). Do not execute this plan.**
+> It proposes deepening Hugin's home-built orchestration layer — exactly what the
+> current decision rule *caps* ("reuse the harness layer; build only what touches
+> Memory or Inference-routing"). Kept for historical context: the worktree-isolation
+> pattern (§2.2) did ship in Hugin; the rest is void. See `docs/vision.md` +
+> `docs/gap-analysis-2026-07-03.md`. *(Stamped 2026-07-03.)*
+
 > **DRAFT v0.1** — 2026-03-29. Plan only — no implementation.
 > Patterns sourced from SCION↔Grimnir technical review.
 > Debated with synthetic Codex adversarial review (see §5).
