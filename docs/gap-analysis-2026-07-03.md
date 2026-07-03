@@ -87,7 +87,7 @@ homeserver-provider work is the corrective.
 | 2 | Verdandi hygiene: Keychain token, severity remap, GET auth, fix sync-outbox, flush backlog | verdandi | ~1 day | Reframed from "reconnect" — the service is alive |
 | 3 | Wire ledger-gated homeserver executor into Hugin routing | hugin | — | **In flight in a concurrent session — coordinate, don't duplicate** |
 | 4 | Auto-regenerate `m5-routing.json` from ledger + cartography | inference repo | 1–2 d | `qwen36-a3b` hole needs a GPU cartography run — consume the Sunday scout cron, don't race it |
-| 5 | grimnir-validate delta-alert (reuse `lib/escalation.sh`) | grimnir#2 | 1 d | Inert until win 1 lands (validate runs in the poisoned checkout) |
+| 5 | grimnir-validate delta-alert (reuse `scripts/lib/escalation.sh`) | grimnir#2 | 1 d | Inert until win 1 lands (validate runs in the poisoned checkout) |
 | 6 | Heimdall agent heartbeat → wedge-watchdog acceptance test | heimdall#101 | ~1 d | brokkr#14 already CLOSED (watchdog merged, PR #24) — only heartbeat + SIGSTOP test remain |
 | 7 | Minimal CI across the 7 repos that have none | per-repo | ~2 d total | The single biggest Phase-2 unlock; 7 assessors independently listed it |
 | 8 | Mimir revival: tailnet bind, HEIMDALL_* env vars, merge offsite-backup branch | mimir#11/#12 | half-day | Dead shipped instrumentation goes live |
