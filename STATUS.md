@@ -1,9 +1,53 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-03
-**Branch:** chore/gap-analysis-2026-07-03
+**Last session:** 2026-07-04
+**Branch:** main
 
-## Completed This Session (2026-07-03) — vision-v0.2 gap analysis + cut execution
+## Completed This Session (2026-07-03→04) — headless ticket fleet: all 23 gap tickets shipped + deployed
+
+The full execution of the gap analysis below: **every one of the 23 `from:grimnir` tickets resolved,
+27 PRs merged, the fleet deployed current, and both structural fixes live in production.**
+
+- **Method:** one headless `claude -p` session per ticket, each in an isolated git worktree of the
+  owning repo (repo CLAUDE.md visible), gated permissions (`acceptEdits` + scoped allowlist — the
+  classifier correctly refused `--dangerously-skip-permissions`). Every PR triple-gated: session
+  self-ran Codex (`review-pr-codex`), orchestrator posted a Claude review **comment** (never an
+  approval — self-approval correctly blocked), m5 qwen3-coder first-pass where the box cooperated.
+  Spend-limit interrupt overnight: 5 sessions resumed cleanly via `claude -p --continue`.
+- **Cross-model review earned its keep:** 2 criticals (verdandi write-scope never enforced —
+  read-only keys could forge audit events; hugin `..` traversal bypassing the workspace guard),
+  1 high (Option-A `pull --ff-only` exits 0 on local-ahead/dirty — the exact #44 class), ~8 mediums.
+  All fixed test-first or declined with posted rationale.
+- **Structural fixes LIVE on huginmunin:** grimnir now deploys via `git pull --ff-only` with
+  enforced post-conditions (#54 + #55 gitignore + #56 bash-3.2 empty-array fix — two latent deploy
+  bugs surfaced and fixed during acceptance); hugin task workspaces isolated under
+  `~/hugin-workspaces` (`HUGIN_REPOS_ROOT` set, service restarted). #44/#33 class: detected (#53)
+  **and** prevented (hugin#143).
+- **Pillar 2 loop closed:** routing-table generator (gille-inference#148) run against the live
+  ledger (620 attempts + 416 cartography rows, 16/16 types), adopted via gille-inference#149,
+  synced to the runtime — the gateway now serves a **learned** table. reason-hard regressed to
+  escalate-frontier (its 06-23 extra-probes evidence is lost from disk — fail-safe correct;
+  re-probe filed as gille-inference#150).
+- **Fleet deploys:** all 8 services shipped current (verdandi auth enforcement, mimir secret-scan,
+  ratatoskr evidence emitter, skuld authenticated Munin seam live). Caught mid-deploy: local
+  checkouts were stale post-merge — pulled all + redeployed; mimir deployed from an isolated
+  worktree (`mimir=<path>` override) to avoid touching its feature-branch checkout.
+- **Cuts executed:** 7 repos deleted (snapshots in `~/mimir/archive/repo-snapshots-2026-07-03/`).
+- **New tickets from discoveries:** heimdall#108 (descriptor `value` stripped), claude-config#1
+  (Keychain token + outbox flush), brokkr#29/#30, gille-inference#150 (re-probe).
+
+### Pending / next
+- Sara's key revocation (#9) re-test; router check (#11); board hygiene.
+- Policy blessings: verdandi event vocabulary (§3.1 of its ingest design), MODEL_META.unsafeFor
+  list, fleet lint convention (ESLint won 4 repos; ratatoskr tsc-only), Actions SHA-pinning.
+- Fleet npm-audit triage (criticals in ratatoskr+skuld transitives); flaky-timing-test sweep (3 repos).
+- mimir local checkout: on `feat/offsite-cloud-backup` (content-merged) with dirty STATUS.md —
+  owner decision; skuld's 3-month STATUS.md diff likewise.
+- brokkr clone into hugin-workspaces failed (machine account lacks access) — add collaborator, rerun.
+- Adoption tickets on request: failure-recovery convention (hugin/brokkr), verdandi multi-env ingest.
+- services.json: reconcile fortnox-mcp→noxctl repo rename.
+
+## Completed Previous Session (2026-07-03) — vision-v0.2 gap analysis + cut execution
 
 Ran a 17-agent gap analysis of all 11 components against vision v0.2 (11 assessors + 2 bloat
 auditors + synthesis + 3 adversarial critics). Durable artifact: **`docs/gap-analysis-2026-07-03.md`**
