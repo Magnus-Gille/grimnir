@@ -8,3 +8,9 @@ node_modules/
 docs/snapshot.md
 docs/full-architecture.md
 .playwright-mcp/
+
+# Deployment metadata (written by deploy.sh on the Pi; rsync-excluded, must not
+# dirty the git-pull post-condition or the #53 registry-checkout alarm)
+.deployed-commit
+# Claude Code session droppings (until hugin#139 workspace isolation is activated)
+.claude/
