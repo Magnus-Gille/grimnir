@@ -189,7 +189,8 @@ tenant's task is caught and blocked.
 > **`validated-by-run-2026-07-04`:** the gate has now seen its first non-Claude requester. A
 > `codex-cli`-submitted task traversed the full path (Munin write → Hugin pickup in 24 s →
 > ollama execution → result write-back), and the gate's sensitivity classifier demonstrably
-> ran (`sensitivity: {"effective":"internal","mismatch":false}` in `result-structured`).
+> ran (`sensitivity: {"effective":"internal","mismatch":false}` in `result-structured` —
+> verified by the orchestrating session's independent read, not by the tenant itself).
 > Provenance stamping **failed**: `Submitted by:` is self-reported (`convention`, not
 > `mechanism`), the task ran **unsigned** because no tenant signing keyId can be provisioned,
 > unsigned submission was accepted silently (default policy `off`/`warn`), and

@@ -15,3 +15,7 @@ The raw `codex exec` transcript (`codex-exec-transcript-2026-07-04.log`) is giti
 
 Re-running: the run mutates live state (Munin `traces/codex-tenant`, a real Hugin task,
 a gateway ledger entry). Date-stamp a new prompt file rather than re-running this one as-is.
+
+Post-review hardening (Codex review of PR #59, after the run): the runner now fails fast
+when `m5-auth` returns nothing, and filters the tenant's shell environment to an allowlist
+(`include_only`). The 2026-07-04 run itself executed with unfiltered `inherit=all`.
