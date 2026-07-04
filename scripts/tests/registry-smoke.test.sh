@@ -184,6 +184,28 @@ cat > "$TMP_DIR/dup-node.json" << 'EOF'
 EOF
 assert_eq "duplicate node name -> exit 1" "1" "$(run_validator "$TMP_DIR/dup-node.json")"
 
+# ── deploy_mode: valid git-pull passes ──────────────────────────────────────
+cat > "$TMP_DIR/deploy-mode-git-pull.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1.local", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/x", "needs_build": false, "deploy_mode": "git-pull", "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "deploy_mode git-pull -> exit 0" "0" "$(run_validator "$TMP_DIR/deploy-mode-git-pull.json")"
+
+# ── deploy_mode: bogus value fails ──────────────────────────────────────────
+cat > "$TMP_DIR/deploy-mode-bogus.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1.local", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/x", "needs_build": false, "deploy_mode": "ftp", "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "deploy_mode bogus value -> exit 1" "1" "$(run_validator "$TMP_DIR/deploy-mode-bogus.json")"
+
 # ── Missing file entirely ───────────────────────────────────────────────────
 assert_eq "missing file -> exit 1" "1" "$(run_validator "$TMP_DIR/does-not-exist.json")"
 

@@ -49,7 +49,7 @@ var components = data.components;
 switch (query) {
   case 'deploy': {
     // Output format matches what deploy.sh needs:
-    // name|repo|host|deploy_path|primary_unit_type|needs_build|unit_scope
+    // name|repo|host|deploy_path|primary_unit_type|needs_build|unit_scope|deploy_mode
     var deployable = components.filter(function (c) { return c.deploy; });
     deployable.forEach(function (c) {
       // Determine primary unit type/scope from first systemd unit.
@@ -64,8 +64,9 @@ switch (query) {
       }
       var deployPath = c.deploy_path || ('/home/magnus/repos/' + c.repo);
       var needsBuild = c.needs_build ? 'true' : 'false';
+      var deployMode = c.deploy_mode || 'rsync';
       process.stdout.write(
-        c.name + '|' + c.repo + '|' + c.host + '|' + deployPath + '|' + unitType + '|' + needsBuild + '|' + unitScope + '\n'
+        c.name + '|' + c.repo + '|' + c.host + '|' + deployPath + '|' + unitType + '|' + needsBuild + '|' + unitScope + '|' + deployMode + '\n'
       );
     });
     break;
