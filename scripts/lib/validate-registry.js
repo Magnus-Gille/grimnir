@@ -80,6 +80,10 @@ data.components.forEach(function (c, i) {
     }
   });
 
+  if (c.deploy_mode !== undefined && c.deploy_mode !== 'rsync' && c.deploy_mode !== 'git-pull') {
+    fail(label + ': "deploy_mode" must be "rsync" or "git-pull" when present, got "' + c.deploy_mode + '"');
+  }
+
   if (c.host !== null && typeof c.host !== 'string') {
     fail(label + ': field "host" must be a string or null');
   }

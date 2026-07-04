@@ -13,7 +13,7 @@ GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
 REGISTRY="$GRIMNIR_DIR/services.json"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 
-# Read deployable services from registry: name|repo|host|deploy_path|unit_type|needs_build|unit_scope
+# Read deployable services from registry: name|repo|host|deploy_path|unit_type|needs_build|unit_scope|deploy_mode
 SERVICES=()
 while IFS= read -r line; do
   [[ -n "$line" ]] && SERVICES+=("$line")
@@ -95,7 +95,7 @@ resolve_local_path() {
 }
 
 deploy_service() {
-  local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system}
+  local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system} deploy_mode=${8:-rsync}
   local local_path
   local remote_host
   local remote
@@ -118,13 +118,19 @@ deploy_service() {
   branch=$(git -C "$local_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
   commit=$(git -C "$local_path" rev-parse --short HEAD 2>/dev/null || echo "unknown")
   commit_full=$(git -C "$local_path" rev-parse HEAD 2>/dev/null || echo "$commit")
-  if [[ -n "$(git -C "$local_path" status --porcelain 2>/dev/null)" ]]; then
-    dirty_state="dirty"
-    echo -e "${YELLOW}WARN${NC} Deploying local working tree with uncommitted changes"
+  if [[ "$deploy_mode" == "git-pull" ]]; then
+    # git-pull mode ships origin/main on the remote — the local tree is not
+    # the source, so its branch/dirtiness is informational only.
+    echo "Source: origin/main (deploy_mode=git-pull — local tree not shipped; local: ${branch} @ ${commit})"
   else
-    dirty_state="clean"
+    if [[ -n "$(git -C "$local_path" status --porcelain 2>/dev/null)" ]]; then
+      dirty_state="dirty"
+      echo -e "${YELLOW}WARN${NC} Deploying local working tree with uncommitted changes"
+    else
+      dirty_state="clean"
+    fi
+    echo "Source: ${local_path} (${branch} @ ${commit}, ${dirty_state})"
   fi
-  echo "Source: ${local_path} (${branch} @ ${commit}, ${dirty_state})"
 
   if ! remote_host=$(resolve_host "$host"); then
     echo -e "${RED}FAILED${NC}"
@@ -135,7 +141,8 @@ deploy_service() {
   remote="${DEPLOY_USER}@${remote_host}"
 
   # Build locally before syncing if runtime expects generated artifacts like dist/
-  if [[ "$needs_build" == "true" ]]; then
+  # (irrelevant in git-pull mode — nothing local is shipped)
+  if [[ "$needs_build" == "true" && "$deploy_mode" != "git-pull" ]]; then
     echo "==> Building locally..."
     if ! build_locally "$local_path"; then
       echo -e "${RED}FAILED${NC}"
@@ -144,6 +151,32 @@ deploy_service() {
       return
     fi
   fi
+
+  if [[ "$deploy_mode" == "git-pull" ]]; then
+    # git-pull mode (Option A, docs/role-separation.md): the checkout IS the
+    # deployment. Fast-forward it to origin/main — never force, never rsync —
+    # so checkout == HEAD == origin/main by construction. A dirty tree or
+    # diverged branch fails loudly here and trips the registry-checkout alarm.
+    echo "==> Updating ${remote}:${deploy_path} via git pull --ff-only..."
+    # Post-conditions are checked explicitly because `pull --ff-only` exits 0
+    # in two bad states (codex review, PR #54): a local main AHEAD of origin
+    # (stray commit — the #44 incident class) and unrelated dirty tracked
+    # files. Either would let the stamp certify a non-canonical tree, so both
+    # fail the deploy loudly instead.
+    local pull_cmd
+    pull_cmd="git -C '$deploy_path' fetch --quiet origin && "
+    pull_cmd+="git -C '$deploy_path' checkout --quiet main && "
+    pull_cmd+="git -C '$deploy_path' pull --ff-only --quiet origin main && "
+    pull_cmd+="if [ -n \"\$(git -C '$deploy_path' status --porcelain)\" ]; then echo 'ERROR: checkout dirty after pull' >&2; exit 1; fi && "
+    pull_cmd+="if [ \"\$(git -C '$deploy_path' rev-parse HEAD)\" != \"\$(git -C '$deploy_path' rev-parse origin/main)\" ]; then echo 'ERROR: HEAD != origin/main after pull (stray local commits?)' >&2; exit 1; fi"
+    # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
+    if ! ssh -o ConnectTimeout=10 "$remote" "$pull_cmd"; then
+      echo -e "${RED}FAILED${NC}"
+      results+=("${RED}✗${NC} ${name}")
+      fail=$((fail + 1))
+      return
+    fi
+  else
 
   echo "==> Syncing to ${remote}:${deploy_path}..."
   # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
@@ -175,6 +208,8 @@ deploy_service() {
     fail=$((fail + 1))
     return
   fi
+
+  fi # end rsync-mode block (deploy_mode != git-pull)
 
   local cmd="cd '$deploy_path' && "
   if [[ "$unit_type" == "service" && "$unit_scope" == "user" ]]; then
@@ -214,7 +249,13 @@ deploy_service() {
   # source (excluded from rsync above so --delete won't clobber it). Heimdall
   # reads <deploy_path>/.deployed-commit instead of trusting /health (often no
   # commit) or the on-Pi .git (stale — rsync excludes it).
-  cmd+="printf '%s\\n' '${commit_full}' > .deployed-commit && "
+  if [[ "$deploy_mode" == "git-pull" ]]; then
+    # In git-pull mode the remote HEAD is the ground truth (origin/main was
+    # just pulled) — stamp that, not the local checkout's commit.
+    cmd+="git rev-parse HEAD > .deployed-commit && "
+  else
+    cmd+="printf '%s\\n' '${commit_full}' > .deployed-commit && "
+  fi
   cmd+="echo 'DEPLOY_OK'"
 
   local output
@@ -241,7 +282,7 @@ deploy_service() {
 requested=("$@")
 
 for entry in "${SERVICES[@]}"; do
-  IFS='|' read -r name repo host deploy_path unit_type needs_build unit_scope <<< "$entry"
+  IFS='|' read -r name repo host deploy_path unit_type needs_build unit_scope deploy_mode <<< "$entry"
 
   if [[ ${#requested[@]} -gt 0 ]]; then
     match=false
@@ -251,7 +292,7 @@ for entry in "${SERVICES[@]}"; do
     $match || continue
   fi
 
-  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}"
+  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}"
 done
 
 # Summary

@@ -99,6 +99,7 @@
       "scan": false,
       "deploy_path": "/home/magnus/repos/grimnir",
       "needs_build": false,
+      "deploy_mode": "git-pull",
       "systemd_units": [
         { "name": "grimnir-security-scan", "type": "timer" },
         { "name": "grimnir-validate", "type": "timer" }
