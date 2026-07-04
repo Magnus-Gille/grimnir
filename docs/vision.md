@@ -122,7 +122,7 @@ Which open-source harness do we actually adopt for ingress/loop when we outgrow 
 Where does Grimnir stop? Draft-for-review vs. direct client communication? Read-only vs. write access to financial systems? Boundaries shift as trust accumulates.
 
 ### Failure recovery
-When Grimnir acts autonomously and gets it wrong, what happens? It must undo its own mistakes, or at least make them visible before they propagate — prerequisite for phases 3-4.
+When Grimnir acts autonomously and gets it wrong, what happens? It must undo its own mistakes, or at least make them visible before they propagate — prerequisite for phases 3-4. The minimal convention (reversal recipe + Verdandi event) is defined in [`failure-recovery.md`](failure-recovery.md); what remains open is *when* to actually trigger a rollback, not how to make one possible.
 
 ---
 
