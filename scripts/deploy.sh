@@ -158,8 +158,19 @@ deploy_service() {
     # so checkout == HEAD == origin/main by construction. A dirty tree or
     # diverged branch fails loudly here and trips the registry-checkout alarm.
     echo "==> Updating ${remote}:${deploy_path} via git pull --ff-only..."
+    # Post-conditions are checked explicitly because `pull --ff-only` exits 0
+    # in two bad states (codex review, PR #54): a local main AHEAD of origin
+    # (stray commit — the #44 incident class) and unrelated dirty tracked
+    # files. Either would let the stamp certify a non-canonical tree, so both
+    # fail the deploy loudly instead.
+    local pull_cmd
+    pull_cmd="git -C '$deploy_path' fetch --quiet origin && "
+    pull_cmd+="git -C '$deploy_path' checkout --quiet main && "
+    pull_cmd+="git -C '$deploy_path' pull --ff-only --quiet origin main && "
+    pull_cmd+="if [ -n \"\$(git -C '$deploy_path' status --porcelain)\" ]; then echo 'ERROR: checkout dirty after pull' >&2; exit 1; fi && "
+    pull_cmd+="if [ \"\$(git -C '$deploy_path' rev-parse HEAD)\" != \"\$(git -C '$deploy_path' rev-parse origin/main)\" ]; then echo 'ERROR: HEAD != origin/main after pull (stray local commits?)' >&2; exit 1; fi"
     # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
-    if ! ssh -o ConnectTimeout=10 "$remote" "git -C '$deploy_path' fetch --quiet origin && git -C '$deploy_path' checkout --quiet main && git -C '$deploy_path' pull --ff-only --quiet origin main"; then
+    if ! ssh -o ConnectTimeout=10 "$remote" "$pull_cmd"; then
       echo -e "${RED}FAILED${NC}"
       results+=("${RED}✗${NC} ${name}")
       fail=$((fail + 1))
