@@ -84,7 +84,9 @@ resolve_local_path() {
   local service_name=$1 repo=$2
   local req
 
-  for req in "${requested[@]}"; do
+  # ${arr[@]+...} idiom: bash 3.2 (macOS) treats an empty array's "${arr[@]}"
+  # as unbound under set -u — this crashed every no-args `make deploy`.
+  for req in ${requested[@]+"${requested[@]}"}; do
     if [[ "$req" == "${service_name}="* ]]; then
       echo "${req#*=}"
       return
@@ -286,7 +288,7 @@ for entry in "${SERVICES[@]}"; do
 
   if [[ ${#requested[@]} -gt 0 ]]; then
     match=false
-    for req in "${requested[@]}"; do
+    for req in ${requested[@]+"${requested[@]}"}; do
       [[ "$req" == "$name" || "$req" == "${name}="* ]] && match=true && break
     done
     $match || continue
