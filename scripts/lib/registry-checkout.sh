@@ -26,6 +26,10 @@
 #   Echoes "yes" for any alert-* verdict, "no" for "ok". Convenience so callers
 #   don't string-match verdict prefixes themselves.
 #
+# registry_checkout_detail <verdict> [default_branch]
+#   Maps a verdict token to a one-line human description for the validate result
+#   line and the Telegram alert. Every verdict (including "ok") yields a string.
+#
 # check_registry_checkout <checkout_path> [default_branch]
 #   Gathers live git state from <checkout_path> (read-only — no fetch, no
 #   network) and returns the classifier verdict. Never aborts the caller: a
@@ -36,7 +40,9 @@
 # registry-checkout unit test, so the logic has a single definition. bash 3.2+.
 
 classify_registry_checkout() {
-  local git_ok="$1" branch="$2" default_branch="$3" dirty="$4"
+  # Positionals default defensively so a set -u caller is never aborted by a
+  # missing argument (the library contract, and what the unit tests assert).
+  local git_ok="${1:-no}" branch="${2:-}" default_branch="${3:-main}" dirty="${4:-no}"
 
   if [[ "$git_ok" != "yes" ]]; then
     echo "alert-no-git"
@@ -60,15 +66,32 @@ classify_registry_checkout() {
 }
 
 registry_checkout_is_alert() {
-  if [[ "$1" == "ok" ]]; then
+  if [[ "${1:-alert-no-git}" == "ok" ]]; then
     echo "no"
   else
     echo "yes"
   fi
 }
 
+# registry_checkout_detail <verdict> [default_branch]
+#   Maps a verdict token to a one-line human description, used to build the
+#   validate-mode result line and the Telegram alert. Shared here (rather than
+#   inlined in generate-architecture.sh) so the wiring's messages are
+#   unit-tested and every verdict — including "ok" — always yields a string.
+registry_checkout_detail() {
+  local verdict="${1:-alert-no-git}" default_branch="${2:-main}"
+  case "$verdict" in
+    ok)                 echo "on ${default_branch}, clean" ;;
+    alert-dirty)        echo "working tree dirty on ${default_branch}" ;;
+    alert-branch)       echo "off default branch (${default_branch})" ;;
+    alert-branch-dirty) echo "off default branch (${default_branch}) AND dirty" ;;
+    alert-no-git)       echo "not a usable git checkout" ;;
+    *)                  echo "unknown verdict: ${verdict}" ;;
+  esac
+}
+
 check_registry_checkout() {
-  local path="$1" default_branch="${2:-main}"
+  local path="${1:-}" default_branch="${2:-main}"
   local git_ok="no" branch="" dirty="no"
 
   if [[ -n "$path" ]] && git -C "$path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then

@@ -72,6 +72,34 @@ assert_eq "is_alert alert-dirty -> yes"      "yes" "$(registry_checkout_is_alert
 assert_eq "is_alert alert-branch -> yes"     "yes" "$(registry_checkout_is_alert alert-branch)"
 assert_eq "is_alert alert-no-git -> yes"     "yes" "$(registry_checkout_is_alert alert-no-git)"
 
+# Strict-mode contract: the library must never abort a set -u caller, even when
+# a public helper is invoked with no arguments (this test script runs under
+# `set -euo pipefail`, so a nounset abort would kill the whole run here).
+assert_eq "no-arg check_registry_checkout -> alert-no-git" \
+  "alert-no-git" "$(check_registry_checkout)"
+assert_eq "no-arg classify_registry_checkout -> alert-no-git" \
+  "alert-no-git" "$(classify_registry_checkout)"
+assert_eq "no-arg registry_checkout_is_alert -> yes" \
+  "yes" "$(registry_checkout_is_alert)"
+
+# registry_checkout_detail: verdict + default-branch -> human line. Shared with
+# generate-architecture.sh so the validate wiring's messages are unit-tested and
+# the ok branch is never left referencing an unset detail var.
+assert_eq "detail ok" \
+  "on main, clean" "$(registry_checkout_detail ok main)"
+assert_eq "detail alert-dirty" \
+  "working tree dirty on main" "$(registry_checkout_detail alert-dirty main)"
+assert_eq "detail alert-branch" \
+  "off default branch (main)" "$(registry_checkout_detail alert-branch main)"
+assert_eq "detail alert-branch-dirty" \
+  "off default branch (main) AND dirty" "$(registry_checkout_detail alert-branch-dirty main)"
+assert_eq "detail alert-no-git" \
+  "not a usable git checkout" "$(registry_checkout_detail alert-no-git main)"
+assert_eq "detail unknown verdict" \
+  "unknown verdict: weird" "$(registry_checkout_detail weird main)"
+assert_eq "detail honours default branch param" \
+  "off default branch (master)" "$(registry_checkout_detail alert-branch master)"
+
 echo ""
 echo "registry-checkout gatherer tests (real fixture repos)"
 echo "====================================================="

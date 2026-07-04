@@ -204,28 +204,16 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   REGISTRY_CHECKOUT="${GRIMNIR_REGISTRY_CHECKOUT:-$HOME/repos/grimnir}"
   REGISTRY_DEFAULT_BRANCH="${GRIMNIR_DEFAULT_BRANCH:-main}"
   checkout_verdict="$(check_registry_checkout "$REGISTRY_CHECKOUT" "$REGISTRY_DEFAULT_BRANCH")"
-  case "$checkout_verdict" in
-    ok)
-      RESULTS+="✅ registry-checkout: on ${REGISTRY_DEFAULT_BRANCH}, clean ($REGISTRY_CHECKOUT)\n"
-      PASS=$((PASS + 1))
-      ;;
-    alert-dirty)
-      checkout_detail="working tree dirty on ${REGISTRY_DEFAULT_BRANCH}" ;;
-    alert-branch)
-      checkout_detail="off default branch (${REGISTRY_DEFAULT_BRANCH})" ;;
-    alert-branch-dirty)
-      checkout_detail="off default branch (${REGISTRY_DEFAULT_BRANCH}) AND dirty" ;;
-    alert-no-git)
-      checkout_detail="not a usable git checkout" ;;
-    *)
-      checkout_detail="unknown verdict: $checkout_verdict" ;;
-  esac
+  checkout_detail="$(registry_checkout_detail "$checkout_verdict" "$REGISTRY_DEFAULT_BRANCH")"
   if [[ "$(registry_checkout_is_alert "$checkout_verdict")" == "yes" ]]; then
     RESULTS+="❌ registry-checkout: ${checkout_detail} ($REGISTRY_CHECKOUT)\n"
     FAIL=$((FAIL + 1))
     # Best-effort Telegram alert (never fails this script — notify.sh is safe
     # under set -euo pipefail). This is the poisoned-registry early warning.
     notify_telegram "⚠️ grimnir registry checkout poisoned: ${checkout_detail} at ${REGISTRY_CHECKOUT} on $(hostname). Registry consumers may read a stale/wrong services.json until reconciled to ${REGISTRY_DEFAULT_BRANCH}." || true
+  else
+    RESULTS+="✅ registry-checkout: ${checkout_detail} ($REGISTRY_CHECKOUT)\n"
+    PASS=$((PASS + 1))
   fi
 
   # Print results
