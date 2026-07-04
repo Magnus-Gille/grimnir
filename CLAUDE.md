@@ -29,6 +29,7 @@ No service code lives here — each component has its own repo.
 - `docs/conventions.md` — Naming, GitHub ownership, service patterns
 - `docs/role-separation.md` — Why the canonical grimnir checkout must not double as a deploy target or hugin workspace, and the validate check that alarms on drift (issue #47)
 - `docs/observability-and-improvement.md` — How components capture traces, score outputs, and feed the self-improving loop
+- `docs/tenant-contract.md` — The minimal agent↔substrate contract any agent must satisfy to act through the substrate (Munin access, gateway routing, safety gating, audit emission) + a cheap validation plan
 - `services.json` — **Single source of truth** for component inventory (names, hosts, ports, systemd units). All scripts read from it via `scripts/lib/registry.js`
 
 ## Scripts

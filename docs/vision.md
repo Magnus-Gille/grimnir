@@ -12,7 +12,7 @@
 
 The substrate is the identity. The agent — the loop, the channels, the model — is a replaceable tenant. The market is pouring foundation-scale effort into that tenant layer (OpenClaw, nanoclaw, Hermes, the Claude Agent SDK) and commoditizing it toward zero. Racing there is a losing game and an unnecessary one.
 
-As frontier models and agent harnesses both commoditize, the only scarce, personal, non-replicable assets left are *your* memory, *your* files, *your* accountability record, and *your* learned model of what to route where. **Grimnir owns that substrate and lets any agent plug into it.**
+As frontier models and agent harnesses both commoditize, the only scarce, personal, non-replicable assets left are *your* memory, *your* files, *your* accountability record, and *your* learned model of what to route where. **Grimnir owns that substrate and lets any agent plug into it.** The seam that makes "any agent" checkable — what a tenant must satisfy at Munin, the gateway, safety gating, and audit — is specified in `tenant-contract.md`.
 
 The older "autonomous collaborator" framing (v0.1) isn't wrong — it's the *roadmap of what Grimnir does* (see The Arc). But it isn't the *identity*. The identity is the substrate; autonomy is a capability that rides on top of it.
 
@@ -116,7 +116,7 @@ At what point should Grimnir act without asking? What guardrails prevent an irre
 What are the right optimization signals per component? Some are obvious (task success rate, latency); others are hard (did the briefing change behavior? was the autonomous fix correct?). Getting signals wrong optimizes for the wrong thing.
 
 ### Reuse boundaries
-Which open-source harness do we actually adopt for ingress/loop when we outgrow Telegram-only (nanoclaw fork vs. OpenClaw-as-ingress vs. status quo)? The decision rule says *reuse* — but which, and how does it plug into Munin + the gateway without leaking sovereignty?
+Which open-source harness do we actually adopt for ingress/loop when we outgrow Telegram-only (nanoclaw fork vs. OpenClaw-as-ingress vs. status quo)? The decision rule says *reuse* — but which, and how does it plug into Munin + the gateway without leaking sovereignty? The obligations any such tenant must meet are specified in `tenant-contract.md`; what remains open is *which* harness to adopt.
 
 ### Scope boundaries
 Where does Grimnir stop? Draft-for-review vs. direct client communication? Read-only vs. write access to financial systems? Boundaries shift as trust accumulates.
