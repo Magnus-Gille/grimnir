@@ -15,15 +15,19 @@
 ## 1. Why this exists
 
 The vision's thesis sentence — *"a sovereign, self-knowing personal-AI substrate that **any
-agent** can safely act through"* — currently has zero supporting evidence. Every acting
-integration hardcodes the Anthropic cloud SDK:
+agent** can safely act through"* — currently has no end-to-end supporting evidence. The acting
+integrations are Claude-coupled, and no second agent brand has ever been driven through the
+substrate's seams:
 
 - `ratatoskr/src/concierge.ts` (~108) and `skuld/src/synthesizer.ts` (~12) instantiate the
-  Anthropic SDK directly for their LLM calls.
-- Hugin's dispatcher executes work through `@anthropic-ai/claude-agent-sdk`
-  (`architecture.md`, "Safety gating" / broker sections).
+  Anthropic SDK directly for their LLM calls — a hardcoded, single-vendor inference path.
+- Hugin's agent loop defaults to the **Claude Agent SDK** (`@anthropic-ai/claude-agent-sdk`,
+  `sdk-executor.ts`). It *does* already carry a `runtime-registry.ts` / `router.ts` selecting
+  between the Agent SDK, Ollama, OpenRouter, and the M5 home-server (`architecture.md`,
+  "Multi-runtime") — but that is *intra-Hugin runtime selection*, not a proven tenant seam: no
+  non-Claude agent has been driven end-to-end through all four seams below.
 
-No second agent brand has ever acted through the substrate, so "the agent is a replaceable
+Because no second agent brand has ever acted through the substrate, "the agent is a replaceable
 tenant" (vision §The thesis) is an assertion, not a demonstrated property. This document turns
 the assertion into a checkable contract: **what an agent must do at each substrate seam to be a
 conforming tenant**, regardless of which model or harness it is built on.
@@ -61,8 +65,9 @@ already model-agnostic vs. currently Claude-coupled, and how conformance is chec
 store — `memory_read` / `memory_write` (compare-and-swap) / `memory_read_batch` /
 `memory_query` / `memory_log` / `memory_delete` (two-step) — with server-side secret-scan
 before persist, and namespace conventions (`projects/*`, `traces/<agent>`, `tasks/*`,
-`decisions/*`, …). The reference client contract (bearer auth, retry/backoff on 429/5xx,
-`classification` field rules) is `hugin/src/munin-client.ts`, owned by munin-memory.
+`decisions/*`, …). The **Munin HTTP client contract** (bearer auth, retry/backoff on 429/5xx,
+`classification` field rules) is **owned by munin-memory** (it owns the protocol it serves);
+`hugin/src/munin-client.ts` is the current best reference implementation to cite, not the owner.
 
 **Tenant MUST:**
 - Authenticate with **its own per-tenant bearer token**, behind the edge service token, so
@@ -97,9 +102,12 @@ verdicts so the substrate *learns what cheaper compute can be trusted with*.
 - Treat model/runtime selection as **indirectable through the gateway**, not as a hardcoded
   cloud SDK. A conforming tenant's inference path can be pointed at the gateway (or at a model
   the gateway serves) without rewriting the tenant.
-- Route inference the substrate should *learn from* through `POST /v1/chat/completions` or
-  `POST /delegate`, so the ledger accrues a routing-outcome verdict. (Hardcoded direct-to-cloud
-  calls generate zero routing data — gap §1.2(c) — and starve Pillar 2.)
+- Route inference the substrate should *learn from* through the gateway. Plain inference uses
+  `POST /v1/chat/completions`; the **ledger-writing path is `POST /delegate`** — per
+  `architecture.md`, nightly local sub-tasks route through `/delegate` "so the ledger keeps
+  learning what local models can be trusted with." A tenant that wants its outcome recorded as a
+  routing verdict must use `/delegate`. (Hardcoded direct-to-cloud calls generate zero routing
+  data — gap §1.2(c) — and starve Pillar 2.)
 - Authenticate with its own per-tenant gateway key; respect quota and the owner-preempts-guest
   admission rule.
 
@@ -112,8 +120,9 @@ seam is where "any agent" is most naturally true. **Claude-coupled today:** rata
 bypass the gateway entirely with direct `new Anthropic(...)` calls; Hugin's loop assumes the
 Claude Agent SDK runtime rather than a pluggable provider.
 
-**Conformance check:** the tenant completes an inference call through the gateway; a ledger entry
-appears for its `(task_type, model)`; the call is attributed to the tenant's gateway key.
+**Conformance check:** the tenant completes an inference call through the gateway; a `/delegate`
+call produces a ledger entry for its `(task_type, model)`; the call is attributed to the tenant's
+gateway key.
 
 ### Seam C — Safety gating *(Memory pillar — "own")*
 
@@ -128,7 +137,8 @@ The vision assigns this seam as **owned, not reused** (it is what makes tenants 
 **Tenant MUST:**
 - Route any **mutating or egressing action** (writing to external systems, sending mail,
   spending money, touching the tailnet, executing shell) through the gating layer — it does not
-  act on credentials directly.
+  act on credentials directly. Today this means submitting the action through Hugin's task /
+  delegation execution path, which applies the gate (there is no standalone gate API yet).
 - Carry a **tenant provenance stamp** so a gated action is attributable to the tenant that
   requested it (`task-signing` / `provenance`).
 - Accept gate decisions: a blocked action is blocked; the tenant surfaces the block, it does not
@@ -180,15 +190,19 @@ event attributed to the non-Claude tenant.
 
 ## 4. What today's Claude-specific integrations must change
 
-The contract above is satisfiable today at the *transport* level (all four seams are neutral
-HTTP). What is **not** satisfiable today is *tenant replaceability*, because three integrations
-hardcode the acting model and the seams share static tokens. Minimal changes:
+Three of the four seams are directly reachable today as authenticated HTTP (Munin, gateway,
+Verdandi). **Seam C is not a standalone tenant-callable API** — safety gating is Hugin's internal
+task-pipeline layer, reached by routing work *through Hugin's task / delegation execution path*,
+which applies the gate. A conforming non-Hugin tenant must therefore either submit its mutating
+actions through Hugin (inheriting the gate) or wait for the gate to be exposed as its own seam
+(a follow-up). What is **not** satisfiable today is *tenant replaceability*, because the acting
+integrations are Claude-coupled and the seams share static tokens. Minimal changes:
 
 | Integration | Today | Change to conform |
 |---|---|---|
 | `ratatoskr/src/concierge.ts` (~108) | `new Anthropic(...)` direct cloud call | Route the triage LLM call through **Seam B** (gateway) behind an injectable provider; emit the routing-outcome verdict (also closes gap §1.2(c) / ratatoskr#27's dataset need). |
 | `skuld/src/synthesizer.ts` (~12) | Direct Anthropic SDK for synthesis | Same gateway indirection at Seam B. Independently, skuld's **direct SQLite read** must move to **Seam A** (authenticated Munin HTTP — skuld#3). |
-| Hugin dispatcher | `@anthropic-ai/claude-agent-sdk` is the runtime | Make the execution runtime **pluggable behind a provider interface** (the vision already caps Hugin's loop as a reusable *tenant*), with the M5 gateway as one provider. The in-flight `feat/orchestrator-homeserver-provider` work (gap §1.2(a)) is the corrective seam. |
+| Hugin dispatcher | Agent loop defaults to the Claude Agent SDK; a `runtime-registry`/`router` already selects Ollama/OpenRouter/M5 per task, but no non-Claude tenant has been proven across the four seams | Finish making the runtime a first-class **tenant provider** (the vision already caps Hugin's loop as a reusable *tenant*), and prove one non-Claude runtime end-to-end. The in-flight `feat/orchestrator-homeserver-provider` work (gap §1.2(a)) is the corrective seam. |
 | All four seams | Shared static bearer tokens | Issue **per-tenant keys** (Munin, gateway, Verdandi, gating provenance) so §2's identity axiom holds and attribution/quota/audit become per-actor. |
 
 None of these are landed here — they are the downstream code work this spec unblocks, filed
@@ -219,8 +233,9 @@ the Claude Agent SDK.
 
 1. **Seam A** — the tenant authenticates to Munin with **its own per-tenant key** and reads the
    input entries over HTTP (no SQLite).
-2. **Seam B** — the tenant runs the LLM step through the gateway `POST /v1/chat/completions`
-   against the local model; a **ledger verdict** appears for that `(task_type, model)`.
+2. **Seam B** — the tenant runs the learn-worthy LLM step through the gateway via
+   `POST /delegate` against the local model; a **ledger verdict** appears for that
+   `(task_type, model)`. (Plain, non-recorded inference would use `POST /v1/chat/completions`.)
 3. **Seam C** — the write-back / task-enqueue step passes Hugin's **gating layer** and is
    provenance-stamped with the tenant's identity.
 4. **Seam D** — the tenant emits **Verdandi events** under its own key; `GET /api/verify` passes;
@@ -245,7 +260,7 @@ A future tenant self-checks against these MUSTs (one line per obligation):
 - [ ] **A. Munin** — authenticated HTTP/MCP only, no direct SQLite, speaks the client contract,
       writes to owned namespaces.
 - [ ] **B. Gateway** — inference indirectable through the gateway; learn-worthy calls route via
-      `/v1/chat/completions` or `/delegate`; respects quota/admission.
+      `/delegate` (the ledger-writing path); respects quota/admission.
 - [ ] **C. Gating** — all mutating/egressing actions pass the gate, provenance-stamped; accepts
       denials.
 - [ ] **D. Audit** — emits a Verdandi event per consequential action, under its own key, with an
