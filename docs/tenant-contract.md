@@ -9,6 +9,12 @@
 > **This is spec-only. No code ships from this document** — mirroring the ecosystem-review
 > Step-0 pattern. Proving the contract with a real non-Claude agent is tracked as validation
 > work (§5), not delivered here.
+>
+> **Validation status (2026-07-04):** the §5 run was executed for grimnir#58 with the Codex
+> CLI as tenant (`codex-cli`). Seam A/B/C transports **passed**; Seam D was **blocked**
+> (unreachable off-Pi); the §2 identity axiom is **unimplemented at every seam**. Amendments
+> from that run are marked `validated-by-run-2026-07-04`. Evidence:
+> [`tenant-validation-2026-07-04.md`](tenant-validation-2026-07-04.md).
 
 ---
 
@@ -51,6 +57,15 @@ audit all collapse to a single undifferentiated actor.
 
 Everything below is a consequence of this axiom applied to a specific seam.
 
+> **`validated-by-run-2026-07-04`:** the axiom holds at **zero** seams today, and the gap is
+> deeper than "shared tokens": there is no per-tenant credential *provisioning story* at any
+> seam. In the run, the tenant's Munin writes, its task submission, and even Hugin's own
+> heartbeat writes all carried the identical `provenance.principal_id: "owner"`; the gateway
+> ran on the shared owner key (its `keys mint` mechanism exists but is owner-manual and
+> undocumented as a tenant flow); Hugin has no tenant signing keyId path; Verdandi has no key
+> mint at all. Blocking sub-tickets: munin-memory#191, hugin#146, verdandi#15,
+> gille-inference#152.
+
 ---
 
 ## 3. The four seams
@@ -90,6 +105,13 @@ non-laptop writer paths were built for Claude-brand agents; the transport itself
 instance using its own key; the write appears attributed to the tenant; a secret in the payload
 is redacted/rejected server-side.
 
+> **`validated-by-run-2026-07-04`:** transport model-agnosticism **confirmed** — the Codex CLI
+> spoke the seam through its own configured HTTP bridge with zero adaptation. Attribution
+> **failed**: the write (`traces/codex-tenant/run-2026-07-04`, entry `cda356d6…`) was recorded
+> as `principal_id: "owner"`, indistinguishable from Claude-session and Hugin-internal writes,
+> so "the write appears attributed to the tenant" is unsatisfiable until munin-memory#191
+> lands. The secret-rejection check was not exercised in this run.
+
 ### Seam B — Gateway routing *(Inference pillar)*
 
 **Substrate provides:** the M5 home-server gateway (`:8080`, tailnet + Cloudflare) — an
@@ -124,6 +146,14 @@ Claude Agent SDK runtime rather than a pluggable provider.
 call produces a ledger entry for its `(task_type, model)`; the call is attributed to the tenant's
 gateway key.
 
+> **`validated-by-run-2026-07-04`:** the first two clauses **passed** — a minimal
+> `{"prompt": …}` body sufficed (the gateway auto-inferred `taskType:"classify"` and routed to
+> mellum), and the returned `ledgerId` matched a new `(classify, mellum)` ledger entry with
+> `source:"gateway"`. The third clause is currently **uncheckable**: `GET /ledger` exposes no
+> key alias, and the run used the shared owner key (no tenant key was minted). See
+> gille-inference#152. The gateway remains the only seam with an existing per-tenant key
+> mechanism.
+
 ### Seam C — Safety gating *(Memory pillar — "own")*
 
 **Substrate provides:** Hugin's gating layer, through which every task touching real credentials
@@ -156,6 +186,18 @@ tenant-provenance has never been exercised across brands.
 stamped with the tenant identity; a planted prompt-injection / exfiltration attempt in the
 tenant's task is caught and blocked.
 
+> **`validated-by-run-2026-07-04`:** the gate has now seen its first non-Claude requester. A
+> `codex-cli`-submitted task traversed the full path (Munin write → Hugin pickup in 24 s →
+> ollama execution → result write-back), and the gate's sensitivity classifier demonstrably
+> ran (`sensitivity: {"effective":"internal","mismatch":false}` in `result-structured`).
+> Provenance stamping **failed**: `Submitted by:` is self-reported (`convention`, not
+> `mechanism`), the task ran **unsigned** because no tenant signing keyId can be provisioned,
+> unsigned submission was accepted silently (default policy `off`/`warn`), and
+> `result-structured` carries no submitter field (hugin#146). Two additional notes: the task
+> body/tag schema a tenant must write is documented only in a laptop-local skill, not in any
+> tenant-readable contract artifact; and the injection/exfiltration canary was deliberately
+> not exercised against the production queue, so that clause remains unvalidated.
+
 ### Seam D — Audit emission *(Verdandi — Memory pillar)*
 
 **Substrate provides:** Verdandi (`:3036`, Pi 1) — a tamper-evident, hash-chained
@@ -185,6 +227,14 @@ unproven.
 **Conformance check:** the tenant's action produces a Verdandi event under its own key;
 `GET /api/verify` confirms the hash chain; `GET /api/events?component=<tenant>` returns the
 event attributed to the non-Claude tenant.
+
+> **`validated-by-run-2026-07-04`:** **blocked before auth was even reachable.** "The intake
+> is plain authenticated HTTP — any runtime can emit" implicitly assumed a reachable intake;
+> in fact `:3036` is loopback-bound on Pi 1 with no tailnet or public exposure, so every
+> off-Pi attempt failed with `curl: (7) Failed to connect … Couldn't connect to server`.
+> The seam needs a **reachability requirement** in addition to the auth shape, plus a
+> per-component key mint for tenants (neither exists — verdandi#15). No conformance clause
+> could be exercised.
 
 ---
 
@@ -250,6 +300,17 @@ session.
 any general non-Claude agent runtime. This document is the contract and the plan; execution is
 follow-up work (see UNCERTAINTIES in the PR).
 
+> **`validated-by-run-2026-07-04` — this plan has now been executed** (grimnir#58), with two
+> deviations from the sketch above. The tenant was the **Codex CLI** (a genuinely different
+> agent brand driving the seams itself), not a thin script around an M5 model — the M5 model
+> (mellum) served as the Seam B *inference*, per the issue's "candidate tenant" preference.
+> And steps 1–3 ran on **shared credentials**, because the plan's premise "authenticates with
+> its own per-tenant key" is unsatisfiable today — no seam can mint one (see §2 amendment).
+> Steps 1–3 otherwise completed as designed (including the ledger entry and a gated,
+> Hugin-executed action); step 4 was blocked outright (Seam D amendment). Full evidence:
+> [`tenant-validation-2026-07-04.md`](tenant-validation-2026-07-04.md); harness:
+> `scripts/tenant-validation/`.
+
 ---
 
 ## 6. Conformance checklist
@@ -269,3 +330,11 @@ A future tenant self-checks against these MUSTs (one line per obligation):
 
 A tenant is **conforming** when all four seams check green under its own identity. Grimnir has
 zero conforming non-Claude tenants today; the §5 plan produces the first.
+
+> **`validated-by-run-2026-07-04`:** still zero conforming tenants — but the count is now
+> *evidenced*, not assumed. The Codex CLI checked green on the A/B/C **transports** (the first
+> non-Claude agent ever to act through the substrate) and failed conformance solely on the
+> spine: no per-tenant identity exists to present (§2), and Seam D is unreachable. The
+> identity axiom is the single blocker between "a second brand can act through the substrate"
+> (proven) and "a second brand is a conforming tenant" (open — munin-memory#191, hugin#146,
+> verdandi#15).
