@@ -30,6 +30,8 @@ No service code lives here — each component has its own repo.
 - `docs/role-separation.md` — Why the canonical grimnir checkout must not double as a deploy target or hugin workspace, and the validate check that alarms on drift (issue #47)
 - `docs/observability-and-improvement.md` — How components capture traces, score outputs, and feed the self-improving loop
 - `docs/tenant-contract.md` — The minimal agent↔substrate contract any agent must satisfy to act through the substrate (Munin access, gateway routing, safety gating, audit emission) + a cheap validation plan
+- `docs/failure-recovery.md` — The autonomous-mutation undo convention: every autonomous mutation leaves a reversal recipe (git_revert / snapshot / irreversible+mitigation) + an audit event (issue #46)
+- `docs/gap-analysis-2026-07-03.md` — Critic-corrected ecosystem gap analysis vs vision v0.2: ranked gaps, quick wins, cut list, corrections log (the source of the 23-ticket fleet program)
 - `services.json` — **Single source of truth** for component inventory (names, hosts, ports, systemd units). All scripts read from it via `scripts/lib/registry.js`
 
 ## Scripts
