@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-registry-smoke test-failure-recovery-doc test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-registry-smoke test-failure-recovery-doc test-registry-checkout test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -24,7 +24,10 @@ test-registry-smoke: ## Schema/consistency smoke check for services.json (issue 
 test-failure-recovery-doc: ## Regression test: assert docs/failure-recovery.md defines the undo convention (issue #46)
 	@bash tests/scripts/test-failure-recovery-doc.sh
 
-test: test-security-skip test-security-delta test-registry-smoke test-failure-recovery-doc ## Run all test suites
+test-registry-checkout: ## Unit tests for the registry-checkout integrity helpers (issue #47)
+	@bash scripts/tests/registry-checkout.test.sh
+
+test: test-security-skip test-security-delta test-registry-smoke test-failure-recovery-doc test-registry-checkout ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
