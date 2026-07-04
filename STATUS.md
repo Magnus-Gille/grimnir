@@ -1,9 +1,55 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-04
+**Last session:** 2026-07-04 (afternoon — Fable)
 **Branch:** main
 
-## Completed This Session (2026-07-03→04) — headless ticket fleet: all 23 gap tickets shipped + deployed
+## Completed This Session (2026-07-04 pm) — vision re-check, fleet run 2, first production Pillar-2 traffic
+
+Post-fleet alignment re-check against vision v0.2, then a second ticket fleet (4 tickets, all-Fable
++ M5-heavy variant), merged and **activated in production same-day**.
+
+- **Alignment re-check (corrected two prior claims against source):** §1.2 Pillar 2 was NOT fully
+  closed — ratatoskr/skuld still hardcoded the Anthropic SDK, so the learned routing table trained
+  on self-referential orchestrator traffic; conversely the hugin verdict layer verified as a REAL
+  consumer (adaptive verify gate drives delegate-local/escalate/explore). New binding constraint
+  named: **signal design** (raw cost savings could reward cheap-but-wrong).
+- **4 tickets filed and resolved via ticket-fleet** (one worktree + headless `claude-fable-5`
+  session each; triple review: Codex + orchestrator leg + m5 qwen3-coder first-pass):
+  - **hugin#144 → PR #145** (merged `6deabc1`): quality-adjusted savings — verdict-joined
+    economics; fail = zero credit, verifier spend booked; QA ≤ raw by design. Judgment call
+    accepted: unknown-keeps-credit (bucketed for later discount).
+  - **ratatoskr#31 → PR #32** (merged `a1121c9`): triage via gateway `POST /delegate` (deliberate,
+    endorsed deviation — /delegate records ledger attempts server-side). **ACTIVATED**: key minted,
+    env set on huginmunin, deployed, smoke-passed (`outcome:pass`, 3.9s warm). Live metrics show a
+    real Telegram triage **served by M5** + one visible cold-swap fallback — §1.2c closed in fact.
+  - **grimnir#58 → PR #59** (merged `4620d6d`, honest partial): **first non-Claude tenant (Codex)
+    acted through 3/4 substrate seams** live; Seam D blocked (Verdandi has no off-Pi intake).
+    Central finding with receipts: per-tenant identity unimplemented everywhere (all writes
+    collapse to `principal_id: owner`). #58 stays OPEN until verdandi#15 + Seam D re-run.
+  - **gille-inference#151 → PR #153** (merged `6789dbc`): Pillar-2 self-guard — durable probe
+    ledger, missing-vs-absent distinction, `--accept-downgrades` refuse-write gate + Heimdall
+    alarm. Codex was out of credits: self-review fallback honestly labeled; **real Codex pass owed**.
+- **Follow-up tickets filed** (`from:grimnir`, on board): verdandi#15 (**blocking**: off-Pi audit
+  intake + key provisioning), munin-memory#191 (per-tenant principals), hugin#146 (task
+  provenance/signing), gille-inference#152 (ledger key alias), gille-inference#154 (Verdandi event
+  on regression alarm; blocked by #15).
+- **M5 delegation-quality data logged** (RQ6/RQ7, in Munin): qwen3-coder review legs clean+correct
+  on 3 TS diffs but confabulated 5/6 findings on a shell/docs diff — verify-before-trust caught
+  all of it. Local codegen usable-with-supervision (every draft needed 2–3 corrections).
+- **Ops:** two sessions died simultaneously to an API connection drop (15:20:00); both resumed
+  cleanly via `--continue` with M5-enabled resume script. gille-inference now has a canonical
+  laptop checkout (`~/repos/gille-inference` — previously none existed anywhere).
+
+### Pending / next (this session's additions)
+- **verdandi#15 is the critical path** — unblocks #58 closure, Seam D re-run, and gille-inference#154.
+- Codex pass on gille-inference PR #153 when credits return.
+- hugin next deploy activates quality-adjusted savings; next routing-table regen exercises the guard.
+- Per-tenant identity is the substrate's next structural theme (munin-memory#191, hugin#146,
+  gille-inference#152 as the arc).
+- Scheduled mini-gap-analysis: deliberately held until ratatoskr#31 + grimnir#58 accrue data.
+- (Inherited pending list from the morning session below remains valid.)
+
+## Completed Previous Session (2026-07-03→04) — headless ticket fleet: all 23 gap tickets shipped + deployed
 
 The full execution of the gap analysis below: **every one of the 23 `from:grimnir` tickets resolved,
 27 PRs merged, the fleet deployed current, and both structural fixes live in production.**
