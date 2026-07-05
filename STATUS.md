@@ -1,9 +1,43 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-05 (Opus)
+**Last session:** 2026-07-05 (Opus) — grimnir hygiene sweep
 **Branch:** main
 
-## Completed This Session (2026-07-05) — close-the-loop experiment + full model sweep + honest routing table LIVE
+## Completed This Session (2026-07-05 pm) — grimnir hygiene: #43 + #33 shipped, deployed, verified; 3 follow-ups filed
+
+Picked up "what's next" → a self-contained grimnir-owned hygiene sweep. PR #62 merged
+(`66bfda1`) + deployed to huginmunin, closing #43 and #33.
+
+- **#33 (deploy drift) — false positive, now genuinely fixed.** Production grimnir HEAD has
+  tracked origin/main all along (kept current by session `git pull --ff-only`), but
+  `.deployed-commit` — the marker Heimdall's drift detector reads — is only re-stamped by
+  `deploy.sh`, so a tree pulled forward OUTSIDE a deploy leaves it stale and Heimdall
+  false-flags all 4 grimnir units as behind. Fix: `restamp_deploy_marker()` in
+  `scripts/lib/registry-checkout.sh` self-heals the marker in the `--validate` flow when the
+  checkout is verified clean-on-main. **Verified end-to-end on the Pi:** staled the marker →
+  triggered the sandboxed validate service → healed back to HEAD, 0 warnings.
+- **#43 (SSOT).** Added `hugin-daily-analysis.timer` to `services.json` (appended second so
+  `registry.js` still derives hugin's deploy scope from `systemd_units[0]` — deploy stays
+  user/rsync). **Discovery:** that timer is installed on huginmunin but was never
+  `enable --now`'d — **hugin's daily journal analysis has never run.**
+- **Cross-model review (2 Codex rounds, gpt-5.5 xhigh) earned its keep:** round 1 caught the
+  self-heal was a *silent no-op under `grimnir-validate.service`'s read-only sandbox*
+  (`ReadOnlyPaths=/home/magnus/repos` + `ProtectHome=read-only`) — fixed with a single-file
+  `ReadWritePaths=-…/.deployed-commit` exception + a visible WARN (killed the `|| true` swallow).
+  Round 2 caught a symlink-TOCTOU — now refused. Tests: registry-checkout 42/42, registry-smoke
+  27/27; shellcheck + `bash -n` clean.
+
+### Follow-ups filed (all on the Roadmap board)
+- **hugin#147** — enable the dormant `hugin-daily-analysis.timer` (daily journal analysis has
+  never run). Hugin-owned.
+- **grimnir#63** — `grimnir-validate` ignores `scope: user` (always uses system
+  `systemctl is-active`), so user-scoped units like `hugin.service` chronically false-report
+  `inactive`. Pre-existing; grimnir-owned — the natural next pickup.
+- **brokkr#36** — when brokkr's dep auto-bump lands it must restart services whose
+  `node_modules` changed. **#31 closed** — routed here + interim convention (route dep upgrades
+  through `deploy.sh`, which restarts).
+
+## Completed Previous Session (2026-07-05 am) — close-the-loop experiment + full model sweep + honest routing table LIVE
 
 An autonomous overnight experiment proving Pillar 2's loop closes end-to-end, a full 7-model
 capability sweep, then 8 PRs shipped and the honest routing table synced to production.
