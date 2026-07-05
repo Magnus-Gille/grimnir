@@ -1,9 +1,46 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-04 (afternoon — Fable)
+**Last session:** 2026-07-05 (Opus)
 **Branch:** main
 
-## Completed This Session (2026-07-04 pm) — vision re-check, fleet run 2, first production Pillar-2 traffic
+## Completed This Session (2026-07-05) — close-the-loop experiment + full model sweep + honest routing table LIVE
+
+An autonomous overnight experiment proving Pillar 2's loop closes end-to-end, a full 7-model
+capability sweep, then 8 PRs shipped and the honest routing table synced to production.
+
+- **Close-the-loop experiment** (~530 gateway calls, ledger 743→1,198 rows): fresh probes →
+  durable ledger → #153-guarded regen. reason-hard restored to delegate-local (gpt-oss-120b
+  23/24 — its first ledger evidence; #150 gap closed); sql promoted (explore→delegate-local).
+  Alarm drill replayed the #150 incident (deleted evidence) → guard refused write, exit 1,
+  EVIDENCE-MISSING + ROUTING_REGRESSION_JSON correct. **Report: `~/mimir/research/grimnir/
+  m5-close-the-loop-2026-07-04.md`** (indexed in Munin documents/research).
+- **Full 7-model sweep** (~1,200 loopback calls, misconfig probe). **Triage:** mellum wins
+  (88% vs qwen3-30b 83%; ratatoskr#33 filed to switch). **Code review vs 34 seeded bugs:**
+  **gpt-oss-120b is the best local reviewer (82% recall / 93% precision)**; mellum — the old
+  table's code-review verdict — is the WORST (6% recall / 25% precision). **Misconfig findings:**
+  gpt-oss-120b 27/120 triage HTTP-500s (harmony/PEG format, model-layer, non-deterministic);
+  gemma4+tongyi-dr budget-starved (run-wrong, not weak). Confirmed on both tasks.
+- **8 PRs merged** (all triple-reviewed; Codex back online mid-session): #159 (triage vocab #155),
+  #163 (verdict hygiene #156 — exclude structural verifiers), #165 (gpu-lease post-release write
+  race — flaky ENOTEMPTY, real fix), #167 (#164 retry-on-format-500), #169 (#168 whitelist
+  hygiene — judgment types admit only trusted verifiers), **#157 (adopt honest routing table)**.
+- **Honest routing table LIVE on the M5 gateway** (synced 13:23Z): code-review→escalate-frontier
+  (honest — no trusted local reviewer verifier yet), reason-hard→delegate-local(gpt-oss-120b),
+  sql→delegate-local, triage vocab present. Backup at box `docs/m5-routing.json.bak-20260705-132254`.
+  **Pillar 2 now closes end-to-end IN PRODUCTION**: traffic → ledger → guarded regen → adoption → serving.
+
+### Pending / next (this session's additions)
+- **gille-inference#158** (ground-truth code-review probe) — THE keystone: its trusted verifier,
+  added to `HOMESERVER_TRUSTED_JUDGMENT_VERIFIERS`, flips code-review escalate→local(gpt-oss-120b).
+  The #168 whitelist is its socket. Design-heavy (needs a scoring mechanism decision).
+- **gille-inference#166** (grammar-constrained structured output — prevents #164 500s at source),
+  **#161** (generator prototype-key guard), **brokkr#32** (llama.cpp harmony upgrade — box ops).
+- **ratatoskr#33** (switch triage default to mellum — one env line + restart on huginmunin).
+- Operational: headless fleet MUST run on **opus** (Fable is spend-capped — killed a session).
+  gpt-oss-120b unreachable on the M5 ask-path 4× under load (#164/brokkr#32) — blocks using it
+  as the fleet's own local-review leg until reachability is fixed.
+
+## Completed Previous Session (2026-07-04 pm) — vision re-check, fleet run 2, first production Pillar-2 traffic
 
 Post-fleet alignment re-check against vision v0.2, then a second ticket fleet (4 tickets, all-Fable
 + M5-heavy variant), merged and **activated in production same-day**.
