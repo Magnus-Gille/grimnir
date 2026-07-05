@@ -214,6 +214,20 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   else
     RESULTS+="✅ registry-checkout: ${checkout_detail} ($REGISTRY_CHECKOUT)\n"
     PASS=$((PASS + 1))
+    # Self-heal the git-pull deploy marker (#33). grimnir deploys via git pull,
+    # so the on-Pi HEAD is the authoritative "what's live" — but .deployed-commit
+    # (what Heimdall's drift detector reads) is only re-stamped by deploy.sh.
+    # Sessions pull this canonical checkout forward outside a deploy, leaving the
+    # marker stale, so Heimdall false-flags every grimnir unit as behind origin.
+    # We only reach this branch when the checkout is verified clean AND on the
+    # default branch, so HEAD is safe to trust — re-stamp it. Guarded on an
+    # existing marker so this never fabricates one on a non-deploy checkout (a
+    # laptop run), and it never runs on a dirty/branch-stranded tree (those stay
+    # alert-worthy above).
+    _grimnir_marker="$REGISTRY_CHECKOUT/.deployed-commit"
+    if [[ -f "$_grimnir_marker" ]] && _grimnir_head="$(git -C "$REGISTRY_CHECKOUT" rev-parse HEAD 2>/dev/null)"; then
+      printf '%s\n' "$_grimnir_head" > "$_grimnir_marker" 2>/dev/null || true
+    fi
   fi
 
   # Print results
