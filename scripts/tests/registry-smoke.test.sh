@@ -230,6 +230,33 @@ assert_clean_failure "null entry in systemd_units" "$TMP_DIR/null-unit.json"
 echo '{ "components": [], "nodes": [null] }' > "$TMP_DIR/null-node.json"
 assert_clean_failure "null entry in nodes" "$TMP_DIR/null-node.json"
 
+# ── registry.js deploy-query invariant (#43 / #33) ──────────────────────────
+# The `deploy` projection derives each component's primary unit_type/scope from
+# systemd_units[0]. hugin must stay a user-scoped rsync service even after a
+# system-scoped `hugin-daily-analysis` timer was appended to its systemd_units —
+# appending units must never change the deploy row. Pin the real services.json
+# plus the ordering contract on a synthetic fixture.
+REGISTRY_JS="$SCRIPT_DIR/../lib/registry.js"
+deploy_row() {  # $1 = registry path, $2 = component name
+  REGISTRY_PATH="$1" QUERY=deploy node --input-type=commonjs "$REGISTRY_JS" 2>/dev/null \
+    | grep "^$2|" || true
+}
+assert_eq "real services.json: hugin deploy row unchanged by appended timer" \
+  "hugin|hugin|huginmunin.local|/home/magnus/repos/hugin|service|true|user|rsync" \
+  "$(deploy_row "$REPO_REGISTRY" hugin)"
+
+cat > "$TMP_DIR/order.json" << 'EOF'
+{
+  "components": [
+    { "name": "svc", "repo": "svc", "host": "h1.local", "port": 3030, "deploy": true, "scan": false, "deploy_path": "/x", "needs_build": true,
+      "systemd_units": [ { "name": "svc", "type": "service", "scope": "user" }, { "name": "svc-daily", "type": "timer" } ] }
+  ]
+}
+EOF
+assert_eq "deploy row derives type/scope from systemd_units[0] (service+user first)" \
+  "svc|svc|h1.local|/x|service|true|user|rsync" \
+  "$(deploy_row "$TMP_DIR/order.json" svc)"
+
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
 if [[ "$FAIL" -gt 0 ]]; then

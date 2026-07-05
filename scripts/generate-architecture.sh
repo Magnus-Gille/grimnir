@@ -214,6 +214,19 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   else
     RESULTS+="✅ registry-checkout: ${checkout_detail} ($REGISTRY_CHECKOUT)\n"
     PASS=$((PASS + 1))
+    # Self-heal the git-pull deploy marker (#33). Sessions pull this canonical
+    # checkout forward OUTSIDE a deploy, leaving .deployed-commit — what Heimdall's
+    # drift detector reads — stale, so Heimdall false-flags every grimnir unit as
+    # behind origin. restamp_deploy_marker only writes because we reached this
+    # branch (checkout verified clean AND on the default branch) and a marker
+    # already exists. A non-zero return means the marker is stale but the write was
+    # refused (e.g. this service's read-only sandbox — see ReadWritePaths in
+    # grimnir-validate.service); surface it instead of letting the drift silently
+    # persist.
+    if ! restamp_deploy_marker "$REGISTRY_CHECKOUT" "$checkout_verdict"; then
+      RESULTS+="⚠️  deploy-marker: .deployed-commit not safely writable (read-only mount or symlink) — Heimdall drift may false-flag\n"
+      WARN=$((WARN + 1))
+    fi
   fi
 
   # Print results

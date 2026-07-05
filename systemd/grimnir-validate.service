@@ -15,6 +15,12 @@ TimeoutStartSec=120
 # Sandboxing — read-only, needs network for SSH and Munin HTTP
 ProtectSystem=strict
 ReadOnlyPaths=/home/magnus/repos
+# Exception (#33): let the validate run self-heal ONLY the deploy marker so
+# Heimdall's drift detector doesn't false-flag grimnir after a session pulls the
+# tree forward outside a deploy. The '-' prefix makes it optional, so a checkout
+# without a marker yet still starts cleanly. Overrides ReadOnlyPaths/ProtectHome
+# for this single file only.
+ReadWritePaths=-/home/magnus/repos/grimnir/.deployed-commit
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectHome=read-only

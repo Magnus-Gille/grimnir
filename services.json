@@ -23,7 +23,8 @@
       "deploy_path": "/home/magnus/repos/hugin",
       "needs_build": true,
       "systemd_units": [
-        { "name": "hugin", "type": "service", "scope": "user" }
+        { "name": "hugin", "type": "service", "scope": "user" },
+        { "name": "hugin-daily-analysis", "type": "timer" }
       ]
     },
     {

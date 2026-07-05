@@ -164,6 +164,62 @@ assert_eq "fixture: empty path arg -> alert-no-git" \
   "alert-no-git" "$(check_registry_checkout "" main)"
 
 echo ""
+echo "restamp_deploy_marker tests (#33 deploy-marker self-heal)"
+echo "========================================================"
+
+mk_repo "$TMP_DIR/marker" main
+MARKER_HEAD="$(git -C "$TMP_DIR/marker" rev-parse HEAD)"
+MARKER_FILE="$TMP_DIR/marker/.deployed-commit"
+
+# ok verdict + existing (stale) marker -> rewritten to HEAD, returns 0.
+printf 'deadbeef\n' > "$MARKER_FILE"
+rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok || rc=$?
+assert_eq "ok + stale marker -> returns 0" "0" "$rc"
+assert_eq "ok + stale marker -> healed to HEAD" "$MARKER_HEAD" "$(cat "$MARKER_FILE")"
+
+# ok verdict + NO marker -> must not fabricate one (non-deploy checkout), returns 0.
+rm -f "$MARKER_FILE"
+rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok || rc=$?
+assert_eq "ok + no marker -> returns 0" "0" "$rc"
+assert_eq "ok + no marker -> no marker created" "no" \
+  "$([[ -f "$MARKER_FILE" ]] && echo yes || echo no)"
+
+# non-ok verdict must NEVER stamp, even with a marker present (don't bless a
+# dirty/branch-stranded tree).
+printf 'deadbeef\n' > "$MARKER_FILE"
+rc=0; restamp_deploy_marker "$TMP_DIR/marker" alert-dirty || rc=$?
+assert_eq "alert-dirty + marker -> returns 0 (skip)" "0" "$rc"
+assert_eq "alert-dirty + marker -> left untouched" "deadbeef" "$(cat "$MARKER_FILE")"
+
+# no-arg call must not crash under set -euo pipefail (strict-mode contract).
+rc=0; restamp_deploy_marker || rc=$?
+assert_eq "no-arg restamp -> returns 0 (skip, no crash)" "0" "$rc"
+
+# ok verdict + marker present but UNWRITABLE -> returns 1 so the caller can warn
+# (this is the grimnir-validate.service read-only-sandbox case). Skipped as root,
+# where file permission bits don't block writes.
+if [[ "$(id -u)" != "0" ]]; then
+  printf 'deadbeef\n' > "$MARKER_FILE"
+  chmod 000 "$MARKER_FILE"
+  rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok || rc=$?
+  chmod 644 "$MARKER_FILE"
+  assert_eq "ok + unwritable marker -> returns 1 (surfaced)" "1" "$rc"
+  assert_eq "ok + unwritable marker -> content unchanged" "deadbeef" "$(cat "$MARKER_FILE")"
+fi
+
+# A symlinked marker must be REFUSED, never followed — otherwise this write (and
+# the validate service's ReadWritePaths exception, which also resolves symlinks)
+# could clobber an arbitrary target. Return 1, leave the target untouched.
+rm -f "$MARKER_FILE"
+echo "target-untouched" > "$TMP_DIR/marker/real-target"
+ln -s "$TMP_DIR/marker/real-target" "$MARKER_FILE"
+rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok || rc=$?
+assert_eq "ok + symlink marker -> returns 1 (refused)" "1" "$rc"
+assert_eq "ok + symlink marker -> target left untouched" \
+  "target-untouched" "$(cat "$TMP_DIR/marker/real-target")"
+rm -f "$MARKER_FILE"
+
+echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
 if [[ "$FAIL" -gt 0 ]]; then
   exit 1

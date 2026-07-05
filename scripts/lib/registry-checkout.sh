@@ -104,3 +104,36 @@ check_registry_checkout() {
 
   classify_registry_checkout "$git_ok" "$branch" "$default_branch" "$dirty"
 }
+
+# Re-stamp the git-pull deploy marker (#33). Heimdall's drift detector reads
+# <checkout>/.deployed-commit to decide whether a git-pull component is behind
+# origin. deploy.sh stamps that marker, but the canonical grimnir checkout also
+# gets pulled forward by ad-hoc sessions OUTSIDE a deploy, which leaves the marker
+# stale and makes Heimdall false-flag every grimnir unit as behind. Re-stamp HEAD
+# into the marker — but ONLY when the caller has already verified the checkout is
+# clean AND on its default branch (verdict "ok"); never bless a dirty or
+# branch-stranded tree. Guarded on an existing marker so it never fabricates one
+# on a non-deploy checkout (e.g. a laptop run).
+#
+# Returns:
+#   0 — stamped, or intentionally skipped (verdict != ok, or no marker present)
+#   1 — marker present + verdict ok, but the write FAILED (e.g. a read-only mount,
+#       as under grimnir-validate.service's sandbox). The caller MUST surface this
+#       rather than swallow it, or the marker silently stays stale.
+restamp_deploy_marker() {
+  local checkout="${1:-}" verdict="${2:-}"
+  [[ "$verdict" == "ok" ]] || return 0
+  local marker="${checkout}/.deployed-commit"
+  # Refuse a symlinked marker. The marker is gitignored (outside git's dirty
+  # check), and both this write and the validate service's ReadWritePaths
+  # exception resolve symlinks — so following one could clobber an arbitrary
+  # target. Surface it (return 1) rather than write through it.
+  [[ -L "$marker" ]] && return 1
+  [[ -f "$marker" ]] || return 0
+  local head
+  head="$(git -C "$checkout" rev-parse HEAD 2>/dev/null)" || return 0
+  # Group the redirection so a failed open (read-only mount) is suppressed too —
+  # a bare `> "$marker" 2>/dev/null` can still leak the open error to stderr.
+  { printf '%s\n' "$head" > "$marker"; } 2>/dev/null || return 1
+  return 0
+}
