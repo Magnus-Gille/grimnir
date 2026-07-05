@@ -207,6 +207,18 @@ if [[ "$(id -u)" != "0" ]]; then
   assert_eq "ok + unwritable marker -> content unchanged" "deadbeef" "$(cat "$MARKER_FILE")"
 fi
 
+# A symlinked marker must be REFUSED, never followed — otherwise this write (and
+# the validate service's ReadWritePaths exception, which also resolves symlinks)
+# could clobber an arbitrary target. Return 1, leave the target untouched.
+rm -f "$MARKER_FILE"
+echo "target-untouched" > "$TMP_DIR/marker/real-target"
+ln -s "$TMP_DIR/marker/real-target" "$MARKER_FILE"
+rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok || rc=$?
+assert_eq "ok + symlink marker -> returns 1 (refused)" "1" "$rc"
+assert_eq "ok + symlink marker -> target left untouched" \
+  "target-untouched" "$(cat "$TMP_DIR/marker/real-target")"
+rm -f "$MARKER_FILE"
+
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
 if [[ "$FAIL" -gt 0 ]]; then

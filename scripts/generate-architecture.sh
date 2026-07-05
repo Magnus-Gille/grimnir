@@ -224,7 +224,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     # grimnir-validate.service); surface it instead of letting the drift silently
     # persist.
     if ! restamp_deploy_marker "$REGISTRY_CHECKOUT" "$checkout_verdict"; then
-      RESULTS+="⚠️  deploy-marker: .deployed-commit stale but not writable (read-only mount?) — Heimdall drift may false-flag\n"
+      RESULTS+="⚠️  deploy-marker: .deployed-commit not safely writable (read-only mount or symlink) — Heimdall drift may false-flag\n"
       WARN=$((WARN + 1))
     fi
   fi

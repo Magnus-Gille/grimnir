@@ -124,6 +124,11 @@ restamp_deploy_marker() {
   local checkout="${1:-}" verdict="${2:-}"
   [[ "$verdict" == "ok" ]] || return 0
   local marker="${checkout}/.deployed-commit"
+  # Refuse a symlinked marker. The marker is gitignored (outside git's dirty
+  # check), and both this write and the validate service's ReadWritePaths
+  # exception resolve symlinks — so following one could clobber an arbitrary
+  # target. Surface it (return 1) rather than write through it.
+  [[ -L "$marker" ]] && return 1
   [[ -f "$marker" ]] || return 0
   local head
   head="$(git -C "$checkout" rev-parse HEAD 2>/dev/null)" || return 0
