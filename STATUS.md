@@ -1,9 +1,47 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-05 (Opus) — grimnir hygiene sweep
-**Branch:** main
+**Last session:** 2026-07-06 (Opus) — blind-spot audit → threat model + 14 tickets
+**Branch:** main (PR #68 open on `docs/threat-model`)
 
-## Completed This Session (2026-07-05 pm) — grimnir hygiene: #43 + #33 shipped, deployed, verified; 3 follow-ups filed
+## Completed This Session (2026-07-06) — blind-spot audit: vision alignment + threat-model v0.1 + 14 from:grimnir tickets
+
+Full blind-spot check of the system vs vision v0.2. **Verdict:** the vision is sharply articulated
+and the two pillars are real; the *unseen* gaps cluster in **continuity, whole-system security/trust,
+and strategic worth** — the "self-knowing" principle is applied to models/components but never to the
+system's own recoverability, trustworthiness, or ROI.
+
+- **Method:** 5 parallel sub-agent component profilers (munin / hugin / heimdall+ratatoskr /
+  mimir+verdandi+brokkr+skuld+fortnox / doc-corpus) + ground-truth checks on huginmunin + an M5
+  independent adversarial cross-check (`qwen3-30b-instruct`; `gpt-oss-120b` timed out under load —
+  matches the ask-path flakiness note). All verbose profiling kept out of root context.
+- **Net-new findings** (beyond the 2026-07-03 gap analysis): no human succession/bus-factor plan;
+  no off-box dead-man's switch (Heimdall + the only alert channel share fate with the host they
+  watch, and alert-engine reds are display-only) — a real power outage already forced manual
+  restarts (grimnir#4); off-site backup is Munin-only and restore has never been tested (the NAS is
+  a data-loss SPOF); Verdandi's real hash-chain is never verified on a cadence and has no off-box
+  anchor; Munin cannot correct/forget a wrong "fact"; GDPR/third-party data untreated; system-level
+  ROI never measured.
+- **Sharpened knowns:** Hugin runs every task `bypassPermissions` (exfil guard is detective-only)
+  and emits nothing to Verdandi — the autonomous actor is the least-audited actor; the lethal
+  trifecta is open on interactive sessions (gating exists only on the Hugin queue path).
+- **Ground truth:** Skuld is `deploy:true` in services.json but has no unit on the box and has never
+  run (`systemctl is-enabled` → not-found; journal empty); `munin-offsite.timer` IS live and firing.
+- **Artifacts:** `docs/threat-model.md` v0.1 (**PR #68**) — first consolidated threat model, T1–T10
+  mapped to owning tickets. **14 `from:grimnir` tickets filed + on the Roadmap board:**
+  grimnir#65 (succession), #66 (GDPR), #67 (system-ROI), #69 (Skuld SSOT drift), #70 (interactive
+  trifecta); brokkr#38 (off-box dead-man's switch), #39 (off-site+restore), #40 (encryption-at-rest);
+  heimdall#112 (push alerts); hugin#148 (→Verdandi), #149 (scope permissions); ratatoskr#36
+  (/repo traversal); verdandi#16 (verify+anchor); munin-memory#192 (memory correction).
+
+### Pending / next
+- **Highest-leverage, cheapest:** brokkr#38 (off-box dead-man's switch — one laptop cron).
+- Review + merge PR #68 (threat-model v0.1 is a draft; needs owner sign-off on the accepted-risk list).
+- Grimnir-owned decision tickets await a working session: #65 (succession envelope), #67 (ROI ledger
+  + exit paragraph in vision.md), #69 (revive Skuld or cut it from services.json), #70 (trust posture
+  for interactive sessions).
+- T7/brokkr#40 needs an on-box check: are the SD cards / NAS disk actually encrypted at rest?
+
+## Completed Previous Session (2026-07-05 pm) — grimnir hygiene: #43 + #33 shipped, deployed, verified; 3 follow-ups filed
 
 Picked up "what's next" → a self-contained grimnir-owned hygiene sweep. PR #62 merged
 (`66bfda1`) + deployed to huginmunin, closing #43 and #33.
