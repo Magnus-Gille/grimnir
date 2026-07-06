@@ -56,16 +56,16 @@
 
 | # | Threat | Vector | Current control | Residual | Tracked |
 |---|---|---|---|---|---|
-| T1 | Exfiltration via the **lethal trifecta** | Injection in ingested content → agent with memory+files+exec → egress | Hugin queue-path injection/exfil scanners + egress policy | **H** — detective only; `bypassPermissions` unconditional | hugin (permissions) |
-| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | *none* — gating exists only on the Hugin queue path | **H** | grimnir |
-| T3 | Command injection → fleet code-exec | Ratatoskr `/repo` path-traversal; LLM output submitted verbatim | Telegram owner-allowlist | **H** | ratatoskr |
-| T4 | Autonomous action unattributable / unlogged | Hugin mutates (commits/deploys/writes) but emits nothing to Verdandi; shared static tokens = no per-tenant identity | append-only Verdandi exists but is unfed by Hugin | **H** | hugin, verdandi#15 |
-| T5 | Audit-chain forgery on a compromised box | Attacker owns Pi 1, rewrites the chain and re-hashes | append-only trigger + SHA-256 chain; `GET /api/verify` | **M** — verify is manual + same-box; no off-box anchor | verdandi |
+| T1 | Exfiltration via the **lethal trifecta** | Injection in ingested content → agent with memory+files+exec → egress | Hugin queue-path injection/exfil scanners + egress policy | **H** — detective only; `bypassPermissions` unconditional | hugin#149 |
+| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | *none* — gating exists only on the Hugin queue path | **H** | grimnir#70 |
+| T3 | Command injection → fleet code-exec | Ratatoskr `/repo` path-traversal; LLM output submitted verbatim | Telegram owner-allowlist | **H** | ratatoskr#36 |
+| T4 | Autonomous action unattributable / unlogged | Hugin mutates (commits/deploys/writes) but emits nothing to Verdandi; shared static tokens = no per-tenant identity | append-only Verdandi exists but is unfed by Hugin | **H** | hugin#148, verdandi#15 |
+| T5 | Audit-chain forgery on a compromised box | Attacker owns Pi 1, rewrites the chain and re-hashes | append-only trigger + SHA-256 chain; `GET /api/verify` | **M** — verify is manual + same-box; no off-box anchor | verdandi#16 |
 | T6 | Supply-chain compromise | Malicious transitive npm dep in a Node service | weekly `security-scan.sh` (`npm audit`) + systemd sandbox | **M** | (scan exists) |
-| T7 | Physical theft → plaintext data at rest | Stolen Pi / SD card / NAS disk | file perms `0600`; **SD cards likely NOT encrypted — verify** | **H** if unencrypted | brokkr (verify FDE) |
-| T8 | Silent total-host failure | Pi 1 dies; monitoring + alerting die with it | on-box watchdog only | **M/H** — no off-box dead-man's switch | brokkr |
-| T9 | Backup loss / unrecoverable restore | NAS disk failure; restore never tested | Munin encrypted off-site; other stores on-prem only | **H** | brokkr |
-| T10 | Poisoned memory drives bad action | A false stored "fact" retrieved and acted on repeatedly | secret-scan on write; no correction / expiry path | **M** | munin-memory |
+| T7 | Physical theft → plaintext data at rest | Stolen Pi / SD card / NAS disk | file perms `0600`; **SD cards likely NOT encrypted — verify** | **H** if unencrypted | brokkr#40 |
+| T8 | Silent total-host failure | Pi 1 dies; monitoring + alerting die with it | on-box watchdog only | **M/H** — no off-box dead-man's switch | brokkr#38 |
+| T9 | Backup loss / unrecoverable restore | NAS disk failure; restore never tested | Munin encrypted off-site; other stores on-prem only | **H** | brokkr#39 |
+| T10 | Poisoned memory drives bad action | A false stored "fact" retrieved and acted on repeatedly | secret-scan on write; no correction / expiry path | **M** | munin-memory#192 |
 
 ## 6. Explicitly accepted / out-of-scope (for now)
 
