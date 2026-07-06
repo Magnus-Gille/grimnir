@@ -4,7 +4,7 @@
 //   REGISTRY_PATH=/path/to/services.json QUERY=<query> node --input-type=commonjs scripts/lib/registry.js
 //
 // Queries:
-//   deploy       — components where deploy=true, output: name|repo|host|deploy_path|unit_type|needs_build (deploy.sh format)
+//   deploy       — components where deploy=true, output: name|repo|host|deploy_path|unit_type|needs_build|unit_scope|deploy_mode|units_json (deploy.sh format)
 //   scan         — components where scan=true, output: space-separated repo names
 //   components   — all component names, space-separated
 //   systemd      — all systemd unit names, space-separated
@@ -49,7 +49,7 @@ var components = data.components;
 switch (query) {
   case 'deploy': {
     // Output format matches what deploy.sh needs:
-    // name|repo|host|deploy_path|primary_unit_type|needs_build|unit_scope|deploy_mode
+    // name|repo|host|deploy_path|primary_unit_type|needs_build|unit_scope|deploy_mode|units_json
     var deployable = components.filter(function (c) { return c.deploy; });
     deployable.forEach(function (c) {
       // Determine primary unit type/scope from first systemd unit.
@@ -65,8 +65,9 @@ switch (query) {
       var deployPath = c.deploy_path || ('/home/magnus/repos/' + c.repo);
       var needsBuild = c.needs_build ? 'true' : 'false';
       var deployMode = c.deploy_mode || 'rsync';
+      var units = JSON.stringify(c.systemd_units || []);
       process.stdout.write(
-        c.name + '|' + c.repo + '|' + c.host + '|' + deployPath + '|' + unitType + '|' + needsBuild + '|' + unitScope + '|' + deployMode + '\n'
+        c.name + '|' + c.repo + '|' + c.host + '|' + deployPath + '|' + unitType + '|' + needsBuild + '|' + unitScope + '|' + deployMode + '|' + units + '\n'
       );
     });
     break;
@@ -99,13 +100,14 @@ switch (query) {
     break;
   }
   case 'validate': {
-    // Host-aware output for validation: name|host|port|repo|units_json
+    // Host-aware output for validation: name|host|port|repo|deploy_path|units_json
     // Includes all components so validator can check each on the correct host
     components.forEach(function (c) {
       var port = c.port || '';
       var host = c.host || '';
+      var deployPath = c.deploy_path || '';
       var units = JSON.stringify(c.systemd_units || []);
-      process.stdout.write(c.name + '|' + host + '|' + port + '|' + c.repo + '|' + units + '\n');
+      process.stdout.write(c.name + '|' + host + '|' + port + '|' + c.repo + '|' + deployPath + '|' + units + '\n');
     });
     break;
   }

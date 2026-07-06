@@ -1,13 +1,13 @@
 # Scheduled Tasks Registry
 
 > All automated tasks running on Grimnir infrastructure.
-> Last updated: 2026-06-15.
+> Last updated: 2026-07-07.
 
 ---
 
 ## Overview
 
-All scheduled tasks run on Pi 1 (huginmunin) via systemd timers, except where noted. Timer units live in each service's repo under `systemd/`. Heimdall monitors all timers via its Deploy Status card.
+All scheduled tasks run on Pi 1 (huginmunin) via systemd timers, except where noted. Timer units usually live under `systemd/`, but root-level `{name}.service` / `{name}.timer` files are also supported by `scripts/deploy.sh`. Declared timer inventory lives in `services.json`.
 
 ---
 
@@ -43,7 +43,7 @@ All scheduled tasks run on Pi 1 (huginmunin) via systemd timers, except where no
 | **Unit** | `skuld.timer` / `skuld.service` |
 | **Repo** | `skuld` (grimnir-bot org) |
 | **Purpose** | Synthesize calendar, project state, and Munin context into a morning briefing via Claude API |
-| **Output** | Munin: `briefings/daily/{date}`, web UI at :3040 |
+| **Output** | Munin: `briefings/daily/{date}` and `briefings/latest`; Heimdall renders `/briefing` |
 | **Why it exists** | Morning orientation — what's on today, what changed overnight, what needs attention |
 
 ### Hugin Daily Journal Analysis
@@ -91,7 +91,7 @@ All scheduled tasks run on Pi 1 (huginmunin) via systemd timers, except where no
 ## Adding a new scheduled task
 
 1. Create the script in the relevant repo's `scripts/` directory.
-2. Create `systemd/{name}.service` (Type=oneshot) and `systemd/{name}.timer` in the same repo.
-3. Add the timer to Heimdall's `heimdall.config.json` as a `"type": "timer"` service entry.
+2. Create `systemd/{name}.service` (Type=oneshot) and `systemd/{name}.timer` in the same repo, or root-level `{name}.service` / `{name}.timer` if that repo already uses root-level units.
+3. Add the timer to the owning component's `systemd_units` in `services.json`.
 4. Update this document.
-5. Deploy: `make deploy ARGS="grimnir"` — `scripts/deploy.sh` now has a timer-install branch that copies units from `systemd/` to `/etc/systemd/system/`, runs `daemon-reload`, and `enable --now`s all timers automatically. No manual systemctl step needed for grimnir-repo timers.
+5. Deploy the owning component — `scripts/deploy.sh` installs every declared unit, runs `daemon-reload`, and enables timers automatically. No manual systemctl step should be needed.

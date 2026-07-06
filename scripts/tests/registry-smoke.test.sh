@@ -172,6 +172,17 @@ cat > "$TMP_DIR/bad-unit-type.json" << 'EOF'
 EOF
 assert_eq "invalid systemd unit type -> exit 1" "1" "$(run_validator "$TMP_DIR/bad-unit-type.json")"
 
+# ── Bad systemd unit name ───────────────────────────────────────────────────
+cat > "$TMP_DIR/bad-unit-name.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": null, "port": null, "deploy": false, "scan": true, "needs_build": false,
+      "systemd_units": [{ "name": "alpha;rm -rf /", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "invalid systemd unit name -> exit 1" "1" "$(run_validator "$TMP_DIR/bad-unit-name.json")"
+
 # ── Duplicate node name ──────────────────────────────────────────────────────
 cat > "$TMP_DIR/dup-node.json" << 'EOF'
 {
@@ -242,8 +253,12 @@ deploy_row() {  # $1 = registry path, $2 = component name
     | grep "^$2|" || true
 }
 assert_eq "real services.json: hugin deploy row unchanged by appended timer" \
-  "hugin|hugin|huginmunin.local|/home/magnus/repos/hugin|service|true|user|rsync" \
+  'hugin|hugin|huginmunin.local|/home/magnus/repos/hugin|service|true|user|rsync|[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-analysis","type":"timer"}]' \
   "$(deploy_row "$REPO_REGISTRY" hugin)"
+
+assert_eq "real services.json: skuld timer deploys via user manager" \
+  'skuld|skuld|huginmunin.local|/home/magnus/repos/skuld|timer|true|user|rsync|[{"name":"skuld","type":"timer","scope":"user"}]' \
+  "$(deploy_row "$REPO_REGISTRY" skuld)"
 
 cat > "$TMP_DIR/order.json" << 'EOF'
 {
@@ -254,7 +269,7 @@ cat > "$TMP_DIR/order.json" << 'EOF'
 }
 EOF
 assert_eq "deploy row derives type/scope from systemd_units[0] (service+user first)" \
-  "svc|svc|h1.local|/x|service|true|user|rsync" \
+  'svc|svc|h1.local|/x|service|true|user|rsync|[{"name":"svc","type":"service","scope":"user"},{"name":"svc-daily","type":"timer"}]' \
   "$(deploy_row "$TMP_DIR/order.json" svc)"
 
 echo ""
