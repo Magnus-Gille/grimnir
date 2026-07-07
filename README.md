@@ -2,7 +2,7 @@
 
 Personal AI infrastructure that gives Claude persistent memory, file access, and autonomous task execution across every environment — from a phone on the bus to a terminal at the desk.
 
-Runs on two Raspberry Pis and a MacBook. All data stays on your hardware.
+Runs on two Raspberry Pis, a MacBook, and a local M5 inference box. All data stays on your hardware.
 
 ## Components
 
@@ -46,4 +46,4 @@ This is a personal infrastructure project. The documentation is public for refer
 
 ---
 
-*Built by Magnus Gille, with Claude and Codex. Running on two Raspberry Pis in Mariefred, Sweden.*
+*Built by Magnus Gille, with Claude and Codex. Running on local hardware in Mariefred, Sweden.*

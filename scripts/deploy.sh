@@ -13,7 +13,8 @@ GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
 REGISTRY="$GRIMNIR_DIR/services.json"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 
-# Read deployable services from registry: name|repo|host|deploy_path|unit_type|needs_build|unit_scope|deploy_mode
+# Read deployable services from registry:
+# name|repo|host|deploy_path|unit_type|needs_build|unit_scope|deploy_mode|units_json
 SERVICES=()
 while IFS= read -r line; do
   [[ -n "$line" ]] && SERVICES+=("$line")
@@ -96,8 +97,35 @@ resolve_local_path() {
   echo "${LOCAL_REPOS_ROOT}/${repo}"
 }
 
+unit_rows() {
+  local units_json=$1 fallback_name=$2 fallback_type=$3 fallback_scope=$4
+  UNITS_JSON="$units_json" FALLBACK_NAME="$fallback_name" FALLBACK_TYPE="$fallback_type" FALLBACK_SCOPE="$fallback_scope" \
+    node --input-type=commonjs -e '
+      var units = [];
+      try {
+        units = JSON.parse(process.env.UNITS_JSON || "[]");
+      } catch (_) {
+        units = [];
+      }
+      if (!Array.isArray(units) || units.length === 0) {
+        units = [{
+          name: process.env.FALLBACK_NAME,
+          type: process.env.FALLBACK_TYPE || "service",
+          scope: process.env.FALLBACK_SCOPE || "system"
+        }];
+      }
+      units.forEach(function (u) {
+        process.stdout.write([
+          u.name,
+          u.type || "service",
+          u.scope || "system"
+        ].join("|") + "\n");
+      });
+    '
+}
+
 deploy_service() {
-  local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system} deploy_mode=${8:-rsync}
+  local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system} deploy_mode=${8:-rsync} units_json=${9:-[]}
   local local_path
   local remote_host
   local remote
@@ -214,39 +242,65 @@ deploy_service() {
   fi # end rsync-mode block (deploy_mode != git-pull)
 
   local cmd="cd '$deploy_path' && "
-  if [[ "$unit_type" == "service" && "$unit_scope" == "user" ]]; then
-    # User unit (systemctl --user). Sync unit file from repo's systemd/
-    # subdir if present, then restart via the *user* manager. No sudo, and
-    # critically no stop/disable of the user instance — for a user-scoped
-    # service that instance IS the service, not a stray leftover.
-    cmd+="if [ -f systemd/${name}.service ]; then"
-    cmd+=" install -D -m644 systemd/${name}.service \"\$HOME/.config/systemd/user/${name}.service\""
-    cmd+=" && systemctl --user daemon-reload"
-    cmd+=" && echo '  user unit file synced'; fi && "
-    cmd+="systemctl --user restart ${name} && "
-  elif [[ "$unit_type" == "service" ]]; then
-    # System unit. Sync unit file from repo's systemd/ subdir if present
-    # (no placeholders expected there).
-    cmd+="if [ -f systemd/${name}.service ]; then"
-    cmd+=" sudo cp systemd/${name}.service /etc/systemd/system/${name}.service"
-    cmd+=" && sudo systemctl daemon-reload"
-    cmd+=" && echo '  unit file synced'; fi && "
-    # Kill any leftover user-unit instance holding the port before the system unit restarts
-    cmd+="systemctl --user stop ${name} 2>/dev/null || true && "
-    cmd+="systemctl --user disable ${name} 2>/dev/null || true && "
-    cmd+="sudo systemctl restart ${name} && "
-  elif [[ "$unit_type" == "timer" ]]; then
-    # Timer component (e.g. grimnir, skuld). These have no long-running service
-    # to restart; instead install ALL oneshot services + timers from systemd/,
-    # daemon-reload, and enable --now every timer. Idempotent — safe per deploy.
-    # (Previously timers were installed entirely by hand; this closes that gap.)
-    # `|| continue` keeps a non-matching glob (left literal when nullglob is
-    # unset) from leaking a failed `[ -f ]` status into the && chain.
-    cmd+="for u in systemd/*.service systemd/*.timer; do [ -f \"\$u\" ] || continue; sudo cp \"\$u\" /etc/systemd/system/ || exit 1; done && "
-    cmd+="sudo systemctl daemon-reload && "
-    cmd+="for t in systemd/*.timer; do [ -f \"\$t\" ] || continue; sudo systemctl enable --now \"\$(basename \"\$t\")\" || exit 1; done && "
-    cmd+="echo '  timers synced & enabled' && "
+  local rows unit_name unit_kind unit_actual_scope unit_file companion_file
+  local user_needs_reload=false system_needs_reload=false
+  local user_services=() system_services=() user_timers=() system_timers=()
+
+  rows="$(unit_rows "$units_json" "$name" "$unit_type" "$unit_scope")"
+  while IFS='|' read -r unit_name unit_kind unit_actual_scope; do
+    [[ -n "$unit_name" ]] || continue
+    unit_file="${unit_name}.${unit_kind}"
+
+    if [[ "$unit_actual_scope" == "user" ]]; then
+      cmd+="unit_src=''; for f in systemd/${unit_file} ${unit_file}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
+      cmd+="[ -n \"\$unit_src\" ] || { echo 'ERROR: unit file missing: ${unit_file}' >&2; exit 1; }; "
+      cmd+="install -D -m644 \"\$unit_src\" \"\$HOME/.config/systemd/user/${unit_file}\" && "
+      user_needs_reload=true
+      if [[ "$unit_kind" == "service" ]]; then
+        user_services+=("$unit_name")
+      elif [[ "$unit_kind" == "timer" ]]; then
+        companion_file="${unit_name}.service"
+        cmd+="companion_src=''; for f in systemd/${companion_file} ${companion_file}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
+        cmd+="if [ -n \"\$companion_src\" ]; then install -D -m644 \"\$companion_src\" \"\$HOME/.config/systemd/user/${companion_file}\"; fi && "
+        user_timers+=("$unit_name")
+      fi
+    else
+      cmd+="unit_src=''; for f in systemd/${unit_file} ${unit_file}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
+      cmd+="[ -n \"\$unit_src\" ] || { echo 'ERROR: unit file missing: ${unit_file}' >&2; exit 1; }; "
+      cmd+="sudo install -D -m644 \"\$unit_src\" \"/etc/systemd/system/${unit_file}\" && "
+      system_needs_reload=true
+      if [[ "$unit_kind" == "service" ]]; then
+        system_services+=("$unit_name")
+      elif [[ "$unit_kind" == "timer" ]]; then
+        companion_file="${unit_name}.service"
+        cmd+="companion_src=''; for f in systemd/${companion_file} ${companion_file}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
+        cmd+="if [ -n \"\$companion_src\" ]; then sudo install -D -m644 \"\$companion_src\" \"/etc/systemd/system/${companion_file}\"; fi && "
+        system_timers+=("$unit_name")
+      fi
+    fi
+  done <<< "$rows"
+
+  if [[ "$user_needs_reload" == "true" ]]; then
+    cmd+="systemctl --user daemon-reload && "
   fi
+  if [[ "$system_needs_reload" == "true" ]]; then
+    cmd+="sudo systemctl daemon-reload && "
+  fi
+  for unit_name in ${user_services[@]+"${user_services[@]}"}; do
+    cmd+="systemctl --user restart ${unit_name}.service && "
+  done
+  for unit_name in ${system_services[@]+"${system_services[@]}"}; do
+    # Kill any leftover user-unit instance holding the port before the system unit restarts.
+    cmd+="{ systemctl --user stop ${unit_name}.service 2>/dev/null || true; } && "
+    cmd+="{ systemctl --user disable ${unit_name}.service 2>/dev/null || true; } && "
+    cmd+="sudo systemctl restart ${unit_name}.service && "
+  done
+  for unit_name in ${user_timers[@]+"${user_timers[@]}"}; do
+    cmd+="systemctl --user enable --now ${unit_name}.timer && "
+  done
+  for unit_name in ${system_timers[@]+"${system_timers[@]}"}; do
+    cmd+="sudo systemctl enable --now ${unit_name}.timer && "
+  done
   # Stamp the deployed commit so Heimdall's drift detector has an authoritative
   # source (excluded from rsync above so --delete won't clobber it). Heimdall
   # reads <deploy_path>/.deployed-commit instead of trusting /health (often no
@@ -284,7 +338,7 @@ deploy_service() {
 requested=("$@")
 
 for entry in "${SERVICES[@]}"; do
-  IFS='|' read -r name repo host deploy_path unit_type needs_build unit_scope deploy_mode <<< "$entry"
+  IFS='|' read -r name repo host deploy_path unit_type needs_build unit_scope deploy_mode units_json <<< "$entry"
 
   if [[ ${#requested[@]} -gt 0 ]]; then
     match=false
@@ -294,7 +348,7 @@ for entry in "${SERVICES[@]}"; do
     $match || continue
   fi
 
-  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}"
+  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}"
 done
 
 # Summary

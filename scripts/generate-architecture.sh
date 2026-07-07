@@ -44,6 +44,26 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+unit_rows_from_json() {
+  local units_json=$1
+  UNITS_JSON="$units_json" node --input-type=commonjs -e '
+    var units = [];
+    try {
+      units = JSON.parse(process.env.UNITS_JSON || "[]");
+    } catch (_) {
+      units = [];
+    }
+    if (!Array.isArray(units)) units = [];
+    units.forEach(function (u) {
+      process.stdout.write([
+        u.name,
+        u.type || "service",
+        u.scope || "system"
+      ].join("|") + "\n");
+    });
+  '
+}
+
 # ─── Validate mode ────────────────────────────────────────
 # Read-only comparison of registry vs live state.
 # Uses SSH for cross-host checks. Writes results to Munin.
@@ -87,7 +107,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   RESULTS=""
 
   # Read host-aware registry data
-  while IFS='|' read -r v_name v_host v_port v_repo v_units_json; do
+  while IFS='|' read -r v_name v_host v_port v_repo v_deploy_path v_units_json; do
     [[ -z "$v_name" ]] && continue
 
     # Skip components with no host (laptop-only, e.g. fortnox-mcp)
@@ -108,27 +128,32 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
 
     # Check systemd units
     if [[ "$v_units_json" != "[]" ]] && [[ -n "$v_units_json" ]]; then
-      # Parse unit names from JSON
-      unit_names="$(echo "$v_units_json" | node --input-type=commonjs -e '
-        var d = JSON.parse(require("fs").readFileSync("/dev/stdin","utf8"));
-        d.forEach(function(u) { process.stdout.write(u.name + "." + u.type + "\n"); });
-      ' 2>/dev/null)"
+      unit_rows="$(unit_rows_from_json "$v_units_json")"
 
-      while IFS= read -r unit; do
-        [[ -z "$unit" ]] && continue
+      while IFS='|' read -r unit_name unit_kind unit_scope; do
+        [[ -z "$unit_name" ]] && continue
+        unit="${unit_name}.${unit_kind}"
         if [[ "$IS_LOCAL" == "true" ]]; then
-          active="$(systemctl is-active "$unit" 2>/dev/null || echo 'unknown')"
+          if [[ "$unit_scope" == "user" ]]; then
+            active="$(systemctl --user is-active "$unit" 2>/dev/null || echo 'unknown')"
+          else
+            active="$(systemctl is-active "$unit" 2>/dev/null || echo 'unknown')"
+          fi
         else
-          active="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "systemctl is-active $unit" 2>/dev/null || echo 'unknown')"
+          if [[ "$unit_scope" == "user" ]]; then
+            active="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "systemctl --user is-active '$unit'" 2>/dev/null || echo 'unknown')"
+          else
+            active="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "systemctl is-active '$unit'" 2>/dev/null || echo 'unknown')"
+          fi
         fi
 
         if [[ "$active" == "active" ]]; then
-          STATUS_LINE+=" unit:$unit=active"
+          STATUS_LINE+=" unit:$unit($unit_scope)=active"
         else
-          STATUS_LINE+=" unit:$unit=$active"
+          STATUS_LINE+=" unit:$unit($unit_scope)=$active"
           COMPONENT_OK=false
         fi
-      done <<< "$unit_names"
+      done <<< "$unit_rows"
     fi
 
     # Check port / health endpoint
@@ -155,7 +180,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
 
     # Check repo staleness (git fetch --dry-run to see if behind)
     if [[ -n "$v_repo" ]]; then
-      repo_path="$HOME/repos/$v_repo"
+      repo_path="${v_deploy_path:-/home/magnus/repos/$v_repo}"
       if [[ "$IS_LOCAL" == "true" ]]; then
         if [[ -d "$repo_path/.git" ]]; then
           behind="$(cd "$repo_path" && git fetch --dry-run 2>&1 | grep -c '\.\.') " || behind="0"
@@ -171,10 +196,13 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
           COMPONENT_OK=false
         fi
       else
-        remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "cd ~/repos/$v_repo 2>/dev/null && git fetch --dry-run 2>&1 | grep -c '\.\.' || echo 0" 2>/dev/null || echo '-1')"
+        remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "if [ -d '$repo_path/.git' ]; then cd '$repo_path' && { git fetch --dry-run 2>&1 | grep -c '\.\.' || true; }; else echo missing; fi" 2>/dev/null || echo '-1')"
         remote_check="${remote_check// /}"
         if [[ "$remote_check" == "-1" ]]; then
           STATUS_LINE+=" repo:ssh-failed"
+          COMPONENT_OK=false
+        elif [[ "$remote_check" == "missing" ]]; then
+          STATUS_LINE+=" repo:not-found"
           COMPONENT_OK=false
         elif [[ "$remote_check" -gt 0 ]]; then
           STATUS_LINE+=" repo:behind-origin"
@@ -349,23 +377,31 @@ munin_tool_call() {
 }
 
 service_status_row() {
-  local svc="$1"
-  local unit="${svc}.service"
+  local unit_name="$1" unit_kind="$2" unit_scope="$3"
+  local unit="${unit_name}.${unit_kind}"
   local active enabled pid mem mem_mb started
-  active="$(systemctl is-active "$unit" 2>/dev/null || echo 'unknown')"
-  enabled="$(systemctl is-enabled "$unit" 2>/dev/null || echo 'unknown')"
-  if [[ "$active" == "active" ]]; then
-    pid="$(systemctl show "$unit" --property=MainPID 2>/dev/null | cut -d= -f2)"
-    mem="$(systemctl show "$unit" --property=MemoryCurrent 2>/dev/null | cut -d= -f2)"
-    started="$(systemctl show "$unit" --property=ExecMainStartTimestamp 2>/dev/null | cut -d= -f2-)"
+  local -a systemctl_prefix
+  if [[ "$unit_scope" == "user" ]]; then
+    systemctl_prefix=(systemctl --user)
+  else
+    systemctl_prefix=(systemctl)
+  fi
+  active="$("${systemctl_prefix[@]}" is-active "$unit" 2>/dev/null || echo 'unknown')"
+  enabled="$("${systemctl_prefix[@]}" is-enabled "$unit" 2>/dev/null || echo 'unknown')"
+  if [[ "$active" == "active" && "$unit_kind" == "service" ]]; then
+    pid="$("${systemctl_prefix[@]}" show "$unit" --property=MainPID 2>/dev/null | cut -d= -f2)"
+    mem="$("${systemctl_prefix[@]}" show "$unit" --property=MemoryCurrent 2>/dev/null | cut -d= -f2)"
+    started="$("${systemctl_prefix[@]}" show "$unit" --property=ExecMainStartTimestamp 2>/dev/null | cut -d= -f2-)"
     if [[ "$mem" =~ ^[0-9]+$ ]] && [[ "$mem" -gt 0 ]]; then
       mem_mb="$((mem / 1024 / 1024))MB"
     else
       mem_mb="n/a"
     fi
-    echo "| $unit | ✅ $active | $enabled | $pid | $mem_mb | $started |"
+    echo "| $unit | $unit_scope | ✅ $active | $enabled | $pid | $mem_mb | $started |"
+  elif [[ "$active" == "active" ]]; then
+    echo "| $unit | $unit_scope | ✅ $active | $enabled | — | — | — |"
   else
-    echo "| $unit | ❌ $active | $enabled | — | — | — |"
+    echo "| $unit | $unit_scope | ❌ $active | $enabled | — | — | — |"
   fi
 }
 
@@ -379,11 +415,15 @@ echo ""
 # ─── Service status ───────────────────────────────────────
 
 echo "🔍 Collecting service status..."
-read -ra SYSTEMD_SERVICES <<< "$(REGISTRY_PATH="$REGISTRY" QUERY=systemd node --input-type=commonjs "$REGISTRY_JS")"
 DEPLOYMENT_TABLE=""
-for svc in "${SYSTEMD_SERVICES[@]}"; do
-  DEPLOYMENT_TABLE+="$(service_status_row "$svc")\n"
-done
+while IFS='|' read -r _s_name _s_host _s_port _s_repo _s_deploy_path s_units_json; do
+  [[ -n "$s_units_json" && "$s_units_json" != "[]" ]] || continue
+  s_unit_rows="$(unit_rows_from_json "$s_units_json")"
+  while IFS='|' read -r s_unit_name s_unit_kind s_unit_scope; do
+    [[ -n "$s_unit_name" ]] || continue
+    DEPLOYMENT_TABLE+="$(service_status_row "$s_unit_name" "$s_unit_kind" "$s_unit_scope")\n"
+  done <<< "$s_unit_rows"
+done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")
 
 # ─── Git versions ─────────────────────────────────────────
 
@@ -477,8 +517,8 @@ cat > "$SNAPSHOT" << EOF
 
 ### Service Status
 
-| Unit | State | Enabled | PID | Memory | Started |
-|------|-------|---------|-----|--------|---------|
+| Unit | Scope | State | Enabled | PID | Memory | Started |
+|------|-------|-------|---------|-----|--------|---------|
 $(echo -e "$DEPLOYMENT_TABLE")
 
 ### Repository Versions

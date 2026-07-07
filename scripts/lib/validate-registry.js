@@ -52,6 +52,7 @@ if (!Array.isArray(data.components)) {
 
 var VALID_UNIT_TYPES = ['service', 'timer'];
 var VALID_UNIT_SCOPES = ['system', 'user'];
+var VALID_UNIT_NAME = /^[A-Za-z0-9_.@-]+$/;
 
 var seenNames = {};
 var seenPorts = {};
@@ -125,6 +126,8 @@ data.components.forEach(function (c, i) {
       }
       if (typeof u.name !== 'string' || !u.name) {
         fail(uLabel + ': missing/invalid "name"');
+      } else if (!VALID_UNIT_NAME.test(u.name)) {
+        fail(uLabel + ': "name" must be a valid systemd unit base name, got "' + u.name + '"');
       }
       if (VALID_UNIT_TYPES.indexOf(u.type) === -1) {
         fail(uLabel + ': "type" must be one of ' + VALID_UNIT_TYPES.join('/') + ', got "' + u.type + '"');

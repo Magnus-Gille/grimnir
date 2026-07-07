@@ -7,7 +7,7 @@
 
 ## The Grimnir System
 
-Grimnir is a personal AI infrastructure that gives Claude persistent memory, file access, and autonomous task execution across every environment — from a phone on the bus to a terminal at the desk. It runs on two Raspberry Pis and a MacBook, under the principle that **data sovereignty and simplicity beat sophistication**.
+Grimnir is a personal AI infrastructure that gives Claude persistent memory, file access, local inference, and autonomous task execution across every environment — from a phone on the bus to a terminal at the desk. It runs on two Raspberry Pis, a MacBook, and a BosGame M5 inference node, under the principle that **data sovereignty and simplicity beat sophistication**.
 
 ### Why it exists
 
@@ -35,7 +35,7 @@ Three principles guide every decision:
 | **Hugin** | Task dispatcher | 3032 | Pi 1 | `hugin` |
 | **Heimdall** | Monitoring dashboard | 3033 | Pi 1 | `heimdall` |
 | **Ratatoskr** | Telegram router + concierge | 3034 | Pi 1 | `ratatoskr` |
-| **Skuld** | Daily intelligence briefing | 3040 | Pi 1 | `skuld` (grimnir-bot) |
+| **Skuld** | Daily intelligence briefing | — | Pi 1 | `skuld` (grimnir-bot) |
 | **Verdandi** | Tamper-evident audit log | 3036 | Pi 1 | `verdandi` |
 | **Mimir** | Authenticated file server | 3031 | Pi 2 (NAS) | `mimir` |
 | **noxctl** | Accounting CLI + MCP | — | Laptop (global) | `fortnox-mcp` |
@@ -45,7 +45,7 @@ Three principles guide every decision:
 
 ## System Topology
 
-The system spans two Raspberry Pis and a MacBook Air, connected via Tailscale (private mesh VPN) and exposed to cloud services through Cloudflare Tunnels.
+The system spans two Raspberry Pis, a MacBook Air, and a BosGame M5 inference node, connected via Tailscale (private mesh VPN) and exposed to cloud services through Cloudflare Tunnels where needed.
 
 ```mermaid
 graph TB
@@ -69,7 +69,7 @@ graph TB
         Hugin["Hugin Dispatcher<br/>:3032 (health only)"]
         Heimdall_Svc["Heimdall Dashboard<br/>:3033 (Fastify + HTMX)"]
         Ratatoskr_Svc["Ratatoskr Router<br/>:3034 (Telegram bot)"]
-        Skuld_Svc["Skuld Briefing<br/>:3040 (web UI)"]
+        Skuld_Svc["Skuld Briefing<br/>(systemd timer)"]
         Verdandi_Svc["Verdandi Audit<br/>:3036 (Fastify)"]
         Claude_Pi[Claude Code / Codex<br/>spawned by Hugin]
         Tunnel_Pi1["cloudflared tunnel"]
@@ -102,7 +102,7 @@ graph TB
     Codex -->|HTTP Bearer| Munin
     Hugin -->|HTTP JSON-RPC| Munin
     Claude_Pi -->|MCP stdio or HTTP| Munin
-    Skuld_Svc -->|SQLite direct read| Munin
+    Skuld_Svc -->|SQLite read + API write| Munin
     Skuld_Svc -->|Claude API| Internet
     Heimdall_Svc -->|SQLite read + SSH| Pi2
 
@@ -135,7 +135,7 @@ graph TB
 | Pi 2 | NAS | Storage & backup | Mimir, Samba, Time Machine |
 | M5 | `m5` (tailnet `100.76.72.59`) | Local LLM inference (1–5 users) | Home-server gateway, llama-swap |
 
-Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication. The BosGame M5 (awaiting delivery) joins as a dedicated local-inference node — see *Home-server (M5) — Local Inference* below and the gateway API contract in the `home-server-inference-evaluation` repo.
+Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication. The BosGame M5 is the dedicated local-inference node — see *Home-server (M5) — Local Inference* below and the gateway API contract in the `home-server-inference-evaluation` repo.
 
 ### Network model
 
@@ -519,7 +519,7 @@ Heimdall is the watchman. It provides at-a-glance health visibility for the enti
 
 ### Design principle
 
-**Heimdall answers one question: "Is the system healthy?"** Green/yellow/red for every service, backup, and resource. It does not try to be the UI for any service — no Munin browser, no task submission, no briefing rendering. For service-specific UIs, use the service directly (e.g., Skuld's web UI at :3040).
+**Heimdall answers one question: "Is the system healthy?"** Green/yellow/red for every service, backup, and resource. It does not try to be the UI for every service — no Munin browser and no task submission. Skuld is the exception by design: Heimdall renders the latest briefing from Munin because Skuld has no standalone web surface.
 
 ### Data collection
 
@@ -529,9 +529,8 @@ Pull model with systemd timers:
 
 ### Planned additions
 
-- Skuld briefing status (last run, success/failure) — pending Skuld systemd timer
+- Skuld briefing status (last run, success/failure)
 - Deploy drift UI — collector exists, needs dashboard wiring
-- Link to Skuld web UI
 
 ---
 
@@ -542,7 +541,7 @@ Skuld is the oracle. Named after the Norn of the future, it generates a daily in
 ### Architecture
 
 - **Runtime:** Node.js 22+, TypeScript (strict mode)
-- **Framework:** Express (web UI + API)
+- **Interface:** CLI / oneshot systemd service; no standalone web server
 - **AI:** @anthropic-ai/sdk (Claude API direct)
 - **Data sources:** Google Calendar (ICS), Munin (SQLite direct read), Fortnox (future via noxctl)
 - **Deployment:** Pi 1, co-located with Munin for low-latency SQLite reads
@@ -553,7 +552,7 @@ Skuld is the oracle. Named after the Norn of the future, it generates a daily in
 1. **Collect** — Fetches calendar events (ICS feed), queries Munin for active projects/client statuses/weekly plan/recent logs
 2. **Assemble** — Builds a `BriefingContext` with structured data from all sources
 3. **Synthesize** — Sends context to Claude API with a narrative system prompt ("trusted chief of staff" persona)
-4. **Deliver** — Outputs briefing to stdout (formatted), Munin (`briefings/daily/{date}`), and web UI
+4. **Deliver** — Outputs briefing to stdout (formatted) and Munin (`briefings/daily/{date}` / `briefings/latest`); Heimdall renders the web view from Munin
 
 ### Briefing sections
 
@@ -567,8 +566,7 @@ Skuld is the oracle. Named after the Norn of the future, it generates a daily in
 | Channel | Access |
 |---------|--------|
 | CLI (`skuld briefing`) | Direct on Pi |
-| Web UI (`GET /`) | Browser at :3040 |
-| JSON API (`GET /api/briefing`) | Programmatic |
+| Heimdall (`/briefing`) | Web view rendered from Munin |
 | Munin (`briefings/daily/{date}`) | Any Claude environment |
 
 ### Roadmap
@@ -727,10 +725,10 @@ This isn't just convenience; it's necessity. Claude.ai and Claude Mobile can acc
 All services follow the same deployment model:
 
 1. **Build locally** — `npm run build` compiles TypeScript to `dist/`
-2. **Deploy via script** — `scripts/deploy-*.sh` rsyncs the repo tree to the target Pi, runs `npm install --omit=dev`, installs systemd unit, restarts service. `.env` files are preserved on the Pi and never overwritten.
-3. **systemd manages the process** — `Restart=always`, sandboxed
-4. **Health endpoints** — every service exposes `/health` for Heimdall monitoring
-5. **Auto-deploy** — Heimdall uses a systemd path watcher on `.git/refs/heads/main` to restart on new commits (deployed by Hugin tasks)
+2. **Deploy via script** — `scripts/deploy.sh` reads `services.json`, syncs or pulls the target tree, runs `npm install --omit=dev` where applicable, installs every declared systemd unit, restarts services, and enables timers. `.env` files are preserved on the Pi and never overwritten.
+3. **systemd manages the process or schedule** — services use `Restart=always` where appropriate; timer components run oneshot jobs on schedule.
+4. **Health endpoints** — long-running HTTP services expose `/health` for Heimdall monitoring; timer-only components are validated through systemd state and their Munin outputs.
+5. **Deploy modes differ by component** — most services deploy by rsync; `grimnir` uses `git pull --ff-only` because its canonical checkout is also the registry source.
 
 There is no CI/CD pipeline. Deploys are manual and intentional — appropriate for a single-operator system.
 

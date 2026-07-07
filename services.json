@@ -59,13 +59,13 @@
       "name": "skuld",
       "repo": "skuld",
       "host": "huginmunin.local",
-      "port": 3040,
+      "port": null,
       "deploy": true,
       "scan": true,
       "deploy_path": "/home/magnus/repos/skuld",
       "needs_build": true,
       "systemd_units": [
-        { "name": "skuld", "type": "timer" }
+        { "name": "skuld", "type": "timer", "scope": "user" }
       ]
     },
     {

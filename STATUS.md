@@ -1,7 +1,39 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-06 (Opus) — blind-spot audit → threat model + 14 tickets
-**Branch:** main (PR #68 open on `docs/threat-model`)
+**Last session:** 2026-07-07 (Codex) — registry unit/deploy validation cleanup
+**Branch:** `codex/registry-unit-validation` worktree at `/Users/magnus/repos/grimnir-worktrees/registry-unit-validation` (draft PR #71)
+
+## Completed This Session (2026-07-07) — registry units are deploy/validation truth, Skuld port drift removed
+
+Followed up the adversarial repo review with a focused branch for the operationally risky findings.
+
+- **Registry projection:** `QUERY=deploy` now carries full `systemd_units` JSON, and `QUERY=validate`
+  carries `deploy_path` so consumers do not collapse multi-unit components to `systemd_units[0]` or
+  assume `~/repos/<repo>`.
+- **Deploy flow:** `scripts/deploy.sh` now installs every declared unit from either `systemd/` or
+  root-level unit files, restarts services by scope, enables timers by scope, and installs matching
+  oneshot service companions for timers when present. This directly addresses the hugin daily-analysis
+  and Skuld timer classes.
+- **Validation/snapshot flow:** `scripts/generate-architecture.sh --validate` now honors user vs system
+  scope, checks timers as timers, and reports missing remote checkouts instead of treating them as
+  current. Snapshot generation now includes unit scope and type-aware rows.
+- **Registry truth:** Skuld no longer declares port `3040`; it is a timer-only briefing producer whose
+  web view is rendered by Heimdall from Munin. A follow-up M5-assisted review caught that the
+  root-level `skuld.service` has no `User=`, so `skuld.timer` is now explicitly user-scoped in the
+  registry and pinned by the smoke test.
+- **Docs:** Updated `README.md`, `docs/architecture.md`, `docs/scheduled-tasks.md`, and `CLAUDE.md`
+  to remove the stale Skuld web/API surface and M5 “awaiting delivery” wording, and to describe
+  deploy modes more honestly.
+- **Verification:** `make test` passed; CI-equivalent `shellcheck scripts/*.sh scripts/lib/*.sh
+  scripts/tests/*.sh` passed; `bash -n` passed for shell scripts; registry projections and
+  `validate-registry.js` passed after the M5 review follow-up.
+
+### Pending / next
+- Review draft PR #71.
+- After merge, deploy `grimnir`, then deploy affected component repos (`hugin`, `heimdall`, `skuld`) so
+  declared secondary timers are installed/enabled from the corrected deploy path.
+- Re-run `grimnir-validate.service` on huginmunin and check that hugin/verdandi user units and Skuld
+  no-port behavior report correctly.
 
 ## Completed This Session (2026-07-06) — blind-spot audit: vision alignment + threat-model v0.1 + 14 from:grimnir tickets
 
