@@ -31,6 +31,7 @@ What's here:
 - **[docs/architecture.md](docs/architecture.md)** — Full system architecture (topology, components, security, data flow)
 - **[docs/conventions.md](docs/conventions.md)** — Naming, ports, service patterns, GitHub ownership
 - **[docs/vision.md](docs/vision.md)** — Where the project is heading
+- **[docs/roadmap-now-decision-brief.md](docs/roadmap-now-decision-brief.md)** — Current owner decisions for succession, data lifecycle, ROI/off-ramp, Skuld, and interactive-session trust
 - **[services.json](services.json)** — Single source of truth for the component inventory (`components`) and the infrastructure/inference-node inventory (`nodes` — hosts, hardware, role, LLM servers). Query via `scripts/lib/registry.js` (`QUERY=nodes`).
 - **[scripts/](scripts/)** — Deploy, security scan, and architecture generation scripts
 

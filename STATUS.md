@@ -1,7 +1,52 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-07 (Codex) — PR #68 threat model reviewed + merged
-**Branch:** main (pushed + deployed to huginmunin)
+**Last session:** 2026-07-07 (Codex) — roadmap "now" fanout reviewed, Grimnir decision brief PR #72
+**Branch:** codex/roadmap-now-decision-brief (PR #72 open; not deployed)
+
+## Completed This Session (2026-07-07) — roadmap "now" cluster decision brief
+
+Created `docs/roadmap-now-decision-brief.md` as the smallest safe Grimnir-side progress for the
+current Roadmap "now" cluster. The brief deliberately does **not** create a large policy framework;
+it captures owner decisions and lightweight next artifacts for:
+
+- **grimnir#65** succession / bus factor: decide emergency delegate(s) and whether the desired
+  outcome is recover, export-and-shutdown, or keep-running temporarily.
+- **grimnir#66** GDPR / data map / retention / erasure: choose default retention windows for
+  client/accounting data, personal memory, operational telemetry, and transient task artifacts.
+- **grimnir#67** system ROI ledger + exit/off-ramp: define the cut/keep threshold for services with
+  no measured use, no pillar-protection role, and no owner-reviewed reason to keep.
+- **grimnir#69** Skuld revive-or-cut: choose either a four-week measured briefing trial or cut now.
+- **grimnir#70** interactive-session trust posture: choose advisory-only, fresh-session-required
+  after untrusted input, or route consequential mutations through Hugin.
+- **grimnir#58** remains blocked by **verdandi#15**; Grimnir should not claim end-to-end tenant
+  conformance until off-Pi Verdandi intake/key provisioning exists and Seam D is rerun.
+
+Indexed the new brief from `README.md` and `CLAUDE.md`. Opened PR #72 after local and M5 review;
+not deployed yet.
+
+Ran a repo-local fanout for the rest of the "now" cluster. No non-Grimnir repo changes were accepted
+from the subagents; their outputs were patch plans only, reviewed against `docs/vision.md`,
+`docs/tenant-contract.md`, `docs/authority.md`, and the current threat model:
+
+- **Accept direction:** brokkr#38 belongs in Brokkr as off-box host liveness, but its alert path
+  must not depend only on huginmunin-hosted Heimdall/Munin.
+- **Accept direction:** verdandi#16 checkpoint/anchor work is safe before verdandi#15; verdandi#15
+  must add tenant-bound keys/events before exposing off-Pi intake.
+- **Accept direction:** hugin#149 is the highest-risk Hugin fix; keep an explicit compatibility
+  escape hatch while removing unconditional `bypassPermissions`.
+- **Accept direction:** ratatoskr#36 validation belongs in `task-writer`, not only the Telegram
+  command handler, because LLM-produced task context is untrusted too.
+- **Accept direction:** munin-memory#191 should precede #192; ownership-aware correction/forgetting
+  needs server-derived tenant identity first.
+- **Accept direction:** gille-inference#152 is the next safe inference-side step; keep #154 blocked
+  on verdandi#15 and keep #156 guarded by trusted-verifier evidence.
+
+### Pending / next
+- Owner decisions above are the blockers for splitting this brief into final docs.
+- After decisions: create `docs/succession-checklist.md`, `docs/data-lifecycle.md`, a short
+  `docs/vision.md` ROI/off-ramp section, a Skuld decision record, and the interactive-session
+  posture note.
+- Keep grimnir#58 parked until verdandi#15 lands.
 
 ## Completed This Session (2026-07-07) — threat model v0.1 reviewed and merged
 
