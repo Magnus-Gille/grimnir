@@ -1,7 +1,27 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-07 (Codex) — PR #71 merged, deployed, validator fixed live
-**Branch:** main @ `83de3d9` (pushed + deployed to huginmunin)
+**Last session:** 2026-07-07 (Codex) — PR #68 threat model reviewed + merged
+**Branch:** main (pushed + deployed to huginmunin)
+
+## Completed This Session (2026-07-07) — threat model v0.1 reviewed and merged
+
+Reviewed PR #68 against the current architecture/registry state, rebased it onto current main, and
+merged it as `0853fc7`.
+
+- **Owner-review gate closed:** `docs/threat-model.md` is no longer marked draft / needs owner review.
+- **Review fixes:** tightened overbroad trust-boundary language (local processes are not trusted after
+  compromise), corrected the Tailscale/loopback statement, softened the cloud-AI "stateless" claim to
+  "not storage authority", and added **T11** for GDPR / third-party data retention and erasure risk
+  (`grimnir#66`).
+- **Indexing:** `CLAUDE.md` now lists `docs/threat-model.md`; `STATUS.md` references the reviewed
+  T1-T11 table.
+- **Verification:** local `make test`, `shellcheck`, and `bash -n` passed on the rebased branch; GitHub
+  CI for PR #68 passed before merge.
+
+### Pending / next
+- Highest-leverage cheap ops follow-up remains brokkr#38: off-box dead-man's switch.
+- Grimnir-owned decision tickets still need working sessions: #65 succession, #67 ROI ledger,
+  #69 Skuld SSOT decision, #70 interactive-session trust posture.
 
 ## Completed This Session (2026-07-07) — registry units are deploy/validation truth, Skuld port drift removed
 
@@ -36,12 +56,6 @@ directly on main (`4eb0984`, `83de3d9`) and deployed.
   `validate-registry.js` passed after the M5 review follow-up. Final live
   `grimnir-validate.service` run on huginmunin: **7 ok, 0 issues, 0 warnings**.
 
-### Pending / next
-- Review + merge PR #68 (threat-model v0.1; needs owner sign-off on accepted-risk list).
-- Highest-leverage cheap ops follow-up remains brokkr#38: off-box dead-man's switch.
-- Grimnir-owned decision tickets still need working sessions: #65 succession, #67 ROI ledger,
-  #69 Skuld SSOT decision, #70 interactive-session trust posture.
-
 ## Completed This Session (2026-07-06) — blind-spot audit: vision alignment + threat-model v0.1 + 14 from:grimnir tickets
 
 Full blind-spot check of the system vs vision v0.2. **Verdict:** the vision is sharply articulated
@@ -74,7 +88,7 @@ system's own recoverability, trustworthiness, or ROI.
 
 ### Pending / next
 - **Highest-leverage, cheapest:** brokkr#38 (off-box dead-man's switch — one laptop cron).
-- Review + merge PR #68 (threat-model v0.1 is a draft; needs owner sign-off on the accepted-risk list).
+- PR #68 threat model review/merge completed 2026-07-07.
 - Grimnir-owned decision tickets await a working session: #65 (succession envelope), #67 (ROI ledger
   + exit paragraph in vision.md), #69 (revive Skuld or cut it from services.json), #70 (trust posture
   for interactive sessions).
