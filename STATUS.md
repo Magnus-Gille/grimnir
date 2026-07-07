@@ -1,11 +1,13 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-07 (Codex) — registry unit/deploy validation cleanup
-**Branch:** `codex/registry-unit-validation` worktree at `/Users/magnus/repos/grimnir-worktrees/registry-unit-validation` (draft PR #71)
+**Last session:** 2026-07-07 (Codex) — PR #71 merged, deployed, validator fixed live
+**Branch:** main @ `83de3d9` (pushed + deployed to huginmunin)
 
 ## Completed This Session (2026-07-07) — registry units are deploy/validation truth, Skuld port drift removed
 
 Followed up the adversarial repo review with a focused branch for the operationally risky findings.
+PR #71 merged (`9b74fd6`), then live validation exposed two validator regressions that were fixed
+directly on main (`4eb0984`, `83de3d9`) and deployed.
 
 - **Registry projection:** `QUERY=deploy` now carries full `systemd_units` JSON, and `QUERY=validate`
   carries `deploy_path` so consumers do not collapse multi-unit components to `systemd_units[0]` or
@@ -15,25 +17,30 @@ Followed up the adversarial repo review with a focused branch for the operationa
   oneshot service companions for timers when present. This directly addresses the hugin daily-analysis
   and Skuld timer classes.
 - **Validation/snapshot flow:** `scripts/generate-architecture.sh --validate` now honors user vs system
-  scope, checks timers as timers, and reports missing remote checkouts instead of treating them as
-  current. Snapshot generation now includes unit scope and type-aware rows.
+  scope, checks timers as timers, and reports rsync deployment stamps instead of assuming rsync targets
+  are git checkouts. Snapshot generation now includes unit scope and type-aware rows.
+- **Live-regression fixes after merge:** validation now checks user units through Magnus's user manager
+  even when `grimnir-validate.service` runs as root, and health probes try localhost plus bound local
+  interface addresses so Heimdall/Ratatoskr services bound to Tailscale validate correctly.
 - **Registry truth:** Skuld no longer declares port `3040`; it is a timer-only briefing producer whose
   web view is rendered by Heimdall from Munin. A follow-up M5-assisted review caught that the
   root-level `skuld.service` has no `User=`, so `skuld.timer` is now explicitly user-scoped in the
   registry and pinned by the smoke test.
+- **Deployment:** Deployed `grimnir`, `hugin`, `heimdall`, `skuld` (from a clean temporary worktree),
+  then redeployed `ratatoskr` and `mimir` to add `.deployed-commit` stamps required by the validator.
 - **Docs:** Updated `README.md`, `docs/architecture.md`, `docs/scheduled-tasks.md`, and `CLAUDE.md`
   to remove the stale Skuld web/API surface and M5 “awaiting delivery” wording, and to describe
   deploy modes more honestly.
 - **Verification:** `make test` passed; CI-equivalent `shellcheck scripts/*.sh scripts/lib/*.sh
   scripts/tests/*.sh` passed; `bash -n` passed for shell scripts; registry projections and
-  `validate-registry.js` passed after the M5 review follow-up.
+  `validate-registry.js` passed after the M5 review follow-up. Final live
+  `grimnir-validate.service` run on huginmunin: **7 ok, 0 issues, 0 warnings**.
 
 ### Pending / next
-- Review draft PR #71.
-- After merge, deploy `grimnir`, then deploy affected component repos (`hugin`, `heimdall`, `skuld`) so
-  declared secondary timers are installed/enabled from the corrected deploy path.
-- Re-run `grimnir-validate.service` on huginmunin and check that hugin/verdandi user units and Skuld
-  no-port behavior report correctly.
+- Review + merge PR #68 (threat-model v0.1; needs owner sign-off on accepted-risk list).
+- Highest-leverage cheap ops follow-up remains brokkr#38: off-box dead-man's switch.
+- Grimnir-owned decision tickets still need working sessions: #65 succession, #67 ROI ledger,
+  #69 Skuld SSOT decision, #70 interactive-session trust posture.
 
 ## Completed This Session (2026-07-06) — blind-spot audit: vision alignment + threat-model v0.1 + 14 from:grimnir tickets
 
