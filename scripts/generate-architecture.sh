@@ -64,6 +64,25 @@ unit_rows_from_json() {
   '
 }
 
+systemctl_user() {
+  local user=${SYSTEMD_USER:-magnus}
+  local uid runtime
+  uid="$(id -u "$user" 2>/dev/null || echo 1000)"
+  runtime="/run/user/$uid"
+
+  if [[ "$(id -un 2>/dev/null || true)" == "$user" ]]; then
+    XDG_RUNTIME_DIR="$runtime" systemctl --user "$@" 2>/dev/null || echo 'unknown'
+  else
+    sudo -u "$user" XDG_RUNTIME_DIR="$runtime" systemctl --user "$@" 2>/dev/null || echo 'unknown'
+  fi
+}
+
+remote_systemctl_user() {
+  local host=$1 action=$2 unit=$3 user=${SYSTEMD_USER:-magnus}
+  ssh -o ConnectTimeout=5 -o BatchMode=yes "${user}@${host}" \
+    "XDG_RUNTIME_DIR=/run/user/\$(id -u) systemctl --user '$action' '$unit'" 2>/dev/null || echo 'unknown'
+}
+
 # ─── Validate mode ────────────────────────────────────────
 # Read-only comparison of registry vs live state.
 # Uses SSH for cross-host checks. Writes results to Munin.
@@ -107,7 +126,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   RESULTS=""
 
   # Read host-aware registry data
-  while IFS='|' read -r v_name v_host v_port v_repo v_deploy_path v_units_json; do
+  while IFS='|' read -r v_name v_host v_port v_repo v_deploy_path v_deploy_mode v_units_json; do
     [[ -z "$v_name" ]] && continue
 
     # Skip components with no host (laptop-only, e.g. fortnox-mcp)
@@ -135,13 +154,13 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
         unit="${unit_name}.${unit_kind}"
         if [[ "$IS_LOCAL" == "true" ]]; then
           if [[ "$unit_scope" == "user" ]]; then
-            active="$(systemctl --user is-active "$unit" 2>/dev/null || echo 'unknown')"
+            active="$(systemctl_user is-active "$unit")"
           else
             active="$(systemctl is-active "$unit" 2>/dev/null || echo 'unknown')"
           fi
         else
           if [[ "$unit_scope" == "user" ]]; then
-            active="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "systemctl --user is-active '$unit'" 2>/dev/null || echo 'unknown')"
+            active="$(remote_systemctl_user "$v_host" is-active "$unit")"
           else
             active="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "systemctl is-active '$unit'" 2>/dev/null || echo 'unknown')"
           fi
@@ -178,37 +197,61 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
       fi
     fi
 
-    # Check repo staleness (git fetch --dry-run to see if behind)
+    # Check deployment freshness. git-pull components are live git checkouts;
+    # rsync components are stamped by deploy.sh because rsync excludes .git/.
     if [[ -n "$v_repo" ]]; then
       repo_path="${v_deploy_path:-/home/magnus/repos/$v_repo}"
       if [[ "$IS_LOCAL" == "true" ]]; then
-        if [[ -d "$repo_path/.git" ]]; then
-          behind="$(cd "$repo_path" && git fetch --dry-run 2>&1 | grep -c '\.\.') " || behind="0"
-          behind="${behind// /}"
-          if [[ "$behind" -gt 0 ]]; then
+        if [[ "$v_deploy_mode" == "git-pull" ]]; then
+          if [[ -d "$repo_path/.git" ]]; then
+            behind="$(cd "$repo_path" && git fetch --dry-run 2>&1 | grep -c '\.\.') " || behind="0"
+            behind="${behind// /}"
+            if [[ "$behind" -gt 0 ]]; then
+              STATUS_LINE+=" repo:behind-origin"
+              COMPONENT_OK=false
+            else
+              STATUS_LINE+=" repo:current"
+            fi
+          else
+            STATUS_LINE+=" repo:not-found"
+            COMPONENT_OK=false
+          fi
+        else
+          if [[ -f "$repo_path/.deployed-commit" ]]; then
+            marker="$(head -c 12 "$repo_path/.deployed-commit" 2>/dev/null || true)"
+            STATUS_LINE+=" deploy:stamped:${marker:-unknown}"
+          else
+            STATUS_LINE+=" deploy:marker-missing"
+            COMPONENT_OK=false
+          fi
+        fi
+      else
+        if [[ "$v_deploy_mode" == "git-pull" ]]; then
+          remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "if [ -d '$repo_path/.git' ]; then cd '$repo_path' && { git fetch --dry-run 2>&1 | grep -c '\.\.' || true; }; else echo missing; fi" 2>/dev/null || echo '-1')"
+          remote_check="${remote_check// /}"
+          if [[ "$remote_check" == "-1" ]]; then
+            STATUS_LINE+=" repo:ssh-failed"
+            COMPONENT_OK=false
+          elif [[ "$remote_check" == "missing" ]]; then
+            STATUS_LINE+=" repo:not-found"
+            COMPONENT_OK=false
+          elif [[ "$remote_check" -gt 0 ]]; then
             STATUS_LINE+=" repo:behind-origin"
             COMPONENT_OK=false
           else
             STATUS_LINE+=" repo:current"
           fi
         else
-          STATUS_LINE+=" repo:not-found"
-          COMPONENT_OK=false
-        fi
-      else
-        remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "if [ -d '$repo_path/.git' ]; then cd '$repo_path' && { git fetch --dry-run 2>&1 | grep -c '\.\.' || true; }; else echo missing; fi" 2>/dev/null || echo '-1')"
-        remote_check="${remote_check// /}"
-        if [[ "$remote_check" == "-1" ]]; then
-          STATUS_LINE+=" repo:ssh-failed"
-          COMPONENT_OK=false
-        elif [[ "$remote_check" == "missing" ]]; then
-          STATUS_LINE+=" repo:not-found"
-          COMPONENT_OK=false
-        elif [[ "$remote_check" -gt 0 ]]; then
-          STATUS_LINE+=" repo:behind-origin"
-          COMPONENT_OK=false
-        else
-          STATUS_LINE+=" repo:current"
+          remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "if [ -f '$repo_path/.deployed-commit' ]; then printf 'stamped:%s' \"\$(head -c 12 '$repo_path/.deployed-commit')\"; else echo marker-missing; fi" 2>/dev/null || echo 'ssh-failed')"
+          if [[ "$remote_check" == "ssh-failed" ]]; then
+            STATUS_LINE+=" deploy:ssh-failed"
+            COMPONENT_OK=false
+          elif [[ "$remote_check" == "marker-missing" ]]; then
+            STATUS_LINE+=" deploy:marker-missing"
+            COMPONENT_OK=false
+          else
+            STATUS_LINE+=" deploy:$remote_check"
+          fi
         fi
       fi
     fi
@@ -382,16 +425,23 @@ service_status_row() {
   local active enabled pid mem mem_mb started
   local -a systemctl_prefix
   if [[ "$unit_scope" == "user" ]]; then
-    systemctl_prefix=(systemctl --user)
+    active="$(systemctl_user is-active "$unit")"
+    enabled="$(systemctl_user is-enabled "$unit")"
   else
     systemctl_prefix=(systemctl)
+    active="$("${systemctl_prefix[@]}" is-active "$unit" 2>/dev/null || echo 'unknown')"
+    enabled="$("${systemctl_prefix[@]}" is-enabled "$unit" 2>/dev/null || echo 'unknown')"
   fi
-  active="$("${systemctl_prefix[@]}" is-active "$unit" 2>/dev/null || echo 'unknown')"
-  enabled="$("${systemctl_prefix[@]}" is-enabled "$unit" 2>/dev/null || echo 'unknown')"
   if [[ "$active" == "active" && "$unit_kind" == "service" ]]; then
-    pid="$("${systemctl_prefix[@]}" show "$unit" --property=MainPID 2>/dev/null | cut -d= -f2)"
-    mem="$("${systemctl_prefix[@]}" show "$unit" --property=MemoryCurrent 2>/dev/null | cut -d= -f2)"
-    started="$("${systemctl_prefix[@]}" show "$unit" --property=ExecMainStartTimestamp 2>/dev/null | cut -d= -f2-)"
+    if [[ "$unit_scope" == "user" ]]; then
+      pid="$(systemctl_user show "$unit" --property=MainPID | cut -d= -f2)"
+      mem="$(systemctl_user show "$unit" --property=MemoryCurrent | cut -d= -f2)"
+      started="$(systemctl_user show "$unit" --property=ExecMainStartTimestamp | cut -d= -f2-)"
+    else
+      pid="$("${systemctl_prefix[@]}" show "$unit" --property=MainPID 2>/dev/null | cut -d= -f2)"
+      mem="$("${systemctl_prefix[@]}" show "$unit" --property=MemoryCurrent 2>/dev/null | cut -d= -f2)"
+      started="$("${systemctl_prefix[@]}" show "$unit" --property=ExecMainStartTimestamp 2>/dev/null | cut -d= -f2-)"
+    fi
     if [[ "$mem" =~ ^[0-9]+$ ]] && [[ "$mem" -gt 0 ]]; then
       mem_mb="$((mem / 1024 / 1024))MB"
     else
@@ -416,7 +466,7 @@ echo ""
 
 echo "🔍 Collecting service status..."
 DEPLOYMENT_TABLE=""
-while IFS='|' read -r _s_name _s_host _s_port _s_repo _s_deploy_path s_units_json; do
+while IFS='|' read -r _s_name _s_host _s_port _s_repo _s_deploy_path _s_deploy_mode s_units_json; do
   [[ -n "$s_units_json" && "$s_units_json" != "[]" ]] || continue
   s_unit_rows="$(unit_rows_from_json "$s_units_json")"
   while IFS='|' read -r s_unit_name s_unit_kind s_unit_scope; do
