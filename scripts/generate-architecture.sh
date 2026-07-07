@@ -83,6 +83,29 @@ remote_systemctl_user() {
     "XDG_RUNTIME_DIR=/run/user/\$(id -u) systemctl --user '$action' '$unit'" 2>/dev/null || echo 'unknown'
 }
 
+health_status_local() {
+  local port=$1 target path code last
+  last="000"
+  for target in localhost 127.0.0.1 $(hostname -I 2>/dev/null || true); do
+    [[ -n "$target" ]] || continue
+    [[ "$target" == *:* ]] && continue
+    for path in /health /api/health; do
+      code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://${target}:${port}${path}" 2>/dev/null || true)"
+      if [[ "$code" == "200" ]]; then
+        echo "200"
+        return
+      fi
+      [[ -n "$code" ]] && last="$code"
+    done
+  done
+  echo "$last"
+}
+
+health_status_remote() {
+  local host=$1 port=$2 user=${SYSTEMD_USER:-magnus}
+  ssh -o ConnectTimeout=5 -o BatchMode=yes "${user}@${host}" "port='$port'; last=000; for target in localhost 127.0.0.1 \$(hostname -I 2>/dev/null || true); do [ -n \"\$target\" ] || continue; case \"\$target\" in *:*) continue ;; esac; for path in /health /api/health; do code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 \"http://\${target}:\${port}\${path}\" 2>/dev/null || true); if [ \"\$code\" = 200 ]; then echo 200; exit 0; fi; [ -n \"\$code\" ] && last=\"\$code\"; done; done; echo \"\$last\"" 2>/dev/null || echo '000'
+}
+
 # ─── Validate mode ────────────────────────────────────────
 # Read-only comparison of registry vs live state.
 # Uses SSH for cross-host checks. Writes results to Munin.
@@ -178,15 +201,9 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     # Check port / health endpoint
     if [[ -n "$v_port" ]]; then
       if [[ "$IS_LOCAL" == "true" ]]; then
-        health_status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://localhost:$v_port/health" 2>/dev/null || echo '000')"
-        if [[ "$health_status" == "000" ]] || [[ "$health_status" == "404" ]]; then
-          health_status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://localhost:$v_port/api/health" 2>/dev/null || echo '000')"
-        fi
+        health_status="$(health_status_local "$v_port")"
       else
-        health_status="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://localhost:$v_port/health 2>/dev/null || echo 000" 2>/dev/null || echo '000')"
-        if [[ "$health_status" == "000" ]] || [[ "$health_status" == "404" ]]; then
-          health_status="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://localhost:$v_port/api/health 2>/dev/null || echo 000" 2>/dev/null || echo '000')"
-        fi
+        health_status="$(health_status_remote "$v_host" "$v_port")"
       fi
 
       if [[ "$health_status" == "200" ]]; then
