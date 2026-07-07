@@ -65,7 +65,7 @@ system's own recoverability, trustworthiness, or ROI.
   trifecta is open on interactive sessions (gating exists only on the Hugin queue path).
 - **Ground truth:** Skuld is `deploy:true` in services.json but has no unit on the box and has never
   run (`systemctl is-enabled` → not-found; journal empty); `munin-offsite.timer` IS live and firing.
-- **Artifacts:** `docs/threat-model.md` v0.1 (**PR #68**) — first consolidated threat model, T1–T10
+- **Artifacts:** `docs/threat-model.md` v0.1 (**PR #68**) — first consolidated threat model, T1–T11
   mapped to owning tickets. **14 `from:grimnir` tickets filed + on the Roadmap board:**
   grimnir#65 (succession), #66 (GDPR), #67 (system-ROI), #69 (Skuld SSOT drift), #70 (interactive
   trifecta); brokkr#38 (off-box dead-man's switch), #39 (off-site+restore), #40 (encryption-at-rest);

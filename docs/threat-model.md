@@ -1,8 +1,8 @@
-# Grimnir — Threat Model (v0.1, draft)
+# Grimnir — Threat Model (v0.1)
 
-> **Status:** v0.1 skeleton — 2026-07-06. Seeded by a local M5 model, then verified and
-> edited against the 2026-07-06 blind-spot audit. **Needs owner review.** Every residual-**High**
-> row in §5 is tracked as a `from:grimnir` ticket (see the *Tracked* column).
+> **Status:** v0.1 — 2026-07-06, owner-reviewed 2026-07-07. Seeded by a local M5 model, then
+> verified and edited against the 2026-07-06 blind-spot audit. Every residual-**High** row in §5
+> is tracked as a `from:grimnir` ticket (see the *Tracked* column).
 >
 > Companion to [`architecture.md`](architecture.md) (the *how*) and [`vision.md`](vision.md) (the
 > *why*). This is the *what-we-defend-against* — the artifact that was deferred as "Phase B" and is
@@ -13,9 +13,9 @@
 ## 1. Scope & assumptions
 
 - **Single operator** (Magnus) — one fully-trusted human; no multi-user model today.
-- **Sovereignty:** data *at rest* lives on-prem (Pi 1, Pi 2 / NAS, M5). Two deliberate exceptions:
-  cloud AI models *process* prompts statelessly (the replaceable "tenant"), and Munin ships an
-  **encrypted** off-site backup leg (`rclone`-crypt). Cloudflare fronts public ingress.
+- **Sovereignty:** data *at rest* lives on-prem (Pi 1, Pi 2 / NAS, M5). Deliberate exceptions:
+  cloud AI models may process prompts but are not treated as storage authority; Munin ships an
+  **encrypted** off-site backup leg (`rclone`-crypt); Cloudflare fronts public ingress.
 - **In scope:** confidentiality / integrity / availability of the two pillars (Sovereign Memory,
   Self-Knowing Inference) and the accounting + client data they touch.
 - **Threat horizon:** opportunistic and injection-borne compromise, operator error, hardware loss —
@@ -34,10 +34,11 @@
 
 ## 3. Trust boundaries
 
-- **Fully trusted:** the operator; local process-scope on each box.
+- **Fully trusted:** the operator; admin-controlled host accounts and root contexts. Individual
+  service processes and dependencies are not automatically trusted once compromised.
 - **Semi-trusted (soft):** the Tailscale mesh — treated as an internal network, but any compromised
-  device on it can reach loopback-bound services. The per-service **bearer auth is the real control**,
-  not the tailnet perimeter.
+  device on it can reach services bound to the tailnet/LAN or exposed through tunnels. The
+  per-service **bearer auth is the real control**, not the tailnet perimeter.
 - **Untrusted:** all *ingested content* (email, web, documents, Telegram messages / forwards / voice
   transcripts), npm dependencies, the public internet.
 - **Key crossings:** untrusted content → agent (holding Munin + Mimir + execution) → outbound
@@ -66,6 +67,7 @@
 | T8 | Silent total-host failure | Pi 1 dies; monitoring + alerting die with it | on-box watchdog only | **M/H** — no off-box dead-man's switch | brokkr#38 |
 | T9 | Backup loss / unrecoverable restore | NAS disk failure; restore never tested | Munin encrypted off-site; other stores on-prem only | **H** | brokkr#39 |
 | T10 | Poisoned memory drives bad action | A false stored "fact" retrieved and acted on repeatedly | secret-scan on write; no correction / expiry path | **M** | munin-memory#192 |
+| T11 | Third-party data retained without a data map / erasure path | Client/accounting/person data accumulates across Mimir, Munin, Fortnox exports, backups | ad hoc namespace tags + file permissions; no formal data map / retention / erasure policy | **M/H** | grimnir#66 |
 
 ## 6. Explicitly accepted / out-of-scope (for now)
 
