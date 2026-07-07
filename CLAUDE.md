@@ -34,6 +34,7 @@ No service code lives here — each component has its own repo.
 - `docs/failure-recovery.md` — The autonomous-mutation undo convention: every autonomous mutation leaves a reversal recipe (git_revert / snapshot / irreversible+mitigation) + an audit event (issue #46)
 - `docs/gap-analysis-2026-07-03.md` — Critic-corrected ecosystem gap analysis vs vision v0.2: ranked gaps, quick wins, cut list, corrections log (the source of the 23-ticket fleet program)
 - `docs/threat-model.md` — Consolidated threat model (v0.1): assets, trust boundaries, adversaries, and a T1–T11 key-threats table mapped to owning tickets (from the 2026-07-06 blind-spot audit)
+- `docs/roadmap-now-decision-brief.md` — Working brief for the current "now" cluster: succession (#65), GDPR/data lifecycle (#66), system ROI/off-ramp (#67), Skuld revive-or-cut (#69), interactive-session trust posture (#70), and the #58 Verdandi blocker
 - `services.json` — **Single source of truth** for component inventory (names, hosts, ports, systemd units). All scripts read from it via `scripts/lib/registry.js`
 
 ## Scripts
