@@ -1,7 +1,7 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-07 (Codex) — roadmap "now" fanout reviewed, Grimnir decision brief PR #72
-**Branch:** codex/roadmap-now-decision-brief (PR #72 open; not deployed)
+**Last session:** 2026-07-08 (Codex close) — roadmap "now" decision brief PR #72 merged
+**Branch:** main
 
 ## Completed This Session (2026-07-07) — roadmap "now" cluster decision brief
 
@@ -21,8 +21,8 @@ it captures owner decisions and lightweight next artifacts for:
 - **grimnir#58** remains blocked by **verdandi#15**; Grimnir should not claim end-to-end tenant
   conformance until off-Pi Verdandi intake/key provisioning exists and Seam D is rerun.
 
-Indexed the new brief from `README.md` and `CLAUDE.md`. Opened PR #72 after local and M5 review;
-not deployed yet.
+Indexed the new brief from `README.md` and `CLAUDE.md`. PR #72 merged as `30580d3` after local
+review, M5 review, and green GitHub checks. This was docs-only; no production deploy was needed.
 
 Ran a repo-local fanout for the rest of the "now" cluster. No non-Grimnir repo changes were accepted
 from the subagents; their outputs were patch plans only, reviewed against `docs/vision.md`,
