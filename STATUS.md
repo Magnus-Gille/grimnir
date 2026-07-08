@@ -1,7 +1,36 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-08 (Codex close) — Hugin PR #150 production verification and deploy hardening
-**Branch:** main
+**Last session:** 2026-07-08 (Codex) — model-agnostic agent harness bake-off
+**Branch:** codex/agent-harness-bakeoff
+
+## Completed This Session (2026-07-08) — agent harness bake-off for Claude decoupling
+
+Explored open-source, model-agnostic agent harnesses for Grimnir/Hugin work using M5 as the
+OpenAI-compatible backend, then captured the recommendation in
+`docs/agent-harness-bakeoff-2026-07-08.md`.
+
+- **Fixture:** created a disposable Node repo under `/tmp/grimnir-harness-bakeoff.ToJKJQ` with a
+  failing `npm test` caused by `add(a, b)` returning `a - b`.
+- **OpenCode:** M5 smoke passed; build mode with `qwen3-coder-next-80b` ran `npm test`, edited
+  `math.js`, reran `npm test`, and produced the exact one-line fix. A read-only deny config made no
+  edits or shell calls, but the plan-agent read-only task stalled.
+- **Goose:** M5 smoke passed through the OpenAI provider; Developer extension ran file/shell/edit
+  tools, fixed the same one-line bug, and reran `npm test` successfully. Its stream JSON is usable
+  but verbose and needs normalization.
+- **Aider:** M5-backed patch application worked and the external test passed, but it is better as a
+  bounded patch helper than a full Grimnir harness.
+- **OpenHands:** CLI/help path was reachable, but a headless JSON M5 run emitted no actionable events
+  after roughly 90 seconds and was stopped; defer to a deeper isolated-runtime spike.
+- **Recommendation:** implement a narrow Hugin `HarnessAdapter` spike with OpenCode first for coding
+  tasks, Goose second for general worker tasks, while keeping gating/provenance/audit outside the
+  harness.
+
+### Pending / next
+- In `hugin`, open a small adapter spike issue/PR: run the bake-off fixture through OpenCode + M5,
+  normalize JSON events, capture diff/test result, and prove read-only mode cannot edit or run shell.
+- Follow with a Goose adapter spike only after the event schema and tool allowlist shape are clear.
+- Leave Claude runtime in place as the frontier fallback until Hugin has adapter traces, Verdandi
+  audit events, and per-tenant identity wired end-to-end.
 
 ## Completed This Session (2026-07-08) — Hugin PR #150 deployment closure
 
