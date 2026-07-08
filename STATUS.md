@@ -3,6 +3,34 @@
 **Last session:** 2026-07-08 (Codex close) — roadmap "now" decision brief PR #72 merged
 **Branch:** main
 
+## Completed This Session (2026-07-08) — PR #71 production reconciliation
+
+Reconciled the PR #71 handoff against live production state on `huginmunin`. No PR #71 code was
+reopened or reimplemented.
+
+- **Live checkout:** `/home/magnus/repos/grimnir` is on `main`, clean, synced with `origin/main`,
+  and contains PR #71 (`9b74fd6`) plus the post-merge validation fixes (`4eb0984`, `83de3d9`).
+- **Deployment evidence:** affected deployed components have `.deployed-commit` stamps:
+  hugin `6deabc197d49`, heimdall `1e26f0580ed2`, skuld `8057c0af787c`, ratatoskr `1148ea294cc3`,
+  and mimir `fe470a964069` in the latest validator output.
+- **Unit evidence:** `hugin.service` is active/enabled through the user manager;
+  `hugin-daily-analysis.timer` is active as a system timer; `skuld.timer` is active/enabled through
+  the user manager and triggers `skuld.service`; Heimdall, Ratatoskr, and Grimnir timers are active
+  through the system manager.
+- **Skuld evidence:** registry has `skuld.port = null`, `systemd_units = [{ name: "skuld",
+  type: "timer", scope: "user" }]`; no listener is present on `:3040`.
+- **Fresh validator run:** `./scripts/generate-architecture.sh --validate` on `huginmunin` at
+  `2026-07-08T09:58:45Z` reported **7 ok, 0 issues, 0 warnings** and wrote
+  `validation/registry/latest` to Munin.
+- **Generator follow-up:** normal `docs/full-architecture.md` generation no longer carries stale
+  Skuld `:3040` references after regeneration. This session also fixed the normal snapshot health
+  probe to reuse the host-aware `health_status_local/remote` helpers instead of localhost-only curl,
+  matching the PR #71 validator behavior.
+
+### Pending / next
+- No PR #71 deploy action remains. Future deploy work belongs to newer merged component PRs
+  (`brokkr#41`, `ratatoskr#37`, `verdandi#17`, `gille-inference#189`, `hugin#150`), not PR #71.
+
 ## Completed This Session (2026-07-07) — roadmap "now" cluster decision brief
 
 Created `docs/roadmap-now-decision-brief.md` as the smallest safe Grimnir-side progress for the

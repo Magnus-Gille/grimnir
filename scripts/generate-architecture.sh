@@ -515,30 +515,24 @@ done
 # ─── Health checks ────────────────────────────────────────
 
 echo "🔍 Running health checks..."
-declare -A PORTS=()
-while IFS='|' read -r pname pport; do
-  [[ -n "$pname" ]] && PORTS[$pname]=$pport
-done < <(REGISTRY_PATH="$REGISTRY" QUERY=ports node --input-type=commonjs "$REGISTRY_JS")
-
 HEALTH_RESULTS=""
-for comp in "${COMPONENTS[@]}"; do
-  port="${PORTS[$comp]:-}"
-  if [[ -n "$port" ]]; then
-    health_url="http://localhost:$port/health"
-    status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$health_url" 2>/dev/null || echo '000')"
-    if [[ "$status" == "000" ]] || [[ "$status" == "404" ]]; then
-      health_url="http://localhost:$port/api/health"
-      status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$health_url" 2>/dev/null || echo '000')"
-    fi
-    if [[ "$status" == "200" ]]; then
-      HEALTH_RESULTS+="- ✅ **$comp** (:$port) — HTTP $status\n"
-    elif [[ "$status" == "000" ]]; then
-      HEALTH_RESULTS+="- ❌ **$comp** (:$port) — unreachable\n"
-    else
-      HEALTH_RESULTS+="- ⚠️ **$comp** (:$port) — HTTP $status\n"
-    fi
+while IFS='|' read -r h_name h_host h_port _h_repo _h_deploy_path _h_deploy_mode _h_units_json; do
+  [[ -n "$h_name" && -n "$h_port" ]] || continue
+
+  if [[ "$h_host" == "huginmunin.local" ]] || [[ "$h_host" == "huginmunin" ]]; then
+    status="$(health_status_local "$h_port")"
+  else
+    status="$(health_status_remote "$h_host" "$h_port")"
   fi
-done
+
+  if [[ "$status" == "200" ]]; then
+    HEALTH_RESULTS+="- ✅ **$h_name** (:$h_port) — HTTP $status\n"
+  elif [[ "$status" == "000" ]]; then
+    HEALTH_RESULTS+="- ❌ **$h_name** (:$h_port) — unreachable\n"
+  else
+    HEALTH_RESULTS+="- ⚠️ **$h_name** (:$h_port) — HTTP $status\n"
+  fi
+done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")
 
 # ─── Munin project statuses ──────────────────────────────
 
