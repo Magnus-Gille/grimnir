@@ -1,7 +1,33 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-08 (Codex) — model-agnostic agent harness bake-off
-**Branch:** codex/agent-harness-bakeoff
+**Last session:** 2026-07-08 (Codex) — registry validation reconciled after Hugin/Ratatoskr drift
+**Branch:** main
+
+## Completed This Session (2026-07-08) — Hugin timer scope correction + Ratatoskr marker repair
+
+Investigated the apparent `hugin-daily-analysis.timer` selective-deploy miss from the OpenCode
+runtime deployment follow-up. Root cause: the registry declares `hugin-daily-analysis.timer` without
+`scope:"user"`, so Grimnir correctly treats it as a system timer. The selective Hugin deploy had
+installed and enabled `/etc/systemd/system/hugin-daily-analysis.timer`; the later user-manager check
+looked in the wrong scope and a manual repair created a duplicate user timer. Removed the duplicate
+user unit files and reloaded the user manager. Live state is now one intended timer: system
+`hugin-daily-analysis.timer` active/enabled; user timer absent.
+
+The follow-up validator run then exposed a separate Ratatoskr drift: the service was healthy but
+missing `.deployed-commit`. Deployed local clean Ratatoskr `main` (`ce3fc5d`, CI green) through
+`scripts/deploy.sh ratatoskr`, which restored the marker and kept `/health` OK with
+`bot_connected:true`.
+
+Final live validation on `huginmunin`: `./scripts/generate-architecture.sh --validate` reported
+**7 ok, 0 issues, 0 warnings** and wrote `validation/registry/latest` to Munin.
+
+### Pending / next
+- No Grimnir deploy-script change is required for the Hugin timer; the issue was an operator
+  scope-check error.
+- Keep using `services.json` scope as the authority before interpreting missing units in one systemd
+  manager as drift.
+- Continue Hugin follow-up: keep Claude fallback until OpenCode has more production traces plus
+  Verdandi/audit identity coverage; run one Claude E2E after quota reset.
 
 ## Completed This Session (2026-07-08) — agent harness bake-off for Claude decoupling
 
