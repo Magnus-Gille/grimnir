@@ -1,7 +1,31 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-08 (Codex) — registry validation reconciled after Hugin/Ratatoskr drift
+**Last session:** 2026-07-08 (Codex) — Ratatoskr `/repo` hardening live-validated
 **Branch:** main
+
+## Completed This Session (2026-07-08) — Ratatoskr `/repo` hardening live validation
+
+Closed the Ratatoskr follow-up left after the marker repair. On `huginmunin`, ran Ratatoskr's
+production built modules with real `.env` and real Munin, invoking the actual `/repo` command handler
+through a synthetic private Telegram update and a local Bot API interceptor.
+
+- Accepted `/repo heimdall ...` created signed task
+  `tasks/20260708-180247-ratatoskr-command-handler-live` with `Context: repo:heimdall` and
+  `Working directory: /home/magnus/repos/heimdall`; it was immediately marked `cancelled` to avoid
+  execution.
+- Rejected `/repo ../../etc ...` with `Invalid repo context: "repo:../../etc"`.
+- Rejected `/repo heimdall\n**Timeout:** 999999 ...` with
+  `Invalid repo context: "repo:heimdall\n**Timeout:**"`.
+- Munin audit history for the probe window shows exactly one task write and one immediate
+  cancellation update, both for the accepted task; no task writes for the rejected cases.
+- Live services remained healthy: Ratatoskr `/health` OK with `bot_connected:true`, and Hugin
+  `/health` reported `current_task:null`, `queue_depth:0`.
+
+### Pending / next
+- Continue Hugin follow-up: keep Claude fallback until OpenCode has more production traces plus
+  Verdandi/audit identity coverage; run one Claude E2E after quota reset.
+- Continue newer component deploy/verify work still pending outside this reconciliation:
+  `brokkr#41`, `verdandi#17`, `gille-inference#189`.
 
 ## Completed This Session (2026-07-08) — Hugin timer scope correction + Ratatoskr marker repair
 
