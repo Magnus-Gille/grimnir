@@ -9,14 +9,15 @@ Closed the Hugin PR #150 production follow-up with a delegated Codex subagent an
 advisory check, while keeping final acceptance in this thread.
 
 - **Hugin production state:** `/home/magnus/repos/hugin` was deployed via Grimnir's registry-aware
-  selective deploy and ends at marker `d556f2586776f61420f6eb994eecfce0176b2ed1`.
+  selective deploy. The final runtime state includes PR #150 plus the later Hugin #152 mainline fix;
+  the exact deployed commit is tracked in `/home/magnus/repos/hugin/.deployed-commit`.
 - **Live evidence:** `hugin.service` is active/enabled under the user manager; `/health` reports
   `status:"ok"`, `polling:true`, and `queue_depth:0`.
 - **Permission evidence:** live probe logs reached Claude initialization and showed default/read-only
   plus malformed trusted-code requests use `dontAsk`, while explicit `Capabilities: code` plus
   `Permission profile: trusted-code` uses `bypassPermissions`.
-- **Validator evidence:** `./scripts/generate-architecture.sh --validate` on `huginmunin` at
-  `2026-07-08T10:21:27Z` reported **7 ok, 0 issues, 0 warnings**.
+- **Validator evidence:** `./scripts/generate-architecture.sh --validate` on `huginmunin` reported
+  **7 ok, 0 issues, 0 warnings** after the final Hugin marker repair.
 - **Quality repair:** the review caught that deploying from a detached Git worktree can rsync a
   `.git` file pointer and corrupt the remote checkout metadata. Repaired the remote Hugin checkout,
   then hardened both Grimnir `scripts/deploy.sh` and Hugin `scripts/deploy-pi.sh` to exclude worktree
@@ -25,8 +26,8 @@ advisory check, while keeping final acceptance in this thread.
 ### Pending / next
 - Claude on the Pi is quota-blocked until **2026-07-09 21:00 Europe/Stockholm**, so one post-reset
   end-to-end Claude runtime task should still be run to prove execution past initialization.
-- Hugin `main` advanced after this scoped #150 deploy to `922aa5c` (#152); review/deploy that
-  separately if it is the next target.
+- Hugin #152 is already included in the final production marker because `main` advanced during
+  closeout; the next Hugin target should be chosen from the remaining queue.
 
 ## Completed This Session (2026-07-08) — PR #71 production reconciliation
 
