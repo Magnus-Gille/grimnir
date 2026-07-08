@@ -218,6 +218,7 @@ deploy_service() {
   fi
   if ! rsync -az --delete \
     --exclude='node_modules/' \
+    --exclude='.git' \
     --exclude='.git/' \
     --exclude='.env' \
     --exclude='tests/' \
