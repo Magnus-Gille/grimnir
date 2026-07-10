@@ -10,11 +10,19 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
-REGISTRY="$GRIMNIR_DIR/services.json"
+REGISTRY="${REGISTRY_PATH:-$GRIMNIR_DIR/services.json}"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
+REGISTRY_VALIDATOR="$SCRIPT_DIR/lib/validate-registry.js"
+# shellcheck source=scripts/lib/deploy-safety.sh
+source "$SCRIPT_DIR/lib/deploy-safety.sh"
 
-# Read deployable services from registry:
-# name|repo|host|deploy_path|unit_type|needs_build|unit_scope|deploy_mode|units_json
+# Validate the full registry before producing JSON Lines deploy records. No
+# network or filesystem mutation occurs before this gate passes.
+if ! REGISTRY_PATH="$REGISTRY" node --input-type=commonjs "$REGISTRY_VALIDATOR"; then
+  echo "ERROR: Refusing deploy because registry validation failed" >&2
+  exit 1
+fi
+
 SERVICES=()
 while IFS= read -r line; do
   [[ -n "$line" ]] && SERVICES+=("$line")
@@ -37,6 +45,24 @@ skip=0
 results=()
 DEPLOY_USER="${DEPLOY_USER:-magnus}"
 LOCAL_REPOS_ROOT="${LOCAL_REPOS_ROOT:-$HOME/repos}"
+
+if [[ ! "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+  echo "ERROR: DEPLOY_USER must be a safe POSIX account name" >&2
+  exit 1
+fi
+
+service_field() {
+  local record=$1 field=$2
+  SERVICE_RECORD="$record" SERVICE_FIELD="$field" node --input-type=commonjs -e '
+    var record = JSON.parse(process.env.SERVICE_RECORD);
+    var value = record[process.env.SERVICE_FIELD];
+    if (value !== null && typeof value === "object") {
+      process.stdout.write(JSON.stringify(value));
+    } else {
+      process.stdout.write(String(value));
+    }
+  '
+}
 
 resolve_host() {
   local input=$1
@@ -124,14 +150,24 @@ unit_rows() {
     '
 }
 
+rsync_exclude_rows() {
+  local excludes_json=$1
+  RSYNC_EXCLUDES_JSON="$excludes_json" node --input-type=commonjs -e '
+    var excludes = JSON.parse(process.env.RSYNC_EXCLUDES_JSON || "[]");
+    excludes.forEach(function (exclude) { process.stdout.write(exclude + "\n"); });
+  '
+}
+
 deploy_service() {
   local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system} deploy_mode=${8:-rsync} units_json=${9:-[]}
+  local rsync_excludes_json=${10:-[]}
   local local_path
   local remote_host
   local remote
   local branch
   local commit
   local dirty_state
+  local q_deploy_path
 
   echo -e "\n${BOLD}=== ${name} (${host}) ===${NC}"
 
@@ -169,6 +205,7 @@ deploy_service() {
     return
   fi
   remote="${DEPLOY_USER}@${remote_host}"
+  q_deploy_path=$(posix_shell_quote "$deploy_path")
 
   # Build locally before syncing if runtime expects generated artifacts like dist/
   # (irrelevant in git-pull mode — nothing local is shipped)
@@ -194,11 +231,11 @@ deploy_service() {
     # files. Either would let the stamp certify a non-canonical tree, so both
     # fail the deploy loudly instead.
     local pull_cmd
-    pull_cmd="git -C '$deploy_path' fetch --quiet origin && "
-    pull_cmd+="git -C '$deploy_path' checkout --quiet main && "
-    pull_cmd+="git -C '$deploy_path' pull --ff-only --quiet origin main && "
-    pull_cmd+="if [ -n \"\$(git -C '$deploy_path' status --porcelain)\" ]; then echo 'ERROR: checkout dirty after pull' >&2; exit 1; fi && "
-    pull_cmd+="if [ \"\$(git -C '$deploy_path' rev-parse HEAD)\" != \"\$(git -C '$deploy_path' rev-parse origin/main)\" ]; then echo 'ERROR: HEAD != origin/main after pull (stray local commits?)' >&2; exit 1; fi"
+    pull_cmd="git -C ${q_deploy_path} fetch --quiet origin && "
+    pull_cmd+="git -C ${q_deploy_path} checkout --quiet main && "
+    pull_cmd+="git -C ${q_deploy_path} pull --ff-only --quiet origin main && "
+    pull_cmd+="if [ -n \"\$(git -C ${q_deploy_path} status --porcelain)\" ]; then echo 'ERROR: checkout dirty after pull' >&2; exit 1; fi && "
+    pull_cmd+="if [ \"\$(git -C ${q_deploy_path} rev-parse HEAD)\" != \"\$(git -C ${q_deploy_path} rev-parse origin/main)\" ]; then echo 'ERROR: HEAD != origin/main after pull (stray local commits?)' >&2; exit 1; fi"
     # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
     if ! ssh -o ConnectTimeout=10 "$remote" "$pull_cmd"; then
       echo -e "${RED}FAILED${NC}"
@@ -210,21 +247,25 @@ deploy_service() {
 
   echo "==> Syncing to ${remote}:${deploy_path}..."
   # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
-  if ! ssh "$remote" "mkdir -p '$deploy_path'"; then
+  if ! ssh "$remote" "mkdir -p ${q_deploy_path}"; then
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
     return
   fi
-  if ! rsync -az --delete \
-    --exclude='node_modules/' \
-    --exclude='.git' \
-    --exclude='.git/' \
-    --exclude='.env' \
-    --exclude='tests/' \
-    --exclude='.DS_Store' \
-    --exclude='.deployed-commit' \
-    "$local_path/" "$remote:$deploy_path/"; then
+  local rsync_exclude rsync_args
+  rsync_args=(-az --delete
+    --exclude='node_modules/'
+    --exclude='.git'
+    --exclude='.git/'
+    --exclude='.env'
+    --exclude='tests/'
+    --exclude='.DS_Store'
+    --exclude='.deployed-commit')
+  while IFS= read -r rsync_exclude; do
+    [[ -n "$rsync_exclude" ]] && rsync_args+=("--exclude=${rsync_exclude}")
+  done < <(rsync_exclude_rows "$rsync_excludes_json")
+  if ! rsync "${rsync_args[@]}" "$local_path/" "${remote}:$(posix_shell_quote "${deploy_path}/")"; then
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
@@ -233,7 +274,7 @@ deploy_service() {
 
   echo "==> Installing production dependencies on ${remote_host}..."
   # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
-  if ! ssh "$remote" "cd '$deploy_path' && if [ -f package.json ]; then npm install --omit=dev; fi"; then
+  if ! ssh "$remote" "cd ${q_deploy_path} && if [ -f package.json ]; then npm install --omit=dev; fi"; then
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
@@ -242,8 +283,9 @@ deploy_service() {
 
   fi # end rsync-mode block (deploy_mode != git-pull)
 
-  local cmd="cd '$deploy_path' && "
+  local cmd="cd ${q_deploy_path} && "
   local rows unit_name unit_kind unit_actual_scope unit_file companion_file
+  local q_unit_src q_unit_root q_user_dest q_system_dest q_unit_label
   local user_needs_reload=false system_needs_reload=false
   local user_services=() system_services=() user_timers=() system_timers=()
 
@@ -251,31 +293,42 @@ deploy_service() {
   while IFS='|' read -r unit_name unit_kind unit_actual_scope; do
     [[ -n "$unit_name" ]] || continue
     unit_file="${unit_name}.${unit_kind}"
+    q_unit_src=$(posix_shell_quote "systemd/${unit_file}")
+    q_unit_root=$(posix_shell_quote "$unit_file")
+    q_user_dest=$(posix_shell_quote ".config/systemd/user/${unit_file}")
+    q_system_dest=$(posix_shell_quote "/etc/systemd/system/${unit_file}")
+    q_unit_label=$(posix_shell_quote "$unit_file")
 
     if [[ "$unit_actual_scope" == "user" ]]; then
-      cmd+="unit_src=''; for f in systemd/${unit_file} ${unit_file}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
-      cmd+="[ -n \"\$unit_src\" ] || { echo 'ERROR: unit file missing: ${unit_file}' >&2; exit 1; }; "
-      cmd+="install -D -m644 \"\$unit_src\" \"\$HOME/.config/systemd/user/${unit_file}\" && "
+      cmd+="unit_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
+      cmd+="[ -n \"\$unit_src\" ] || { printf 'ERROR: unit file missing: %s\\n' ${q_unit_label} >&2; exit 1; }; "
+      cmd+="install -D -m644 \"\$unit_src\" \"\$HOME\"/${q_user_dest} && "
       user_needs_reload=true
       if [[ "$unit_kind" == "service" ]]; then
         user_services+=("$unit_name")
       elif [[ "$unit_kind" == "timer" ]]; then
         companion_file="${unit_name}.service"
-        cmd+="companion_src=''; for f in systemd/${companion_file} ${companion_file}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
-        cmd+="if [ -n \"\$companion_src\" ]; then install -D -m644 \"\$companion_src\" \"\$HOME/.config/systemd/user/${companion_file}\"; fi && "
+        q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
+        q_unit_root=$(posix_shell_quote "$companion_file")
+        q_user_dest=$(posix_shell_quote ".config/systemd/user/${companion_file}")
+        cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
+        cmd+="if [ -n \"\$companion_src\" ]; then install -D -m644 \"\$companion_src\" \"\$HOME\"/${q_user_dest}; fi && "
         user_timers+=("$unit_name")
       fi
     else
-      cmd+="unit_src=''; for f in systemd/${unit_file} ${unit_file}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
-      cmd+="[ -n \"\$unit_src\" ] || { echo 'ERROR: unit file missing: ${unit_file}' >&2; exit 1; }; "
-      cmd+="sudo install -D -m644 \"\$unit_src\" \"/etc/systemd/system/${unit_file}\" && "
+      cmd+="unit_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
+      cmd+="[ -n \"\$unit_src\" ] || { printf 'ERROR: unit file missing: %s\\n' ${q_unit_label} >&2; exit 1; }; "
+      cmd+="sudo install -D -m644 \"\$unit_src\" ${q_system_dest} && "
       system_needs_reload=true
       if [[ "$unit_kind" == "service" ]]; then
         system_services+=("$unit_name")
       elif [[ "$unit_kind" == "timer" ]]; then
         companion_file="${unit_name}.service"
-        cmd+="companion_src=''; for f in systemd/${companion_file} ${companion_file}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
-        cmd+="if [ -n \"\$companion_src\" ]; then sudo install -D -m644 \"\$companion_src\" \"/etc/systemd/system/${companion_file}\"; fi && "
+        q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
+        q_unit_root=$(posix_shell_quote "$companion_file")
+        q_system_dest=$(posix_shell_quote "/etc/systemd/system/${companion_file}")
+        cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
+        cmd+="if [ -n \"\$companion_src\" ]; then sudo install -D -m644 \"\$companion_src\" ${q_system_dest}; fi && "
         system_timers+=("$unit_name")
       fi
     fi
@@ -288,19 +341,19 @@ deploy_service() {
     cmd+="sudo systemctl daemon-reload && "
   fi
   for unit_name in ${user_services[@]+"${user_services[@]}"}; do
-    cmd+="systemctl --user restart ${unit_name}.service && "
+    cmd+="systemctl --user restart $(posix_shell_quote "${unit_name}.service") && "
   done
   for unit_name in ${system_services[@]+"${system_services[@]}"}; do
     # Kill any leftover user-unit instance holding the port before the system unit restarts.
-    cmd+="{ systemctl --user stop ${unit_name}.service 2>/dev/null || true; } && "
-    cmd+="{ systemctl --user disable ${unit_name}.service 2>/dev/null || true; } && "
-    cmd+="sudo systemctl restart ${unit_name}.service && "
+    cmd+="{ systemctl --user stop $(posix_shell_quote "${unit_name}.service") 2>/dev/null || true; } && "
+    cmd+="{ systemctl --user disable $(posix_shell_quote "${unit_name}.service") 2>/dev/null || true; } && "
+    cmd+="sudo systemctl restart $(posix_shell_quote "${unit_name}.service") && "
   done
   for unit_name in ${user_timers[@]+"${user_timers[@]}"}; do
-    cmd+="systemctl --user enable --now ${unit_name}.timer && "
+    cmd+="systemctl --user enable --now $(posix_shell_quote "${unit_name}.timer") && "
   done
   for unit_name in ${system_timers[@]+"${system_timers[@]}"}; do
-    cmd+="sudo systemctl enable --now ${unit_name}.timer && "
+    cmd+="sudo systemctl enable --now $(posix_shell_quote "${unit_name}.timer") && "
   done
   # Stamp the deployed commit so Heimdall's drift detector has an authoritative
   # source (excluded from rsync above so --delete won't clobber it). Heimdall
@@ -311,7 +364,7 @@ deploy_service() {
     # just pulled) — stamp that, not the local checkout's commit.
     cmd+="git rev-parse HEAD > .deployed-commit && "
   else
-    cmd+="printf '%s\\n' '${commit_full}' > .deployed-commit && "
+    cmd+="printf '%s\\n' $(posix_shell_quote "$commit_full") > .deployed-commit && "
   fi
   cmd+="echo 'DEPLOY_OK'"
 
@@ -339,7 +392,16 @@ deploy_service() {
 requested=("$@")
 
 for entry in "${SERVICES[@]}"; do
-  IFS='|' read -r name repo host deploy_path unit_type needs_build unit_scope deploy_mode units_json <<< "$entry"
+  name=$(service_field "$entry" name)
+  repo=$(service_field "$entry" repo)
+  host=$(service_field "$entry" host)
+  deploy_path=$(service_field "$entry" deploy_path)
+  unit_type=$(service_field "$entry" unit_type)
+  needs_build=$(service_field "$entry" needs_build)
+  unit_scope=$(service_field "$entry" unit_scope)
+  deploy_mode=$(service_field "$entry" deploy_mode)
+  units_json=$(service_field "$entry" systemd_units)
+  rsync_excludes_json=$(service_field "$entry" rsync_excludes)
 
   if [[ ${#requested[@]} -gt 0 ]]; then
     match=false
@@ -349,7 +411,7 @@ for entry in "${SERVICES[@]}"; do
     $match || continue
   fi
 
-  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}"
+  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}" "${rsync_excludes_json:-[]}"
 done
 
 # Summary

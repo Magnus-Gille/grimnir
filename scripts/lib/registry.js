@@ -4,7 +4,7 @@
 //   REGISTRY_PATH=/path/to/services.json QUERY=<query> node --input-type=commonjs scripts/lib/registry.js
 //
 // Queries:
-//   deploy       — components where deploy=true, output: name|repo|host|deploy_path|unit_type|needs_build|unit_scope|deploy_mode|units_json (deploy.sh format)
+//   deploy       — components where deploy=true, output: one JSON object per line (deploy.sh format)
 //   scan         — components where scan=true, output: space-separated repo names
 //   components   — all component names, space-separated
 //   systemd      — all systemd unit names, space-separated
@@ -48,8 +48,8 @@ var components = data.components;
 
 switch (query) {
   case 'deploy': {
-    // Output format matches what deploy.sh needs:
-    // name|repo|host|deploy_path|primary_unit_type|needs_build|unit_scope|deploy_mode|units_json
+    // JSON Lines keeps registry strings structured through the shell boundary.
+    // deploy.sh parses each object as JSON; it never delimiter-splits values.
     var deployable = components.filter(function (c) { return c.deploy; });
     deployable.forEach(function (c) {
       // Determine primary unit type/scope from first systemd unit.
@@ -63,12 +63,19 @@ switch (query) {
         unitScope = c.systemd_units[0].scope || 'system';
       }
       var deployPath = c.deploy_path || ('/home/magnus/repos/' + c.repo);
-      var needsBuild = c.needs_build ? 'true' : 'false';
       var deployMode = c.deploy_mode || 'rsync';
-      var units = JSON.stringify(c.systemd_units || []);
-      process.stdout.write(
-        c.name + '|' + c.repo + '|' + c.host + '|' + deployPath + '|' + unitType + '|' + needsBuild + '|' + unitScope + '|' + deployMode + '|' + units + '\n'
-      );
+      process.stdout.write(JSON.stringify({
+        name: c.name,
+        repo: c.repo,
+        host: c.host,
+        deploy_path: deployPath,
+        unit_type: unitType,
+        needs_build: Boolean(c.needs_build),
+        unit_scope: unitScope,
+        deploy_mode: deployMode,
+        systemd_units: c.systemd_units || [],
+        rsync_excludes: c.rsync_excludes || []
+      }) + '\n');
     });
     break;
   }

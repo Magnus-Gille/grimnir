@@ -53,6 +53,24 @@ if (!Array.isArray(data.components)) {
 var VALID_UNIT_TYPES = ['service', 'timer'];
 var VALID_UNIT_SCOPES = ['system', 'user'];
 var VALID_UNIT_NAME = /^[A-Za-z0-9_.@-]+$/;
+var VALID_COMPONENT_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
+var VALID_HOST = /^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/;
+var VALID_ABSOLUTE_PATH = /^\/[A-Za-z0-9._@%+,=:\/-]+$/;
+var INVALID_RSYNC_EXCLUDE_CHARS = /[\x00-\x1f*?[\]{}\\]/;
+
+function isWithinPath(candidate, parent) {
+  if (parent === '/') return path.posix.isAbsolute(candidate);
+  return candidate === parent || candidate.indexOf(parent + '/') === 0;
+}
+
+function normalizedRootExclude(value) {
+  return path.posix.normalize(value).replace(/^\/+/, '').replace(/\/+$/, '');
+}
+
+function isCanonicalAbsolutePath(value) {
+  return typeof value === 'string' && VALID_ABSOLUTE_PATH.test(value) && value !== '/' &&
+    value.charAt(value.length - 1) !== '/' && path.posix.normalize(value) === value;
+}
 
 var seenNames = {};
 var seenPorts = {};
@@ -63,15 +81,15 @@ data.components.forEach(function (c, i) {
     fail(label + ': component must be an object');
     return;
   }
-  if (typeof c.name === 'string' && c.name) {
+  if (typeof c.name === 'string' && VALID_COMPONENT_ID.test(c.name)) {
     label = c.name;
   } else {
-    fail(label + ': missing/invalid required field "name" (non-empty string)');
+    fail(label + ': missing/invalid required field "name" (safe identifier)');
   }
 
   ['repo'].forEach(function (field) {
-    if (typeof c[field] !== 'string' || !c[field]) {
-      fail(label + ': missing/invalid required field "' + field + '" (non-empty string)');
+    if (typeof c[field] !== 'string' || !VALID_COMPONENT_ID.test(c[field])) {
+      fail(label + ': missing/invalid required field "' + field + '" (safe identifier)');
     }
   });
 
@@ -85,8 +103,8 @@ data.components.forEach(function (c, i) {
     fail(label + ': "deploy_mode" must be "rsync" or "git-pull" when present, got "' + c.deploy_mode + '"');
   }
 
-  if (c.host !== null && typeof c.host !== 'string') {
-    fail(label + ': field "host" must be a string or null');
+  if (c.host !== null && (typeof c.host !== 'string' || !VALID_HOST.test(c.host))) {
+    fail(label + ': field "host" must be a safe hostname/address or null');
   }
   if (c.port !== undefined && c.port !== null && typeof c.port !== 'number') {
     fail(label + ': field "port" must be a number or null');
@@ -106,13 +124,73 @@ data.components.forEach(function (c, i) {
     }
   }
 
+  if (c.deploy_path !== undefined && !isCanonicalAbsolutePath(c.deploy_path)) {
+    fail(label + ': deploy_path must be a canonical absolute path below / with no trailing slash');
+  }
+
   if (c.deploy === true) {
     if (typeof c.deploy_path !== 'string' || !c.deploy_path) {
       fail(label + ': deploy=true requires a non-empty "deploy_path"');
     }
-    if (typeof c.host !== 'string' || !c.host) {
+    if (typeof c.host !== 'string' || !VALID_HOST.test(c.host)) {
       fail(label + ': deploy=true requires a non-empty "host"');
     }
+  }
+
+  var deployMode = c.deploy_mode || 'rsync';
+  var persistentPathsValid = true;
+  var rsyncExcludesValid = true;
+
+  if (c.persistent_paths !== undefined && !Array.isArray(c.persistent_paths)) {
+    fail(label + ': "persistent_paths" must be an array when present');
+    persistentPathsValid = false;
+  }
+  if (c.rsync_excludes !== undefined && !Array.isArray(c.rsync_excludes)) {
+    fail(label + ': "rsync_excludes" must be an array when present');
+    rsyncExcludesValid = false;
+  }
+  if (c.deploy === true && deployMode === 'rsync' && !Array.isArray(c.persistent_paths)) {
+    fail(label + ': rsync deploy requires an explicit "persistent_paths" array (use [] only after auditing runtime writes)');
+    persistentPathsValid = false;
+  }
+
+  var persistentPaths = persistentPathsValid && Array.isArray(c.persistent_paths) ? c.persistent_paths : [];
+  persistentPaths.forEach(function (persistentPath, pi) {
+    if (!isCanonicalAbsolutePath(persistentPath)) {
+      fail(label + '.persistent_paths[' + pi + ']: must be a canonical absolute path below / with no trailing slash');
+      persistentPathsValid = false;
+    }
+  });
+
+  var rsyncExcludes = rsyncExcludesValid && Array.isArray(c.rsync_excludes) ? c.rsync_excludes : [];
+  rsyncExcludes.forEach(function (exclude, ei) {
+    if (typeof exclude !== 'string' || exclude.length < 2 || exclude.charAt(0) !== '/' ||
+        exclude === '/' || INVALID_RSYNC_EXCLUDE_CHARS.test(exclude) || exclude.indexOf('//') !== -1 ||
+        exclude.split('/').indexOf('..') !== -1 || exclude.split('/').indexOf('.') !== -1) {
+      fail(label + '.rsync_excludes[' + ei + ']: must be a literal, root-anchored rsync path such as "/data/"');
+      rsyncExcludesValid = false;
+    }
+  });
+
+  if (c.deploy === true && deployMode === 'rsync' && typeof c.deploy_path === 'string' &&
+      c.deploy_path && persistentPathsValid && rsyncExcludesValid) {
+    var normalizedDeployPath = path.posix.normalize(c.deploy_path);
+    var normalizedExcludes = rsyncExcludes.map(normalizedRootExclude);
+    persistentPaths.forEach(function (persistentPath) {
+      if (!isWithinPath(persistentPath, normalizedDeployPath)) return;
+      if (persistentPath === normalizedDeployPath) {
+        fail(label + ': persistent path equals rsync deploy_path and cannot be protected by a child exclusion: ' + persistentPath);
+        return;
+      }
+      var relativePath = path.posix.relative(normalizedDeployPath, persistentPath);
+      var protectedByExclude = normalizedExcludes.some(function (exclude) {
+        return relativePath === exclude || relativePath.indexOf(exclude + '/') === 0;
+      });
+      if (!protectedByExclude) {
+        fail(label + ': persistent path inside rsync deploy_path must be covered by rsync_excludes: ' +
+          persistentPath + ' (expected a root-anchored exclusion for /' + relativePath + ')');
+      }
+    });
   }
 
   if (!Array.isArray(c.systemd_units)) {

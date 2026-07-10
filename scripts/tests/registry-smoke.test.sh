@@ -71,7 +71,7 @@ cat > "$TMP_DIR/valid.json" << 'EOF'
     {
       "name": "alpha", "repo": "alpha", "host": "h1.local", "port": 3030,
       "deploy": true, "scan": true, "deploy_path": "/home/magnus/repos/alpha",
-      "needs_build": true,
+      "needs_build": true, "persistent_paths": ["/home/magnus/.local/share/alpha"],
       "systemd_units": [{ "name": "alpha", "type": "service" }]
     },
     {
@@ -90,6 +90,83 @@ assert_eq "valid registry -> exit 0" "0" "$(run_validator "$TMP_DIR/valid.json")
 # ── Real repo registry (regression: must always pass) ─────────────────────
 REPO_REGISTRY="$SCRIPT_DIR/../../services.json"
 assert_eq "real services.json -> exit 0" "0" "$(run_validator "$REPO_REGISTRY")"
+
+# ── rsync persistent-path safety ───────────────────────────────────────────
+cat > "$TMP_DIR/missing-persistent-paths.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "rsync deploy without persistent_paths audit -> exit 1" "1" "$(run_validator "$TMP_DIR/missing-persistent-paths.json")"
+
+cat > "$TMP_DIR/internal-persistent-unprotected.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": ["/srv/alpha/data"],
+      "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "persistent path inside rsync target without exclusion -> exit 1" "1" "$(run_validator "$TMP_DIR/internal-persistent-unprotected.json")"
+
+cat > "$TMP_DIR/internal-persistent-protected.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": ["/srv/alpha/data/db"],
+      "rsync_excludes": ["/data/"], "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "ancestor exclusion protects persistent path inside rsync target -> exit 0" "0" "$(run_validator "$TMP_DIR/internal-persistent-protected.json")"
+
+cat > "$TMP_DIR/persistent-equals-target.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": ["/srv/alpha"],
+      "rsync_excludes": ["/data/"], "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "persistent path equal to rsync target -> exit 1" "1" "$(run_validator "$TMP_DIR/persistent-equals-target.json")"
+
+cat > "$TMP_DIR/root-deploy-path.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/", "persistent_paths": ["/var/lib/alpha"],
+      "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "filesystem root cannot be an rsync deploy target -> exit 1" "1" "$(run_validator "$TMP_DIR/root-deploy-path.json")"
+
+cat > "$TMP_DIR/trailing-slash-deploy-path.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha/", "persistent_paths": ["/srv/alpha/data"],
+      "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "trailing slash cannot bypass deploy-path containment -> exit 1" "1" "$(run_validator "$TMP_DIR/trailing-slash-deploy-path.json")"
+
+cat > "$TMP_DIR/unsafe-rsync-exclude.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": ["/srv/alpha/data"],
+      "rsync_excludes": ["/**/data*"], "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "wildcard rsync exclusion -> exit 1" "1" "$(run_validator "$TMP_DIR/unsafe-rsync-exclude.json")"
 
 # ── Malformed JSON ──────────────────────────────────────────────────────────
 echo '{ not valid json' > "$TMP_DIR/bad-json.json"
@@ -183,6 +260,18 @@ cat > "$TMP_DIR/bad-unit-name.json" << 'EOF'
 EOF
 assert_eq "invalid systemd unit name -> exit 1" "1" "$(run_validator "$TMP_DIR/bad-unit-name.json")"
 
+# ── Registry strings crossing deploy shell boundaries must be strict ───────
+cat > "$TMP_DIR/unsafe-component-strings.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha|evil", "repo": "alpha'evil", "host": "h1;evil", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha$(evil)",
+      "persistent_paths": [], "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "unsafe name/repo/host/path strings -> exit 1" "1" "$(run_validator "$TMP_DIR/unsafe-component-strings.json")"
+
 # ── Duplicate node name ──────────────────────────────────────────────────────
 cat > "$TMP_DIR/dup-node.json" << 'EOF'
 {
@@ -241,24 +330,51 @@ assert_clean_failure "null entry in systemd_units" "$TMP_DIR/null-unit.json"
 echo '{ "components": [], "nodes": [null] }' > "$TMP_DIR/null-node.json"
 assert_clean_failure "null entry in nodes" "$TMP_DIR/null-node.json"
 
-# ── registry.js deploy-query invariant (#43 / #33) ──────────────────────────
-# The `deploy` projection derives each component's primary unit_type/scope from
+# ── registry.js structured deploy-query invariant (#43 / #33) ──────────────
+# The JSON Lines `deploy` projection derives each component's primary unit_type/scope from
 # systemd_units[0]. hugin must stay a user-scoped rsync service even after a
 # system-scoped `hugin-daily-analysis` timer was appended to its systemd_units —
 # appending units must never change the deploy row. Pin the real services.json
 # plus the ordering contract on a synthetic fixture.
 REGISTRY_JS="$SCRIPT_DIR/../lib/registry.js"
-deploy_row() {  # $1 = registry path, $2 = component name
+deploy_field() {  # $1 = registry path, $2 = component name, $3 = field
   REGISTRY_PATH="$1" QUERY=deploy node --input-type=commonjs "$REGISTRY_JS" 2>/dev/null \
-    | grep "^$2|" || true
+    | COMPONENT_NAME="$2" COMPONENT_FIELD="$3" node --input-type=commonjs -e '
+        var input = "";
+        process.stdin.on("data", function (chunk) { input += chunk; });
+        process.stdin.on("end", function () {
+          var rows = input.trim().split("\n").filter(Boolean).map(JSON.parse);
+          var row = rows.filter(function (r) { return r.name === process.env.COMPONENT_NAME; })[0];
+          if (!row) process.exit(1);
+          var value = row[process.env.COMPONENT_FIELD];
+          process.stdout.write(value !== null && typeof value === "object" ? JSON.stringify(value) : String(value));
+        });
+      '
 }
-assert_eq "real services.json: hugin deploy row unchanged by appended timer" \
-  'hugin|hugin|huginmunin.local|/home/magnus/repos/hugin|service|true|user|rsync|[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-analysis","type":"timer"}]' \
-  "$(deploy_row "$REPO_REGISTRY" hugin)"
+assert_eq "real services.json: hugin primary unit remains service" "service" \
+  "$(deploy_field "$REPO_REGISTRY" hugin unit_type)"
+assert_eq "real services.json: hugin deploy scope remains user" "user" \
+  "$(deploy_field "$REPO_REGISTRY" hugin unit_scope)"
+assert_eq "real services.json: hugin structured units include appended timer" \
+  '[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-analysis","type":"timer"}]' \
+  "$(deploy_field "$REPO_REGISTRY" hugin systemd_units)"
 
 assert_eq "real services.json: skuld timer deploys via user manager" \
-  'skuld|skuld|huginmunin.local|/home/magnus/repos/skuld|timer|true|user|rsync|[{"name":"skuld","type":"timer","scope":"user"}]' \
-  "$(deploy_row "$REPO_REGISTRY" skuld)"
+  "user" "$(deploy_field "$REPO_REGISTRY" skuld unit_scope)"
+
+component_persistent_paths() {  # $1 = registry path, $2 = component name
+  REGISTRY_PATH="$1" COMPONENT_NAME="$2" node --input-type=commonjs -e '
+    var data = require(process.env.REGISTRY_PATH);
+    var component = data.components.filter(function (c) { return c.name === process.env.COMPONENT_NAME; })[0];
+    process.stdout.write(JSON.stringify(component && component.persistent_paths || []));
+  '
+}
+assert_eq "real services.json: Verdandi protects legacy data and declares canonical migration target" \
+  '["/home/magnus/repos/verdandi/data","/home/magnus/.local/share/verdandi"]' \
+  "$(component_persistent_paths "$REPO_REGISTRY" verdandi)"
+
+assert_eq "real services.json: Verdandi deploy carries legacy data exclusion" \
+  '["/data/"]' "$(deploy_field "$REPO_REGISTRY" verdandi rsync_excludes)"
 
 cat > "$TMP_DIR/order.json" << 'EOF'
 {
@@ -268,9 +384,10 @@ cat > "$TMP_DIR/order.json" << 'EOF'
   ]
 }
 EOF
-assert_eq "deploy row derives type/scope from systemd_units[0] (service+user first)" \
-  'svc|svc|h1.local|/x|service|true|user|rsync|[{"name":"svc","type":"service","scope":"user"},{"name":"svc-daily","type":"timer"}]' \
-  "$(deploy_row "$TMP_DIR/order.json" svc)"
+assert_eq "deploy JSON derives type from systemd_units[0]" "service" \
+  "$(deploy_field "$TMP_DIR/order.json" svc unit_type)"
+assert_eq "deploy JSON derives scope from systemd_units[0]" "user" \
+  "$(deploy_field "$TMP_DIR/order.json" svc unit_scope)"
 
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"

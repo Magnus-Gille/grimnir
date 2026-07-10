@@ -10,6 +10,8 @@
 | **Port assignments** | `services.json` | `generate-architecture.sh`, `deploy.sh`, `security-scan.sh`, `docs/architecture.md` |
 | **Hostnames / hosts** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
 | **Deploy paths, targets & systemd units** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
+| **Persistent/runtime paths and component-specific rsync exclusions** | `services.json` | `deploy.sh`, registry validation |
+| **Global rsync safety exclusions** (`.env`, `.git`, dependencies, tests, deploy marker) | `scripts/deploy.sh` | deploy persistence tests |
 | **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |
 | **Repo names / GitHub ownership** | `docs/conventions.md` | `docs/architecture.md`, generator |
 | **Service patterns / conventions** | `docs/conventions.md` | per-repo CLAUDE.md |
@@ -32,6 +34,12 @@
 4. **Munin is live state, not architecture.** Munin project statuses reflect current work and blockers. They are not authoritative for system design, ports, or conventions.
 
 5. **Per-repo CLAUDE.md owns component-level detail.** If `docs/architecture.md` and a component's `CLAUDE.md` disagree on how that component works, the component's `CLAUDE.md` wins (it's closer to the code).
+
+6. **Persistent paths mean runtime data, not globally protected deploy metadata.** Each
+   rsync-deployed component declares its mutable runtime/data locations in `persistent_paths`.
+   Component-specific in-target locations require a matching `rsync_excludes` entry. The deploy
+   script separately preserves `.env` for every rsync component as global credential policy, so a
+   component with `persistent_paths: []` does not imply that its in-target `.env` may be deleted.
 
 ## Validation
 
