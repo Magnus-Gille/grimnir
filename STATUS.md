@@ -1,7 +1,7 @@
 # Grimnir System — Status
 
 **Last session:** 2026-07-10 (Codex) — merged/deployed safeguards and recovery readiness reconciled
-**Branch:** main
+**Branch:** main (status reconciled via PR #76)
 
 ## Current State (2026-07-10)
 
