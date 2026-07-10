@@ -14,8 +14,8 @@
 
 - **Single operator** (Magnus) — one fully-trusted human; no multi-user model today.
 - **Sovereignty:** data *at rest* lives on-prem (Pi 1, Pi 2 / NAS, M5). Deliberate exceptions:
-  cloud AI models may process prompts but are not treated as storage authority; Munin ships an
-  **encrypted** off-site backup leg (`rclone`-crypt); Cloudflare fronts public ingress.
+  cloud AI models may process prompts but are not treated as storage authority; Munin and Mimir
+  each ship an **encrypted** off-site backup leg (`rclone`-crypt); Cloudflare fronts public ingress.
 - **In scope:** confidentiality / integrity / availability of the two pillars (Sovereign Memory,
   Self-Knowing Inference) and the accounting + client data they touch.
 - **Threat horizon:** opportunistic and injection-borne compromise, operator error, hardware loss —
@@ -58,16 +58,16 @@
 | # | Threat | Vector | Current control | Residual | Tracked |
 |---|---|---|---|---|---|
 | T1 | Exfiltration via the **lethal trifecta** | Injection in ingested content → agent with memory+files+exec → egress | Hugin queue-path injection/exfil scanners + egress policy | **H** — detective only; `bypassPermissions` unconditional | hugin#149 |
-| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | *none* — gating exists only on the Hugin queue path | **H** | grimnir#70 |
+| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | Operator posture requires Hugin handoff for consequential mutations after untrusted input, with a constrained fresh-session fallback | **H** — procedural, not enforced | grimnir#70 |
 | T3 | Command injection → fleet code-exec | Ratatoskr `/repo` path-traversal; LLM output submitted verbatim | Telegram owner-allowlist | **H** | ratatoskr#36 |
 | T4 | Autonomous action unattributable / unlogged | Hugin mutates (commits/deploys/writes) but emits nothing to Verdandi; shared static tokens = no per-tenant identity | append-only Verdandi exists but is unfed by Hugin | **H** | hugin#148, verdandi#15 |
 | T5 | Audit-chain forgery on a compromised box | Attacker owns Pi 1, rewrites the chain and re-hashes | append-only trigger + SHA-256 chain; `GET /api/verify` | **M** — verify is manual + same-box; no off-box anchor | verdandi#16 |
 | T6 | Supply-chain compromise | Malicious transitive npm dep in a Node service | weekly `security-scan.sh` (`npm audit`) + systemd sandbox | **M** | (scan exists) |
 | T7 | Physical theft → plaintext data at rest | Stolen Pi / SD card / NAS disk | file perms `0600`; **SD cards likely NOT encrypted — verify** | **H** if unencrypted | brokkr#40 |
 | T8 | Silent total-host failure | Pi 1 dies; monitoring + alerting die with it | on-box watchdog only | **M/H** — no off-box dead-man's switch | brokkr#38 |
-| T9 | Backup loss / unrecoverable restore | NAS disk failure; restore never tested | Munin encrypted off-site; other stores on-prem only | **H** | brokkr#39 |
+| T9 | Backup loss / unrecoverable restore | Host/storage loss; Verdandi cannot be routinely exported or restored | Munin and Mimir encrypted off-site backups are live; Mimir passed an immutable full restore on 2026-07-10; Verdandi has no routine export/DR procedure | **H** | brokkr#39 |
 | T10 | Poisoned memory drives bad action | A false stored "fact" retrieved and acted on repeatedly | secret-scan on write; no correction / expiry path | **M** | munin-memory#192 |
-| T11 | Third-party data retained without a data map / erasure path | Client/accounting/person data accumulates across Mimir, Munin, Fortnox exports, backups | ad hoc namespace tags + file permissions; no formal data map / retention / erasure policy | **M/H** | grimnir#66 |
+| T11 | Third-party data retained without enforceable lifecycle / erasure | Client/accounting/person data accumulates across Mimir, Munin, Fortnox exports, backups | Store map and provisional retention defaults now exist; enforcement is per-store/manual and complete erasure is not implemented | **H** | grimnir#66 |
 
 ## 6. Explicitly accepted / out-of-scope (for now)
 
@@ -83,3 +83,11 @@
   handling, the auth model, or Tailscale / Cloudflare exposure.
 - Each residual-**H** row must have an owning ticket and a target; close the row when its control
   moves the risk to **M** or lower.
+
+## 8. Interactive-session posture
+
+The owner-approved handling rule for T2 is defined in
+[`interactive-session-posture.md`](interactive-session-posture.md): inspect untrusted content in a
+non-mutating context, route consequential mutations through Hugin, and use a narrowly restated fresh
+session only when Hugin cannot perform the action. This reduces routine exposure but does not lower
+T2 below **High** until the boundary is technically enforced and evidenced.

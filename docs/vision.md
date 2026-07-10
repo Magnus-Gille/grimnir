@@ -77,6 +77,16 @@ The ledger does this for model routing. The same shape applies to runtime select
 ### Cut bloat continuously
 Capability that isn't earning its place — empty repos, duplicate services, stale experiments — is removed, not preserved out of sentiment. A smaller, sharper system is the goal, not a larger one. (Standing cut list: merge `hugin-orchestrator` into `hugin`; archive `hugin-munin`; delete `meta-agent` and `agentic-eval`; converge or retire `agent-council`.)
 
+### System ROI and off-ramp
+
+Review the system once per month using rough, attributable evidence rather than accounting-grade
+precision: operator time, external model spend, local-inference value, human time saved, incidents
+detected or prevented, and concrete use per service. If a service has **no measured use, no role
+protecting either pillar, and no owner-reviewed reason to keep it for two consecutive monthly
+reviews**, cut or archive it before the next review. A low-use service may stay when its
+pillar-protection role is named explicitly; habit and sunk cost are not reasons. Record each outcome
+as `keep`, `fix`, `cut`, or `revisit` with the evidence that drove it.
+
 ---
 
 ## The Arc
