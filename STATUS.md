@@ -44,20 +44,24 @@ equal `e2dfa9c4a7fa9bbab563d7520c4a4ff8a65e8541`, and the complete post-deploy t
   receipt confirmation for the drill messages remains pending.
 - **Grimnir PR #74** merged as `a3eb01f` and is deployed. It added fail-closed persistent-path
   protection around rsync `--delete` deploy targets, including Verdandi's legacy checkout-local data
-  path. CI, the full local suite, and the post-deploy suite passed.
+  path. It merged before PR #75 and is an ancestor of the deployed `e2dfa9c`; CI, the full local
+  suite, and the post-deploy suite passed.
 - **Verdandi PR #18** merged as `532677d` after CI, 88 tests, build/lint, and evidence-integrity
   review. Production remains intentionally inactive and undeployed until image-first physical
   SD-card recovery. No new data directory or generation has been created.
 - **Brokkr PR #43** merged as `2336f07` after 111 assertions, green CI, and three review/fix rounds.
-  Its external-heartbeat support is intentionally not deployed until its protected external check
-  URL can be provisioned directly on M5.
+  The canonical M5 Brokkr checkout is deliberately pinned to PR #42 (`8b90fba`) until the protected
+  external check URL can be provisioned directly on M5. The external heartbeat is config-gated and
+  inert without that URL, so code availability alone cannot emit pings.
 
 ### Recovery and external-heartbeat readiness
 
 - No credible Verdandi database was found locally, in named NAS backups, or in encrypted Mimir
   current. The nonfunctional service was stopped and reset after its missing checkout-local data
-  directory caused a restart loop. The evidence-preserving next action is bounded offline SD-card
-  recovery before any new genesis.
+  directory caused a restart loop. A live huginmunin check found the old `Restart=always` unit still
+  enabled but inactive; `systemctl --user disable --now verdandi.service` left it disabled/inactive,
+  and the checkpoint timer is not found/inactive. The evidence-preserving next action is bounded
+  offline SD-card recovery before any new genesis.
 - M5 is prepared for image-first recovery with GNU ddrescue, extundelete, Sleuth Kit,
   TestDisk/PhotoRec, SQLite, and e2fsprogs. Its owner-only recovery workspace is on the internal NVMe
   with about 1.46 TiB free. No removable media or huginmunin was touched during preparation.

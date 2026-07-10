@@ -7,6 +7,9 @@ contains architecture docs, conventions, and cross-project references.
 
 No service code lives here — each component has its own repo.
 
+The shared project inventory, key-document map, and script guidance below are intentionally
+synchronized with `CLAUDE.md`; update both files together whenever that shared guidance changes.
+
 ## Codex workflow
 
 - Read `STATUS.md` first for current execution state and resumption context.
@@ -57,7 +60,7 @@ No service code lives here — each component has its own repo.
 - `docs/gap-analysis-2026-07-03.md` — Critic-corrected ecosystem gap analysis vs vision v0.2: ranked
   gaps, quick wins, cut list, and corrections log (the source of the 23-ticket fleet program)
 - `docs/threat-model.md` — Consolidated threat model (v0.1): assets, trust boundaries, adversaries,
-  and a T1–T11 key-threats table mapped to owning tickets
+  and a T1–T11 key-threats table mapped to owning tickets (from the 2026-07-06 blind-spot audit)
 - `docs/roadmap-now-decision-brief.md` — Index of the adopted "now" decisions: succession (#65),
   GDPR/data lifecycle (#66), system ROI/off-ramp (#67), Skuld revive-or-cut (#69), interactive-session
   trust posture (#70), and the #58 Verdandi blocker
