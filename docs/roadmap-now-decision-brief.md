@@ -30,10 +30,12 @@ plus a non-secret public checklist in this repo.
 
 The non-secret checklist should contain:
 
-- where the private envelope lives;
+- out-of-band confirmation that the delegate can locate the private envelope, without recording its
+  locator or contents in the repo;
 - how to identify the active hardware and repos (`services.json` remains the inventory authority);
 - how to stop public ingress, scheduled jobs, and autonomous execution;
-- how to recover or export Munin/Mimir/Verdandi without exposing secrets in docs;
+- which stores have an established recovery/export procedure, and how to stop and preserve a store
+  safely when no such procedure exists;
 - who is allowed to receive help from an outside engineer.
 
 **Decision:** Sara is the emergency delegate with `export-and-shutdown` authority. The non-secret

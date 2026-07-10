@@ -67,7 +67,7 @@
 | T8 | Silent total-host failure | Pi 1 dies; monitoring + alerting die with it | on-box watchdog only | **M/H** — no off-box dead-man's switch | brokkr#38 |
 | T9 | Backup loss / unrecoverable restore | NAS disk failure; restore never tested | Munin encrypted off-site; other stores on-prem only | **H** | brokkr#39 |
 | T10 | Poisoned memory drives bad action | A false stored "fact" retrieved and acted on repeatedly | secret-scan on write; no correction / expiry path | **M** | munin-memory#192 |
-| T11 | Third-party data retained without a data map / erasure path | Client/accounting/person data accumulates across Mimir, Munin, Fortnox exports, backups | ad hoc namespace tags + file permissions; no formal data map / retention / erasure policy | **M/H** | grimnir#66 |
+| T11 | Third-party data retained without enforceable lifecycle / erasure | Client/accounting/person data accumulates across Mimir, Munin, Fortnox exports, backups | Store map and provisional retention defaults now exist; enforcement is per-store/manual and complete erasure is not implemented | **H** | grimnir#66 |
 
 ## 6. Explicitly accepted / out-of-scope (for now)
 

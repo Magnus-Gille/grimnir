@@ -10,6 +10,8 @@ artifacts already scoped there:
 
 - Sara is the emergency delegate with **export-and-shutdown only** authority. The public succession
   checklist contains no locator, credential, recovery material, or private-envelope contents.
+  Munin/Mimir link to their current tested recovery procedures; Verdandi has no routine export path,
+  so whole-substrate readiness remains blocked while the safe action is stop-and-preserve.
 - Provisional retention defaults are now explicit: statutory/contractual duties otherwise 24 months
   after an engagement ends for client/accounting data; personal memory until correction/deletion
   with annual review; operational telemetry for six months; transient artifacts for 30 days.
@@ -26,6 +28,8 @@ this docs-only change.
 
 - Confirm out of band that Sara can locate the private succession envelope and complete a dry
   walkthrough; do not put the locator or envelope contents in git.
+- Add and drill a routine Verdandi export/restore procedure in its owning repo before claiming the
+  succession path is operationally complete.
 - Record Skuld's first successful post-adoption briefing to start the 28-day clock.
 - Implement automatic retention/erasure mechanics separately in each owning repo, with tests, before
   enabling any pruning.
