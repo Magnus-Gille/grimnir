@@ -58,7 +58,7 @@
 | # | Threat | Vector | Current control | Residual | Tracked |
 |---|---|---|---|---|---|
 | T1 | Exfiltration via the **lethal trifecta** | Injection in ingested content → agent with memory+files+exec → egress | Hugin queue-path injection/exfil scanners + egress policy | **H** — detective only; `bypassPermissions` unconditional | hugin#149 |
-| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | *none* — gating exists only on the Hugin queue path | **H** | grimnir#70 |
+| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | Operator posture requires Hugin handoff for consequential mutations after untrusted input, with a constrained fresh-session fallback | **H** — procedural, not enforced | grimnir#70 |
 | T3 | Command injection → fleet code-exec | Ratatoskr `/repo` path-traversal; LLM output submitted verbatim | Telegram owner-allowlist | **H** | ratatoskr#36 |
 | T4 | Autonomous action unattributable / unlogged | Hugin mutates (commits/deploys/writes) but emits nothing to Verdandi; shared static tokens = no per-tenant identity | append-only Verdandi exists but is unfed by Hugin | **H** | hugin#148, verdandi#15 |
 | T5 | Audit-chain forgery on a compromised box | Attacker owns Pi 1, rewrites the chain and re-hashes | append-only trigger + SHA-256 chain; `GET /api/verify` | **M** — verify is manual + same-box; no off-box anchor | verdandi#16 |
@@ -83,3 +83,11 @@
   handling, the auth model, or Tailscale / Cloudflare exposure.
 - Each residual-**H** row must have an owning ticket and a target; close the row when its control
   moves the risk to **M** or lower.
+
+## 8. Interactive-session posture
+
+The owner-approved handling rule for T2 is defined in
+[`interactive-session-posture.md`](interactive-session-posture.md): inspect untrusted content in a
+non-mutating context, route consequential mutations through Hugin, and use a narrowly restated fresh
+session only when Hugin cannot perform the action. This reduces routine exposure but does not lower
+T2 below **High** until the boundary is technically enforced and evidenced.

@@ -1,7 +1,34 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-08 (Codex) — Ratatoskr `/repo` hardening live-validated
-**Branch:** main
+**Last session:** 2026-07-10 (Codex) — roadmap-now owner decisions recorded
+**Branch:** codex/owner-decisions-20260710-v2
+
+## Active Session (2026-07-10) — roadmap-now owner decisions
+
+Converted the five owner choices in `docs/roadmap-now-decision-brief.md` into the deliberately small
+artifacts already scoped there:
+
+- Sara is the emergency delegate with **export-and-shutdown only** authority. The public succession
+  checklist contains no locator, credential, recovery material, or private-envelope contents.
+- Provisional retention defaults are now explicit: statutory/contractual duties otherwise 24 months
+  after an engagement ends for client/accounting data; personal memory until correction/deletion
+  with annual review; operational telemetry for six months; transient artifacts for 30 days.
+- The vision now applies the accepted two-consecutive-month cut rule to services with no measured
+  use, pillar-protection role, or owner-reviewed reason to keep them.
+- Skuld has a 28-day measured trial ending in an explicit keep/cut decision.
+- Consequential mutations after untrusted input route through Hugin, with a constrained fresh-session
+  fallback only when Hugin cannot perform the action.
+
+No retention deletion job, service change, secret, private locator, merge, or deployment is part of
+this docs-only change.
+
+### Pending / next
+
+- Confirm out of band that Sara can locate the private succession envelope and complete a dry
+  walkthrough; do not put the locator or envelope contents in git.
+- Record Skuld's first successful post-adoption briefing to start the 28-day clock.
+- Implement automatic retention/erasure mechanics separately in each owning repo, with tests, before
+  enabling any pruning.
 
 ## Completed This Session (2026-07-08) — Ratatoskr `/repo` hardening live validation
 

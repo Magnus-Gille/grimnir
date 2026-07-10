@@ -1,8 +1,7 @@
 # Grimnir Roadmap Now - Decision Brief
 
-> Status: 2026-07-07 working brief for grimnir#65, #66, #67, #69, #70.
-> This is intentionally not a full policy pack. It captures the smallest owner decisions needed to
-> move the "now" cluster without bloating the architecture.
+> Status: owner decisions adopted 2026-07-10 for grimnir#65, #66, #67, #69, and #70.
+> This remains an index, not a full policy pack.
 
 ---
 
@@ -37,8 +36,9 @@ The non-secret checklist should contain:
 - how to recover or export Munin/Mimir/Verdandi without exposing secrets in docs;
 - who is allowed to receive help from an outside engineer.
 
-**Owner decision required:** name the emergency delegate(s) and decide whether their goal is
-`recover`, `export-and-shutdown`, or `keep-running temporarily`.
+**Decision:** Sara is the emergency delegate with `export-and-shutdown` authority. The non-secret
+procedure and scope boundary are in [`succession-checklist.md`](succession-checklist.md). Magnus
+must still confirm out of band that Sara can locate the private envelope.
 
 **Architecture fit:** this protects Sovereign Memory by keeping ownership of the data and audit
 trail recoverable without moving secrets into the repo.
@@ -65,8 +65,10 @@ Initial rows to cover:
 | Backups | Munin/Mimir copies | Brokkr | backup retention window | best-effort expiration; document non-immediate deletion |
 | M5 ledger | capability/eval evidence, verdict metadata | `gille-inference` | eval evidence window | remove or redact payload-derived artifacts if they contain personal data |
 
-**Owner decision required:** choose default retention windows for four data classes:
-`client/accounting`, `personal memory`, `operational telemetry`, and `transient task artifacts`.
+**Decision:** the store map and provisional defaults are adopted in
+[`data-lifecycle.md`](data-lifecycle.md): statutory/contractual duties otherwise 24 months after an
+engagement ends for client/accounting data; personal memory until explicit correction/deletion with
+annual review; six months for operational telemetry; and 30 days for transient task artifacts.
 
 **Architecture fit:** this is Pillar 1 hygiene. It should stay practical: map stores, defaults, and
 erasure mechanics before writing broad GDPR prose.
@@ -92,9 +94,9 @@ Suggested ledger fields:
 | `services_cut_or_kept` | evidence that bloat is being controlled |
 | `decision` | keep, fix, cut, or revisit |
 
-**Owner decision required:** define the exit threshold. A usable first version: "If a service has no
-measured use, no pillar-protection role, and no owner-reviewed reason to keep it for two monthly
-reviews, cut it or archive it."
+**Decision:** accepted. [`vision.md`](vision.md#system-roi-and-off-ramp) now requires a monthly
+evidence review and cuts or archives a service after two consecutive reviews with no measured use,
+pillar-protection role, or owner-reviewed reason to keep it.
 
 **Architecture fit:** this applies the Self-Knowing Inference idea to the system itself. The risk is
 false precision, so the first ledger should accept estimates and evidence notes rather than pretend
@@ -115,7 +117,9 @@ Two acceptable paths:
 - **Cut:** remove Skuld from the deployed component inventory and keep Heimdall/Munin views only if
   another producer exists.
 
-**Owner decision required:** choose `four-week trial` or `cut now`.
+**Decision:** a 28-day trial, defined in
+[`skuld-trial-decision.md`](skuld-trial-decision.md). Its first successful briefing starts the clock;
+day 28 must produce a recorded `keep` or `cut` decision.
 
 **Architecture fit:** revive fits both pillars only if the briefing reads sovereign memory and
 produces measurable orientation value. Cut fits the "cut bloat continuously" principle if that
@@ -140,8 +144,9 @@ Suggested posture:
   so the action can be gated and audited.
 - Record when an interactive session intentionally bypasses Hugin gating for a consequential action.
 
-**Owner decision required:** choose the acceptable friction level: `advisory-only`, `fresh-session
-required after untrusted input`, or `route consequential mutations through Hugin`.
+**Decision:** route consequential mutations after untrusted input through Hugin, with a constrained
+fresh-session fallback when Hugin cannot perform the action. See
+[`interactive-session-posture.md`](interactive-session-posture.md).
 
 **Architecture fit:** this protects Sovereign Memory from the current lethal-trifecta gap while
 avoiding premature policy bloat. The later technical fix can be narrower once the desired friction
@@ -156,13 +161,13 @@ conformance until off-Pi Verdandi intake and key provisioning exist, and Seam D 
 and update [`tenant-validation-2026-07-04.md`](tenant-validation-2026-07-04.md) after the Verdandi
 blocker lands.
 
-## Recommended next documents
+## Adopted artifacts
 
-To keep this cluster small, split only when the owner decisions above are answered:
+The decision set stays intentionally small:
 
-- `docs/succession-checklist.md` for grimnir#65, without secrets.
-- `docs/data-lifecycle.md` for grimnir#66, store map first and legal prose second.
-- A short `System ROI / off-ramp` section in `docs/vision.md` for grimnir#67.
-- A one-page Skuld decision record for grimnir#69.
-- A short `Interactive session posture` section in `docs/threat-model.md` or a companion note for
-  grimnir#70.
+- [`succession-checklist.md`](succession-checklist.md) for grimnir#65, without secrets.
+- [`data-lifecycle.md`](data-lifecycle.md) for grimnir#66, store map first and legal prose second.
+- [`vision.md#system-roi-and-off-ramp`](vision.md#system-roi-and-off-ramp) for grimnir#67.
+- [`skuld-trial-decision.md`](skuld-trial-decision.md) for grimnir#69.
+- [`interactive-session-posture.md`](interactive-session-posture.md) and the corresponding threat
+  model note for grimnir#70.
