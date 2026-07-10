@@ -14,8 +14,8 @@
 
 - **Single operator** (Magnus) — one fully-trusted human; no multi-user model today.
 - **Sovereignty:** data *at rest* lives on-prem (Pi 1, Pi 2 / NAS, M5). Deliberate exceptions:
-  cloud AI models may process prompts but are not treated as storage authority; Munin ships an
-  **encrypted** off-site backup leg (`rclone`-crypt); Cloudflare fronts public ingress.
+  cloud AI models may process prompts but are not treated as storage authority; Munin and Mimir
+  each ship an **encrypted** off-site backup leg (`rclone`-crypt); Cloudflare fronts public ingress.
 - **In scope:** confidentiality / integrity / availability of the two pillars (Sovereign Memory,
   Self-Knowing Inference) and the accounting + client data they touch.
 - **Threat horizon:** opportunistic and injection-borne compromise, operator error, hardware loss —

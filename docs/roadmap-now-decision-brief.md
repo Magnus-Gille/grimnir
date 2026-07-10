@@ -64,7 +64,7 @@ Initial rows to cover:
 | Ratatoskr | Telegram-derived task context | `ratatoskr` | only what is needed for routing/audit | delete local transient records; source deletion is Telegram-side |
 | Skuld | daily briefing synthesis | `skuld` | only if briefings are kept | delete generated briefings from Munin if not needed |
 | noxctl / Fortnox exports | accounting/client data | `fortnox-mcp` / Fortnox | statutory/accounting rules win | delete local exports when no longer needed |
-| Backups | Munin/Mimir copies | Brokkr | configuration-specific | encrypted off-site history has configured rotation; Mimir's NAS `backup-artifacts` copy is append-only/no-delete and may preserve removed files indefinitely |
+| Backups | Munin/Mimir copies | owning service for replication/retention; Brokkr for disk, mount, and storage health | configuration-specific | encrypted off-site history has configured rotation; Mimir's NAS `backup-artifacts` copy is append-only/no-delete and may preserve removed files indefinitely |
 | M5 ledger | capability/eval evidence, verdict metadata | `gille-inference` | eval evidence window | remove or redact payload-derived artifacts if they contain personal data |
 
 **Decision:** the store map and provisional defaults are adopted in
