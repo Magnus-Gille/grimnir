@@ -57,14 +57,14 @@ Initial rows to cover:
 | Store | Data class | Authority | Retention shape | Erasure shape |
 |---|---|---|---|---|
 | Munin | memory, summaries, traces, task results | `munin-memory` | owner-defined by namespace | delete/correct entry; log erasure action |
-| Mimir | files and generated artifacts | `mimir` | source-folder policy | remove source file; expire backup copies |
-| Verdandi | audit events | `verdandi` | append-only with redaction | tombstone/redact where required; do not rewrite hash history casually |
+| Mimir | files and generated artifacts | `mimir` | source-folder policy | no delete API; operator removes at the authoritative filesystem/source; encrypted off-site history rotates after 30 days, while append-only NAS backup may retain removed files indefinitely |
+| Verdandi | audit events | `verdandi` | append-only with pre-ingest secret redaction | immutable original rows have no implemented PII-erasure mechanism; resolution remains owning-repo target work |
 | Heimdall | metrics, alerts, briefing rendering | `heimdall` | operational window | prune metrics through existing maintenance |
 | Hugin | task inputs/outputs/workspaces | `hugin` | short-lived workspace, durable result in Munin | remove workspace artifacts; keep audited action record |
 | Ratatoskr | Telegram-derived task context | `ratatoskr` | only what is needed for routing/audit | delete local transient records; source deletion is Telegram-side |
 | Skuld | daily briefing synthesis | `skuld` | only if briefings are kept | delete generated briefings from Munin if not needed |
 | noxctl / Fortnox exports | accounting/client data | `fortnox-mcp` / Fortnox | statutory/accounting rules win | delete local exports when no longer needed |
-| Backups | Munin/Mimir copies | Brokkr | backup retention window | best-effort expiration; document non-immediate deletion |
+| Backups | Munin/Mimir copies | Brokkr | configuration-specific | encrypted off-site history has configured rotation; Mimir's NAS `backup-artifacts` copy is append-only/no-delete and may preserve removed files indefinitely |
 | M5 ledger | capability/eval evidence, verdict metadata | `gille-inference` | eval evidence window | remove or redact payload-derived artifacts if they contain personal data |
 
 **Decision:** the store map and provisional defaults are adopted in
@@ -141,10 +141,11 @@ Suggested posture:
 - Treat raw email, Telegram forwards, web pages, PDFs, and documents as untrusted until summarized
   or inspected in a read-only pass.
 - Do not combine untrusted-content reading with external sends, credential use, deploys, or broad
-  filesystem edits in the same reasoning context unless the operator explicitly accepts the risk.
-- For mutating work that follows untrusted input, prefer a fresh session or Hugin-mediated task path
-  so the action can be gated and audited.
-- Record when an interactive session intentionally bypasses Hugin gating for a consequential action.
+  filesystem edits in the same reasoning context.
+- Mutating work that follows untrusted input must use a Hugin-mediated task path. If Hugin cannot
+  perform the action, use a fresh session with a narrowly restated trusted goal.
+- Record the reason whenever the fresh-session fallback is used; operator approval selects a safe
+  handoff path and does not permit mutation in the tainted context.
 
 **Decision:** route consequential mutations after untrusted input through Hugin, with a constrained
 fresh-session fallback when Hugin cannot perform the action. See

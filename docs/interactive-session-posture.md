@@ -33,8 +33,9 @@ cannot be made, stop and ask the operator instead of performing the mutation.
 
 Read-only search, extraction, classification, local drafting, and reporting are allowed. Small
 disposable notes are allowed only when they contain no credentials and cannot themselves trigger an
-external or production effect. The operator may explicitly approve a specific synchronous action,
-but the session must surface that it is crossing the untrusted-input boundary first.
+external or production effect. Operator approval may select the Hugin path or authorize a narrowly
+restated fresh-session handoff; it does not authorize mutation from the same context that consumed
+the untrusted input.
 
 This posture is the owner decision for grimnir#70. It is a procedural control, not proof that prompt
 injection is technically contained; the T2 residual risk remains tracked in the threat model.

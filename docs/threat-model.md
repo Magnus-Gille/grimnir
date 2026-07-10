@@ -65,7 +65,7 @@
 | T6 | Supply-chain compromise | Malicious transitive npm dep in a Node service | weekly `security-scan.sh` (`npm audit`) + systemd sandbox | **M** | (scan exists) |
 | T7 | Physical theft → plaintext data at rest | Stolen Pi / SD card / NAS disk | file perms `0600`; **SD cards likely NOT encrypted — verify** | **H** if unencrypted | brokkr#40 |
 | T8 | Silent total-host failure | Pi 1 dies; monitoring + alerting die with it | on-box watchdog only | **M/H** — no off-box dead-man's switch | brokkr#38 |
-| T9 | Backup loss / unrecoverable restore | NAS disk failure; restore never tested | Munin encrypted off-site; other stores on-prem only | **H** | brokkr#39 |
+| T9 | Backup loss / unrecoverable restore | Host/storage loss; Verdandi cannot be routinely exported or restored | Munin and Mimir encrypted off-site backups are live; Mimir passed an immutable full restore on 2026-07-10; Verdandi has no routine export/DR procedure | **H** | brokkr#39 |
 | T10 | Poisoned memory drives bad action | A false stored "fact" retrieved and acted on repeatedly | secret-scan on write; no correction / expiry path | **M** | munin-memory#192 |
 | T11 | Third-party data retained without enforceable lifecycle / erasure | Client/accounting/person data accumulates across Mimir, Munin, Fortnox exports, backups | Store map and provisional retention defaults now exist; enforcement is per-store/manual and complete erasure is not implemented | **H** | grimnir#66 |
 

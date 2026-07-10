@@ -10,8 +10,11 @@ artifacts already scoped there:
 
 - Sara is the emergency delegate with **export-and-shutdown only** authority. The public succession
   checklist contains no locator, credential, recovery material, or private-envelope contents.
-  Munin/Mimir link to their current tested recovery procedures; Verdandi has no routine export path,
-  so whole-substrate readiness remains blocked while the safe action is stop-and-preserve.
+  Munin/Mimir link to their current recovery procedures; Verdandi has no routine export path, so
+  whole-substrate readiness remains blocked while the safe action is stop-and-preserve. Mimir's live
+  proof on 2026-07-10 used an immutable 1,643-file encrypted backup: `cryptcheck` reported zero
+  differences, the full scratch restore compared exactly, the stamp was fresh, and Heimdall reported
+  pass. The component repo's local `STATUS.md` may lag this production evidence.
 - Provisional retention defaults are now explicit: statutory/contractual duties otherwise 24 months
   after an engagement ends for client/accounting data; personal memory until correction/deletion
   with annual review; operational telemetry for six months; transient artifacts for 30 days.
