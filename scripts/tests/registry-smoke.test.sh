@@ -71,7 +71,7 @@ cat > "$TMP_DIR/valid.json" << 'EOF'
     {
       "name": "alpha", "repo": "alpha", "host": "h1.local", "port": 3030,
       "deploy": true, "scan": true, "deploy_path": "/home/magnus/repos/alpha",
-      "needs_build": true,
+      "needs_build": true, "persistent_paths": ["/home/magnus/.local/share/alpha"],
       "systemd_units": [{ "name": "alpha", "type": "service" }]
     },
     {
@@ -90,6 +90,72 @@ assert_eq "valid registry -> exit 0" "0" "$(run_validator "$TMP_DIR/valid.json")
 # ── Real repo registry (regression: must always pass) ─────────────────────
 REPO_REGISTRY="$SCRIPT_DIR/../../services.json"
 assert_eq "real services.json -> exit 0" "0" "$(run_validator "$REPO_REGISTRY")"
+
+# ── rsync persistent-path safety ───────────────────────────────────────────
+cat > "$TMP_DIR/missing-persistent-paths.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "rsync deploy without persistent_paths audit -> exit 1" "1" "$(run_validator "$TMP_DIR/missing-persistent-paths.json")"
+
+cat > "$TMP_DIR/internal-persistent-unprotected.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": ["/srv/alpha/data"],
+      "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "persistent path inside rsync target without exclusion -> exit 1" "1" "$(run_validator "$TMP_DIR/internal-persistent-unprotected.json")"
+
+cat > "$TMP_DIR/internal-persistent-protected.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": ["/srv/alpha/data/db"],
+      "rsync_excludes": ["/data/"], "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "ancestor exclusion protects persistent path inside rsync target -> exit 0" "0" "$(run_validator "$TMP_DIR/internal-persistent-protected.json")"
+
+cat > "$TMP_DIR/persistent-equals-target.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": ["/srv/alpha"],
+      "rsync_excludes": ["/data/"], "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "persistent path equal to rsync target -> exit 1" "1" "$(run_validator "$TMP_DIR/persistent-equals-target.json")"
+
+cat > "$TMP_DIR/root-deploy-path.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/", "persistent_paths": ["/var/lib/alpha"],
+      "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "filesystem root cannot be an rsync deploy target -> exit 1" "1" "$(run_validator "$TMP_DIR/root-deploy-path.json")"
+
+cat > "$TMP_DIR/unsafe-rsync-exclude.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": ["/srv/alpha/data"],
+      "rsync_excludes": ["/**/data*"], "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "wildcard rsync exclusion -> exit 1" "1" "$(run_validator "$TMP_DIR/unsafe-rsync-exclude.json")"
 
 # ── Malformed JSON ──────────────────────────────────────────────────────────
 echo '{ not valid json' > "$TMP_DIR/bad-json.json"
@@ -253,12 +319,27 @@ deploy_row() {  # $1 = registry path, $2 = component name
     | grep "^$2|" || true
 }
 assert_eq "real services.json: hugin deploy row unchanged by appended timer" \
-  'hugin|hugin|huginmunin.local|/home/magnus/repos/hugin|service|true|user|rsync|[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-analysis","type":"timer"}]' \
+  'hugin|hugin|huginmunin.local|/home/magnus/repos/hugin|service|true|user|rsync|[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-analysis","type":"timer"}]|[]' \
   "$(deploy_row "$REPO_REGISTRY" hugin)"
 
 assert_eq "real services.json: skuld timer deploys via user manager" \
-  'skuld|skuld|huginmunin.local|/home/magnus/repos/skuld|timer|true|user|rsync|[{"name":"skuld","type":"timer","scope":"user"}]' \
+  'skuld|skuld|huginmunin.local|/home/magnus/repos/skuld|timer|true|user|rsync|[{"name":"skuld","type":"timer","scope":"user"}]|[]' \
   "$(deploy_row "$REPO_REGISTRY" skuld)"
+
+component_persistent_paths() {  # $1 = registry path, $2 = component name
+  REGISTRY_PATH="$1" COMPONENT_NAME="$2" node --input-type=commonjs -e '
+    var data = require(process.env.REGISTRY_PATH);
+    var component = data.components.filter(function (c) { return c.name === process.env.COMPONENT_NAME; })[0];
+    process.stdout.write(JSON.stringify(component && component.persistent_paths || []));
+  '
+}
+assert_eq "real services.json: Verdandi protects legacy data and declares canonical migration target" \
+  '["/home/magnus/repos/verdandi/data","/home/magnus/.local/share/verdandi"]' \
+  "$(component_persistent_paths "$REPO_REGISTRY" verdandi)"
+
+assert_eq "real services.json: Verdandi deploy carries legacy data exclusion" \
+  'verdandi|verdandi|huginmunin.local|/home/magnus/repos/verdandi|service|true|user|rsync|[{"name":"verdandi","type":"service","scope":"user"}]|["/data/"]' \
+  "$(deploy_row "$REPO_REGISTRY" verdandi)"
 
 cat > "$TMP_DIR/order.json" << 'EOF'
 {
@@ -269,7 +350,7 @@ cat > "$TMP_DIR/order.json" << 'EOF'
 }
 EOF
 assert_eq "deploy row derives type/scope from systemd_units[0] (service+user first)" \
-  'svc|svc|h1.local|/x|service|true|user|rsync|[{"name":"svc","type":"service","scope":"user"},{"name":"svc-daily","type":"timer"}]' \
+  'svc|svc|h1.local|/x|service|true|user|rsync|[{"name":"svc","type":"service","scope":"user"},{"name":"svc-daily","type":"timer"}]|[]' \
   "$(deploy_row "$TMP_DIR/order.json" svc)"
 
 echo ""

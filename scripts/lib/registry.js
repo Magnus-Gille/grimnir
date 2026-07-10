@@ -4,7 +4,7 @@
 //   REGISTRY_PATH=/path/to/services.json QUERY=<query> node --input-type=commonjs scripts/lib/registry.js
 //
 // Queries:
-//   deploy       — components where deploy=true, output: name|repo|host|deploy_path|unit_type|needs_build|unit_scope|deploy_mode|units_json (deploy.sh format)
+//   deploy       — components where deploy=true, output: name|repo|host|deploy_path|unit_type|needs_build|unit_scope|deploy_mode|units_json|rsync_excludes_json (deploy.sh format)
 //   scan         — components where scan=true, output: space-separated repo names
 //   components   — all component names, space-separated
 //   systemd      — all systemd unit names, space-separated
@@ -49,7 +49,7 @@ var components = data.components;
 switch (query) {
   case 'deploy': {
     // Output format matches what deploy.sh needs:
-    // name|repo|host|deploy_path|primary_unit_type|needs_build|unit_scope|deploy_mode|units_json
+    // name|repo|host|deploy_path|primary_unit_type|needs_build|unit_scope|deploy_mode|units_json|rsync_excludes_json
     var deployable = components.filter(function (c) { return c.deploy; });
     deployable.forEach(function (c) {
       // Determine primary unit type/scope from first systemd unit.
@@ -66,8 +66,9 @@ switch (query) {
       var needsBuild = c.needs_build ? 'true' : 'false';
       var deployMode = c.deploy_mode || 'rsync';
       var units = JSON.stringify(c.systemd_units || []);
+      var rsyncExcludes = JSON.stringify(c.rsync_excludes || []);
       process.stdout.write(
-        c.name + '|' + c.repo + '|' + c.host + '|' + deployPath + '|' + unitType + '|' + needsBuild + '|' + unitScope + '|' + deployMode + '|' + units + '\n'
+        c.name + '|' + c.repo + '|' + c.host + '|' + deployPath + '|' + unitType + '|' + needsBuild + '|' + unitScope + '|' + deployMode + '|' + units + '|' + rsyncExcludes + '\n'
       );
     });
     break;

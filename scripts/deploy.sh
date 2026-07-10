@@ -10,11 +10,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
-REGISTRY="$GRIMNIR_DIR/services.json"
+REGISTRY="${REGISTRY_PATH:-$GRIMNIR_DIR/services.json}"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
+REGISTRY_VALIDATOR="$SCRIPT_DIR/lib/validate-registry.js"
 
 # Read deployable services from registry:
-# name|repo|host|deploy_path|unit_type|needs_build|unit_scope|deploy_mode|units_json
+# name|repo|host|deploy_path|unit_type|needs_build|unit_scope|deploy_mode|units_json|rsync_excludes_json
+if ! REGISTRY_PATH="$REGISTRY" node --input-type=commonjs "$REGISTRY_VALIDATOR"; then
+  echo "ERROR: Refusing deploy because registry validation failed" >&2
+  exit 1
+fi
+
 SERVICES=()
 while IFS= read -r line; do
   [[ -n "$line" ]] && SERVICES+=("$line")
@@ -124,8 +130,17 @@ unit_rows() {
     '
 }
 
+rsync_exclude_rows() {
+  local excludes_json=$1
+  RSYNC_EXCLUDES_JSON="$excludes_json" node --input-type=commonjs -e '
+    var excludes = JSON.parse(process.env.RSYNC_EXCLUDES_JSON || "[]");
+    excludes.forEach(function (exclude) { process.stdout.write(exclude + "\n"); });
+  '
+}
+
 deploy_service() {
   local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system} deploy_mode=${8:-rsync} units_json=${9:-[]}
+  local rsync_excludes_json=${10:-[]}
   local local_path
   local remote_host
   local remote
@@ -216,15 +231,19 @@ deploy_service() {
     fail=$((fail + 1))
     return
   fi
-  if ! rsync -az --delete \
-    --exclude='node_modules/' \
-    --exclude='.git' \
-    --exclude='.git/' \
-    --exclude='.env' \
-    --exclude='tests/' \
-    --exclude='.DS_Store' \
-    --exclude='.deployed-commit' \
-    "$local_path/" "$remote:$deploy_path/"; then
+  local rsync_exclude rsync_args
+  rsync_args=(-az --delete
+    --exclude='node_modules/'
+    --exclude='.git'
+    --exclude='.git/'
+    --exclude='.env'
+    --exclude='tests/'
+    --exclude='.DS_Store'
+    --exclude='.deployed-commit')
+  while IFS= read -r rsync_exclude; do
+    [[ -n "$rsync_exclude" ]] && rsync_args+=("--exclude=${rsync_exclude}")
+  done < <(rsync_exclude_rows "$rsync_excludes_json")
+  if ! rsync "${rsync_args[@]}" "$local_path/" "$remote:$deploy_path/"; then
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
@@ -339,7 +358,7 @@ deploy_service() {
 requested=("$@")
 
 for entry in "${SERVICES[@]}"; do
-  IFS='|' read -r name repo host deploy_path unit_type needs_build unit_scope deploy_mode units_json <<< "$entry"
+  IFS='|' read -r name repo host deploy_path unit_type needs_build unit_scope deploy_mode units_json rsync_excludes_json <<< "$entry"
 
   if [[ ${#requested[@]} -gt 0 ]]; then
     match=false
@@ -349,7 +368,7 @@ for entry in "${SERVICES[@]}"; do
     $match || continue
   fi
 
-  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}"
+  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}" "${rsync_excludes_json:-[]}"
 done
 
 # Summary

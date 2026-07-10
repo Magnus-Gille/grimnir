@@ -10,6 +10,7 @@
 | **Port assignments** | `services.json` | `generate-architecture.sh`, `deploy.sh`, `security-scan.sh`, `docs/architecture.md` |
 | **Hostnames / hosts** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
 | **Deploy paths, targets & systemd units** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
+| **Persistent/runtime paths and rsync exclusions** | `services.json` | `deploy.sh`, registry validation |
 | **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |
 | **Repo names / GitHub ownership** | `docs/conventions.md` | `docs/architecture.md`, generator |
 | **Service patterns / conventions** | `docs/conventions.md` | per-repo CLAUDE.md |

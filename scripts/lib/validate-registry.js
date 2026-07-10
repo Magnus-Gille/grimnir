@@ -53,6 +53,16 @@ if (!Array.isArray(data.components)) {
 var VALID_UNIT_TYPES = ['service', 'timer'];
 var VALID_UNIT_SCOPES = ['system', 'user'];
 var VALID_UNIT_NAME = /^[A-Za-z0-9_.@-]+$/;
+var INVALID_RSYNC_EXCLUDE_CHARS = /[\x00-\x1f*?[\]{}\\]/;
+
+function isWithinPath(candidate, parent) {
+  if (parent === '/') return path.posix.isAbsolute(candidate);
+  return candidate === parent || candidate.indexOf(parent + '/') === 0;
+}
+
+function normalizedRootExclude(value) {
+  return path.posix.normalize(value).replace(/^\/+/, '').replace(/\/+$/, '');
+}
 
 var seenNames = {};
 var seenPorts = {};
@@ -109,10 +119,70 @@ data.components.forEach(function (c, i) {
   if (c.deploy === true) {
     if (typeof c.deploy_path !== 'string' || !c.deploy_path) {
       fail(label + ': deploy=true requires a non-empty "deploy_path"');
+    } else if (!path.posix.isAbsolute(c.deploy_path) || path.posix.normalize(c.deploy_path) !== c.deploy_path ||
+        c.deploy_path === '/') {
+      fail(label + ': deploy_path must be a normalized absolute path below /');
     }
     if (typeof c.host !== 'string' || !c.host) {
       fail(label + ': deploy=true requires a non-empty "host"');
     }
+  }
+
+  var deployMode = c.deploy_mode || 'rsync';
+  var persistentPathsValid = true;
+  var rsyncExcludesValid = true;
+
+  if (c.persistent_paths !== undefined && !Array.isArray(c.persistent_paths)) {
+    fail(label + ': "persistent_paths" must be an array when present');
+    persistentPathsValid = false;
+  }
+  if (c.rsync_excludes !== undefined && !Array.isArray(c.rsync_excludes)) {
+    fail(label + ': "rsync_excludes" must be an array when present');
+    rsyncExcludesValid = false;
+  }
+  if (c.deploy === true && deployMode === 'rsync' && !Array.isArray(c.persistent_paths)) {
+    fail(label + ': rsync deploy requires an explicit "persistent_paths" array (use [] only after auditing runtime writes)');
+    persistentPathsValid = false;
+  }
+
+  var persistentPaths = persistentPathsValid && Array.isArray(c.persistent_paths) ? c.persistent_paths : [];
+  persistentPaths.forEach(function (persistentPath, pi) {
+    if (typeof persistentPath !== 'string' || !persistentPath || !path.posix.isAbsolute(persistentPath) ||
+        path.posix.normalize(persistentPath) !== persistentPath) {
+      fail(label + '.persistent_paths[' + pi + ']: must be a normalized absolute path');
+      persistentPathsValid = false;
+    }
+  });
+
+  var rsyncExcludes = rsyncExcludesValid && Array.isArray(c.rsync_excludes) ? c.rsync_excludes : [];
+  rsyncExcludes.forEach(function (exclude, ei) {
+    if (typeof exclude !== 'string' || exclude.length < 2 || exclude.charAt(0) !== '/' ||
+        exclude === '/' || INVALID_RSYNC_EXCLUDE_CHARS.test(exclude) || exclude.indexOf('//') !== -1 ||
+        exclude.split('/').indexOf('..') !== -1 || exclude.split('/').indexOf('.') !== -1) {
+      fail(label + '.rsync_excludes[' + ei + ']: must be a literal, root-anchored rsync path such as "/data/"');
+      rsyncExcludesValid = false;
+    }
+  });
+
+  if (c.deploy === true && deployMode === 'rsync' && typeof c.deploy_path === 'string' &&
+      c.deploy_path && persistentPathsValid && rsyncExcludesValid) {
+    var normalizedDeployPath = path.posix.normalize(c.deploy_path);
+    var normalizedExcludes = rsyncExcludes.map(normalizedRootExclude);
+    persistentPaths.forEach(function (persistentPath) {
+      if (!isWithinPath(persistentPath, normalizedDeployPath)) return;
+      if (persistentPath === normalizedDeployPath) {
+        fail(label + ': persistent path equals rsync deploy_path and cannot be protected by a child exclusion: ' + persistentPath);
+        return;
+      }
+      var relativePath = path.posix.relative(normalizedDeployPath, persistentPath);
+      var protectedByExclude = normalizedExcludes.some(function (exclude) {
+        return relativePath === exclude || relativePath.indexOf(exclude + '/') === 0;
+      });
+      if (!protectedByExclude) {
+        fail(label + ': persistent path inside rsync deploy_path must be covered by rsync_excludes: ' +
+          persistentPath + ' (expected a root-anchored exclusion for /' + relativePath + ')');
+      }
+    });
   }
 
   if (!Array.isArray(c.systemd_units)) {
