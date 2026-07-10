@@ -53,6 +53,9 @@ if (!Array.isArray(data.components)) {
 var VALID_UNIT_TYPES = ['service', 'timer'];
 var VALID_UNIT_SCOPES = ['system', 'user'];
 var VALID_UNIT_NAME = /^[A-Za-z0-9_.@-]+$/;
+var VALID_COMPONENT_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
+var VALID_HOST = /^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/;
+var VALID_ABSOLUTE_PATH = /^\/[A-Za-z0-9._@%+,=:\/-]+$/;
 var INVALID_RSYNC_EXCLUDE_CHARS = /[\x00-\x1f*?[\]{}\\]/;
 
 function isWithinPath(candidate, parent) {
@@ -64,6 +67,11 @@ function normalizedRootExclude(value) {
   return path.posix.normalize(value).replace(/^\/+/, '').replace(/\/+$/, '');
 }
 
+function isCanonicalAbsolutePath(value) {
+  return typeof value === 'string' && VALID_ABSOLUTE_PATH.test(value) && value !== '/' &&
+    value.charAt(value.length - 1) !== '/' && path.posix.normalize(value) === value;
+}
+
 var seenNames = {};
 var seenPorts = {};
 
@@ -73,15 +81,15 @@ data.components.forEach(function (c, i) {
     fail(label + ': component must be an object');
     return;
   }
-  if (typeof c.name === 'string' && c.name) {
+  if (typeof c.name === 'string' && VALID_COMPONENT_ID.test(c.name)) {
     label = c.name;
   } else {
-    fail(label + ': missing/invalid required field "name" (non-empty string)');
+    fail(label + ': missing/invalid required field "name" (safe identifier)');
   }
 
   ['repo'].forEach(function (field) {
-    if (typeof c[field] !== 'string' || !c[field]) {
-      fail(label + ': missing/invalid required field "' + field + '" (non-empty string)');
+    if (typeof c[field] !== 'string' || !VALID_COMPONENT_ID.test(c[field])) {
+      fail(label + ': missing/invalid required field "' + field + '" (safe identifier)');
     }
   });
 
@@ -95,8 +103,8 @@ data.components.forEach(function (c, i) {
     fail(label + ': "deploy_mode" must be "rsync" or "git-pull" when present, got "' + c.deploy_mode + '"');
   }
 
-  if (c.host !== null && typeof c.host !== 'string') {
-    fail(label + ': field "host" must be a string or null');
+  if (c.host !== null && (typeof c.host !== 'string' || !VALID_HOST.test(c.host))) {
+    fail(label + ': field "host" must be a safe hostname/address or null');
   }
   if (c.port !== undefined && c.port !== null && typeof c.port !== 'number') {
     fail(label + ': field "port" must be a number or null');
@@ -116,14 +124,15 @@ data.components.forEach(function (c, i) {
     }
   }
 
+  if (c.deploy_path !== undefined && !isCanonicalAbsolutePath(c.deploy_path)) {
+    fail(label + ': deploy_path must be a canonical absolute path below / with no trailing slash');
+  }
+
   if (c.deploy === true) {
     if (typeof c.deploy_path !== 'string' || !c.deploy_path) {
       fail(label + ': deploy=true requires a non-empty "deploy_path"');
-    } else if (!path.posix.isAbsolute(c.deploy_path) || path.posix.normalize(c.deploy_path) !== c.deploy_path ||
-        c.deploy_path === '/') {
-      fail(label + ': deploy_path must be a normalized absolute path below /');
     }
-    if (typeof c.host !== 'string' || !c.host) {
+    if (typeof c.host !== 'string' || !VALID_HOST.test(c.host)) {
       fail(label + ': deploy=true requires a non-empty "host"');
     }
   }
@@ -147,9 +156,8 @@ data.components.forEach(function (c, i) {
 
   var persistentPaths = persistentPathsValid && Array.isArray(c.persistent_paths) ? c.persistent_paths : [];
   persistentPaths.forEach(function (persistentPath, pi) {
-    if (typeof persistentPath !== 'string' || !persistentPath || !path.posix.isAbsolute(persistentPath) ||
-        path.posix.normalize(persistentPath) !== persistentPath) {
-      fail(label + '.persistent_paths[' + pi + ']: must be a normalized absolute path');
+    if (!isCanonicalAbsolutePath(persistentPath)) {
+      fail(label + '.persistent_paths[' + pi + ']: must be a canonical absolute path below / with no trailing slash');
       persistentPathsValid = false;
     }
   });
