@@ -1,12 +1,15 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-10 (Codex) — roadmap-now owner decisions recorded
-**Branch:** codex/owner-decisions-20260710-v2
+**Last session:** 2026-07-10 (Codex) — merged/deployed safeguards and recovery readiness reconciled
+**Branch:** main (status reconciled via PR #76)
 
-## Active Session (2026-07-10) — roadmap-now owner decisions
+## Current State (2026-07-10)
 
-Converted the five owner choices in `docs/roadmap-now-decision-brief.md` into the deliberately small
-artifacts already scoped there:
+### Roadmap-now decisions
+
+Grimnir PR #75 merged as `e2dfa9c` after three review/fix rounds, 144 local assertions, and green
+GitHub test/shellcheck. It converted the five accepted owner choices in
+`docs/roadmap-now-decision-brief.md` into the deliberately small artifacts already scoped there:
 
 - Sara is the emergency delegate with **export-and-shutdown only** authority. The public succession
   checklist contains no locator, credential, recovery material, or private-envelope contents.
@@ -14,7 +17,7 @@ artifacts already scoped there:
   whole-substrate readiness remains blocked while the safe action is stop-and-preserve. Mimir's live
   proof on 2026-07-10 used an immutable 1,643-file encrypted backup: `cryptcheck` reported zero
   differences, the full scratch restore compared exactly, the stamp was fresh, and Heimdall reported
-  pass. The component repo's local `STATUS.md` may lag this production evidence.
+  pass. Mimir PR #19 reconciled its component status with that evidence and merged as `0bf441c`.
 - Provisional retention defaults are now explicit: statutory/contractual duties otherwise 24 months
   after an engagement ends for client/accounting data; personal memory until correction/deletion
   with annual review; operational telemetry for six months; transient artifacts for 30 days.
@@ -24,11 +27,55 @@ artifacts already scoped there:
 - Consequential mutations after untrusted input route through Hugin, with a constrained fresh-session
   fallback only when Hugin cannot perform the action.
 
-No retention deletion job, service change, secret, private locator, merge, or deployment is part of
-this docs-only change.
+No retention deletion job, service change, secret, or private locator was part of the decision
+package. Grimnir was deployed to huginmunin after merge; remote HEAD and `.deployed-commit` both
+equal `e2dfa9c4a7fa9bbab563d7520c4a4ff8a65e8541`, and the complete post-deploy test suite passed.
+
+### Merged safeguards and deployment state
+
+- **Mimir PR #18** merged as `b197e1d` and is deployed. Its encrypted off-site backup is active
+  after an immutable 1,643-file backup, `cryptcheck`, full restore, exact comparison, fresh stamp,
+  and Heimdall pass. The follow-up status reconciliation is Mimir PR #19 (`0bf441c`).
+- **Hugin PR #159** merged as `f7bf00e` and is deployed. CI, build, 1,498 tests, and a live
+  provenance probe passed. The existing production npm audit debt remains one moderate and one high
+  finding and is separate follow-up work.
+- **Brokkr PR #42** merged as `8b90fba` and is deployed. The M5 dead-man timer is active and its
+  production probe, three-miss alert/recovery drill, and forced direct-fallback drill passed. User
+  receipt confirmation for the drill messages remains pending.
+- **Grimnir PR #74** merged as `a3eb01f` and is deployed. It added fail-closed persistent-path
+  protection around rsync `--delete` deploy targets, including Verdandi's legacy checkout-local data
+  path. It merged before PR #75 and is an ancestor of the deployed `e2dfa9c`; CI, the full local
+  suite, and the post-deploy suite passed.
+- **Verdandi PR #18** merged as `532677d` after CI, 88 tests, build/lint, and evidence-integrity
+  review. Production remains intentionally inactive and undeployed until image-first physical
+  SD-card recovery. No new data directory or generation has been created.
+- **Brokkr PR #43** merged as `2336f07` after 111 assertions, green CI, and three review/fix rounds.
+  The canonical M5 Brokkr checkout is deliberately pinned to PR #42 (`8b90fba`) until the protected
+  external check URL can be provisioned directly on M5. The external heartbeat is config-gated and
+  inert without that URL, so code availability alone cannot emit pings.
+
+### Recovery and external-heartbeat readiness
+
+- No credible Verdandi database was found locally, in named NAS backups, or in encrypted Mimir
+  current. The nonfunctional service was stopped and reset after its missing checkout-local data
+  directory caused a restart loop. A live huginmunin check found the old `Restart=always` unit still
+  enabled but inactive; `systemctl --user disable --now verdandi.service` left it disabled/inactive,
+  and the checkpoint timer is not found/inactive. The evidence-preserving next action is bounded
+  offline SD-card recovery before any new genesis.
+- M5 is prepared for image-first recovery with GNU ddrescue, extundelete, Sleuth Kit,
+  TestDisk/PhotoRec, SQLite, and e2fsprogs. Its owner-only recovery workspace is on the internal NVMe
+  with about 1.46 TiB free. No removable media or huginmunin was touched during preparation.
+- The Healthchecks.io free-account signup was submitted and the site confirmed that an email was
+  sent. Activation through the magic link is still required before creating the check, provisioning
+  its protected URL on M5, and deploying Brokkr PR #43.
 
 ### Pending / next
 
+- Activate the Healthchecks.io account, create the external check, provision its protected URL
+  directly on M5, then deploy and verify Brokkr PR #43.
+- Coordinate a huginmunin outage and physical SD-card handoff for bounded offline Verdandi recovery
+  before any new genesis.
+- Confirm receipt of the Brokkr outage, recovery, and labelled direct-fallback drill messages.
 - Confirm out of band that Sara can locate the private succession envelope and complete a dry
   walkthrough; do not put the locator or envelope contents in git.
 - Add and drill a routine Verdandi export/restore procedure in its owning repo before claiming the

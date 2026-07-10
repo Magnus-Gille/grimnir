@@ -6,6 +6,9 @@ This is the **system-level** documentation repository for the Grimnir personal A
 
 No service code lives here — each component has its own repo.
 
+The shared project inventory, key-document map, and script guidance below are intentionally
+synchronized with `AGENTS.md`; update both files together whenever that shared guidance changes.
+
 ## Component repos
 
 > Component inventory (names, hosts, ports, systemd units) is defined in [`services.json`](services.json).
