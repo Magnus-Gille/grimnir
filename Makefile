@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-registry-smoke test-deploy-persistent-paths test-failure-recovery-doc test-registry-checkout test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-registry-smoke test-deploy-persistent-paths test-failure-recovery-doc test-registry-checkout test-systemd-status test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -30,7 +30,10 @@ test-failure-recovery-doc: ## Regression test: assert docs/failure-recovery.md d
 test-registry-checkout: ## Unit tests for the registry-checkout integrity helpers (issue #47)
 	@bash scripts/tests/registry-checkout.test.sh
 
-test: test-security-skip test-security-delta test-registry-smoke test-deploy-persistent-paths test-failure-recovery-doc test-registry-checkout ## Run all test suites
+test-systemd-status: ## Scope-aware local/remote systemd status checks (issue #63)
+	@bash scripts/tests/systemd-status.test.sh
+
+test: test-security-skip test-security-delta test-registry-smoke test-deploy-persistent-paths test-failure-recovery-doc test-registry-checkout test-systemd-status ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md

@@ -30,6 +30,10 @@ REPOS_DIR="$HOME/repos"
 REGISTRY="$GRIMNIR_DIR/services.json"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 
+# shellcheck source=scripts/lib/systemd-status.sh
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/systemd-status.sh"
+
 read -ra COMPONENTS <<< "$(REGISTRY_PATH="$REGISTRY" QUERY=components node --input-type=commonjs "$REGISTRY_JS")"
 
 # ─── CLI args ───────────────────────────────────────────────
@@ -62,25 +66,6 @@ unit_rows_from_json() {
       ].join("|") + "\n");
     });
   '
-}
-
-systemctl_user() {
-  local user=${SYSTEMD_USER:-magnus}
-  local uid runtime
-  uid="$(id -u "$user" 2>/dev/null || echo 1000)"
-  runtime="/run/user/$uid"
-
-  if [[ "$(id -un 2>/dev/null || true)" == "$user" ]]; then
-    XDG_RUNTIME_DIR="$runtime" systemctl --user "$@" 2>/dev/null || echo 'unknown'
-  else
-    sudo -u "$user" XDG_RUNTIME_DIR="$runtime" systemctl --user "$@" 2>/dev/null || echo 'unknown'
-  fi
-}
-
-remote_systemctl_user() {
-  local host=$1 action=$2 unit=$3 user=${SYSTEMD_USER:-magnus}
-  ssh -o ConnectTimeout=5 -o BatchMode=yes "${user}@${host}" \
-    "XDG_RUNTIME_DIR=/run/user/\$(id -u) systemctl --user '$action' '$unit'" 2>/dev/null || echo 'unknown'
 }
 
 health_status_local() {
@@ -160,6 +145,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
 
     STATUS_LINE=""
     COMPONENT_OK=true
+    COMPONENT_WARN=false
 
     # Determine if host is local or remote
     if [[ "$v_host" == "huginmunin.local" ]] || [[ "$v_host" == "huginmunin" ]]; then
@@ -176,25 +162,24 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
         [[ -z "$unit_name" ]] && continue
         unit="${unit_name}.${unit_kind}"
         if [[ "$IS_LOCAL" == "true" ]]; then
-          if [[ "$unit_scope" == "user" ]]; then
-            active="$(systemctl_user is-active "$unit")"
-          else
-            active="$(systemctl is-active "$unit" 2>/dev/null || echo 'unknown')"
-          fi
+          active="$(local_systemctl_status "$unit_scope" is-active "$unit")"
         else
-          if [[ "$unit_scope" == "user" ]]; then
-            active="$(remote_systemctl_user "$v_host" is-active "$unit")"
-          else
-            active="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "systemctl is-active '$unit'" 2>/dev/null || echo 'unknown')"
-          fi
+          active="$(remote_systemctl_status "$v_host" "$unit_scope" is-active "$unit")"
         fi
 
-        if [[ "$active" == "active" ]]; then
-          STATUS_LINE+=" unit:$unit($unit_scope)=active"
-        else
-          STATUS_LINE+=" unit:$unit($unit_scope)=$active"
-          COMPONENT_OK=false
-        fi
+        case "$(systemctl_status_severity "$active" "$unit_scope")" in
+          pass)
+            STATUS_LINE+=" unit:$unit($unit_scope)=active"
+            ;;
+          warn)
+            STATUS_LINE+=" unit:$unit($unit_scope)=unreachable"
+            COMPONENT_WARN=true
+            ;;
+          fail)
+            STATUS_LINE+=" unit:$unit($unit_scope)=$active"
+            COMPONENT_OK=false
+            ;;
+        esac
       done <<< "$unit_rows"
     fi
 
@@ -274,12 +259,15 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     fi
 
     # Emit result line
-    if [[ "$COMPONENT_OK" == "true" ]]; then
-      RESULTS+="✅ $v_name:$STATUS_LINE\n"
-      PASS=$((PASS + 1))
-    else
+    if [[ "$COMPONENT_OK" != "true" ]]; then
       RESULTS+="❌ $v_name:$STATUS_LINE\n"
       FAIL=$((FAIL + 1))
+    elif [[ "$COMPONENT_WARN" == "true" ]]; then
+      RESULTS+="⚠️  $v_name:$STATUS_LINE\n"
+      WARN=$((WARN + 1))
+    else
+      RESULTS+="✅ $v_name:$STATUS_LINE\n"
+      PASS=$((PASS + 1))
     fi
   done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")
 
@@ -442,8 +430,8 @@ service_status_row() {
   local active enabled pid mem mem_mb started
   local -a systemctl_prefix
   if [[ "$unit_scope" == "user" ]]; then
-    active="$(systemctl_user is-active "$unit")"
-    enabled="$(systemctl_user is-enabled "$unit")"
+    active="$(local_systemctl_status user is-active "$unit")"
+    enabled="$(local_systemctl_status user is-enabled "$unit")"
   else
     systemctl_prefix=(systemctl)
     active="$("${systemctl_prefix[@]}" is-active "$unit" 2>/dev/null || echo 'unknown')"
