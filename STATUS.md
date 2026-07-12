@@ -1,7 +1,33 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-10 (Codex) — merged/deployed safeguards and recovery readiness reconciled
-**Branch:** main (status reconciled via PR #76)
+**Last session:** 2026-07-12 (Codex) — issue #63 scope-aware validator fix prepared
+**Branch:** codex/grimnir-63-user-units
+
+## Active Session (2026-07-12) — issue #63 scope-aware unit validation
+
+Prepared a focused fix for `grimnir#63`. Although earlier work had started honoring the registry's
+unit scope, the checks were embedded and untested, remote user-manager access only set
+`XDG_RUNTIME_DIR`, shell arguments were quoted ad hoc, and a manager/SSH failure collapsed into an
+ambiguous status. The branch now:
+
+- centralizes read-only local and remote systemd status checks in `scripts/lib/systemd-status.sh`;
+- uses the system manager for system units and the user manager for user units, with explicit
+  `XDG_RUNTIME_DIR` and `DBUS_SESSION_BUS_ADDRESS` locally and over SSH;
+- reuses the audited POSIX quoting helper for remote action/unit arguments;
+- preserves known inactive/failed states as failures while surfacing an unreachable manager as a
+  warning rather than a false inactive report; and
+- adds 23 regression assertions covering local/remote system and user scope, unreachable managers,
+  environment setup, and hostile shell syntax.
+
+Local `make test` passes 167 assertions. Full `shellcheck` and `bash -n` over scripts and tests also
+pass. No production host or service was touched.
+
+### Pending / next
+
+- Commit and push `codex/grimnir-63-user-units`, open the ready PR closing #63, obtain independent
+  review, then merge/deploy only after CI and review are green.
+- Deployment after merge: from a current clean Grimnir checkout, run `make deploy ARGS="grimnir"`;
+  verify remote HEAD/marker and run `./scripts/generate-architecture.sh --validate` on huginmunin.
 
 ## Current State (2026-07-10)
 
