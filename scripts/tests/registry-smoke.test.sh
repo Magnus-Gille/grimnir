@@ -270,6 +270,27 @@ cat > "$TMP_DIR/bad-unit-name.json" << 'EOF'
 EOF
 assert_eq "invalid systemd unit name -> exit 1" "1" "$(run_validator "$TMP_DIR/bad-unit-name.json")"
 
+# ── Timer semantics are bounded and timer-only ──────────────────────────────
+cat > "$TMP_DIR/bad-timer-semantics.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": null, "port": null, "deploy": false, "scan": true, "needs_build": false,
+      "systemd_units": [{ "name": "alpha", "type": "timer", "timer_semantics": "elapsed-is-fine" }] }
+  ]
+}
+EOF
+assert_eq "invalid timer semantics -> exit 1" "1" "$(run_validator "$TMP_DIR/bad-timer-semantics.json")"
+
+cat > "$TMP_DIR/service-timer-semantics.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": null, "port": null, "deploy": false, "scan": true, "needs_build": false,
+      "systemd_units": [{ "name": "alpha", "type": "service", "timer_semantics": "one-shot" }] }
+  ]
+}
+EOF
+assert_eq "timer semantics on service -> exit 1" "1" "$(run_validator "$TMP_DIR/service-timer-semantics.json")"
+
 # ── Registry strings crossing deploy shell boundaries must be strict ───────
 cat > "$TMP_DIR/unsafe-component-strings.json" << 'EOF'
 {

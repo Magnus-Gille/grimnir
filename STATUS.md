@@ -1,5 +1,41 @@
 # Grimnir System — Status
 
+**Last session:** 2026-07-13 (Codex) — timer restart/acceptance follow-up prepared locally
+**Branch:** `codex/timer-acceptance-20260713` (isolated worktree; not pushed/deployed)
+
+## Active Session (2026-07-13) — timer controller acceptance repair
+
+Prepared a focused follow-up from post-merge `origin/main` (`e406bab`) after live Heimdall deployment
+showed that `systemctl enable --now` left the already-active boot-check timer elapsed with its old
+June 28 trigger. Because `is-active` still passed, the deployment incorrectly wrote an acceptance
+marker; the operator invalidated that live Heimdall marker immediately before this code session.
+
+- Deploy now enables and explicitly restarts every declared timer after its user/system daemon reload,
+  so installed unit-file schedule changes are loaded even when the timer was already active.
+- Recurring timers must be active and expose a concrete next realtime or monotonic trigger before the
+  deployment marker can be written. An active-but-elapsed recurring timer with only `infinity` fails.
+- Heimdall's boot check is recurring: `OnBootSec=90` supplies the initial post-boot trigger and
+  `OnUnitInactiveSec=5m` schedules alert-lifecycle reconciliation five minutes after each run becomes
+  inactive. It therefore uses the fail-closed recurring default and must expose its next trigger.
+- Registry timer metadata may still mark genuinely single-fire unit shapes as `one-shot`; focused
+  coverage uses a synthetic fixture to keep that exception separate from Heimdall.
+- Focused regressions cover both scopes, daemon-reload → enable → restart → acceptance → marker
+  ordering, active-elapsed recurring rejection, one-shot handling, and registry validation.
+
+### Verification / handoff
+
+- `make test` passes all 245 assertions. Full `bash -n`, ShellCheck, and `git diff --check` pass.
+- No push, PR, merge, deployment, live marker write, Munin mutation, or Orin access was performed.
+- After review/merge, deploy Grimnir first, then deploy Heimdall from a clean current worktree. The
+  verified Heimdall deployment must restart `heimdall-boot-check.timer`, confirm its next five-minute
+  reconciliation trigger, pass service/timer/HTTP gates, and only then recreate the currently missing
+  acceptance marker.
+- Rollback is a revert of this focused commit followed by a Grimnir deploy. If the Heimdall deploy
+  fails, leave it markerless and selectively redeploy the prior accepted Heimdall SHA captured by
+  the deploy log; do not manually fabricate a marker.
+
+---
+
 **Last session:** 2026-07-13 (Codex) — general hardening sprint prepared for fallback review
 **Branch:** `codex/grimnir-hardening-20260713` (isolated worktree; not pushed/deployed)
 

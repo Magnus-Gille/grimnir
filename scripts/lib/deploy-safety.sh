@@ -35,3 +35,11 @@ prepare_deploy_marker_invalidation_command() {
   # shellcheck disable=SC2016 # variables expand on the remote host
   printf '%s' 'printf '\''DEPLOY_MARKER_INVALIDATED:%s\n'\'' "$prior"'
 }
+
+# Shared awk predicate for recurring timer acceptance. At least one realtime or
+# monotonic next-elapse property must contain a concrete trigger; active timers
+# whose only values are empty/infinity/n/a/0 are elapsed, not scheduled.
+recurring_timer_next_check_awk() {
+  # shellcheck disable=SC2016 # emitted for awk, not expanded by this shell
+  printf '%s' '/^NextElapseUSec(Realtime|Monotonic)=/ && $2 != "" && $2 != "0" && $2 != "infinity" && $2 != "n/a" { scheduled=1 } END { exit(scheduled ? 0 : 1) }'
+}
