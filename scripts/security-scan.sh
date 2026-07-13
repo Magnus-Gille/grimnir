@@ -8,7 +8,7 @@
 #   Phase 1: npm audit --json for each repo with package-lock.json
 #   Phase 2: Secret regex scan on all git-tracked files
 #
-# Writes results to Munin unless --dry-run or no token available.
+# Writes results to Munin unless --dry-run; a live run without durable writes fails.
 # Always prints a human-readable summary to stdout.
 #
 # NEVER outputs actual secret values — only file:line:pattern-category.
@@ -16,22 +16,25 @@
 
 set -euo pipefail
 
-SCANNER_VERSION="1.2.0"
+SCANNER_VERSION="1.3.0"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
-REPOS_DIR="$HOME/repos"
+REPOS_DIR="${REPOS_DIR:-$HOME/repos}"
 
 # ─── Source shared helpers ─────────────────────────────────────
 # shellcheck source=scripts/lib/notify.sh
 # shellcheck disable=SC1091  # dynamic path; use shellcheck -x to follow
 source "$SCRIPT_DIR/lib/notify.sh"
+# shellcheck source=scripts/lib/munin-rpc.sh
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/munin-rpc.sh"
 TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 SCAN_DATE="$(date -u '+%Y-%m-%d')"
 HOSTNAME_VAL="$(hostname)"
 
 # Read scannable components from the service registry (single source of truth)
-REGISTRY="$GRIMNIR_DIR/services.json"
+REGISTRY="${REGISTRY_PATH:-$GRIMNIR_DIR/services.json}"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 COMPONENTS="$(REGISTRY_PATH="$REGISTRY" QUERY=scan node --input-type=commonjs "$REGISTRY_JS")"
 if [[ -z "$COMPONENTS" ]]; then
@@ -94,13 +97,7 @@ munin_call() {
     echo "(Munin token not available)"
     return 1
   fi
-  curl -s --max-time 10 \
-    -X POST http://localhost:3030/mcp \
-    -H "Content-Type: application/json" \
-    -H "Accept: application/json, text/event-stream" \
-    -H "Authorization: Bearer $MUNIN_TOKEN" \
-    -d "$payload" 2>/dev/null | \
-    sed -n 's/^data: //p' | head -1 || echo "{}"
+  munin_http_jsonrpc "$MUNIN_TOKEN" "$payload"
 }
 
 munin_tool_call() {
@@ -141,6 +138,13 @@ repo_get() {
 
 # ─── Build component list ─────────────────────────────────────
 if [[ -n "$FILTER_REPO" ]]; then
+  case " $COMPONENTS " in
+    *" $FILTER_REPO "*) ;;
+    *)
+      echo "ERROR: --repo must name a scan-enabled component from services.json: $FILTER_REPO" >&2
+      exit 1
+      ;;
+  esac
   SCAN_COMPONENTS="$FILTER_REPO"
 else
   SCAN_COMPONENTS="$COMPONENTS"
@@ -172,7 +176,7 @@ for repo in $SCAN_COMPONENTS; do
   dir="$REPOS_DIR/$repo"
 
   # Collect git provenance
-  if [[ -d "$dir/.git" ]]; then
+  if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     repo_set "$repo" "commit" "$(git -C "$dir" rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
     repo_set "$repo" "branch" "$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')"
   else
@@ -222,38 +226,53 @@ for repo in $SCAN_COMPONENTS; do
 
   # Parse npm audit JSON: validate, extract severities, collect package names
   # Single node call writes individual results to temp files (avoids $() quoting issues)
+  rm -f "$SCAN_TMP/_a_ok" "$SCAN_TMP/_a_error" "$SCAN_TMP/_a_crit" \
+    "$SCAN_TMP/_a_high" "$SCAN_TMP/_a_mod" "$SCAN_TMP/_a_low" \
+    "$SCAN_TMP/_a_total" "$SCAN_TMP/_a_json"
   printf '%s' "$audit_raw" > "$SCAN_TMP/_audit_raw"
   OUTDIR="$SCAN_TMP" node --input-type=commonjs -e '
     var fs = require("fs");
     var out = process.env.OUTDIR;
     try {
       var d = JSON.parse(fs.readFileSync(out + "/_audit_raw", "utf8"));
-      var v = (d.metadata && d.metadata.vulnerabilities) || {};
-      var c = v.critical || 0, h = v.high || 0, m = v.moderate || 0, l = v.low || 0;
+      if (!d || typeof d !== "object" || d.error) throw new Error("npm-error-response");
+      var v = d.metadata && d.metadata.vulnerabilities;
+      if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("missing-vulnerability-metadata");
+      function count(name) {
+        var value = v[name];
+        if (!Number.isInteger(value) || value < 0) throw new Error("invalid-" + name + "-count");
+        return value;
+      }
+      var c = count("critical"), h = count("high"), m = count("moderate"), l = count("low");
+      if (!d.vulnerabilities || typeof d.vulnerabilities !== "object" || Array.isArray(d.vulnerabilities)) {
+        throw new Error("missing-vulnerability-details");
+      }
       fs.writeFileSync(out + "/_a_ok", "true");
       fs.writeFileSync(out + "/_a_crit", String(c));
       fs.writeFileSync(out + "/_a_high", String(h));
       fs.writeFileSync(out + "/_a_mod", String(m));
       fs.writeFileSync(out + "/_a_low", String(l));
       fs.writeFileSync(out + "/_a_total", String(c + h + m + l));
-      var vulns = d.vulnerabilities || {};
+      var vulns = d.vulnerabilities;
       var pkgs = Object.entries(vulns).map(function(e) { return {name: e[0], severity: e[1].severity}; });
       var json = {critical: c, high: h, moderate: m, low: l, total: c+h+m+l, packages: pkgs};
       fs.writeFileSync(out + "/_a_json", JSON.stringify(json));
     } catch(e) {
       fs.writeFileSync(out + "/_a_ok", "false");
+      fs.writeFileSync(out + "/_a_error", String(e && e.message || "invalid-audit-json"));
     }
   ' 2>/dev/null
 
   if [[ "$(cat "$SCAN_TMP/_a_ok" 2>/dev/null)" != "true" ]]; then
-    repo_set "$repo" "audit_status" "error:invalid-json"
+    audit_error="$(cat "$SCAN_TMP/_a_error" 2>/dev/null || echo invalid-json)"
+    repo_set "$repo" "audit_status" "error:${audit_error}"
     repo_set "$repo" "audit_critical" "0"
     repo_set "$repo" "audit_high" "0"
     repo_set "$repo" "audit_moderate" "0"
     repo_set "$repo" "audit_low" "0"
     repo_set "$repo" "audit_total" "0"
     repo_set "$repo" "audit_json" "null"
-    echo "  $repo: ERROR (invalid JSON from npm audit)"
+    echo "  $repo: ERROR (unusable npm audit result: ${audit_error})"
     continue
   fi
 
@@ -322,7 +341,7 @@ for repo in $SCAN_COMPONENTS; do
     continue
   fi
 
-  if [[ ! -d "$dir/.git" ]]; then
+  if ! git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     log_verbose "  $repo: not a git repo, skipping secret scan"
     repo_set "$repo" "secret_status" "skipped:no-git"
     repo_set "$repo" "secret_count" "0"
@@ -336,7 +355,13 @@ for repo in $SCAN_COMPONENTS; do
   finding_count=0
 
   # Get list of tracked files
-  tracked_files="$(git -C "$dir" ls-files 2>/dev/null)" || true
+  if ! tracked_files="$(git -C "$dir" ls-files 2>/dev/null)"; then
+    repo_set "$repo" "secret_status" "error:git-ls-files"
+    repo_set "$repo" "secret_count" "0"
+    repo_set "$repo" "secret_findings" "[]"
+    echo "  $repo: ERROR (could not enumerate tracked files)"
+    continue
+  fi
 
   if [[ -z "$tracked_files" ]]; then
     repo_set "$repo" "secret_status" "ok"
@@ -489,22 +514,54 @@ done
 echo ""
 printf "TOTALS: critical=%d  high=%d  moderate=%d  low=%d  secrets=%d\n" \
   "$TOTAL_CRITICAL" "$TOTAL_HIGH" "$TOTAL_MODERATE" "$TOTAL_LOW" "$TOTAL_SECRETS"
+
+TOTAL_INCOMPLETE=0
+INCOMPLETE_REPOS=""
+for repo in $SCAN_COMPONENTS; do
+  audit_status="$(repo_get "$repo" audit_status)"
+  secret_status="$(repo_get "$repo" secret_status)"
+  repo_incomplete=false
+  case "$audit_status" in
+    ok|vulns|skipped:no-lockfile) ;;
+    *) repo_incomplete=true ;;
+  esac
+  case "$secret_status" in
+    ok|found) ;;
+    *) repo_incomplete=true ;;
+  esac
+  if [[ "$repo_incomplete" == "true" ]]; then
+    TOTAL_INCOMPLETE=$((TOTAL_INCOMPLETE + 1))
+    INCOMPLETE_REPOS="${INCOMPLETE_REPOS}${INCOMPLETE_REPOS:+ }${repo}"
+  fi
+done
+if [[ "$TOTAL_INCOMPLETE" -eq 0 ]]; then
+  SCAN_COMPLETE=true
+else
+  SCAN_COMPLETE=false
+fi
+printf "COVERAGE: complete=%s  incomplete_repos=%d%s\n" \
+  "$SCAN_COMPLETE" "$TOTAL_INCOMPLETE" "${INCOMPLETE_REPOS:+ ($INCOMPLETE_REPOS)}"
 echo ""
 
 # ─── Overall status assessment ────────────────────────────────
 
-OVERALL_STATUS="clean"
+FINDING_STATUS="clean"
 if [[ "$TOTAL_CRITICAL" -gt 0 ]] || [[ "$TOTAL_SECRETS" -gt 0 ]]; then
-  OVERALL_STATUS="critical"
+  FINDING_STATUS="critical"
 elif [[ "$TOTAL_HIGH" -gt 0 ]]; then
-  OVERALL_STATUS="high"
+  FINDING_STATUS="high"
 elif [[ "$TOTAL_MODERATE" -gt 0 ]]; then
-  OVERALL_STATUS="moderate"
+  FINDING_STATUS="moderate"
 elif [[ "$TOTAL_LOW" -gt 0 ]]; then
-  OVERALL_STATUS="low"
+  FINDING_STATUS="low"
+fi
+OVERALL_STATUS="$FINDING_STATUS"
+if [[ "$SCAN_COMPLETE" != "true" ]]; then
+  OVERALL_STATUS="incomplete"
 fi
 
 echo "Overall status: $OVERALL_STATUS"
+echo "Finding status: $FINDING_STATUS"
 echo ""
 
 # ─── Delta computation (escalation detection) ─────────────────
@@ -575,9 +632,9 @@ done
 # ─── Telegram alert — high/critical status + at least one escalation ──────
 # Stays silent when overall is clean/low/moderate, or when nothing escalated.
 
-if [[ "$OVERALL_STATUS" == "high" ]] || [[ "$OVERALL_STATUS" == "critical" ]]; then
+if [[ "$FINDING_STATUS" == "high" ]] || [[ "$FINDING_STATUS" == "critical" ]]; then
   if [[ -n "$ESCALATED_REPOS" ]]; then
-    OVERALL_UPPER="$(echo "$OVERALL_STATUS" | tr '[:lower:]' '[:upper:]')"
+    OVERALL_UPPER="$(echo "$FINDING_STATUS" | tr '[:lower:]' '[:upper:]')"
     ALERT_MSG="[Grimnir security] ${OVERALL_UPPER} — escalated findings (${SCAN_DATE}):
 ${ESCALATION_MSG_LINES}"
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -593,16 +650,18 @@ fi
 if [[ "$DRY_RUN" == "true" ]]; then
   echo "(Dry run — skipping Munin writes)"
   echo ""
+  [[ "$SCAN_COMPLETE" == "true" ]] || exit 1
   exit 0
 fi
 
 if [[ -z "$MUNIN_TOKEN" ]]; then
-  echo "(No Munin token — skipping writes)"
+  echo "ERROR: No Munin token — scan result is not durable" >&2
   echo ""
-  exit 0
+  exit 1
 fi
 
 echo "Writing to Munin..."
+WRITE_FAILURES=0
 
 # Build per-repo JSON and aggregate into full scan JSON
 # Each repo object is written as one line to a temp file; assembled into array at end
@@ -640,6 +699,8 @@ done
 OUTDIR="$SCAN_TMP" SCAN_DATE="$SCAN_DATE" TIMESTAMP="$TIMESTAMP" HOST="$HOSTNAME_VAL" \
   TOTAL_C="$TOTAL_CRITICAL" TOTAL_H="$TOTAL_HIGH" TOTAL_M="$TOTAL_MODERATE" \
   TOTAL_L="$TOTAL_LOW" TOTAL_S="$TOTAL_SECRETS" OVERALL="$OVERALL_STATUS" \
+  FINDING_STATUS="$FINDING_STATUS" SCAN_COMPLETE="$SCAN_COMPLETE" \
+  INCOMPLETE_REPOS="$INCOMPLETE_REPOS" \
   SCANNER_VER="$SCANNER_VERSION" \
   node --input-type=commonjs -e '
     var fs = require("fs"), out = process.env.OUTDIR;
@@ -651,6 +712,9 @@ OUTDIR="$SCAN_TMP" SCAN_DATE="$SCAN_DATE" TIMESTAMP="$TIMESTAMP" HOST="$HOSTNAME
       host:            process.env.HOST,
       scanner_version: process.env.SCANNER_VER,
       overall_status:  process.env.OVERALL,
+      finding_status:  process.env.FINDING_STATUS,
+      scan_complete:   process.env.SCAN_COMPLETE === "true",
+      incomplete_repos: process.env.INCOMPLETE_REPOS ? process.env.INCOMPLETE_REPOS.split(" ") : [],
       totals: {
         critical: parseInt(process.env.TOTAL_C),
         high:     parseInt(process.env.TOTAL_H),
@@ -673,6 +737,9 @@ Scan date: ${SCAN_DATE}
 Host: ${HOSTNAME_VAL}
 Scanner version: ${SCANNER_VERSION}
 Overall status: **${OVERALL_STATUS}**
+Finding status: **${FINDING_STATUS}**
+Scan complete: **${SCAN_COMPLETE}**
+Incomplete repositories: ${INCOMPLETE_REPOS:-none}
 
 ### Totals
 
@@ -699,7 +766,10 @@ summary_args="$(NAMESPACE_VAL="security/scans/${SCAN_DATE}" KEY_VAL="summary" \
       tags: ["security", "scan", "automated"]
     }))
 ')"
-munin_tool_call "memory_write" "$summary_args" > /dev/null || echo "  WARNING: Failed to write scan summary to Munin"
+if ! munin_tool_call "memory_write" "$summary_args" > /dev/null; then
+  echo "  WARNING: Failed to write scan summary to Munin"
+  WRITE_FAILURES=$((WRITE_FAILURES + 1))
+fi
 
 # Write 2: Per-repo latest state
 for repo in $SCAN_COMPONENTS; do
@@ -744,12 +814,15 @@ ${repo_detail_json}
         tags: ["security", "repo", process.env.REPO_TAG]
       }))
   ')"
-  munin_tool_call "memory_write" "$repo_args" > /dev/null || echo "  WARNING: Failed to write repo state for $repo"
+  if ! munin_tool_call "memory_write" "$repo_args" > /dev/null; then
+    echo "  WARNING: Failed to write repo state for $repo"
+    WRITE_FAILURES=$((WRITE_FAILURES + 1))
+  fi
 done
 
 # Write 3: Scan event log
 echo "  Logging scan event..."
-log_content="Security scan completed at ${TIMESTAMP} on ${HOSTNAME_VAL}. Overall: ${OVERALL_STATUS}. Totals — critical:${TOTAL_CRITICAL} high:${TOTAL_HIGH} moderate:${TOTAL_MODERATE} low:${TOTAL_LOW} secrets:${TOTAL_SECRETS}. Scanner v${SCANNER_VERSION}."
+log_content="Security scan completed at ${TIMESTAMP} on ${HOSTNAME_VAL}. Overall:${OVERALL_STATUS}; findings:${FINDING_STATUS}; complete:${SCAN_COMPLETE}; incomplete_repos:${INCOMPLETE_REPOS:-none}. Totals — critical:${TOTAL_CRITICAL} high:${TOTAL_HIGH} moderate:${TOTAL_MODERATE} low:${TOTAL_LOW} secrets:${TOTAL_SECRETS}. Scanner v${SCANNER_VERSION}."
 log_args="$(NAMESPACE_VAL="security/" CONTENT_VAL="$log_content" node --input-type=commonjs -e '
   console.log(JSON.stringify({
     namespace: process.env.NAMESPACE_VAL,
@@ -757,7 +830,13 @@ log_args="$(NAMESPACE_VAL="security/" CONTENT_VAL="$log_content" node --input-ty
     tags: ["security", "scan-event"]
   }))
 ')"
-munin_tool_call "memory_log" "$log_args" > /dev/null || echo "  WARNING: Failed to write scan event log to Munin"
+if ! munin_tool_call "memory_log" "$log_args" > /dev/null; then
+  echo "  WARNING: Failed to write scan event log to Munin"
+  WRITE_FAILURES=$((WRITE_FAILURES + 1))
+fi
 
 echo "Done."
 echo ""
+if [[ "$SCAN_COMPLETE" != "true" ]] || [[ "$WRITE_FAILURES" -gt 0 ]]; then
+  exit 1
+fi

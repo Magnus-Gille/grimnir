@@ -1,8 +1,10 @@
 # Separating the three roles of `~/repos/grimnir` on huginmunin
 
-> Status: recommendation. This document decides the target separation and records
-> what ships now vs. what is deferred. Tracks issue #47. The hugin-side change is
-> hugin#139; the delta-alert follow-up is grimnir#2.
+> Status: adopted and deployed. Grimnir now advances its canonical checkout by
+> guarded `git pull --ff-only`; Hugin uses separate task workspaces. Daily
+> validation checks branch/cleanliness plus exact equality with live origin and
+> refuses to re-stamp an unproved checkout. The option analysis below is retained
+> as the decision history for issue #47.
 
 ## The problem
 

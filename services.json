@@ -42,7 +42,8 @@
       "systemd_units": [
         { "name": "heimdall", "type": "service" },
         { "name": "heimdall-collect", "type": "timer" },
-        { "name": "heimdall-maintain", "type": "timer" }
+        { "name": "heimdall-maintain", "type": "timer" },
+        { "name": "heimdall-boot-check", "type": "timer" }
       ]
     },
     {

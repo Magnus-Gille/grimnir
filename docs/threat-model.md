@@ -1,8 +1,7 @@
-# Grimnir — Threat Model (v0.1)
+# Grimnir — Threat Model (v0.2)
 
-> **Status:** v0.1 — 2026-07-06, owner-reviewed 2026-07-07. Seeded by a local M5 model, then
-> verified and edited against the 2026-07-06 blind-spot audit. Every residual-**High** row in §5
-> is tracked as a `from:grimnir` ticket (see the *Tracked* column).
+> **Status:** v0.2 — owner-reviewed v0.1 refreshed 2026-07-13 against deployed controls and
+> explicit recovery/activation blocks. Every residual-**High** row in §5 remains tracked.
 >
 > Companion to [`architecture.md`](architecture.md) (the *how*) and [`vision.md`](vision.md) (the
 > *why*). This is the *what-we-defend-against* — the artifact that was deferred as "Phase B" and is
@@ -57,14 +56,14 @@
 
 | # | Threat | Vector | Current control | Residual | Tracked |
 |---|---|---|---|---|---|
-| T1 | Exfiltration via the **lethal trifecta** | Injection in ingested content → agent with memory+files+exec → egress | Hugin queue-path injection/exfil scanners + egress policy | **H** — detective only; `bypassPermissions` unconditional | hugin#149 |
+| T1 | Exfiltration via the **lethal trifecta** | Injection in ingested content → agent with memory+files+exec → egress | Hugin queue-path scanners plus permission profiles: default/read-only requests use `dontAsk`; only explicit `Capabilities: code` + `trusted-code` uses `bypassPermissions` | **H** — trusted-code remains deliberately powerful and content scanners are detective | hugin#149 shipped; continue review |
 | T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | Operator posture requires Hugin handoff for consequential mutations after untrusted input, with a constrained fresh-session fallback | **H** — procedural, not enforced | grimnir#70 |
-| T3 | Command injection → fleet code-exec | Ratatoskr `/repo` path-traversal; LLM output submitted verbatim | Telegram owner-allowlist | **H** | ratatoskr#36 |
-| T4 | Autonomous action unattributable / unlogged | Hugin mutates (commits/deploys/writes) but emits nothing to Verdandi; shared static tokens = no per-tenant identity | append-only Verdandi exists but is unfed by Hugin | **H** | hugin#148, verdandi#15 |
-| T5 | Audit-chain forgery on a compromised box | Attacker owns Pi 1, rewrites the chain and re-hashes | append-only trigger + SHA-256 chain; `GET /api/verify` | **M** — verify is manual + same-box; no off-box anchor | verdandi#16 |
-| T6 | Supply-chain compromise | Malicious transitive npm dep in a Node service | weekly `security-scan.sh` (`npm audit`) + systemd sandbox | **M** | (scan exists) |
+| T3 | Command injection → fleet code-exec | Ratatoskr `/repo` path-traversal; LLM-produced repo context | Owner allowlist plus task-writer validation; live probes reject traversal and newline/field injection before task creation | **M** — an owner-authorized task can still execute within an allowed repo | ratatoskr#36 shipped |
+| T4 | Autonomous action unattributable / unlogged | Hugin mutates (commits/deploys/writes) without end-to-end tenant identity or Verdandi receipt | Signed submitter provenance now survives Hugin lifecycle transitions and is logged in Munin | **H** — Verdandi/per-tenant chain is still missing | hugin#148, verdandi#15 |
+| T5 | Audit-chain forgery or loss | Attacker owns Pi 1, or the only credible chain is lost | Recovery-gated Verdandi safeguards and verify/anchor code are merged | **H** — production is intentionally disabled pending image-first recovery; no recovered chain or routine export may be claimed | Verdandi recovery block |
+| T6 | Supply-chain compromise | Malicious transitive npm dep in a Node service | Weekly `security-scan.sh`, incomplete-scan failure, systemd sandbox, immutable CI action pins | **M** — audit databases and dependency provenance are not complete prevention | per-repo dependency triage |
 | T7 | Physical theft → plaintext data at rest | Stolen Pi / SD card / NAS disk | file perms `0600`; **SD cards likely NOT encrypted — verify** | **H** if unencrypted | brokkr#40 |
-| T8 | Silent total-host failure | Pi 1 dies; monitoring + alerting die with it | on-box watchdog only | **M/H** — no off-box dead-man's switch | brokkr#38 |
+| T8 | Silent total-host failure | Pi 1 dies; monitoring + alerting die with it | M5 dead-man timer and independent Telegram fallback are live and drilled | **M** — truly external Healthchecks path is merged but intentionally inactive until its protected URL is provisioned | Healthchecks activation block |
 | T9 | Backup loss / unrecoverable restore | Host/storage loss; Verdandi cannot be routinely exported or restored | Munin and Mimir encrypted off-site backups are live; Mimir passed an immutable full restore on 2026-07-10; Verdandi has no routine export/DR procedure | **H** | brokkr#39 |
 | T10 | Poisoned memory drives bad action | A false stored "fact" retrieved and acted on repeatedly | secret-scan on write; no correction / expiry path | **M** | munin-memory#192 |
 | T11 | Third-party data retained without enforceable lifecycle / erasure | Client/accounting/person data accumulates across Mimir, Munin, Fortnox exports, backups | Store map and provisional retention defaults now exist; enforcement is per-store/manual and complete erasure is not implemented | **H** | grimnir#66 |

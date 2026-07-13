@@ -41,6 +41,11 @@
    script separately preserves `.env` for every rsync component as global credential policy, so a
    component with `persistent_paths: []` does not imply that its in-target `.env` may be deleted.
 
+7. **Deployment markers certify acceptance, not merely copied files.** `deploy.sh` captures the
+   prior valid SHA and removes the marker before the first rsync/git-pull tree mutation. Dependency,
+   unit-refresh, restart, or health failure leaves the target markerless/unknown until a verified
+   rollback or redeploy writes a new accepted SHA.
+
 ## Validation
 
 The generator should warn on discrepancies it can detect:
@@ -48,6 +53,8 @@ The generator should warn on discrepancies it can detect:
 - Systemd units in `services.json` vs units actually present on the host
 - Component repos in `services.json` vs directories in `~/repos/`
 - Deploy path in `services.json` vs WorkingDirectory / EnvironmentFile paths in unit files
+- Git-pull checkout HEAD vs the exact live `origin/main` SHA (an unreachable origin is never current)
+- Missing, symlinked, or malformed rsync deployment markers
 
 ## Document boundary: `architecture.md` vs `snapshot.md`
 

@@ -123,7 +123,7 @@ while IFS= read -r relfile; do
 
   processed_count=$((processed_count+1))
 
-  while IFS='	' read -r pattern category; do
+  while IFS='	' read -r pattern _category; do
     [[ -z "$pattern" ]] && continue
     matched_lines="$(grep -nE "$pattern" "$absfile" 2>/dev/null)" || true
     [[ -z "$matched_lines" ]] && continue

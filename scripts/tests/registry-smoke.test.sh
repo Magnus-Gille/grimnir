@@ -198,6 +198,16 @@ cat > "$TMP_DIR/dup-port.json" << 'EOF'
 EOF
 assert_eq "duplicate port -> exit 1" "1" "$(run_validator "$TMP_DIR/dup-port.json")"
 
+cat > "$TMP_DIR/out-of-range-port.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1.local", "port": 70000,
+      "deploy": false, "scan": true, "needs_build": false, "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "out-of-range port -> exit 1" "1" "$(run_validator "$TMP_DIR/out-of-range-port.json")"
+
 # ── deploy=true without deploy_path ─────────────────────────────────────────
 cat > "$TMP_DIR/missing-deploy-path.json" << 'EOF'
 {
@@ -358,6 +368,12 @@ assert_eq "real services.json: hugin deploy scope remains user" "user" \
 assert_eq "real services.json: hugin structured units include appended timer" \
   '[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-analysis","type":"timer"}]' \
   "$(deploy_field "$REPO_REGISTRY" hugin systemd_units)"
+
+assert_eq "real services.json: Heimdall deploy refreshes boot-check timer companion" \
+  '[{"name":"heimdall","type":"service"},{"name":"heimdall-collect","type":"timer"},{"name":"heimdall-maintain","type":"timer"},{"name":"heimdall-boot-check","type":"timer"}]' \
+  "$(deploy_field "$REPO_REGISTRY" heimdall systemd_units)"
+assert_eq "real services.json: Heimdall deploy carries its health port" \
+  "3033" "$(deploy_field "$REPO_REGISTRY" heimdall port)"
 
 assert_eq "real services.json: skuld timer deploys via user manager" \
   "user" "$(deploy_field "$REPO_REGISTRY" skuld unit_scope)"

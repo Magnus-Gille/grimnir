@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-registry-smoke test-deploy-persistent-paths test-failure-recovery-doc test-registry-checkout test-systemd-status test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-failure-recovery-doc test-registry-checkout test-systemd-status test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -18,6 +18,12 @@ test-security-skip: ## Regression test: assert security-scan skips test/eval fix
 test-security-delta: ## Unit tests for the scan_escalated/parse_prev_counts helpers
 	@bash scripts/tests/security-scan-delta.test.sh
 
+test-security-completeness: ## Fail closed when npm audit or repository coverage is incomplete
+	@bash scripts/tests/security-scan-completeness.test.sh
+
+test-munin-rpc: ## Reject HTTP, JSON-RPC, and MCP tool errors from scheduled writes
+	@bash scripts/tests/munin-rpc.test.sh
+
 test-registry-smoke: ## Schema/consistency smoke check for services.json (issue #48)
 	@bash scripts/tests/registry-smoke.test.sh
 
@@ -33,7 +39,7 @@ test-registry-checkout: ## Unit tests for the registry-checkout integrity helper
 test-systemd-status: ## Scope-aware local/remote systemd status checks (issue #63)
 	@bash scripts/tests/systemd-status.test.sh
 
-test: test-security-skip test-security-delta test-registry-smoke test-deploy-persistent-paths test-failure-recovery-doc test-registry-checkout test-systemd-status ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-failure-recovery-doc test-registry-checkout test-systemd-status ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
