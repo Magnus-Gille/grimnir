@@ -252,7 +252,8 @@ cat > "$TMP_DIR/safe.json" << 'EOF'
       "needs_build": false,
       "systemd_units": [
         { "name": "alpha", "type": "service" },
-        { "name": "heimdall-boot-check", "type": "timer", "timer_semantics": "one-shot" },
+        { "name": "heimdall-boot-check", "type": "timer" },
+        { "name": "alpha-once", "type": "timer", "timer_semantics": "one-shot" },
         { "name": "alpha-recurring", "type": "timer" },
         { "name": "alpha-user-recurring", "type": "timer", "scope": "user" }
       ]
@@ -325,9 +326,16 @@ else
 fi
 if grep -Fq -- "sudo systemctl enable 'heimdall-boot-check.timer'" "$SSH_CAPTURE" &&
    grep -Fq -- "sudo systemctl restart 'heimdall-boot-check.timer'" "$SSH_CAPTURE"; then
-  pass "existing one-shot system timer is enabled and restarted"
+  pass "existing recurring system timer is enabled and restarted"
 else
-  fail "existing one-shot system timer must be enabled and restarted"
+  fail "existing recurring system timer must be enabled and restarted"
+fi
+if grep -Fq -- "sudo systemctl enable 'alpha-once.timer'" "$SSH_CAPTURE" &&
+   grep -Fq -- "sudo systemctl restart 'alpha-once.timer'" "$SSH_CAPTURE" &&
+   grep -Fq -- "sudo systemctl is-active --quiet 'alpha-once.timer'" "$SSH_CAPTURE"; then
+  pass "synthetic one-shot timer is enabled, restarted, and active-gated"
+else
+  fail "synthetic one-shot timer must be enabled, restarted, and active-gated"
 fi
 if grep -Fq -- "systemctl --user enable 'alpha-user-recurring.timer'" "$SSH_CAPTURE" &&
    grep -Fq -- "systemctl --user restart 'alpha-user-recurring.timer'" "$SSH_CAPTURE"; then
@@ -341,15 +349,16 @@ else
   fail "boot-check timer must be health-gated"
 fi
 if grep -Fq -- "systemctl --user show 'alpha-user-recurring.timer' --property=NextElapseUSecRealtime --property=NextElapseUSecMonotonic" "$SSH_CAPTURE" &&
-   grep -Fq -- "sudo systemctl show 'alpha-recurring.timer' --property=NextElapseUSecRealtime --property=NextElapseUSecMonotonic" "$SSH_CAPTURE"; then
-  pass "recurring timers require a concrete next trigger in both scopes"
+   grep -Fq -- "sudo systemctl show 'alpha-recurring.timer' --property=NextElapseUSecRealtime --property=NextElapseUSecMonotonic" "$SSH_CAPTURE" &&
+   grep -Fq -- "sudo systemctl show 'heimdall-boot-check.timer' --property=NextElapseUSecRealtime --property=NextElapseUSecMonotonic" "$SSH_CAPTURE"; then
+  pass "recurring timers, including Heimdall boot-check, require a concrete next trigger"
 else
-  fail "recurring timers must require a concrete next trigger in both scopes"
+  fail "recurring timers in both scopes, including Heimdall boot-check, must require a concrete next trigger"
 fi
-if grep -Fq -- "systemctl show 'heimdall-boot-check.timer'" "$SSH_CAPTURE"; then
-  fail "one-shot boot timer must not require a recurring next trigger"
+if grep -Fq -- "systemctl show 'alpha-once.timer'" "$SSH_CAPTURE"; then
+  fail "synthetic one-shot timer must not require a recurring next trigger"
 else
-  pass "one-shot boot timer may legitimately become active and elapsed"
+  pass "synthetic one-shot timer may legitimately become active and elapsed"
 fi
 # shellcheck disable=SC2016 # literal remote-shell fragment expected in capture
 if grep -Fq -- 'http://${target}:3033${path}' "$SSH_CAPTURE"; then
@@ -376,7 +385,7 @@ case "$final_call" in
     ;;
 esac
 case "$final_call" in
-  *"sudo systemctl daemon-reload"*"sudo systemctl enable 'heimdall-boot-check.timer'"*"sudo systemctl restart 'heimdall-boot-check.timer'"*"sudo systemctl is-active --quiet 'heimdall-boot-check.timer'"*"> .deployed-commit"*)
+  *"sudo systemctl daemon-reload"*"sudo systemctl enable 'heimdall-boot-check.timer'"*"sudo systemctl restart 'heimdall-boot-check.timer'"*"sudo systemctl is-active --quiet 'heimdall-boot-check.timer'"*"sudo systemctl show 'heimdall-boot-check.timer'"*"> .deployed-commit"*)
     pass "system timer reload, enable, restart, acceptance, and marker ordering is strict"
     ;;
   *)

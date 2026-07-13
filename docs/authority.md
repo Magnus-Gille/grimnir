@@ -48,8 +48,8 @@
 
 8. **Timers are controller state, not just unit files.** After daemon reload, deploys enable and
    restart every declared timer. Timers default to recurring and must expose a concrete next trigger
-   before acceptance. A timer with a legitimately single-fire schedule such as `OnBootSec` must be
-   declared with `timer_semantics: "one-shot"` in `services.json`.
+   before acceptance. A timer whose only trigger is legitimately single-fire, such as a lone
+   `OnBootSec`, must be declared with `timer_semantics: "one-shot"` in `services.json`.
 
 ## Validation
 

@@ -391,7 +391,7 @@ assert_eq "real services.json: hugin structured units include appended timer" \
   "$(deploy_field "$REPO_REGISTRY" hugin systemd_units)"
 
 assert_eq "real services.json: Heimdall deploy refreshes boot-check timer companion" \
-  '[{"name":"heimdall","type":"service"},{"name":"heimdall-collect","type":"timer"},{"name":"heimdall-maintain","type":"timer"},{"name":"heimdall-boot-check","type":"timer","timer_semantics":"one-shot"}]' \
+  '[{"name":"heimdall","type":"service"},{"name":"heimdall-collect","type":"timer"},{"name":"heimdall-maintain","type":"timer"},{"name":"heimdall-boot-check","type":"timer"}]' \
   "$(deploy_field "$REPO_REGISTRY" heimdall systemd_units)"
 assert_eq "real services.json: Heimdall deploy carries its health port" \
   "3033" "$(deploy_field "$REPO_REGISTRY" heimdall port)"

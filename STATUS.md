@@ -14,19 +14,22 @@ marker; the operator invalidated that live Heimdall marker immediately before th
   so installed unit-file schedule changes are loaded even when the timer was already active.
 - Recurring timers must be active and expose a concrete next realtime or monotonic trigger before the
   deployment marker can be written. An active-but-elapsed recurring timer with only `infinity` fails.
-- Registry timer metadata may mark legitimate one-shot shapes. Heimdall's `OnBootSec=90` boot check
-  is explicitly `one-shot`, so it is restarted but is not required to retain a next trigger after it
-  fires; undeclared semantics default to `recurring` for fail-closed acceptance.
+- Heimdall's boot check is recurring: `OnBootSec=90` supplies the initial post-boot trigger and
+  `OnUnitInactiveSec=5m` schedules alert-lifecycle reconciliation five minutes after each run becomes
+  inactive. It therefore uses the fail-closed recurring default and must expose its next trigger.
+- Registry timer metadata may still mark genuinely single-fire unit shapes as `one-shot`; focused
+  coverage uses a synthetic fixture to keep that exception separate from Heimdall.
 - Focused regressions cover both scopes, daemon-reload → enable → restart → acceptance → marker
   ordering, active-elapsed recurring rejection, one-shot handling, and registry validation.
 
 ### Verification / handoff
 
-- `make test` passes all 244 assertions. Full `bash -n`, ShellCheck, and `git diff --check` pass.
+- `make test` passes all 245 assertions. Full `bash -n`, ShellCheck, and `git diff --check` pass.
 - No push, PR, merge, deployment, live marker write, Munin mutation, or Orin access was performed.
 - After review/merge, deploy Grimnir first, then deploy Heimdall from a clean current worktree. The
-  verified Heimdall deployment must restart `heimdall-boot-check.timer`, run its one-shot check, pass
-  service/timer/HTTP gates, and only then recreate the currently missing acceptance marker.
+  verified Heimdall deployment must restart `heimdall-boot-check.timer`, confirm its next five-minute
+  reconciliation trigger, pass service/timer/HTTP gates, and only then recreate the currently missing
+  acceptance marker.
 - Rollback is a revert of this focused commit followed by a Grimnir deploy. If the Heimdall deploy
   fails, leave it markerless and selectively redeploy the prior accepted Heimdall SHA captured by
   the deploy log; do not manually fabricate a marker.
