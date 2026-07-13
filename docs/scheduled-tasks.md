@@ -40,6 +40,7 @@ All scheduled tasks run on Pi 1 (huginmunin) via systemd timers, except where no
 | Field | Value |
 |-------|-------|
 | **Schedule** | Once, 90 seconds after boot |
+| **Registry semantics** | `one-shot` — restarted on deploy; no recurring next trigger required after firing |
 | **Unit** | `heimdall-boot-check.timer` / `heimdall-boot-check.service` |
 | **Repo** | `heimdall` |
 | **Purpose** | Probe required services after network and tailnet startup settle |

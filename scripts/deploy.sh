@@ -144,7 +144,8 @@ unit_rows() {
         process.stdout.write([
           u.name,
           u.type || "service",
-          u.scope || "system"
+          u.scope || "system",
+          u.type === "timer" ? (u.timer_semantics || "recurring") : ""
         ].join("|") + "\n");
       });
     '
@@ -339,13 +340,15 @@ deploy_service() {
   fi # end rsync-mode block (deploy_mode != git-pull)
 
   local cmd="cd ${q_deploy_path} && "
-  local rows unit_name unit_kind unit_actual_scope unit_file companion_file
+  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file
+  local timer_entry timer_name timer_semantics timer_next_awk
   local q_unit_src q_unit_root q_user_dest q_system_dest q_unit_label
   local user_needs_reload=false system_needs_reload=false
   local user_services=() system_services=() user_timers=() system_timers=()
 
+  timer_next_awk=$(recurring_timer_next_check_awk)
   rows="$(unit_rows "$units_json" "$name" "$unit_type" "$unit_scope")"
-  while IFS='|' read -r unit_name unit_kind unit_actual_scope; do
+  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics; do
     [[ -n "$unit_name" ]] || continue
     unit_file="${unit_name}.${unit_kind}"
     q_unit_src=$(posix_shell_quote "systemd/${unit_file}")
@@ -368,7 +371,7 @@ deploy_service() {
         q_user_dest=$(posix_shell_quote ".config/systemd/user/${companion_file}")
         cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
         cmd+="if [ -n \"\$companion_src\" ]; then install -D -m644 \"\$companion_src\" \"\$HOME\"/${q_user_dest}; fi && "
-        user_timers+=("$unit_name")
+        user_timers+=("${unit_name}|${unit_timer_semantics}")
       fi
     else
       cmd+="unit_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
@@ -384,7 +387,7 @@ deploy_service() {
         q_system_dest=$(posix_shell_quote "/etc/systemd/system/${companion_file}")
         cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
         cmd+="if [ -n \"\$companion_src\" ]; then sudo install -D -m644 \"\$companion_src\" ${q_system_dest}; fi && "
-        system_timers+=("$unit_name")
+        system_timers+=("${unit_name}|${unit_timer_semantics}")
       fi
     fi
   done <<< "$rows"
@@ -404,11 +407,15 @@ deploy_service() {
     cmd+="{ systemctl --user disable $(posix_shell_quote "${unit_name}.service") 2>/dev/null || true; } && "
     cmd+="sudo systemctl restart $(posix_shell_quote "${unit_name}.service") && "
   done
-  for unit_name in ${user_timers[@]+"${user_timers[@]}"}; do
-    cmd+="systemctl --user enable --now $(posix_shell_quote "${unit_name}.timer") && "
+  for timer_entry in ${user_timers[@]+"${user_timers[@]}"}; do
+    IFS='|' read -r timer_name timer_semantics <<< "$timer_entry"
+    cmd+="systemctl --user enable $(posix_shell_quote "${timer_name}.timer") && "
+    cmd+="systemctl --user restart $(posix_shell_quote "${timer_name}.timer") && "
   done
-  for unit_name in ${system_timers[@]+"${system_timers[@]}"}; do
-    cmd+="sudo systemctl enable --now $(posix_shell_quote "${unit_name}.timer") && "
+  for timer_entry in ${system_timers[@]+"${system_timers[@]}"}; do
+    IFS='|' read -r timer_name timer_semantics <<< "$timer_entry"
+    cmd+="sudo systemctl enable $(posix_shell_quote "${timer_name}.timer") && "
+    cmd+="sudo systemctl restart $(posix_shell_quote "${timer_name}.timer") && "
   done
   # A successful restart/enable command is only an accepted deployment when
   # every declared unit remains active and any declared HTTP health endpoint
@@ -420,11 +427,19 @@ deploy_service() {
   for unit_name in ${system_services[@]+"${system_services[@]}"}; do
     cmd+="sudo systemctl is-active --quiet $(posix_shell_quote "${unit_name}.service") && "
   done
-  for unit_name in ${user_timers[@]+"${user_timers[@]}"}; do
-    cmd+="systemctl --user is-active --quiet $(posix_shell_quote "${unit_name}.timer") && "
+  for timer_entry in ${user_timers[@]+"${user_timers[@]}"}; do
+    IFS='|' read -r timer_name timer_semantics <<< "$timer_entry"
+    cmd+="systemctl --user is-active --quiet $(posix_shell_quote "${timer_name}.timer") && "
+    if [[ "$timer_semantics" == "recurring" ]]; then
+      cmd+="systemctl --user show $(posix_shell_quote "${timer_name}.timer") --property=NextElapseUSecRealtime --property=NextElapseUSecMonotonic | awk -F= $(posix_shell_quote "$timer_next_awk") && "
+    fi
   done
-  for unit_name in ${system_timers[@]+"${system_timers[@]}"}; do
-    cmd+="sudo systemctl is-active --quiet $(posix_shell_quote "${unit_name}.timer") && "
+  for timer_entry in ${system_timers[@]+"${system_timers[@]}"}; do
+    IFS='|' read -r timer_name timer_semantics <<< "$timer_entry"
+    cmd+="sudo systemctl is-active --quiet $(posix_shell_quote "${timer_name}.timer") && "
+    if [[ "$timer_semantics" == "recurring" ]]; then
+      cmd+="sudo systemctl show $(posix_shell_quote "${timer_name}.timer") --property=NextElapseUSecRealtime --property=NextElapseUSecMonotonic | awk -F= $(posix_shell_quote "$timer_next_awk") && "
+    fi
   done
   if [[ -n "$health_port" && "$health_port" != "null" ]]; then
     cmd+="{ health_ok=false; for attempt in 1 2 3 4 5; do "

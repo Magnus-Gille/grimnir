@@ -52,6 +52,7 @@ if (!Array.isArray(data.components)) {
 
 var VALID_UNIT_TYPES = ['service', 'timer'];
 var VALID_UNIT_SCOPES = ['system', 'user'];
+var VALID_TIMER_SEMANTICS = ['recurring', 'one-shot'];
 var VALID_UNIT_NAME = /^[A-Za-z0-9_.@-]+$/;
 var VALID_COMPONENT_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 var VALID_HOST = /^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/;
@@ -213,6 +214,14 @@ data.components.forEach(function (c, i) {
       }
       if (u.scope !== undefined && VALID_UNIT_SCOPES.indexOf(u.scope) === -1) {
         fail(uLabel + ': "scope" must be one of ' + VALID_UNIT_SCOPES.join('/') + ', got "' + u.scope + '"');
+      }
+      if (u.timer_semantics !== undefined) {
+        if (u.type !== 'timer') {
+          fail(uLabel + ': "timer_semantics" is only valid for timer units');
+        } else if (VALID_TIMER_SEMANTICS.indexOf(u.timer_semantics) === -1) {
+          fail(uLabel + ': "timer_semantics" must be one of ' + VALID_TIMER_SEMANTICS.join('/') +
+            ', got "' + u.timer_semantics + '"');
+        }
       }
     });
   }

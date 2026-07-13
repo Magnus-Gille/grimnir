@@ -9,7 +9,7 @@
 |-----------|---------------------|------------------------|
 | **Port assignments** | `services.json` | `generate-architecture.sh`, `deploy.sh`, `security-scan.sh`, `docs/architecture.md` |
 | **Hostnames / hosts** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
-| **Deploy paths, targets & systemd units** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
+| **Deploy paths, targets, systemd units & timer semantics** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
 | **Persistent/runtime paths and component-specific rsync exclusions** | `services.json` | `deploy.sh`, registry validation |
 | **Global rsync safety exclusions** (`.env`, `.git`, dependencies, tests, deploy marker) | `scripts/deploy.sh` | deploy persistence tests |
 | **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |
@@ -45,6 +45,11 @@
    prior valid SHA and removes the marker before the first rsync/git-pull tree mutation. Dependency,
    unit-refresh, restart, or health failure leaves the target markerless/unknown until a verified
    rollback or redeploy writes a new accepted SHA.
+
+8. **Timers are controller state, not just unit files.** After daemon reload, deploys enable and
+   restart every declared timer. Timers default to recurring and must expose a concrete next trigger
+   before acceptance. A timer with a legitimately single-fire schedule such as `OnBootSec` must be
+   declared with `timer_semantics: "one-shot"` in `services.json`.
 
 ## Validation
 
