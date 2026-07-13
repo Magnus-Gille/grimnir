@@ -77,7 +77,39 @@ printf '%s\n' rsync >> "$ORDER_CAPTURE"
 exit 0
 EOF
 
-chmod +x "$TMP_DIR/bin/ssh" "$TMP_DIR/bin/rsync"
+cat > "$TMP_DIR/bin/systemctl" << 'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+count=0
+[[ -f "$TIMER_SHOW_COUNT" ]] && count=$(cat "$TIMER_SHOW_COUNT")
+count=$((count + 1))
+printf '%s\n' "$count" > "$TIMER_SHOW_COUNT"
+
+case "${TIMER_SHOW_MODE:-}" in
+  transient)
+    if [[ "$count" -lt 3 ]]; then
+      printf 'NextElapseUSecRealtime=\nNextElapseUSecMonotonic=\n'
+    else
+      printf 'NextElapseUSecRealtime=\nNextElapseUSecMonotonic=123456789\n'
+    fi
+    ;;
+  permanent)
+    printf 'NextElapseUSecRealtime=\nNextElapseUSecMonotonic=infinity\n'
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+EOF
+
+cat > "$TMP_DIR/bin/sleep" << 'EOF'
+#!/usr/bin/env bash
+# Keep the production 30 x 1-second bound intact while making failure tests fast.
+[[ "$#" -eq 1 && "$1" == "1" ]]
+EOF
+
+chmod +x "$TMP_DIR/bin/ssh" "$TMP_DIR/bin/rsync" "$TMP_DIR/bin/systemctl" "$TMP_DIR/bin/sleep"
 
 SSH_CAPTURE="$TMP_DIR/ssh.calls"
 RSYNC_CAPTURE="$TMP_DIR/rsync.args"
@@ -140,6 +172,35 @@ assert_recurring_timer_schedule "recurring timer accepts a monotonic next trigge
   $'NextElapseUSecRealtime=infinity\nNextElapseUSecMonotonic=123456789'
 assert_recurring_timer_schedule "active elapsed timer with no next trigger is rejected" 1 \
   $'NextElapseUSecRealtime=infinity\nNextElapseUSecMonotonic=infinity'
+
+assert_recurring_timer_poll() {
+  local desc=$1 mode=$2 expected_rc=$3 expected_attempts=$4
+  local command rc=0 attempts=0
+  TIMER_SHOW_COUNT="$TMP_DIR/timer-show.count"
+  export TIMER_SHOW_COUNT
+  rm -f "$TIMER_SHOW_COUNT"
+  command=$(prepare_recurring_timer_next_check_command user "alpha-recurring.timer")
+  TIMER_SHOW_MODE="$mode" PATH="$TMP_DIR/bin:$PATH" sh -c "$command" \
+    >"$TMP_DIR/timer-poll.out" 2>"$TMP_DIR/timer-poll.err" || rc=$?
+  [[ -f "$TIMER_SHOW_COUNT" ]] && attempts=$(cat "$TIMER_SHOW_COUNT")
+  if [[ "$rc" == "$expected_rc" && "$attempts" == "$expected_attempts" ]]; then
+    pass "$desc"
+  else
+    fail "$desc: expected rc/attempts ${expected_rc}/${expected_attempts}, got ${rc}/${attempts}"
+  fi
+}
+
+assert_recurring_timer_poll \
+  "recurring timer poll tolerates a transient empty next trigger" transient 0 3
+assert_recurring_timer_poll \
+  "recurring timer poll rejects permanently empty/infinity next triggers" permanent 1 30
+if grep -Fq -- \
+  "ERROR: recurring timer has no concrete next trigger: alpha-recurring.timer" \
+  "$TMP_DIR/timer-poll.err"; then
+  pass "recurring timer poll reports the failing timer"
+else
+  fail "recurring timer poll must report the failing timer"
+fi
 
 assert_rejected_before_remote() {
   local desc=$1 fixture=$2
@@ -355,6 +416,13 @@ if grep -Fq -- "systemctl --user show 'alpha-user-recurring.timer' --property=Ne
 else
   fail "recurring timers in both scopes, including Heimdall boot-check, must require a concrete next trigger"
 fi
+# shellcheck disable=SC2016 # literal remote-shell fragments expected in capture
+if grep -Fq -- 'timer_attempt=1; while [ "$timer_attempt" -le 30 ]' "$SSH_CAPTURE" &&
+   grep -Fq -- 'sleep 1; timer_attempt=$((timer_attempt + 1))' "$SSH_CAPTURE"; then
+  pass "recurring timer acceptance polling is bounded to 30 one-second attempts"
+else
+  fail "recurring timer acceptance polling must be bounded to 30 one-second attempts"
+fi
 if grep -Fq -- "systemctl show 'alpha-once.timer'" "$SSH_CAPTURE"; then
   fail "synthetic one-shot timer must not require a recurring next trigger"
 else
@@ -377,7 +445,7 @@ case "$final_call" in
     ;;
 esac
 case "$final_call" in
-  *"systemctl --user daemon-reload"*"systemctl --user enable 'alpha-user-recurring.timer'"*"systemctl --user restart 'alpha-user-recurring.timer'"*"systemctl --user is-active --quiet 'alpha-user-recurring.timer'"*"> .deployed-commit"*)
+  *"systemctl --user daemon-reload"*"systemctl --user enable 'alpha-user-recurring.timer'"*"systemctl --user restart 'alpha-user-recurring.timer'"*"systemctl --user is-active --quiet 'alpha-user-recurring.timer'"*"systemctl --user show 'alpha-user-recurring.timer'"*"ERROR: recurring timer has no concrete next trigger: %s"*"> .deployed-commit"*)
     pass "user timer reload, enable, restart, acceptance, and marker ordering is strict"
     ;;
   *)
@@ -385,7 +453,7 @@ case "$final_call" in
     ;;
 esac
 case "$final_call" in
-  *"sudo systemctl daemon-reload"*"sudo systemctl enable 'heimdall-boot-check.timer'"*"sudo systemctl restart 'heimdall-boot-check.timer'"*"sudo systemctl is-active --quiet 'heimdall-boot-check.timer'"*"sudo systemctl show 'heimdall-boot-check.timer'"*"> .deployed-commit"*)
+  *"sudo systemctl daemon-reload"*"sudo systemctl enable 'heimdall-boot-check.timer'"*"sudo systemctl restart 'heimdall-boot-check.timer'"*"sudo systemctl is-active --quiet 'heimdall-boot-check.timer'"*"sudo systemctl show 'heimdall-boot-check.timer'"*"ERROR: recurring timer has no concrete next trigger: %s"*"> .deployed-commit"*)
     pass "system timer reload, enable, restart, acceptance, and marker ordering is strict"
     ;;
   *)

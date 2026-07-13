@@ -341,12 +341,11 @@ deploy_service() {
 
   local cmd="cd ${q_deploy_path} && "
   local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file
-  local timer_entry timer_name timer_semantics timer_next_awk
+  local timer_entry timer_name timer_semantics timer_next_check
   local q_unit_src q_unit_root q_user_dest q_system_dest q_unit_label
   local user_needs_reload=false system_needs_reload=false
   local user_services=() system_services=() user_timers=() system_timers=()
 
-  timer_next_awk=$(recurring_timer_next_check_awk)
   rows="$(unit_rows "$units_json" "$name" "$unit_type" "$unit_scope")"
   while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics; do
     [[ -n "$unit_name" ]] || continue
@@ -431,14 +430,16 @@ deploy_service() {
     IFS='|' read -r timer_name timer_semantics <<< "$timer_entry"
     cmd+="systemctl --user is-active --quiet $(posix_shell_quote "${timer_name}.timer") && "
     if [[ "$timer_semantics" == "recurring" ]]; then
-      cmd+="systemctl --user show $(posix_shell_quote "${timer_name}.timer") --property=NextElapseUSecRealtime --property=NextElapseUSecMonotonic | awk -F= $(posix_shell_quote "$timer_next_awk") && "
+      timer_next_check=$(prepare_recurring_timer_next_check_command user "${timer_name}.timer")
+      cmd+="${timer_next_check} && "
     fi
   done
   for timer_entry in ${system_timers[@]+"${system_timers[@]}"}; do
     IFS='|' read -r timer_name timer_semantics <<< "$timer_entry"
     cmd+="sudo systemctl is-active --quiet $(posix_shell_quote "${timer_name}.timer") && "
     if [[ "$timer_semantics" == "recurring" ]]; then
-      cmd+="sudo systemctl show $(posix_shell_quote "${timer_name}.timer") --property=NextElapseUSecRealtime --property=NextElapseUSecMonotonic | awk -F= $(posix_shell_quote "$timer_next_awk") && "
+      timer_next_check=$(prepare_recurring_timer_next_check_command system "${timer_name}.timer")
+      cmd+="${timer_next_check} && "
     fi
   done
   if [[ -n "$health_port" && "$health_port" != "null" ]]; then
