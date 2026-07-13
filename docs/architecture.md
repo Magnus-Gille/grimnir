@@ -1,7 +1,7 @@
 # The Grimnir System — Architecture Guide
 
 > Internal reference document for the Grimnir personal AI infrastructure.
-> Last updated: 2026-06-29.
+> Last updated: 2026-07-13.
 
 ---
 
@@ -21,7 +21,8 @@ Every conversation with Claude starts from zero. There is no memory between sess
 
 Three principles guide every decision:
 
-- **Sovereignty** — All data lives on Magnus's hardware. The Pis hold the database, the files, and the backups. Cloud AI services are stateless tools; they process but don't store.
+- **Sovereignty** — Authoritative data at rest lives on Magnus's hardware. Cloud AI services may
+  process prompts under their own retention terms, but are never storage authority for Grimnir.
 - **Privacy** — Writes to memory are scanned for secrets before storage. Auth is required at every layer. Sensitive documents get summaries in Munin but full text stays on the Pi.
 - **Simplicity** — Each service is a single-purpose Node.js/TypeScript application. No frameworks beyond Express/Fastify for HTTP. No ORMs. No Kubernetes. SQLite for storage. systemd for process management.
 
@@ -39,7 +40,7 @@ Three principles guide every decision:
 | **Verdandi** | Tamper-evident audit log | 3036 | Pi 1 | `verdandi` |
 | **Mimir** | Authenticated file server | 3031 | Pi 2 (NAS) | `mimir` |
 | **noxctl** | Accounting CLI + MCP | — | Laptop (global) | `fortnox-mcp` |
-| **Home-server gateway** | Local-inference gateway + micro-orchestrator | 8080 | BosGame M5 (`inference.gille.ai`, live) | `home-server-inference-evaluation` |
+| **Home-server gateway** | Local-inference gateway + micro-orchestrator | 8080 | BosGame M5 (`inference.gille.ai`, live) | `gille-inference` |
 
 ---
 
@@ -139,7 +140,8 @@ Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum c
 
 ### Network model
 
-- **Local services** bind to `127.0.0.1` — never exposed on the LAN directly.
+- **Local services** bind either to loopback or an explicitly selected tailnet address. Tailscale
+  reachability is not authentication; network services retain their own bearer/OAuth control.
 - **Cloudflare Tunnels** provide HTTPS ingress from the internet, with edge-layer authentication (CF Access).
 - **Tailscale** provides encrypted Pi-to-Pi and laptop-to-Pi communication for rsync, SSH, and backups.
 - **Public endpoints:** `munin-memory.gille.ai`, `heimdall.gille.ai`, `mimir.gille.ai`
@@ -730,7 +732,8 @@ All services follow the same deployment model:
 4. **Health endpoints** — long-running HTTP services expose `/health` for Heimdall monitoring; timer-only components are validated through systemd state and their Munin outputs.
 5. **Deploy modes differ by component** — most services deploy by rsync; `grimnir` uses `git pull --ff-only` because its canonical checkout is also the registry source.
 
-There is no CI/CD pipeline. Deploys are manual and intentional — appropriate for a single-operator system.
+GitHub Actions runs shellcheck and the repository regression suite on pull requests and `main`.
+Deployment remains manual and intentional; CI success never deploys a host.
 
 ### The debate/review process
 

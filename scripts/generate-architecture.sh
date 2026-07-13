@@ -33,6 +33,9 @@ REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 # shellcheck source=scripts/lib/systemd-status.sh
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/systemd-status.sh"
+# shellcheck source=scripts/lib/munin-rpc.sh
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/munin-rpc.sh"
 
 read -ra COMPONENTS <<< "$(REGISTRY_PATH="$REGISTRY" QUERY=components node --input-type=commonjs "$REGISTRY_JS")"
 
@@ -89,6 +92,28 @@ health_status_local() {
 health_status_remote() {
   local host=$1 port=$2 user=${SYSTEMD_USER:-magnus}
   ssh -o ConnectTimeout=5 -o BatchMode=yes "${user}@${host}" "port='$port'; last=000; for target in localhost 127.0.0.1 \$(hostname -I 2>/dev/null || true); do [ -n \"\$target\" ] || continue; case \"\$target\" in *:*) continue ;; esac; for path in /health /api/health; do code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 \"http://\${target}:\${port}\${path}\" 2>/dev/null || true); if [ \"\$code\" = 200 ]; then echo 200; exit 0; fi; [ -n \"\$code\" ] && last=\"\$code\"; done; done; echo \"\$last\"" 2>/dev/null || echo '000'
+}
+
+remote_git_checkout_freshness() {
+  local host=$1 checkout=$2 branch=${3:-main} user=${SYSTEMD_USER:-magnus}
+  local q_checkout q_ref command output local_sha remote_sha
+  q_checkout="$(posix_shell_quote "$checkout")"
+  q_ref="$(posix_shell_quote "refs/heads/${branch}")"
+  command="local_sha=\$(git -C ${q_checkout} rev-parse HEAD 2>/dev/null) || { printf '%s\\n' missing; exit 0; }; "
+  command+="remote_line=\$(git -C ${q_checkout} ls-remote --exit-code origin ${q_ref} 2>/dev/null) || { printf '%s\\n' unreachable; exit 0; }; "
+  # shellcheck disable=SC2016 # these variables expand on the remote host
+  command+='remote_sha=${remote_line%%[[:space:]]*}; printf '\''%s|%s\n'\'' "$local_sha" "$remote_sha"'
+  output="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "${user}@${host}" "$command" 2>/dev/null)" || {
+    echo "unreachable"
+    return 0
+  }
+  case "$output" in
+    missing|unreachable) echo "$output" ;;
+    *)
+      IFS='|' read -r local_sha remote_sha <<< "$output"
+      classify_registry_freshness "${local_sha:-}" "${remote_sha:-}" ok
+      ;;
+  esac
 }
 
 # ─── Validate mode ────────────────────────────────────────
@@ -205,23 +230,35 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
       repo_path="${v_deploy_path:-/home/magnus/repos/$v_repo}"
       if [[ "$IS_LOCAL" == "true" ]]; then
         if [[ "$v_deploy_mode" == "git-pull" ]]; then
-          if [[ -d "$repo_path/.git" ]]; then
-            behind="$(cd "$repo_path" && git fetch --dry-run 2>&1 | grep -c '\.\.') " || behind="0"
-            behind="${behind// /}"
-            if [[ "$behind" -gt 0 ]]; then
-              STATUS_LINE+=" repo:behind-origin"
-              COMPONENT_OK=false
-            else
-              STATUS_LINE+=" repo:current"
-            fi
-          else
+          if ! git -C "$repo_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
             STATUS_LINE+=" repo:not-found"
             COMPONENT_OK=false
+          else
+            repo_freshness="$(check_registry_freshness "$repo_path" main)"
+            case "$repo_freshness" in
+              current) STATUS_LINE+=" repo:current" ;;
+              mismatch)
+                STATUS_LINE+=" repo:remote-mismatch"
+                COMPONENT_OK=false
+                ;;
+              *)
+                STATUS_LINE+=" repo:origin-unreachable"
+                COMPONENT_WARN=true
+                ;;
+            esac
           fi
         else
-          if [[ -f "$repo_path/.deployed-commit" ]]; then
-            marker="$(head -c 12 "$repo_path/.deployed-commit" 2>/dev/null || true)"
-            STATUS_LINE+=" deploy:stamped:${marker:-unknown}"
+          if [[ -L "$repo_path/.deployed-commit" ]]; then
+            STATUS_LINE+=" deploy:marker-symlink"
+            COMPONENT_OK=false
+          elif [[ -f "$repo_path/.deployed-commit" ]]; then
+            marker="$(tr -d '\r\n' < "$repo_path/.deployed-commit" 2>/dev/null || true)"
+            if [[ "$(classify_deploy_marker "$marker" regular)" == "valid" ]]; then
+              STATUS_LINE+=" deploy:stamped:${marker:0:12}"
+            else
+              STATUS_LINE+=" deploy:marker-invalid"
+              COMPONENT_OK=false
+            fi
           else
             STATUS_LINE+=" deploy:marker-missing"
             COMPONENT_OK=false
@@ -229,30 +266,41 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
         fi
       else
         if [[ "$v_deploy_mode" == "git-pull" ]]; then
-          remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "if [ -d '$repo_path/.git' ]; then cd '$repo_path' && { git fetch --dry-run 2>&1 | grep -c '\.\.' || true; }; else echo missing; fi" 2>/dev/null || echo '-1')"
-          remote_check="${remote_check// /}"
-          if [[ "$remote_check" == "-1" ]]; then
-            STATUS_LINE+=" repo:ssh-failed"
-            COMPONENT_OK=false
-          elif [[ "$remote_check" == "missing" ]]; then
-            STATUS_LINE+=" repo:not-found"
-            COMPONENT_OK=false
-          elif [[ "$remote_check" -gt 0 ]]; then
-            STATUS_LINE+=" repo:behind-origin"
-            COMPONENT_OK=false
-          else
-            STATUS_LINE+=" repo:current"
-          fi
+          remote_check="$(remote_git_checkout_freshness "$v_host" "$repo_path" main)"
+          case "$remote_check" in
+            current) STATUS_LINE+=" repo:current" ;;
+            mismatch)
+              STATUS_LINE+=" repo:remote-mismatch"
+              COMPONENT_OK=false
+              ;;
+            missing)
+              STATUS_LINE+=" repo:not-found"
+              COMPONENT_OK=false
+              ;;
+            *)
+              STATUS_LINE+=" repo:origin-unreachable"
+              COMPONENT_WARN=true
+              ;;
+          esac
         else
-          remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "if [ -f '$repo_path/.deployed-commit' ]; then printf 'stamped:%s' \"\$(head -c 12 '$repo_path/.deployed-commit')\"; else echo marker-missing; fi" 2>/dev/null || echo 'ssh-failed')"
+          q_marker="$(posix_shell_quote "$repo_path/.deployed-commit")"
+          remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "if [ -L ${q_marker} ]; then echo marker-symlink; elif [ -f ${q_marker} ]; then printf 'stamped:%s' \"\$(tr -d '\\r\\n' < ${q_marker})\"; else echo marker-missing; fi" 2>/dev/null || echo 'ssh-failed')"
           if [[ "$remote_check" == "ssh-failed" ]]; then
             STATUS_LINE+=" deploy:ssh-failed"
             COMPONENT_OK=false
           elif [[ "$remote_check" == "marker-missing" ]]; then
             STATUS_LINE+=" deploy:marker-missing"
             COMPONENT_OK=false
+          elif [[ "$remote_check" == "marker-symlink" ]]; then
+            STATUS_LINE+=" deploy:marker-symlink"
+            COMPONENT_OK=false
+          elif [[ "$remote_check" == stamped:* ]] &&
+               [[ "$(classify_deploy_marker "${remote_check#stamped:}" regular)" == "valid" ]]; then
+            marker="${remote_check#stamped:}"
+            STATUS_LINE+=" deploy:stamped:${marker:0:12}"
           else
-            STATUS_LINE+=" deploy:$remote_check"
+            STATUS_LINE+=" deploy:marker-invalid"
+            COMPONENT_OK=false
           fi
         fi
       fi
@@ -281,14 +329,23 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   REGISTRY_DEFAULT_BRANCH="${GRIMNIR_DEFAULT_BRANCH:-main}"
   checkout_verdict="$(check_registry_checkout "$REGISTRY_CHECKOUT" "$REGISTRY_DEFAULT_BRANCH")"
   checkout_detail="$(registry_checkout_detail "$checkout_verdict" "$REGISTRY_DEFAULT_BRANCH")"
+  checkout_freshness="$(check_registry_freshness "$REGISTRY_CHECKOUT" "$REGISTRY_DEFAULT_BRANCH")"
+  freshness_detail="$(registry_freshness_detail "$checkout_freshness")"
   if [[ "$(registry_checkout_is_alert "$checkout_verdict")" == "yes" ]]; then
     RESULTS+="❌ registry-checkout: ${checkout_detail} ($REGISTRY_CHECKOUT)\n"
     FAIL=$((FAIL + 1))
     # Best-effort Telegram alert (never fails this script — notify.sh is safe
     # under set -euo pipefail). This is the poisoned-registry early warning.
     notify_telegram "⚠️ grimnir registry checkout poisoned: ${checkout_detail} at ${REGISTRY_CHECKOUT} on $(hostname). Registry consumers may read a stale/wrong services.json until reconciled to ${REGISTRY_DEFAULT_BRANCH}." || true
+  elif [[ "$checkout_freshness" == "mismatch" ]]; then
+    RESULTS+="❌ registry-checkout: ${checkout_detail}, ${freshness_detail} ($REGISTRY_CHECKOUT)\n"
+    FAIL=$((FAIL + 1))
+    notify_telegram "⚠️ grimnir registry checkout differs from live origin/main at ${REGISTRY_CHECKOUT} on $(hostname). Refusing to re-stamp the deployment marker." || true
+  elif [[ "$checkout_freshness" == "unreachable" ]]; then
+    RESULTS+="⚠️  registry-checkout: ${checkout_detail}, ${freshness_detail} ($REGISTRY_CHECKOUT)\n"
+    WARN=$((WARN + 1))
   else
-    RESULTS+="✅ registry-checkout: ${checkout_detail} ($REGISTRY_CHECKOUT)\n"
+    RESULTS+="✅ registry-checkout: ${checkout_detail}, ${freshness_detail} ($REGISTRY_CHECKOUT)\n"
     PASS=$((PASS + 1))
     # Self-heal the git-pull deploy marker (#33). Sessions pull this canonical
     # checkout forward OUTSIDE a deploy, leaving .deployed-commit — what Heimdall's
@@ -299,7 +356,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     # refused (e.g. this service's read-only sandbox — see ReadWritePaths in
     # grimnir-validate.service); surface it instead of letting the drift silently
     # persist.
-    if ! restamp_deploy_marker "$REGISTRY_CHECKOUT" "$checkout_verdict"; then
+    if ! restamp_deploy_marker "$REGISTRY_CHECKOUT" "$checkout_verdict" "$checkout_freshness"; then
       RESULTS+="⚠️  deploy-marker: .deployed-commit not safely writable (read-only mount or symlink) — Heimdall drift may false-flag\n"
       WARN=$((WARN + 1))
     fi
@@ -312,16 +369,11 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   echo ""
 
   # Write to Munin if token available
+  VALIDATION_PERSISTED=false
   if [[ -n "$MUNIN_TOKEN" ]]; then
     # Munin helpers (inline — validation mode is self-contained)
     _munin_call() {
-      curl -s --max-time 10 \
-        -X POST http://localhost:3030/mcp \
-        -H "Content-Type: application/json" \
-        -H "Accept: application/json, text/event-stream" \
-        -H "Authorization: Bearer $MUNIN_TOKEN" \
-        -d "$1" 2>/dev/null | \
-        sed -n 's/^data: //p' | head -1 || echo "{}"
+      munin_http_jsonrpc "$MUNIN_TOKEN" "$1"
     }
 
     validation_content="## Registry Validation — $TIMESTAMP
@@ -344,7 +396,11 @@ $(echo -e "$RESULTS")"
         }
       }))
     ')"
-    _munin_call "$write_payload" > /dev/null 2>&1 || echo "⚠ Failed to write validation results to Munin"
+    if _munin_call "$write_payload" > /dev/null 2>&1; then
+      VALIDATION_PERSISTED=true
+    else
+      echo "⚠ Failed to write validation results to Munin"
+    fi
 
     # Also log the event
     log_payload="$(CONTENT_VAL="Registry validation: $PASS ok, $FAIL issues at $TIMESTAMP" node --input-type=commonjs -e '
@@ -360,13 +416,23 @@ $(echo -e "$RESULTS")"
         }
       }))
     ')"
-    _munin_call "$log_payload" > /dev/null 2>&1 || true
+    if ! _munin_call "$log_payload" > /dev/null 2>&1; then
+      echo "⚠ Failed to append validation event to Munin"
+      VALIDATION_PERSISTED=false
+    fi
 
-    echo "📡 Results written to Munin (validation/registry/latest)"
+    if [[ "$VALIDATION_PERSISTED" == "true" ]]; then
+      echo "📡 Results written to Munin (validation/registry/latest)"
+    fi
   else
     echo "⚠ No Munin token — results printed to stdout only"
   fi
 
+  # A systemd-successful run means both the live checks and their durable
+  # operator-facing record succeeded. Findings remain in stdout/Munin first.
+  if [[ "$FAIL" -gt 0 ]] || [[ "$VALIDATION_PERSISTED" != "true" ]]; then
+    exit 1
+  fi
   exit 0
 fi
 
@@ -403,13 +469,7 @@ munin_call() {
     echo "(Munin token not available)"
     return 1
   fi
-  curl -s --max-time 10 \
-    -X POST http://localhost:3030/mcp \
-    -H "Content-Type: application/json" \
-    -H "Accept: application/json, text/event-stream" \
-    -H "Authorization: Bearer $MUNIN_TOKEN" \
-    -d "$payload" 2>/dev/null | \
-    sed -n 's/^data: //p' | head -1 || echo "{}"
+  munin_http_jsonrpc "$MUNIN_TOKEN" "$payload"
 }
 
 munin_tool_call() {

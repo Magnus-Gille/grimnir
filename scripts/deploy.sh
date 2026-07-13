@@ -160,12 +160,13 @@ rsync_exclude_rows() {
 
 deploy_service() {
   local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system} deploy_mode=${8:-rsync} units_json=${9:-[]}
-  local rsync_excludes_json=${10:-[]}
+  local rsync_excludes_json=${10:-[]} health_port=${11:-}
   local local_path
   local remote_host
   local remote
   local branch
   local commit
+  local commit_full
   local dirty_state
   local q_deploy_path
 
@@ -181,6 +182,12 @@ deploy_service() {
     return
   fi
 
+  if ! git -C "$local_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "ERROR: Local source is not a git worktree: $local_path" >&2
+    results+=("${RED}✗${NC} ${name}")
+    fail=$((fail + 1))
+    return
+  fi
   branch=$(git -C "$local_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
   commit=$(git -C "$local_path" rev-parse --short HEAD 2>/dev/null || echo "unknown")
   commit_full=$(git -C "$local_path" rev-parse HEAD 2>/dev/null || echo "$commit")
@@ -190,11 +197,12 @@ deploy_service() {
     echo "Source: origin/main (deploy_mode=git-pull — local tree not shipped; local: ${branch} @ ${commit})"
   else
     if [[ -n "$(git -C "$local_path" status --porcelain 2>/dev/null)" ]]; then
-      dirty_state="dirty"
-      echo -e "${YELLOW}WARN${NC} Deploying local working tree with uncommitted changes"
-    else
-      dirty_state="clean"
+      echo "ERROR: Refusing rsync deploy from a dirty working tree: $local_path" >&2
+      results+=("${RED}✗${NC} ${name}")
+      fail=$((fail + 1))
+      return
     fi
+    dirty_state="clean"
     echo "Source: ${local_path} (${branch} @ ${commit}, ${dirty_state})"
   fi
 
@@ -246,8 +254,10 @@ deploy_service() {
   else
 
   echo "==> Syncing to ${remote}:${deploy_path}..."
+  local prepare_destination_cmd
+  prepare_destination_cmd=$(prepare_rsync_destination_command "$deploy_path")
   # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
-  if ! ssh "$remote" "mkdir -p ${q_deploy_path}"; then
+  if ! ssh "$remote" "$prepare_destination_cmd"; then
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
@@ -274,7 +284,7 @@ deploy_service() {
 
   echo "==> Installing production dependencies on ${remote_host}..."
   # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
-  if ! ssh "$remote" "cd ${q_deploy_path} && if [ -f package.json ]; then npm install --omit=dev; fi"; then
+  if ! ssh "$remote" "cd ${q_deploy_path} && if [ -f package.json ]; then if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi; fi"; then
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
@@ -355,10 +365,33 @@ deploy_service() {
   for unit_name in ${system_timers[@]+"${system_timers[@]}"}; do
     cmd+="sudo systemctl enable --now $(posix_shell_quote "${unit_name}.timer") && "
   done
+  # A successful restart/enable command is only an accepted deployment when
+  # every declared unit remains active and any declared HTTP health endpoint
+  # answers successfully. Keep the old marker until these gates pass.
+  for unit_name in ${user_services[@]+"${user_services[@]}"}; do
+    cmd+="systemctl --user is-active --quiet $(posix_shell_quote "${unit_name}.service") && "
+  done
+  for unit_name in ${system_services[@]+"${system_services[@]}"}; do
+    cmd+="sudo systemctl is-active --quiet $(posix_shell_quote "${unit_name}.service") && "
+  done
+  for unit_name in ${user_timers[@]+"${user_timers[@]}"}; do
+    cmd+="systemctl --user is-active --quiet $(posix_shell_quote "${unit_name}.timer") && "
+  done
+  for unit_name in ${system_timers[@]+"${system_timers[@]}"}; do
+    cmd+="sudo systemctl is-active --quiet $(posix_shell_quote "${unit_name}.timer") && "
+  done
+  if [[ -n "$health_port" && "$health_port" != "null" ]]; then
+    cmd+="{ health_ok=false; for attempt in 1 2 3 4 5; do "
+    cmd+="for target in localhost 127.0.0.1 \$(hostname -I 2>/dev/null || true); do "
+    cmd+="[ -n \"\$target\" ] || continue; case \"\$target\" in *:*) continue ;; esac; "
+    cmd+="for path in /health /api/health; do if curl -fsS --max-time 3 \"http://\${target}:${health_port}\${path}\" >/dev/null 2>&1; then health_ok=true; break 2; fi; done; done; "
+    cmd+="[ \"\$health_ok\" = true ] && break; sleep 1; done; "
+    cmd+="[ \"\$health_ok\" = true ] || { printf 'ERROR: health check failed on port %s\\n' $(posix_shell_quote "$health_port") >&2; exit 1; }; } && "
+  fi
   # Stamp the deployed commit so Heimdall's drift detector has an authoritative
   # source (excluded from rsync above so --delete won't clobber it). Heimdall
   # reads <deploy_path>/.deployed-commit instead of trusting /health (often no
-  # commit) or the on-Pi .git (stale — rsync excludes it).
+  # commit) or an on-Pi .git (rsync deployments remove repository metadata).
   if [[ "$deploy_mode" == "git-pull" ]]; then
     # In git-pull mode the remote HEAD is the ground truth (origin/main was
     # just pulled) — stamp that, not the local checkout's commit.
@@ -402,6 +435,7 @@ for entry in "${SERVICES[@]}"; do
   deploy_mode=$(service_field "$entry" deploy_mode)
   units_json=$(service_field "$entry" systemd_units)
   rsync_excludes_json=$(service_field "$entry" rsync_excludes)
+  health_port=$(service_field "$entry" port)
 
   if [[ ${#requested[@]} -gt 0 ]]; then
     match=false
@@ -411,7 +445,7 @@ for entry in "${SERVICES[@]}"; do
     $match || continue
   fi
 
-  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}" "${rsync_excludes_json:-[]}"
+  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}" "${rsync_excludes_json:-[]}" "${health_port:-}"
 done
 
 # Summary

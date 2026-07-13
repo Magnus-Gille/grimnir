@@ -1,13 +1,11 @@
 # shellcheck shell=bash
 # registry-checkout.sh — integrity check for the canonical grimnir checkout.
 #
-# The grimnir checkout on huginmunin (default: ~/repos/grimnir) plays three
-# colliding roles today (issue #47): rsync deploy target, the git checkout that
-# every registry consumer reads services.json from, and — until hugin#139 lands
-# — a hugin task workspace. When a hugin task strands it on a feature branch, or
-# a deploy leaves the tree dirty, consumers silently read a poisoned registry.
-# Two such incidents landed in two weeks (#33, #44). These helpers make that
-# state observable and alert-worthy from the daily grimnir-validate run.
+# The grimnir checkout on huginmunin (default: ~/repos/grimnir) is the canonical
+# checkout every registry consumer reads. It is now separated from Hugin task
+# workspaces and advances via git-pull deploys, but a stray local commit, dirty
+# tree, branch switch, or unreachable origin can still make its services.json
+# untrustworthy. These helpers keep every one of those states explicit.
 #
 # classify_registry_checkout <git_ok> <branch> <default_branch> <dirty>
 #   Pure verdict function (no git, no filesystem, no network). Inputs:
@@ -35,6 +33,13 @@
 #   network) and returns the classifier verdict. Never aborts the caller: a
 #   missing path, a non-git directory, or an empty argument all resolve to
 #   "alert-no-git" rather than a set -e abort. default_branch defaults to "main".
+#
+# check_registry_freshness <checkout_path> [default_branch]
+#   Compares the exact local HEAD to the exact SHA returned by `git ls-remote`
+#   for origin/<default_branch>, without mutating local refs. Echoes:
+#     current      exact SHA match
+#     mismatch     local HEAD differs (ahead, behind, or diverged)
+#     unreachable  either SHA cannot be proved (including network/auth failure)
 #
 # Sourced by both scripts/generate-architecture.sh (--validate mode) and the
 # registry-checkout unit test, so the logic has a single definition. bash 3.2+.
@@ -105,24 +110,81 @@ check_registry_checkout() {
   classify_registry_checkout "$git_ok" "$branch" "$default_branch" "$dirty"
 }
 
+classify_registry_freshness() {
+  local local_sha="${1:-}" remote_sha="${2:-}" lookup_status="${3:-unreachable}"
+  if [[ "$lookup_status" != "ok" ]] ||
+     [[ ! "$local_sha" =~ ^[0-9a-fA-F]{40,64}$ ]] ||
+     [[ ! "$remote_sha" =~ ^[0-9a-fA-F]{40,64}$ ]]; then
+    echo "unreachable"
+  elif [[ "$local_sha" == "$remote_sha" ]]; then
+    echo "current"
+  else
+    echo "mismatch"
+  fi
+}
+
+registry_freshness_detail() {
+  case "${1:-unreachable}" in
+    current)     echo "HEAD exactly matches origin" ;;
+    mismatch)    echo "HEAD differs from live origin (ahead, behind, or diverged)" ;;
+    unreachable) echo "live origin SHA could not be verified" ;;
+    *)           echo "unknown freshness verdict: ${1}" ;;
+  esac
+}
+
+classify_deploy_marker() {
+  local marker="${1:-}" kind="${2:-regular}"
+  case "$kind" in
+    missing|symlink) echo "$kind" ;;
+    regular)
+      if [[ "$marker" =~ ^[0-9a-fA-F]{40,64}$ ]]; then
+        echo "valid"
+      else
+        echo "invalid"
+      fi
+      ;;
+    *) echo "invalid" ;;
+  esac
+}
+
+check_registry_freshness() {
+  local checkout="${1:-}" default_branch="${2:-main}"
+  local local_sha remote_line remote_sha
+
+  [[ -n "$checkout" ]] || { echo "unreachable"; return 0; }
+  local_sha="$(git -C "$checkout" rev-parse HEAD 2>/dev/null)" || {
+    echo "unreachable"
+    return 0
+  }
+  remote_line="$(git -C "$checkout" ls-remote --exit-code origin "refs/heads/${default_branch}" 2>/dev/null)" || {
+    echo "unreachable"
+    return 0
+  }
+  read -r remote_sha _ <<< "$remote_line"
+  classify_registry_freshness "$local_sha" "${remote_sha:-}" ok
+}
+
 # Re-stamp the git-pull deploy marker (#33). Heimdall's drift detector reads
 # <checkout>/.deployed-commit to decide whether a git-pull component is behind
 # origin. deploy.sh stamps that marker, but the canonical grimnir checkout also
 # gets pulled forward by ad-hoc sessions OUTSIDE a deploy, which leaves the marker
 # stale and makes Heimdall false-flag every grimnir unit as behind. Re-stamp HEAD
 # into the marker — but ONLY when the caller has already verified the checkout is
-# clean AND on its default branch (verdict "ok"); never bless a dirty or
-# branch-stranded tree. Guarded on an existing marker so it never fabricates one
-# on a non-deploy checkout (e.g. a laptop run).
+# clean, on its default branch (verdict "ok"), AND exactly equal to live origin
+# (freshness "current"); never bless a dirty, branch-stranded, local-ahead,
+# diverged, or origin-unreachable tree. Guarded on an existing marker so it never
+# fabricates one on a non-deploy checkout (e.g. a laptop run).
 #
 # Returns:
-#   0 — stamped, or intentionally skipped (verdict != ok, or no marker present)
-#   1 — marker present + verdict ok, but the write FAILED (e.g. a read-only mount,
-#       as under grimnir-validate.service's sandbox). The caller MUST surface this
-#       rather than swallow it, or the marker silently stays stale.
+#   0 — stamped, or intentionally skipped (unproved checkout or no marker present)
+#   1 — marker present + proved checkout, but the write FAILED (e.g. a read-only
+#       mount, as under grimnir-validate.service's sandbox). The caller MUST
+#       surface this rather than swallow it, or the marker silently stays stale.
 restamp_deploy_marker() {
-  local checkout="${1:-}" verdict="${2:-}"
-  [[ "$verdict" == "ok" ]] || return 0
+  local checkout="${1:-}" verdict="${2:-}" freshness="${3:-unreachable}"
+  # A clean main branch is not sufficient: a clean local-ahead or diverged
+  # checkout is exactly the state the deploy marker must never certify.
+  [[ "$verdict" == "ok" && "$freshness" == "current" ]] || return 0
   local marker="${checkout}/.deployed-commit"
   # Refuse a symlinked marker. The marker is gitignored (outside git's dirty
   # check), and both this write and the validate service's ReadWritePaths

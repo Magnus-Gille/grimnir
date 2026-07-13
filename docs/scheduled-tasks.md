@@ -1,7 +1,7 @@
 # Scheduled Tasks Registry
 
 > All automated tasks running on Grimnir infrastructure.
-> Last updated: 2026-07-07.
+> Last updated: 2026-07-13.
 
 ---
 
@@ -34,6 +34,17 @@ All scheduled tasks run on Pi 1 (huginmunin) via systemd timers, except where no
 | **Purpose** | Rebuild indexes, prune old metrics (retention policy), vacuum SQLite |
 | **Output** | Modified SQLite DB (smaller, faster queries) |
 | **Why it exists** | Without pruning, the metrics table grows unbounded on the Pi's SD card |
+
+### Heimdall Post-Boot Check
+
+| Field | Value |
+|-------|-------|
+| **Schedule** | Once, 90 seconds after boot |
+| **Unit** | `heimdall-boot-check.timer` / `heimdall-boot-check.service` |
+| **Repo** | `heimdall` |
+| **Purpose** | Probe required services after network and tailnet startup settle |
+| **Output** | Heimdall events/alerts in `~/.heimdall/heimdall.db` |
+| **Why it exists** | Detect services that did not recover after a host reboot |
 
 ### Skuld Daily Briefing
 

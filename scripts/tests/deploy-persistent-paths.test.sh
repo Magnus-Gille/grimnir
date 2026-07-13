@@ -67,6 +67,25 @@ else
   pass "POSIX quote does not execute embedded shell syntax"
 fi
 
+# The cleanup command must remove both Git repository directories and worktree
+# pointer files without touching normal release contents.
+REMOTE_FIXTURE="$TMP_DIR/remote alpha"
+mkdir -p "$REMOTE_FIXTURE/.git"
+printf '%s\n' keep > "$REMOTE_FIXTURE/app.js"
+sh -c "$(prepare_rsync_destination_command "$REMOTE_FIXTURE")"
+if [[ ! -e "$REMOTE_FIXTURE/.git" && -f "$REMOTE_FIXTURE/app.js" ]]; then
+  pass "rsync destination cleanup removes .git directory only"
+else
+  fail "rsync destination cleanup must remove .git directory only"
+fi
+printf '%s\n' "gitdir: /Users/example/repo/.git/worktrees/alpha" > "$REMOTE_FIXTURE/.git"
+sh -c "$(prepare_rsync_destination_command "$REMOTE_FIXTURE")"
+if [[ ! -e "$REMOTE_FIXTURE/.git" && -f "$REMOTE_FIXTURE/app.js" ]]; then
+  pass "rsync destination cleanup removes worktree .git file only"
+else
+  fail "rsync destination cleanup must remove worktree .git file only"
+fi
+
 assert_rejected_before_remote() {
   local desc=$1 fixture=$2
   rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE"
@@ -172,15 +191,26 @@ cat > "$TMP_DIR/safe.json" << 'EOF'
 {
   "components": [
     {
-      "name": "alpha", "repo": "alpha", "host": "h1", "port": null,
+      "name": "alpha", "repo": "alpha", "host": "h1", "port": 3033,
       "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
       "persistent_paths": ["/srv/alpha/data"], "rsync_excludes": ["/data/"],
       "needs_build": false,
-      "systemd_units": [{ "name": "alpha", "type": "service" }]
+      "systemd_units": [
+        { "name": "alpha", "type": "service" },
+        { "name": "heimdall-boot-check", "type": "timer" }
+      ]
     }
   ]
 }
 EOF
+
+# A deploy source must be an addressable, clean commit so its marker and
+# rollback recipe are meaningful.
+printf '%s\n' '{"name":"alpha","lockfileVersion":3,"packages":{}}' > "$TMP_DIR/repos/alpha/package-lock.json"
+git init -q -b main "$TMP_DIR/repos/alpha"
+git -C "$TMP_DIR/repos/alpha" add package-lock.json
+GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t \
+  git -C "$TMP_DIR/repos/alpha" commit -q -m seed
 
 rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE"
 if REGISTRY_PATH="$TMP_DIR/safe.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
@@ -205,10 +235,93 @@ if grep -Fxq -- "magnus@h1:'/srv/alpha/'" "$RSYNC_CAPTURE"; then
 else
   fail "rsync remote path uses POSIX shell quoting"
 fi
-if grep -Fq -- "mkdir -p '/srv/alpha'" "$SSH_CAPTURE"; then
-  pass "ssh remote deploy path uses POSIX shell quoting"
+if grep -Fq -- "mkdir -p '/srv/alpha' && rm -rf -- '/srv/alpha'/.git" "$SSH_CAPTURE"; then
+  pass "rsync destination is quoted and stale Git metadata is removed"
 else
-  fail "ssh remote deploy path uses POSIX shell quoting"
+  fail "rsync destination must be quoted and remove stale Git metadata"
+fi
+if grep -Fq -- "npm ci --omit=dev" "$SSH_CAPTURE"; then
+  pass "locked runtime dependencies use npm ci"
+else
+  fail "locked runtime dependencies must use npm ci"
+fi
+if grep -Fq -- "heimdall-boot-check.timer" "$SSH_CAPTURE" &&
+   grep -Fq -- "heimdall-boot-check.service" "$SSH_CAPTURE"; then
+  pass "boot-check timer and companion service are refreshed"
+else
+  fail "boot-check timer and companion service must both be refreshed"
+fi
+if grep -Fq -- "enable --now 'heimdall-boot-check.timer'" "$SSH_CAPTURE"; then
+  pass "boot-check timer is enabled and started"
+else
+  fail "boot-check timer must be enabled and started"
+fi
+if grep -Fq -- "is-active --quiet 'heimdall-boot-check.timer'" "$SSH_CAPTURE"; then
+  pass "boot-check timer is health-gated before the marker"
+else
+  fail "boot-check timer must be health-gated"
+fi
+# shellcheck disable=SC2016 # literal remote-shell fragment expected in capture
+if grep -Fq -- 'http://${target}:3033${path}' "$SSH_CAPTURE"; then
+  pass "declared HTTP endpoint is health-gated before the marker"
+else
+  fail "declared HTTP endpoint must be health-gated"
+fi
+final_call="$(grep -F 'DEPLOY_OK' "$SSH_CAPTURE" | tail -1)"
+# shellcheck disable=SC2016 # literal remote-shell fragment expected in capture
+case "$final_call" in
+  *'http://${target}:3033${path}'*"> .deployed-commit"*)
+    pass "health gate precedes deployment marker repair"
+    ;;
+  *)
+    fail "deployment marker must be written only after health succeeds"
+    ;;
+esac
+
+# Dirty content must be rejected before either SSH or rsync can mutate a host.
+echo stray > "$TMP_DIR/repos/alpha/untracked.txt"
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE"
+if REGISTRY_PATH="$TMP_DIR/safe.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
+    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/dirty.out" 2>&1; then
+  fail "dirty source must fail"
+else
+  pass "dirty source fails"
+fi
+if [[ -e "$SSH_CAPTURE" || -e "$RSYNC_CAPTURE" ]]; then
+  fail "dirty source must be rejected before remote mutation"
+else
+  pass "dirty source invokes neither ssh nor rsync"
+fi
+
+# Git-pull mode operates on a real checkout and must never remove its .git.
+cat > "$TMP_DIR/git-pull.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "alpha", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": false, "deploy_mode": "git-pull",
+      "systemd_units": [{ "name": "alpha", "type": "service" }]
+    }
+  ]
+}
+EOF
+rm -f "$TMP_DIR/repos/alpha/untracked.txt" "$SSH_CAPTURE" "$RSYNC_CAPTURE"
+if REGISTRY_PATH="$TMP_DIR/git-pull.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
+    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/git-pull.out" 2>&1; then
+  pass "git-pull deployment completes with mocked remote"
+else
+  fail "git-pull deployment completes with mocked remote"
+fi
+if grep -Fq -- "rm -rf -- '/srv/alpha'/.git" "$SSH_CAPTURE"; then
+  fail "git-pull deployment must preserve remote Git metadata"
+else
+  pass "git-pull deployment preserves remote Git metadata"
+fi
+if [[ -e "$RSYNC_CAPTURE" ]]; then
+  fail "git-pull deployment must not invoke rsync"
+else
+  pass "git-pull deployment does not invoke rsync"
 fi
 
 echo ""

@@ -106,8 +106,9 @@ data.components.forEach(function (c, i) {
   if (c.host !== null && (typeof c.host !== 'string' || !VALID_HOST.test(c.host))) {
     fail(label + ': field "host" must be a safe hostname/address or null');
   }
-  if (c.port !== undefined && c.port !== null && typeof c.port !== 'number') {
-    fail(label + ': field "port" must be a number or null');
+  if (c.port !== undefined && c.port !== null &&
+      (!Number.isInteger(c.port) || c.port < 1 || c.port > 65535)) {
+    fail(label + ': field "port" must be an integer from 1 through 65535 or null');
   }
 
   if (c.name && seenNames[c.name]) {

@@ -82,6 +82,29 @@ assert_eq "no-arg classify_registry_checkout -> alert-no-git" \
 assert_eq "no-arg registry_checkout_is_alert -> yes" \
   "yes" "$(registry_checkout_is_alert)"
 
+# Exact remote-freshness classifier: lookup uncertainty must never become green.
+assert_eq "freshness exact SHA -> current" "current" \
+  "$(classify_registry_freshness 1111111111111111111111111111111111111111 1111111111111111111111111111111111111111 ok)"
+assert_eq "freshness differing SHA -> mismatch" "mismatch" \
+  "$(classify_registry_freshness 1111111111111111111111111111111111111111 2222222222222222222222222222222222222222 ok)"
+assert_eq "freshness failed lookup -> unreachable" "unreachable" \
+  "$(classify_registry_freshness 1111111111111111111111111111111111111111 '' unreachable)"
+assert_eq "freshness malformed SHA -> unreachable" "unreachable" \
+  "$(classify_registry_freshness not-a-sha 2222222222222222222222222222222222222222 ok)"
+assert_eq "no-arg freshness gatherer -> unreachable" "unreachable" \
+  "$(check_registry_freshness)"
+assert_eq "freshness detail mismatch is explicit" \
+  "HEAD differs from live origin (ahead, behind, or diverged)" \
+  "$(registry_freshness_detail mismatch)"
+assert_eq "full SHA deploy marker is valid" "valid" \
+  "$(classify_deploy_marker 1111111111111111111111111111111111111111 regular)"
+assert_eq "truncated deploy marker is invalid" "invalid" \
+  "$(classify_deploy_marker deadbeef regular)"
+assert_eq "text deploy marker is invalid" "invalid" \
+  "$(classify_deploy_marker ok regular)"
+assert_eq "symlink deploy marker is explicit" "symlink" \
+  "$(classify_deploy_marker '' symlink)"
+
 # registry_checkout_detail: verdict + default-branch -> human line. Shared with
 # generate-architecture.sh so the validate wiring's messages are unit-tested and
 # the ok branch is never left referencing an unset detail var.
@@ -163,6 +186,43 @@ assert_eq "fixture: missing path -> alert-no-git" \
 assert_eq "fixture: empty path arg -> alert-no-git" \
   "alert-no-git" "$(check_registry_checkout "" main)"
 
+# Exact comparison against a real local bare origin: no network and no local
+# remote-ref mutation are needed to distinguish current from ahead/behind.
+git init -q --bare "$TMP_DIR/origin.git"
+git clone -q "$TMP_DIR/origin.git" "$TMP_DIR/fresh"
+git -C "$TMP_DIR/fresh" checkout -q -b main
+echo "seed" > "$TMP_DIR/fresh/file.txt"
+git -C "$TMP_DIR/fresh" add file.txt
+GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t \
+GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t \
+  git -C "$TMP_DIR/fresh" commit -q -m seed
+git -C "$TMP_DIR/fresh" push -q -u origin main
+assert_eq "freshness fixture: exact origin/main -> current" "current" \
+  "$(check_registry_freshness "$TMP_DIR/fresh" main)"
+
+echo "local ahead" >> "$TMP_DIR/fresh/file.txt"
+git -C "$TMP_DIR/fresh" add file.txt
+GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t \
+GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t \
+  git -C "$TMP_DIR/fresh" commit -q -m ahead
+assert_eq "freshness fixture: clean local-ahead main -> mismatch" "mismatch" \
+  "$(check_registry_freshness "$TMP_DIR/fresh" main)"
+
+git clone -q "$TMP_DIR/origin.git" "$TMP_DIR/remote-writer"
+git -C "$TMP_DIR/remote-writer" checkout -q main
+echo "remote ahead" >> "$TMP_DIR/remote-writer/file.txt"
+git -C "$TMP_DIR/remote-writer" add file.txt
+GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t \
+GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t \
+  git -C "$TMP_DIR/remote-writer" commit -q -m remote-ahead
+git -C "$TMP_DIR/remote-writer" push -q origin main
+assert_eq "freshness fixture: local differs after remote advances -> mismatch" "mismatch" \
+  "$(check_registry_freshness "$TMP_DIR/fresh" main)"
+
+git -C "$TMP_DIR/fresh" remote set-url origin "$TMP_DIR/missing-origin.git"
+assert_eq "freshness fixture: origin failure -> unreachable" "unreachable" \
+  "$(check_registry_freshness "$TMP_DIR/fresh" main)"
+
 echo ""
 echo "restamp_deploy_marker tests (#33 deploy-marker self-heal)"
 echo "========================================================"
@@ -173,13 +233,13 @@ MARKER_FILE="$TMP_DIR/marker/.deployed-commit"
 
 # ok verdict + existing (stale) marker -> rewritten to HEAD, returns 0.
 printf 'deadbeef\n' > "$MARKER_FILE"
-rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok || rc=$?
+rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok current || rc=$?
 assert_eq "ok + stale marker -> returns 0" "0" "$rc"
 assert_eq "ok + stale marker -> healed to HEAD" "$MARKER_HEAD" "$(cat "$MARKER_FILE")"
 
 # ok verdict + NO marker -> must not fabricate one (non-deploy checkout), returns 0.
 rm -f "$MARKER_FILE"
-rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok || rc=$?
+rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok current || rc=$?
 assert_eq "ok + no marker -> returns 0" "0" "$rc"
 assert_eq "ok + no marker -> no marker created" "no" \
   "$([[ -f "$MARKER_FILE" ]] && echo yes || echo no)"
@@ -191,6 +251,11 @@ rc=0; restamp_deploy_marker "$TMP_DIR/marker" alert-dirty || rc=$?
 assert_eq "alert-dirty + marker -> returns 0 (skip)" "0" "$rc"
 assert_eq "alert-dirty + marker -> left untouched" "deadbeef" "$(cat "$MARKER_FILE")"
 
+# Clean main but not equal to live origin must never be certified.
+rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok mismatch || rc=$?
+assert_eq "clean main + remote mismatch -> returns 0 (skip)" "0" "$rc"
+assert_eq "clean main + remote mismatch -> marker left untouched" "deadbeef" "$(cat "$MARKER_FILE")"
+
 # no-arg call must not crash under set -euo pipefail (strict-mode contract).
 rc=0; restamp_deploy_marker || rc=$?
 assert_eq "no-arg restamp -> returns 0 (skip, no crash)" "0" "$rc"
@@ -201,7 +266,7 @@ assert_eq "no-arg restamp -> returns 0 (skip, no crash)" "0" "$rc"
 if [[ "$(id -u)" != "0" ]]; then
   printf 'deadbeef\n' > "$MARKER_FILE"
   chmod 000 "$MARKER_FILE"
-  rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok || rc=$?
+  rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok current || rc=$?
   chmod 644 "$MARKER_FILE"
   assert_eq "ok + unwritable marker -> returns 1 (surfaced)" "1" "$rc"
   assert_eq "ok + unwritable marker -> content unchanged" "deadbeef" "$(cat "$MARKER_FILE")"
@@ -213,7 +278,7 @@ fi
 rm -f "$MARKER_FILE"
 echo "target-untouched" > "$TMP_DIR/marker/real-target"
 ln -s "$TMP_DIR/marker/real-target" "$MARKER_FILE"
-rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok || rc=$?
+rc=0; restamp_deploy_marker "$TMP_DIR/marker" ok current || rc=$?
 assert_eq "ok + symlink marker -> returns 1 (refused)" "1" "$rc"
 assert_eq "ok + symlink marker -> target left untouched" \
   "target-untouched" "$(cat "$TMP_DIR/marker/real-target")"

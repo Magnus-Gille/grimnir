@@ -68,6 +68,7 @@ switch (query) {
         name: c.name,
         repo: c.repo,
         host: c.host,
+        port: c.port || null,
         deploy_path: deployPath,
         unit_type: unitType,
         needs_build: Boolean(c.needs_build),

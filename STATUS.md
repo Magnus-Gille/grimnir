@@ -1,5 +1,50 @@
 # Grimnir System — Status
 
+**Last session:** 2026-07-13 (Codex) — general hardening sprint prepared for fallback review
+**Branch:** `codex/grimnir-hardening-20260713` (isolated worktree; not pushed/deployed)
+
+## Active Session (2026-07-13) — validation, scan, and deploy truth hardening
+
+Prepared the parent-approved Grimnir hardening slice from current `origin/main` without touching the
+intentionally dirty canonical laptop checkout.
+
+- Registry validation now compares the exact local HEAD to the exact live `origin/main` SHA. A clean
+  local-ahead/diverged checkout fails; origin/network uncertainty warns and can never re-stamp the
+  deployment marker. Rsync markers must be regular files containing a full Git SHA.
+- Security scanning now rejects npm error/malformed/incomplete results instead of counting them as
+  zero vulnerabilities, records coverage separately from finding severity, rejects unknown repo
+  filters, and exits non-zero when the scan or its Munin persistence is incomplete.
+- Scheduled Munin writes now reject HTTP, JSON-RPC, and MCP tool errors. Registry validation exits
+  non-zero after persisting real findings, so a successful timer run means the checks and durable
+  operator record both succeeded.
+- Rsync deployments now require a clean Git worktree, remove remote `.git` directories or worktree
+  pointer files, use `npm ci --omit=dev` with lockfiles, require every declared service/timer plus
+  the component health endpoint to pass before writing the marker, and therefore repair missing
+  Hugin/Mimir markers only through a verified normal deployment.
+- Added Heimdall's existing `heimdall-boot-check.timer` to `services.json`; normal Heimdall deploys
+  now refresh its companion service, enable/start the timer, and validate it with the other units.
+- Pinned GitHub Actions to immutable v4 SHAs and reconciled bounded architecture, threat-model,
+  role-separation, authority, and scheduled-task documentation with deployed reality.
+
+### Verification / handoff
+
+- Added focused regressions for exact freshness, marker validity, npm-audit completeness, strict
+  Munin RPC handling, clean/reproducible/health-gated deploys, and Heimdall boot-check refresh/enable.
+- `make test` passes all 220 assertions. Full `bash -n`, ShellCheck, and `git diff --check` gates pass.
+- A full read-only fleet scan completed with no coverage gaps. It still reports existing cross-repo
+  debt (critical 3, high 8, moderate 12, low 4) plus one potential Heimdall bearer-token match at
+  `src/panel-ingest.js:168`; the Heimdall owner must classify that source-only match without exposing
+  any value. Those component findings are not changed from this system-documentation repository.
+- No PR, push, merge, deployment, live marker repair, Orin access, or Munin mutation was performed.
+- After review/merge, deploy Grimnir first, then selectively deploy Hugin and Mimir through the
+  normal registry script to repair their missing markers, and deploy Heimdall to refresh the
+  boot-check units. Run live validation last; it will remain non-zero until all required evidence is
+  healthy and persisted.
+- Residual risk: rsync changes are not automatically rolled back after a failed post-sync gate. The
+  old marker remains unmodified; rollback is a clean selective redeploy of its recorded commit.
+
+---
+
 **Last session:** 2026-07-12 (Codex) — issue #63 scope-aware validator fix prepared
 **Branch:** codex/grimnir-63-user-units
 
