@@ -109,14 +109,22 @@ cat > "$TMP_DIR/bin/sleep" << 'EOF'
 [[ "$#" -eq 1 && "$1" == "1" ]]
 EOF
 
-chmod +x "$TMP_DIR/bin/ssh" "$TMP_DIR/bin/rsync" "$TMP_DIR/bin/systemctl" "$TMP_DIR/bin/sleep"
+cat > "$TMP_DIR/bin/npm" << 'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$BUILD_CAPTURE"
+exit 0
+EOF
+
+chmod +x "$TMP_DIR/bin/ssh" "$TMP_DIR/bin/rsync" "$TMP_DIR/bin/systemctl" \
+  "$TMP_DIR/bin/sleep" "$TMP_DIR/bin/npm"
 
 SSH_CAPTURE="$TMP_DIR/ssh.calls"
 RSYNC_CAPTURE="$TMP_DIR/rsync.args"
 ORDER_CAPTURE="$TMP_DIR/order.calls"
 REMOTE_MARKER_STATE="$TMP_DIR/remote-marker.state"
+BUILD_CAPTURE="$TMP_DIR/build.calls"
 PRIOR_SHA=1111111111111111111111111111111111111111
-export SSH_CAPTURE RSYNC_CAPTURE ORDER_CAPTURE REMOTE_MARKER_STATE
+export SSH_CAPTURE RSYNC_CAPTURE ORDER_CAPTURE REMOTE_MARKER_STATE BUILD_CAPTURE
 
 assert_shell_quote_round_trip "POSIX quote round-trips plain text" "alpha"
 assert_shell_quote_round_trip "POSIX quote round-trips apostrophes and shell syntax" \
@@ -202,9 +210,63 @@ else
   fail "recurring timer poll must report the failing timer"
 fi
 
+UNIT_FIXTURE="$TMP_DIR/unit-fixture"
+mkdir -p "$UNIT_FIXTURE/systemd"
+cat > "$UNIT_FIXTURE/systemd/alpha.service" << 'EOF'
+# Template prose such as <user> is allowed in comments.
+[Service]
+ExecStart=/bin/true
+EOF
+cat > "$UNIT_FIXTURE/alpha.service" << 'EOF'
+[Service]
+User=<user>
+EOF
+if [[ "$(resolve_local_unit_source "$UNIT_FIXTURE" alpha.service)" == \
+      "$UNIT_FIXTURE/systemd/alpha.service" ]] &&
+   preflight_local_install_ready_unit_source "$UNIT_FIXTURE" alpha.service true; then
+  pass "install-ready systemd unit is preferred and comment placeholders are allowed"
+else
+  fail "preferred systemd unit must win over the root fallback"
+fi
+remote_unit_guard=$(prepare_remote_install_ready_unit_check_command unit_src alpha.service)
+if sh -c "unit_src=$(posix_shell_quote "$UNIT_FIXTURE/systemd/alpha.service"); $remote_unit_guard"; then
+  pass "remote install-ready guard allows comment-only placeholders"
+else
+  fail "remote install-ready guard must allow comment-only placeholders"
+fi
+rm "$UNIT_FIXTURE/systemd/alpha.service"
+if preflight_local_install_ready_unit_source "$UNIT_FIXTURE" alpha.service true \
+    >"$TMP_DIR/root-template.out" 2>&1; then
+  fail "root fallback template must be rejected"
+elif grep -Fq -- "$UNIT_FIXTURE/alpha.service" "$TMP_DIR/root-template.out" &&
+     grep -Fq -- "unit alpha.service" "$TMP_DIR/root-template.out" &&
+     grep -Fq -- "<user>" "$TMP_DIR/root-template.out"; then
+  pass "root fallback template failure names its file, unit, and placeholder"
+else
+  fail "root fallback template failure must identify its source"
+fi
+if sh -c "unit_src=$(posix_shell_quote "$UNIT_FIXTURE/alpha.service"); $remote_unit_guard" \
+    >"$TMP_DIR/remote-template.out" 2>&1; then
+  fail "remote install-ready guard must reject active placeholders"
+elif grep -Fq -- "$UNIT_FIXTURE/alpha.service" "$TMP_DIR/remote-template.out" &&
+     grep -Fq -- "unit alpha.service" "$TMP_DIR/remote-template.out" &&
+     grep -Fq -- "<user>" "$TMP_DIR/remote-template.out"; then
+  pass "remote template failure names its file, unit, and placeholder"
+else
+  fail "remote template failure must identify its source"
+fi
+
+commit_fixture_repo() {
+  local repo_path=$1
+  git init -q -b main "$repo_path"
+  git -C "$repo_path" add .
+  GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t \
+    git -C "$repo_path" commit -q -m seed
+}
+
 assert_rejected_before_remote() {
-  local desc=$1 fixture=$2
-  rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE"
+  local desc=$1 fixture=$2 expected_error=${3:-}
+  rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$BUILD_CAPTURE"
   if REGISTRY_PATH="$fixture" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
       PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/rejected.out" 2>&1; then
     fail "$desc: deploy must fail"
@@ -215,6 +277,18 @@ assert_rejected_before_remote() {
     fail "$desc: must invoke neither ssh nor rsync"
   else
     pass "$desc: invokes neither ssh nor rsync"
+  fi
+  if [[ -e "$BUILD_CAPTURE" ]]; then
+    fail "$desc: must not build"
+  else
+    pass "$desc: does not build"
+  fi
+  if [[ -n "$expected_error" ]]; then
+    if grep -Fq -- "$expected_error" "$TMP_DIR/rejected.out"; then
+      pass "$desc: reports the selected source"
+    else
+      fail "$desc: must report $expected_error"
+    fi
   fi
 }
 
@@ -303,6 +377,99 @@ cat > "$TMP_DIR/injected-path.json" << 'EOF'
 EOF
 assert_rejected_before_remote "shell-bearing deploy path" "$TMP_DIR/injected-path.json"
 
+mkdir -p "$TMP_DIR/repos/missing-unit"
+printf '%s\n' '{"name":"missing-unit"}' > "$TMP_DIR/repos/missing-unit/package.json"
+commit_fixture_repo "$TMP_DIR/repos/missing-unit"
+cat > "$TMP_DIR/missing-unit.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "missing-unit", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": true,
+      "systemd_units": [{ "name": "alpha", "type": "service" }]
+    }
+  ]
+}
+EOF
+assert_rejected_before_remote "missing primary unit" "$TMP_DIR/missing-unit.json" \
+  "install-ready unit source missing: alpha.service"
+
+mkdir -p "$TMP_DIR/repos/systemd-template/systemd"
+cat > "$TMP_DIR/repos/systemd-template/systemd/alpha.service" << 'EOF'
+# This is the preferred path, but active placeholders are never rendered.
+[Service]
+User=<user>
+EOF
+cat > "$TMP_DIR/repos/systemd-template/alpha.service" << 'EOF'
+[Service]
+ExecStart=/bin/true
+EOF
+commit_fixture_repo "$TMP_DIR/repos/systemd-template"
+cat > "$TMP_DIR/systemd-template.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "systemd-template", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": true,
+      "systemd_units": [{ "name": "alpha", "type": "service" }]
+    }
+  ]
+}
+EOF
+assert_rejected_before_remote "preferred systemd template" "$TMP_DIR/systemd-template.json" \
+  "systemd/alpha.service (unit alpha.service contains unresolved placeholder <user>)"
+
+mkdir -p "$TMP_DIR/repos/munin-template"
+cat > "$TMP_DIR/repos/munin-template/munin-memory.service" << 'EOF'
+# NOTE: Replace <user> and <install-dir> before installing this template.
+[Service]
+User=<user>
+WorkingDirectory=/home/<user>/<install-dir>
+EnvironmentFile=/home/<user>/<install-dir>/.env
+EOF
+commit_fixture_repo "$TMP_DIR/repos/munin-template"
+cat > "$TMP_DIR/munin-template.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "munin-template", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": true,
+      "systemd_units": [{ "name": "munin-memory", "type": "service" }]
+    }
+  ]
+}
+EOF
+assert_rejected_before_remote "Munin-shaped root template" "$TMP_DIR/munin-template.json" \
+  "munin-memory.service (unit munin-memory.service contains unresolved placeholder <user>)"
+
+mkdir -p "$TMP_DIR/repos/companion-template/systemd"
+cat > "$TMP_DIR/repos/companion-template/systemd/alpha.timer" << 'EOF'
+[Timer]
+OnCalendar=daily
+EOF
+cat > "$TMP_DIR/repos/companion-template/systemd/alpha.service" << 'EOF'
+[Service]
+WorkingDirectory=/home/<user>/alpha
+EOF
+commit_fixture_repo "$TMP_DIR/repos/companion-template"
+cat > "$TMP_DIR/companion-template.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "companion-template", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": true,
+      "systemd_units": [{ "name": "alpha", "type": "timer" }]
+    }
+  ]
+}
+EOF
+assert_rejected_before_remote "present timer companion template" "$TMP_DIR/companion-template.json" \
+  "systemd/alpha.service (unit alpha.service contains unresolved placeholder <user>)"
+
 cat > "$TMP_DIR/safe.json" << 'EOF'
 {
   "components": [
@@ -326,10 +493,27 @@ EOF
 # A deploy source must be an addressable, clean commit so its marker and
 # rollback recipe are meaningful.
 printf '%s\n' '{"name":"alpha","lockfileVersion":3,"packages":{}}' > "$TMP_DIR/repos/alpha/package-lock.json"
-git init -q -b main "$TMP_DIR/repos/alpha"
-git -C "$TMP_DIR/repos/alpha" add package-lock.json
-GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t \
-  git -C "$TMP_DIR/repos/alpha" commit -q -m seed
+mkdir -p "$TMP_DIR/repos/alpha/systemd"
+cat > "$TMP_DIR/repos/alpha/systemd/alpha.service" << 'EOF'
+# Install-ready unit; illustrative <user> prose in comments is allowed.
+[Service]
+ExecStart=/bin/true
+EOF
+cat > "$TMP_DIR/repos/alpha/alpha.service" << 'EOF'
+[Service]
+User=<ignored-root-template>
+EOF
+for timer in heimdall-boot-check alpha-once alpha-recurring alpha-user-recurring; do
+  cat > "$TMP_DIR/repos/alpha/${timer}.timer" << EOF
+[Timer]
+OnCalendar=daily
+EOF
+done
+cat > "$TMP_DIR/repos/alpha/alpha-recurring.service" << 'EOF'
+[Service]
+ExecStart=/bin/true
+EOF
+commit_fixture_repo "$TMP_DIR/repos/alpha"
 
 rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
 printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
@@ -384,6 +568,14 @@ if grep -Fq -- "heimdall-boot-check.timer" "$SSH_CAPTURE" &&
   pass "boot-check timer and companion service are refreshed"
 else
   fail "boot-check timer and companion service must both be refreshed"
+fi
+# shellcheck disable=SC2016 # literal remote-shell fragments expected in capture
+if grep -Fq -- "for f in 'systemd/alpha.service' 'alpha.service'" "$SSH_CAPTURE" &&
+   grep -Fq -- 'unit_src_placeholder=$(awk' "$SSH_CAPTURE" &&
+   grep -Fq -- 'companion_src_placeholder=$(awk' "$SSH_CAPTURE"; then
+  pass "remote unit selection rechecks primary and present companion sources"
+else
+  fail "remote install must retain the install-ready source guard"
 fi
 if grep -Fq -- "sudo systemctl enable 'heimdall-boot-check.timer'" "$SSH_CAPTURE" &&
    grep -Fq -- "sudo systemctl restart 'heimdall-boot-check.timer'" "$SSH_CAPTURE"; then
@@ -531,6 +723,15 @@ if REGISTRY_PATH="$TMP_DIR/git-pull.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
 else
   fail "git-pull deployment completes with mocked remote"
 fi
+git_pull_final_call="$(grep -F 'DEPLOY_OK' "$SSH_CAPTURE" | tail -1)"
+case "$git_pull_final_call" in
+  *"unit_src_placeholder="*"unit source is not install-ready"*"sudo install -D -m644"*)
+    pass "git-pull source is guarded immediately before unit install"
+    ;;
+  *)
+    fail "git-pull source must be guarded immediately before unit install"
+    ;;
+esac
 if grep -Fq -- "rm -rf -- '/srv/alpha'/.git" "$SSH_CAPTURE"; then
   fail "git-pull deployment must preserve remote Git metadata"
 else

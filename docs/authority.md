@@ -10,6 +10,7 @@
 | **Port assignments** | `services.json` | `generate-architecture.sh`, `deploy.sh`, `security-scan.sh`, `docs/architecture.md` |
 | **Hostnames / hosts** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
 | **Deploy paths, targets, systemd units & timer semantics** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
+| **Install-ready systemd unit contents** | Owning component repo | `deploy.sh` installs selected `systemd/{unit}` or root `{unit}` bytes without rendering |
 | **Persistent/runtime paths and component-specific rsync exclusions** | `services.json` | `deploy.sh`, registry validation |
 | **Global rsync safety exclusions** (`.env`, `.git`, dependencies, tests, deploy marker) | `scripts/deploy.sh` | deploy persistence tests |
 | **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |
@@ -50,6 +51,12 @@
    restart every declared timer. Timers default to recurring and must expose a concrete next trigger
    before acceptance. A timer whose only trigger is legitimately single-fire, such as a lone
    `OnBootSec`, must be declared with `timer_semantics: "one-shot"` in `services.json`.
+
+9. **Declared unit sources are install-ready artifacts, not templates.** The owning component repo
+   owns unit contents. Central deploy selects `systemd/{unit}` before root `{unit}` and installs the
+   selected bytes without component-specific rendering. Unresolved angle-bracket identifiers on
+   active unit lines fail preflight; template files must use a different name or live outside those
+   selected paths. Placeholder prose in comments is allowed.
 
 ## Validation
 
