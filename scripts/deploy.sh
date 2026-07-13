@@ -158,6 +158,40 @@ rsync_exclude_rows() {
   '
 }
 
+previous_accepted_commit="unknown"
+
+invalidate_remote_deploy_marker() {
+  local remote=$1 deploy_path=$2 command output line marker_result=""
+  previous_accepted_commit="unknown"
+  command=$(prepare_deploy_marker_invalidation_command "$deploy_path")
+
+  # This is a separate round trip by design: no code-tree mutation may begin
+  # unless the remote confirms that the accepted-deployment marker is absent.
+  if ! output=$(ssh -o ConnectTimeout=10 "$remote" "$command" 2>&1); then
+    [[ -n "$output" ]] && echo "$output" >&2
+    echo "ERROR: Could not confirm deployment-marker invalidation; no code mutation attempted" >&2
+    return 1
+  fi
+  while IFS= read -r line; do
+    case "$line" in
+      DEPLOY_MARKER_INVALIDATED:*) marker_result=${line#DEPLOY_MARKER_INVALIDATED:} ;;
+    esac
+  done <<< "$output"
+  if [[ "$marker_result" == "unknown" ]]; then
+    previous_accepted_commit="unknown"
+  elif [[ "$marker_result" =~ ^[0-9a-fA-F]{40,64}$ ]]; then
+    previous_accepted_commit="$marker_result"
+  else
+    echo "ERROR: Remote did not provide a trustworthy marker-invalidation receipt; no code mutation attempted" >&2
+    return 1
+  fi
+  echo "Previous accepted deployment: ${previous_accepted_commit} (marker invalidated)"
+}
+
+report_markerless_failure() {
+  echo "Deployment state is markerless/unknown; rollback candidate: ${previous_accepted_commit}" >&2
+}
+
 deploy_service() {
   local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system} deploy_mode=${8:-rsync} units_json=${9:-[]}
   local rsync_excludes_json=${10:-[]} health_port=${11:-}
@@ -227,6 +261,13 @@ deploy_service() {
     fi
   fi
 
+  if ! invalidate_remote_deploy_marker "$remote" "$deploy_path"; then
+    echo -e "${RED}FAILED${NC}"
+    results+=("${RED}✗${NC} ${name}")
+    fail=$((fail + 1))
+    return
+  fi
+
   if [[ "$deploy_mode" == "git-pull" ]]; then
     # git-pull mode (Option A, docs/role-separation.md): the checkout IS the
     # deployment. Fast-forward it to origin/main — never force, never rsync —
@@ -246,6 +287,7 @@ deploy_service() {
     pull_cmd+="if [ \"\$(git -C ${q_deploy_path} rev-parse HEAD)\" != \"\$(git -C ${q_deploy_path} rev-parse origin/main)\" ]; then echo 'ERROR: HEAD != origin/main after pull (stray local commits?)' >&2; exit 1; fi"
     # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
     if ! ssh -o ConnectTimeout=10 "$remote" "$pull_cmd"; then
+      report_markerless_failure
       echo -e "${RED}FAILED${NC}"
       results+=("${RED}✗${NC} ${name}")
       fail=$((fail + 1))
@@ -258,6 +300,7 @@ deploy_service() {
   prepare_destination_cmd=$(prepare_rsync_destination_command "$deploy_path")
   # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
   if ! ssh "$remote" "$prepare_destination_cmd"; then
+    report_markerless_failure
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
@@ -276,6 +319,7 @@ deploy_service() {
     [[ -n "$rsync_exclude" ]] && rsync_args+=("--exclude=${rsync_exclude}")
   done < <(rsync_exclude_rows "$rsync_excludes_json")
   if ! rsync "${rsync_args[@]}" "$local_path/" "${remote}:$(posix_shell_quote "${deploy_path}/")"; then
+    report_markerless_failure
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
@@ -285,6 +329,7 @@ deploy_service() {
   echo "==> Installing production dependencies on ${remote_host}..."
   # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
   if ! ssh "$remote" "cd ${q_deploy_path} && if [ -f package.json ]; then if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi; fi"; then
+    report_markerless_failure
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
@@ -367,7 +412,8 @@ deploy_service() {
   done
   # A successful restart/enable command is only an accepted deployment when
   # every declared unit remains active and any declared HTTP health endpoint
-  # answers successfully. Keep the old marker until these gates pass.
+  # answers successfully. The prior marker was invalidated before mutation, so
+  # every failure remains explicitly markerless/unknown until rollback/redeploy.
   for unit_name in ${user_services[@]+"${user_services[@]}"}; do
     cmd+="systemctl --user is-active --quiet $(posix_shell_quote "${unit_name}.service") && "
   done
@@ -415,6 +461,7 @@ deploy_service() {
     fi
   else
     echo "$output"
+    report_markerless_failure
     echo -e "${RED}FAILED${NC}"
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))

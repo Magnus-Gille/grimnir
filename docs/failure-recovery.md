@@ -109,6 +109,21 @@ Three actor classes were named in the gap analysis that opened this issue.
 None of them currently emit a reversal recipe — this section is the adoption
 target for each, to be picked up as separate tickets in their owning repos.
 
+### Service deployment pre-state
+
+Separate from the three autonomous actor classes below, `scripts/deploy.sh` mechanically captures a
+valid prior `.deployed-commit` SHA in the operator log,
+then invalidates that acceptance marker before the first rsync or git-pull tree mutation. It writes
+the new SHA only after dependency, unit, restart, and health gates succeed. A failed deployment is
+therefore deliberately markerless/unknown, never certified by the old SHA.
+
+- **Reversal recipe:** perform a clean selective redeploy of the captured prior SHA. Rsync is not
+  transactional, so marker absence is the signal to rollback or finish a verified redeploy—not a
+  claim that the old files are still intact.
+- **Transport uncertainty:** if marker invalidation cannot be confirmed, code mutation does not
+  begin. If transport fails after later mutation starts, treat live state as unknown and inspect it
+  before choosing the captured rollback commit.
+
 ### Auto dependency bumps
 
 Currently: `scripts/security-scan.sh` (this repo) only *detects*

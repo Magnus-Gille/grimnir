@@ -14,13 +14,14 @@ intentionally dirty canonical laptop checkout.
 - Security scanning now rejects npm error/malformed/incomplete results instead of counting them as
   zero vulnerabilities, records coverage separately from finding severity, rejects unknown repo
   filters, and exits non-zero when the scan or its Munin persistence is incomplete.
-- Scheduled Munin writes now reject HTTP, JSON-RPC, and MCP tool errors. Registry validation exits
-  non-zero after persisting real findings, so a successful timer run means the checks and durable
-  operator record both succeeded.
+- Scheduled Munin writes now reject HTTP, JSON-RPC, MCP protocol errors, and malformed or
+  `{ok:false}` inner tool results. Registry validation exits non-zero after persisting real findings,
+  so a successful timer run means the checks and durable operator record both succeeded.
 - Rsync deployments now require a clean Git worktree, remove remote `.git` directories or worktree
-  pointer files, use `npm ci --omit=dev` with lockfiles, require every declared service/timer plus
-  the component health endpoint to pass before writing the marker, and therefore repair missing
-  Hugin/Mimir markers only through a verified normal deployment.
+  pointer files, use `npm ci --omit=dev` with lockfiles, and require every declared service/timer
+  plus the component health endpoint to pass before writing the marker. Both rsync and git-pull
+  capture the prior accepted SHA and invalidate the marker before the first remote tree mutation;
+  any failed deployment is markerless/unknown rather than falsely certified.
 - Added Heimdall's existing `heimdall-boot-check.timer` to `services.json`; normal Heimdall deploys
   now refresh its companion service, enable/start the timer, and validate it with the other units.
 - Pinned GitHub Actions to immutable v4 SHAs and reconciled bounded architecture, threat-model,
@@ -30,7 +31,7 @@ intentionally dirty canonical laptop checkout.
 
 - Added focused regressions for exact freshness, marker validity, npm-audit completeness, strict
   Munin RPC handling, clean/reproducible/health-gated deploys, and Heimdall boot-check refresh/enable.
-- `make test` passes all 220 assertions. Full `bash -n`, ShellCheck, and `git diff --check` gates pass.
+- `make test` passes all 234 assertions. Full `bash -n`, ShellCheck, and `git diff --check` gates pass.
 - A full read-only fleet scan completed with no coverage gaps. It still reports existing cross-repo
   debt (critical 3, high 8, moderate 12, low 4) plus one potential Heimdall bearer-token match at
   `src/panel-ingest.js:168`; the Heimdall owner must classify that source-only match without exposing
@@ -41,7 +42,8 @@ intentionally dirty canonical laptop checkout.
   boot-check units. Run live validation last; it will remain non-zero until all required evidence is
   healthy and persisted.
 - Residual risk: rsync changes are not automatically rolled back after a failed post-sync gate. The
-  old marker remains unmodified; rollback is a clean selective redeploy of its recorded commit.
+  target deliberately remains markerless/unknown; rollback is a clean selective redeploy of the
+  prior accepted SHA captured in the deployment log before mutation.
 
 ---
 

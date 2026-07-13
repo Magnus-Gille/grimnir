@@ -40,7 +40,30 @@ mkdir -p "$TMP_DIR/bin" "$TMP_DIR/repos/alpha"
 cat > "$TMP_DIR/bin/ssh" << 'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$SSH_CAPTURE"
-if [[ "$*" == *"DEPLOY_OK"* ]]; then
+command=${*: -1}
+if [[ "$command" == *"DEPLOY_MARKER_INVALIDATED"* ]]; then
+  printf '%s\n' invalidate >> "$ORDER_CAPTURE"
+  prior=unknown
+  if [[ -f "$REMOTE_MARKER_STATE" ]]; then
+    prior=$(cat "$REMOTE_MARKER_STATE")
+  fi
+  rm -f "$REMOTE_MARKER_STATE"
+  if [[ "${SSH_FAIL_MODE:-}" == "invalidate" ]]; then
+    exit 255
+  fi
+  printf 'DEPLOY_MARKER_INVALIDATED:%s\n' "$prior"
+elif [[ "$command" == *"pull --ff-only"* ]]; then
+  printf '%s\n' pull >> "$ORDER_CAPTURE"
+  [[ "${SSH_FAIL_MODE:-}" == "pull" ]] && exit 1
+elif [[ "$command" == *"npm ci --omit=dev"* ]]; then
+  printf '%s\n' npm >> "$ORDER_CAPTURE"
+  [[ "${SSH_FAIL_MODE:-}" == "npm" ]] && exit 1
+elif [[ "$command" == *"rm -rf --"*"/.git"* ]]; then
+  printf '%s\n' prepare >> "$ORDER_CAPTURE"
+elif [[ "$command" == *"DEPLOY_OK"* ]]; then
+  printf '%s\n' gates >> "$ORDER_CAPTURE"
+  [[ "${SSH_FAIL_MODE:-}" == "gates" ]] && exit 1
+  printf '%s\n' accepted > "$REMOTE_MARKER_STATE"
   echo "DEPLOY_OK"
 fi
 exit 0
@@ -49,6 +72,8 @@ EOF
 cat > "$TMP_DIR/bin/rsync" << 'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" > "$RSYNC_CAPTURE"
+printf '%s\n' rsync >> "$ORDER_CAPTURE"
+[[ "${RSYNC_FAIL_MODE:-}" == "fail" ]] && exit 23
 exit 0
 EOF
 
@@ -56,7 +81,10 @@ chmod +x "$TMP_DIR/bin/ssh" "$TMP_DIR/bin/rsync"
 
 SSH_CAPTURE="$TMP_DIR/ssh.calls"
 RSYNC_CAPTURE="$TMP_DIR/rsync.args"
-export SSH_CAPTURE RSYNC_CAPTURE
+ORDER_CAPTURE="$TMP_DIR/order.calls"
+REMOTE_MARKER_STATE="$TMP_DIR/remote-marker.state"
+PRIOR_SHA=1111111111111111111111111111111111111111
+export SSH_CAPTURE RSYNC_CAPTURE ORDER_CAPTURE REMOTE_MARKER_STATE
 
 assert_shell_quote_round_trip "POSIX quote round-trips plain text" "alpha"
 assert_shell_quote_round_trip "POSIX quote round-trips apostrophes and shell syntax" \
@@ -84,6 +112,15 @@ if [[ ! -e "$REMOTE_FIXTURE/.git" && -f "$REMOTE_FIXTURE/app.js" ]]; then
   pass "rsync destination cleanup removes worktree .git file only"
 else
   fail "rsync destination cleanup must remove worktree .git file only"
+fi
+
+printf '%s\n' "$PRIOR_SHA" > "$REMOTE_FIXTURE/.deployed-commit"
+marker_receipt=$(sh -c "$(prepare_deploy_marker_invalidation_command "$REMOTE_FIXTURE")")
+if [[ "$marker_receipt" == "DEPLOY_MARKER_INVALIDATED:${PRIOR_SHA}" ]] &&
+   [[ ! -e "$REMOTE_FIXTURE/.deployed-commit" ]]; then
+  pass "marker invalidation captures prior accepted SHA and removes marker"
+else
+  fail "marker invalidation must capture prior accepted SHA and remove marker"
 fi
 
 assert_rejected_before_remote() {
@@ -212,13 +249,28 @@ git -C "$TMP_DIR/repos/alpha" add package-lock.json
 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t \
   git -C "$TMP_DIR/repos/alpha" commit -q -m seed
 
-rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE"
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
 if REGISTRY_PATH="$TMP_DIR/safe.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
     PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/safe.out" 2>&1; then
   pass "safe registry completes mocked deploy"
 else
   fail "safe registry completes mocked deploy"
   sed -n '1,160p' "$TMP_DIR/safe.out"
+fi
+invalidate_line=$(grep -n '^invalidate$' "$ORDER_CAPTURE" | head -1 | cut -d: -f1)
+prepare_line=$(grep -n '^prepare$' "$ORDER_CAPTURE" | head -1 | cut -d: -f1)
+rsync_line=$(grep -n '^rsync$' "$ORDER_CAPTURE" | head -1 | cut -d: -f1)
+if [[ -n "$invalidate_line" && -n "$prepare_line" && -n "$rsync_line" ]] &&
+   [[ "$invalidate_line" -lt "$prepare_line" && "$invalidate_line" -lt "$rsync_line" ]]; then
+  pass "accepted marker is invalidated before rsync destination mutation"
+else
+  fail "accepted marker must be invalidated before rsync destination mutation"
+fi
+if grep -Fq "Previous accepted deployment: ${PRIOR_SHA} (marker invalidated)" "$TMP_DIR/safe.out"; then
+  pass "prior accepted SHA is retained in the deploy rollback log"
+else
+  fail "deploy must log the prior accepted SHA for rollback"
 fi
 if grep -Fxq -- '--exclude=/data/' "$RSYNC_CAPTURE"; then
   pass "declared persistent-path exclusion reaches rsync"
@@ -278,9 +330,43 @@ case "$final_call" in
     ;;
 esac
 
+assert_markerless_failure() {
+  local desc=$1 ssh_fail=${2:-} rsync_fail=${3:-}
+  rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+  printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
+  rc=0
+  SSH_FAIL_MODE="$ssh_fail" RSYNC_FAIL_MODE="$rsync_fail" \
+    REGISTRY_PATH="$TMP_DIR/safe.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
+    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/failure.out" 2>&1 || rc=$?
+  if [[ "$rc" == 1 && ! -e "$REMOTE_MARKER_STATE" ]] &&
+     grep -Fq "markerless/unknown" "$TMP_DIR/failure.out"; then
+    pass "$desc leaves the deployment markerless"
+  else
+    fail "$desc must leave the deployment markerless"
+  fi
+}
+
+assert_markerless_failure "failed rsync" "" fail
+assert_markerless_failure "failed npm install" npm ""
+assert_markerless_failure "failed unit/health gate" gates ""
+
+# If invalidation transport is uncertain, deployment stops before rsync.
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
+rc=0
+SSH_FAIL_MODE=invalidate REGISTRY_PATH="$TMP_DIR/safe.json" \
+  LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
+  bash "$DEPLOY" alpha >"$TMP_DIR/invalidation-fail.out" 2>&1 || rc=$?
+if [[ "$rc" == 1 && ! -e "$RSYNC_CAPTURE" ]] &&
+   [[ "$(tr '\n' ' ' < "$ORDER_CAPTURE")" == "invalidate " ]]; then
+  pass "uncertain marker invalidation stops before code mutation"
+else
+  fail "uncertain marker invalidation must stop before code mutation"
+fi
+
 # Dirty content must be rejected before either SSH or rsync can mutate a host.
 echo stray > "$TMP_DIR/repos/alpha/untracked.txt"
-rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE"
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
 if REGISTRY_PATH="$TMP_DIR/safe.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
     PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/dirty.out" 2>&1; then
   fail "dirty source must fail"
@@ -306,7 +392,8 @@ cat > "$TMP_DIR/git-pull.json" << 'EOF'
   ]
 }
 EOF
-rm -f "$TMP_DIR/repos/alpha/untracked.txt" "$SSH_CAPTURE" "$RSYNC_CAPTURE"
+rm -f "$TMP_DIR/repos/alpha/untracked.txt" "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
 if REGISTRY_PATH="$TMP_DIR/git-pull.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
     PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/git-pull.out" 2>&1; then
   pass "git-pull deployment completes with mocked remote"
@@ -322,6 +409,26 @@ if [[ -e "$RSYNC_CAPTURE" ]]; then
   fail "git-pull deployment must not invoke rsync"
 else
   pass "git-pull deployment does not invoke rsync"
+fi
+invalidate_line=$(grep -n '^invalidate$' "$ORDER_CAPTURE" | head -1 | cut -d: -f1)
+pull_line=$(grep -n '^pull$' "$ORDER_CAPTURE" | head -1 | cut -d: -f1)
+if [[ -n "$invalidate_line" && -n "$pull_line" && "$invalidate_line" -lt "$pull_line" ]]; then
+  pass "accepted marker is invalidated before git pull mutation"
+else
+  fail "accepted marker must be invalidated before git pull mutation"
+fi
+
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
+rc=0
+SSH_FAIL_MODE=pull REGISTRY_PATH="$TMP_DIR/git-pull.json" \
+  LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
+  bash "$DEPLOY" alpha >"$TMP_DIR/pull-fail.out" 2>&1 || rc=$?
+if [[ "$rc" == 1 && ! -e "$REMOTE_MARKER_STATE" ]] &&
+   grep -Fq "markerless/unknown" "$TMP_DIR/pull-fail.out"; then
+  pass "failed git pull leaves the deployment markerless"
+else
+  fail "failed git pull must leave the deployment markerless"
 fi
 
 echo ""

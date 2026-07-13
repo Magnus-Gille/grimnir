@@ -2,15 +2,25 @@
 # Strict JSON-RPC transport for scheduled Grimnir jobs.
 #
 # A successful curl exit is not sufficient: proxies can return HTTP errors and
-# MCP can return JSON-RPC or tool-level errors with a readable body. Callers use
-# this helper so failed validation/security writes never masquerade as durable.
+# MCP can return JSON-RPC, protocol-level, or inner `{ok:false}` tool errors with
+# a readable body. Callers use this helper so failed validation/security writes
+# never masquerade as durable.
 
 munin_rpc_response_ok() {
   node --input-type=commonjs -e '
     var input = require("fs").readFileSync("/dev/stdin", "utf8");
-    var value;
+    var value, inner;
     try { value = JSON.parse(input); } catch (_) { process.exit(1); }
     if (!value || value.error || !value.result || value.result.isError === true) process.exit(1);
+    var content = value.result.content;
+    if (!Array.isArray(content) || content.length === 0) process.exit(1);
+    var text = content.find(function (item) {
+      return item && item.type === "text" && typeof item.text === "string";
+    });
+    if (!text) process.exit(1);
+    try { inner = JSON.parse(text.text); } catch (_) { process.exit(1); }
+    if (!inner || typeof inner !== "object" || Array.isArray(inner) ||
+        inner.ok !== true || inner.error) process.exit(1);
   ' 2>/dev/null
 }
 

@@ -41,6 +41,11 @@
    script separately preserves `.env` for every rsync component as global credential policy, so a
    component with `persistent_paths: []` does not imply that its in-target `.env` may be deleted.
 
+7. **Deployment markers certify acceptance, not merely copied files.** `deploy.sh` captures the
+   prior valid SHA and removes the marker before the first rsync/git-pull tree mutation. Dependency,
+   unit-refresh, restart, or health failure leaves the target markerless/unknown until a verified
+   rollback or redeploy writes a new accepted SHA.
+
 ## Validation
 
 The generator should warn on discrepancies it can detect:
