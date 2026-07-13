@@ -11,6 +11,65 @@ posix_shell_quote() {
   printf "%s%s'" "$quoted" "$value"
 }
 
+# Registry-declared unit sources are installed byte-for-byte. Angle-bracket
+# identifiers have no rendering semantics in Grimnir and indicate that a
+# component-owned template was selected instead of an install-ready unit.
+# Comments may document placeholders without making the unit unsafe.
+unit_template_token_awk() {
+  # shellcheck disable=SC2016 # emitted for awk, not expanded by this shell
+  printf '%s' '/^[[:space:]]*[#;]/ { next } match($0, /<[A-Za-z][A-Za-z0-9_-]*>/) { print substr($0, RSTART, RLENGTH); exit }'
+}
+
+resolve_local_unit_source() {
+  local repo_path=$1 unit_file=$2 candidate
+  for candidate in "$repo_path/systemd/$unit_file" "$repo_path/$unit_file"; do
+    if [[ -f "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+preflight_local_install_ready_unit_source() {
+  local repo_path=$1 unit_file=$2 required=${3:-true}
+  local source token
+
+  if ! source=$(resolve_local_unit_source "$repo_path" "$unit_file"); then
+    if [[ "$required" == "true" ]]; then
+      printf 'ERROR: install-ready unit source missing: %s (looked in %s/systemd and %s)\n' \
+        "$unit_file" "$repo_path" "$repo_path" >&2
+      return 1
+    fi
+    return 0
+  fi
+
+  token=$(awk "$(unit_template_token_awk)" "$source")
+  if [[ -n "$token" ]]; then
+    printf 'ERROR: unit source is not install-ready: %s (unit %s contains unresolved placeholder %s)\n' \
+      "$source" "$unit_file" "$token" >&2
+    return 1
+  fi
+}
+
+# Emit the equivalent guard for the source selected on the remote host. This
+# covers git-pull deployments and prevents a source change between local
+# preflight and install from bypassing the byte-for-byte unit contract.
+prepare_remote_install_ready_unit_check_command() {
+  local source_var=$1 unit_file=$2 quoted_awk quoted_label
+  case "$source_var" in
+    unit_src|companion_src) ;;
+    *) return 1 ;;
+  esac
+  quoted_awk=$(posix_shell_quote "$(unit_template_token_awk)")
+  quoted_label=$(posix_shell_quote "$unit_file")
+
+  # shellcheck disable=SC2016 # command substitution and source variable expand remotely
+  printf '%s_placeholder=$(awk %s "$%s"); ' "$source_var" "$quoted_awk" "$source_var"
+  printf '[ -z "$%s_placeholder" ] || { printf '\''ERROR: unit source is not install-ready: %%s (unit %%s contains unresolved placeholder %%s)\\n'\'' "$%s" %s "$%s_placeholder" >&2; exit 1; }' \
+    "$source_var" "$source_var" "$quoted_label" "$source_var"
+}
+
 # Rsync deployments are release directories, never Git checkouts. Remove any
 # stale repository metadata before syncing: `.git` can be either a directory or
 # a worktree pointer file, and leaving the latter can point the Pi at a path
