@@ -1,4 +1,4 @@
-# Grimnir — AGENTS.md
+# Grimnir — project instructions
 
 ## What this is
 
@@ -7,10 +7,10 @@ contains architecture docs, conventions, and cross-project references.
 
 No service code lives here — each component has its own repo.
 
-The shared project inventory, key-document map, and script guidance below are intentionally
-synchronized with `CLAUDE.md`; update both files together whenever that shared guidance changes.
+This file is the canonical project guidance for all supported agent harnesses. Put portable
+changes here; `CLAUDE.md` is only a Claude Code import adapter.
 
-## Codex workflow
+## Agent workflow
 
 - Read `STATUS.md` first for current execution state and resumption context.
 - Treat `services.json` as the component-inventory authority; see `docs/authority.md` for the wider
