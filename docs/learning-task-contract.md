@@ -1,9 +1,9 @@
 # LearningTaskContract v1
 
-> **Status:** proposed v1; effective only after recorded Hugin and `gille-inference` owner reviews.
+> **Status:** accepted v1.
 > **Contract id:** `grimnir.learning-task/v1`.
 > **Machine schema:** [`learning-task-contract-v1.schema.json`](learning-task-contract-v1.schema.json).
-> **Review gate:** Hugin owner — pending; `gille-inference` owner — pending.
+> **Review gate:** [Hugin owner — approved](https://github.com/Magnus-Gille/grimnir/pull/89#issuecomment-5016680034); [`gille-inference` owner — approved](https://github.com/Magnus-Gille/grimnir/pull/89#issuecomment-5016680276).
 
 ## Purpose and boundary
 
