@@ -42,6 +42,10 @@ providers, integrations, and physical controls.
 | Monitoring blind spot | service host and monitor fail together | independent dead-man signal and bounded alert payload | external alert providers add a trust domain |
 | Lifecycle failure | personal or third-party data retained indefinitely | store map, retention enforcement, correction/deletion, backup expiry | immutable audit evidence requires minimization design |
 
+Credentials need an explicit lifecycle: distinct purpose-scoped keys, a recorded owner, routine
+rotation, immediate revocation on exposure or role change, and tested replacement without broad
+service downtime. Prefer short-lived credentials where the selected services support them.
+
 ## Autonomous-action requirements
 
 An unattended action is permitted only when all of the following are true:

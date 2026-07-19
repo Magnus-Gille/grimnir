@@ -294,6 +294,7 @@ assert_rejected_before_remote() {
 
 cat > "$TMP_DIR/unsafe.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "alpha", "host": "h1", "port": null,
@@ -309,6 +310,7 @@ assert_rejected_before_remote "unexcluded persistent path" "$TMP_DIR/unsafe.json
 
 cat > "$TMP_DIR/trailing-slash.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "alpha", "host": "h1", "port": null,
@@ -323,6 +325,7 @@ assert_rejected_before_remote "trailing-slash deploy path" "$TMP_DIR/trailing-sl
 
 cat > "$TMP_DIR/injected-name.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha|evil", "repo": "alpha", "host": "h1", "port": null,
@@ -337,6 +340,7 @@ assert_rejected_before_remote "delimiter-bearing component name" "$TMP_DIR/injec
 
 cat > "$TMP_DIR/injected-repo.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "alpha'evil", "host": "h1", "port": null,
@@ -351,6 +355,7 @@ assert_rejected_before_remote "shell-bearing repo name" "$TMP_DIR/injected-repo.
 
 cat > "$TMP_DIR/injected-host.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "alpha", "host": "h1;evil", "port": null,
@@ -365,6 +370,7 @@ assert_rejected_before_remote "shell-bearing host" "$TMP_DIR/injected-host.json"
 
 cat > "$TMP_DIR/injected-path.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "alpha", "host": "h1", "port": null,
@@ -382,6 +388,7 @@ printf '%s\n' '{"name":"missing-unit"}' > "$TMP_DIR/repos/missing-unit/package.j
 commit_fixture_repo "$TMP_DIR/repos/missing-unit"
 cat > "$TMP_DIR/missing-unit.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "missing-unit", "host": "h1", "port": null,
@@ -408,6 +415,7 @@ EOF
 commit_fixture_repo "$TMP_DIR/repos/systemd-template"
 cat > "$TMP_DIR/systemd-template.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "systemd-template", "host": "h1", "port": null,
@@ -432,6 +440,7 @@ EOF
 commit_fixture_repo "$TMP_DIR/repos/munin-template"
 cat > "$TMP_DIR/munin-template.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "munin-template", "host": "h1", "port": null,
@@ -457,6 +466,7 @@ EOF
 commit_fixture_repo "$TMP_DIR/repos/companion-template"
 cat > "$TMP_DIR/companion-template.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "companion-template", "host": "h1", "port": null,
@@ -472,6 +482,7 @@ assert_rejected_before_remote "present timer companion template" "$TMP_DIR/compa
 
 cat > "$TMP_DIR/safe.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "alpha", "host": "h1", "port": 3033,
@@ -705,6 +716,7 @@ fi
 # Git-pull mode operates on a real checkout and must never remove its .git.
 cat > "$TMP_DIR/git-pull.json" << 'EOF'
 {
+  "public_example": false,
   "components": [
     {
       "name": "alpha", "repo": "alpha", "host": "h1", "port": null,

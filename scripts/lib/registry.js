@@ -15,7 +15,7 @@
 //   all          — full JSON array of all components
 //   nodes        — infra/inference hosts (data.nodes): name|hostname|ssh_alias|role|status|llm|monitor per line
 //   nodes-json   — full JSON array of all nodes (data.nodes)
-//   is-example   — true when the selected registry is the committed public example
+//   is-example   — true unless the selected registry explicitly declares itself private
 
 var fs = require('fs');
 var path = require('path');
@@ -150,7 +150,9 @@ switch (query) {
     break;
   }
   case 'is-example': {
-    process.stdout.write(String(data.public_example === true) + '\n');
+    // Fail closed: an operator must deliberately set false in private config.
+    // Missing, misspelled, or string-valued markers never enable deployment.
+    process.stdout.write(String(data.public_example !== false) + '\n');
     break;
   }
   default: {

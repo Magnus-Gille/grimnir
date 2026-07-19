@@ -71,7 +71,8 @@ make deploy ARGS="munin-memory"
 
 `services.local.json`, `.env` files, operational status, generated deployment snapshots, and logs are
 ignored. Do not publish them. The local registry is selected automatically when present; automation
-can instead set `REGISTRY_PATH` explicitly.
+can instead set `REGISTRY_PATH` explicitly. Deployment fails closed unless the selected registry
+contains the exact JSON boolean `"public_example": false`.
 
 ## Repository map
 
