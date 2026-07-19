@@ -40,6 +40,14 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 - **Grimnir is the PR review gate.** Prefer a Codex review (sol, high effort) when available;
   otherwise spawn a dedicated review subagent with suitable context using Fable or Opus.
   Merge only after review plus green CI.
+- **Always dogfood.** Use M5 for bounded work at every level — orchestrator and subagents alike —
+  while remaining responsible for quality: verify M5 output before it reaches a decision or an
+  artifact. Log every learning durably (Munin friction signals, evidence notes, or ticket
+  comments) so the improvement loop actually receives it.
+- **Conservative subagent sizing.** Spawn subagents with the smallest model/effort that completes
+  the work at quality. No overkill token usage.
+- **Friction becomes tickets.** Papercuts, tool failures, and doc drift encountered during work
+  are filed as issues in the owning repo (with `from:grimnir` attribution), not left to evaporate.
 
 ## Component repos
 
