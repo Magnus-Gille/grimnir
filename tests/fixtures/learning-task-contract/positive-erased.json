@@ -116,6 +116,16 @@
       }
     ],
     "denominator_basis": "direct-exposure",
-    "denominator_impact": "denominator-membership-preserved"
+    "denominator_impact": "denominator-membership-preserved",
+    "denominator_basis_evidence": {
+      "validation_context_id": "fixture:learning-task-contract-v1",
+      "evidence_id": "fixture-denominator-basis-direct",
+      "issuer": "gille-inference",
+      "payload_digest": {
+        "algorithm": "sha256",
+        "version": "trusted-evidence-payload-jcs-v1",
+        "digest": "2a2b0b6c566cf000e6eeb8746a1f7c86f9d2aeda91dbe5563dfebbe8c73fa90c"
+      }
+    }
   }
 }

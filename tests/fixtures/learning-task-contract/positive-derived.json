@@ -160,7 +160,7 @@
               "source_ref": "source-doc:governance/derived-non-m5",
               "source_type": "governance-policy-manifest",
               "source_version": "governance-policy-manifest-v1",
-              "digest": "17791a7cb927315e828b40bafa5bb7679e77edf7a9fe2d3edd17b9426b9ac635"
+              "digest": "cf1b89d5e88ec1616dfc6d93d71c21db40a8f0e00b491f780907d38740e9bd8a"
             },
             "owner_attestations": [
               {
@@ -178,7 +178,7 @@
                   "payload_digest": {
                     "algorithm": "sha256",
                     "version": "trusted-evidence-payload-jcs-v1",
-                    "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                    "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
                   }
                 }
               }
@@ -776,7 +776,7 @@
               "source_ref": "source-doc:governance/derived-non-admitted",
               "source_type": "governance-policy-manifest",
               "source_version": "governance-policy-manifest-v1",
-              "digest": "be736d3d0bd5edfeb551b8224f094709ed1f7f5ed61e9160c51fda8ee239debc"
+              "digest": "5151749510c8b278f91b9a87443238f714a54c2792b2ed3e7251b79d8922ea75"
             },
             "owner_attestations": [
               {
@@ -794,7 +794,7 @@
                   "payload_digest": {
                     "algorithm": "sha256",
                     "version": "trusted-evidence-payload-jcs-v1",
-                    "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                    "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
                   }
                 }
               }

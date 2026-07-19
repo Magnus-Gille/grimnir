@@ -453,12 +453,14 @@ The self-improvement architecture has separate evidence planes; it is not one ge
 Hugin owns Hugin-origin task identity, execution/repository/publication/product outcomes,
 corrections, and prompt/harness experiments. `gille-inference` owns direct gateway-origin identity,
 gateway rendering/exposure, exact served-model identity, capability evidence, the model roster, and
-M5 micro-routing. The content owner remains separate from either service transport identity. Both
-components emit natural-keyed immutable pipeline-accounting events so failures, retries, delivery
-attempts, corrections, and period closes backed by authoritative ledger/high-water proofs remain
-countable without duplicate denominator members even when no valid learning record exists. Owner
-authority, negative-attempt binding, boundary exclusions, and cross-owner erasure membership use a
-separately trusted validation context; producer body hashes are not authentication. Each
+M5 micro-routing. The content owner remains separate from either service transport identity.
+The LearningTaskContract target requires both components to emit natural-keyed immutable
+pipeline-accounting events so failures, retries, delivery attempts, corrections, and period closes
+backed by authoritative ledger/high-water proofs remain countable without duplicate denominator
+members even when no valid learning record exists. It also requires owner authority,
+negative-attempt binding, boundary exclusions, and cross-owner erasure membership to use a
+separately trusted validation context; producer body hashes are not authentication. Hugin and
+`gille-inference` do not yet implement this complete accounting/trust target. Each
 source/artifact carries its own governance; joined records derive the
 strictest policy rather than claiming all enforcement passed through Hugin. The versioned join and
 compatibility rules are defined by [LearningTaskContract v1](learning-task-contract.md); the current implemented,

@@ -323,7 +323,10 @@ code-unit `subject_ref` order. There is exactly one owner attestation per distin
 owner, delegate, scope, and approval clock. A source service principal alone cannot authorize
 evaluation. Each owner attestation carries an evidence ref into a separately trusted validation
 context. That context is authenticated out of band (production may use signatures/PKI); the fixture
-uses explicit trust anchors and exact payload digests. Recomputing the producer manifest or an
+uses explicit trust anchors and exact payload digests. Each trusted approval non-circularly binds
+the owner's exact sorted policy subset plus manifest identity/approval clock and the exact
+producer/kind/task record binding; it does not hash the manifest artifact that embeds the approval
+reference. Recomputing the producer manifest or an
 attestation body digest is integrity, not authentication, and cannot add an issuer to the trusted
 context. A service therefore cannot make itself an owner by asserting an owner-shaped body field.
 `content_owner.authority` and the matching attestation mode MUST agree.
@@ -363,7 +366,8 @@ the erasure request remains operationally pending outside the contract and no su
 emitted.
 
 The tombstone keeps only an opaque new id, producer/kind, recorded/effective clocks, opaque receipt
-and superseded id, completed protocol, an exact denominator basis, and counter-owner membership
+and superseded id, completed protocol, an exact denominator basis, its separately trusted
+authoritative basis proof, and counter-owner membership
 receipts. Before removing denominator-bearing evidence, every applicable counter owner MUST
 idempotently confirm the original occurrence-month membership before `effective_at`. At original
 denominator capture, the counter owner issues a privacy-safe trusted membership token binding owner,
@@ -378,7 +382,9 @@ The exact required counter set is derived from `denominator_basis`: non-M5 Hugin
 M5-backed Hugin task = capture plus join; joined exposure = Hugin-owned join; direct exposure =
 `gille-inference`-owned direct exposure; and a denominator-decision accounting event = its one named
 counter. A gille-produced joined-exposure tombstone therefore legitimately carries a Hugin-owned
-join receipt. Missing or extra receipts fail. Genuinely non-denominator records and non-denominator
+join receipt. The basis proof binds superseded producer/kind/id, basis, exact counter set, issuer,
+and a valid issue clock no later than erasure request. Membership tokens likewise require a valid
+issue clock no later than request and confirmation. Missing or extra receipts fail. Genuinely non-denominator records and non-denominator
 accounting events explicitly say `not-denominator-bearing` and carry none. The preserved monthly
 denominator survives only in the aggregate, not through retained task, source,
 model, prompt, route, artifact, classification, locator, review, lineage, or extension data.
@@ -476,8 +482,16 @@ complete task/execution/transport/prompt/config/serving provenance, observed or 
 exposure coverage, independently admissible capability verifier evidence, the optional quality
 cohort, and a unique task/attempt lineage. An empty quality cohort is explicitly `unrated`; when
 receipts exist they must all be independent and their summary must be non-conflicted. Each plane has a reproducible digest
-and every referenced record must be loaded from the trusted dataset. An `m5-not-admitted` outcome or
+and every referenced record must be loaded from the trusted dataset no later than the exact decision
+clock. The bundle decision equals evaluation denominator occurrence and is no later than the ledger
+observation clock. A present quality cohort must have exactly one native binding and rubric; its
+normalized task/attempt must join the evaluated outcome. Exact native task/result hashes remain
+opaque without their Hugin source artifacts and are not reinterpreted from normalized fields. An `m5-not-admitted` outcome or
 unknown serving provenance fails even when the surrounding object has bundle-shaped fields.
+Every bundle ref selects the unique effective same-natural-key correction leaf as of the decision
+clock. Corrections recorded later do not rewrite the historical decision. Task-outcome lineage is
+likewise collapsed as of decision, so a valid predecessor plus correction is one lineage rather than
+a permanent duplicate.
 
 Closed failure codes include `producer-error`, `consumer-error`, `schema-rejected`, `join-mismatch`,
 `late-over-24h`, `policy-unavailable`, `transport-auth-failed`, `gateway-not-admitted`, `transport-error`, and
@@ -599,7 +613,8 @@ contract/roadmap change rather than implicit scope expansion:
 - Hugin: [#240 requester-side preflight-bound stamps and attempt evidence](https://github.com/Magnus-Gille/hugin/issues/240),
   [#230 canonical M5 exposure identity](https://github.com/Magnus-Gille/hugin/issues/230),
   [#231 concurrency-safe actionable Quality Receipts](https://github.com/Magnus-Gille/hugin/issues/231), and
-  [#232 durable append-only task/outcome registry](https://github.com/Magnus-Gille/hugin/issues/232).
+  [#232 durable append-only task/outcome registry](https://github.com/Magnus-Gille/hugin/issues/232), and
+  [#241 Hugin-owned capture/join/evaluation accounting, cross-owner membership tokens, authoritative partitions, and monthly closes](https://github.com/Magnus-Gille/hugin/issues/241).
 
 “Continuous” uses disjoint complete UTC calendar months with 24-hour close grace:
 

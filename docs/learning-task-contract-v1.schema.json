@@ -1244,7 +1244,7 @@
     "tombstone": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["removal_reason", "effective_at", "receipt_id", "superseded_record_id", "erasure_protocol", "denominator_basis", "denominator_impact", "counter_audit"],
+      "required": ["removal_reason", "effective_at", "receipt_id", "superseded_record_id", "erasure_protocol", "denominator_basis", "denominator_basis_evidence", "denominator_impact", "counter_audit"],
       "properties": {
         "removal_reason": { "enum": ["erased", "expired"] },
         "effective_at": { "$ref": "#/$defs/timestamp" },
@@ -1252,6 +1252,7 @@
         "superseded_record_id": { "$ref": "#/$defs/opaqueId" },
         "erasure_protocol": { "$ref": "#/$defs/erasureProtocol" },
         "denominator_basis": { "enum": ["hugin-task-non-m5", "hugin-task-m5", "joined-exposure", "direct-exposure", "pipeline-hugin-capture-denominator", "pipeline-hugin-m5-join-denominator", "pipeline-direct-m5-exposure-denominator", "pipeline-evaluation-candidate-denominator", "not-denominator-bearing"] },
+        "denominator_basis_evidence": { "$ref": "#/$defs/trustedEvidenceRef" },
         "denominator_impact": { "enum": ["denominator-membership-preserved", "not-denominator-bearing"] },
         "counter_audit": {
           "type": "array",

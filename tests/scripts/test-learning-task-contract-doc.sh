@@ -6,6 +6,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONTRACT="$REPO_ROOT/docs/learning-task-contract.md"
+ARCH="$REPO_ROOT/docs/architecture.md"
 ADR="$REPO_ROOT/docs/adr-006-learning-improvement-scope.md"
 OBS="$REPO_ROOT/docs/observability-and-improvement.md"
 README="$REPO_ROOT/README.md"
@@ -84,6 +85,7 @@ assert_contains "$CONTRACT" "policy unavailable fails closed" 'policy-unavailabl
 assert_contains "$CONTRACT" "governance subjects are exact and typed" 'one exact typed policy'
 assert_contains "$CONTRACT" "owner authorization is explicit" 'one owner attestation per distinct policy'
 assert_contains "$CONTRACT" "owner evidence is verified out of band" 'trusted validation'
+assert_contains "$CONTRACT" "owner approval binds exact policy" 'exact sorted policy subset plus manifest identity'
 assert_contains "$CONTRACT" "body digest is not authentication" 'integrity, not authentication'
 assert_contains "$CONTRACT" "manifest digest includes attestations" 'complete owner-attestation set'
 assert_contains "$CONTRACT" "no-expiry policy remains usable" 'not-applicable.*explicit owner policy with no expiry'
@@ -100,6 +102,8 @@ assert_contains "$CONTRACT" "backup completion clock order is exact" 'requested_
 assert_contains "$CONTRACT" "counter retention is aggregate only" 'denominator survives only in the aggregate'
 assert_contains "$CONTRACT" "occurrence-month erasure preserves denominator idempotently" 'original occurrence-month membership'
 assert_contains "$CONTRACT" "cross-owner erasure uses issuer token" 'Hugin-issued token'
+assert_contains "$CONTRACT" "denominator basis is trusted" 'authoritative basis proof'
+assert_contains "$CONTRACT" "erasure tokens have issue clocks" 'valid issue clock no later than'
 assert_contains "$CONTRACT" "erasure counter set is exact" 'exact required counter set is derived from `denominator_basis`'
 assert_contains "$CONTRACT" "producer-scoped tombstone uniqueness" 'scoped by producer plus superseded id'
 assert_contains "$CONTRACT" "conflict keys include reviews" 'Quality receipt identity.*quality_receipt\.native_receipt\.receipt_id'
@@ -134,6 +138,9 @@ assert_contains "$CONTRACT" "omission failures cannot become exclusions" 'transp
 assert_contains "$CONTRACT" "evaluation admission binds full bundle" 'full joined evidence bundle'
 assert_contains "$CONTRACT" "empty quality cohort is unrated" 'empty quality cohort is explicitly `unrated`'
 assert_contains "$CONTRACT" "present quality cohort is admissible" 'independent and their summary must be non-conflicted'
+assert_contains "$CONTRACT" "evaluation evidence is available by decision" 'loaded from the trusted dataset no later than the exact decision'
+assert_contains "$CONTRACT" "evaluation uses correction leaves" 'effective same-natural-key correction leaf as of the decision'
+assert_contains "$CONTRACT" "native quality hashes remain opaque" 'native task/result hashes remain'
 assert_contains "$CONTRACT" "negative exposure binds Hugin attempt" 'trusted Hugin-issued attempt proof'
 assert_contains "$CONTRACT" "synthetic exclusion requires evidence" 'trusted owner declaration made no later than occurrence'
 assert_contains "$CONTRACT" "migration exclusion requires window" 'trusted, predeclared compatibility window'
@@ -142,6 +149,8 @@ assert_contains "$CONTRACT" "quality correction support is future" 'future v2 ad
 assert_contains "$CONTRACT" "taxonomy changes coordinate revision" 'task-taxonomy enum requires a coordinated schema revision'
 assert_contains "$CONTRACT" "gille rollout tickets are mapped" '#2 preflight.*gille-inference/issues/2'
 assert_contains "$CONTRACT" "Hugin rollout tickets are mapped" '#240 requester.*hugin/issues/240'
+assert_contains "$CONTRACT" "Hugin accounting owner ticket is mapped" '#241 Hugin-owned capture/join/evaluation accounting.*hugin/issues/241'
+assert_contains "$ARCH" "accounting trust architecture is target state" 'LearningTaskContract target requires both components'
 assert_contains "$CONTRACT" "component reviews remain pending" 'Hugin owner — pending.*gille-inference.*pending'
 assert_contains "$README" "README names all seven v1 record kinds" 'seven v1 evidence/accounting record kinds'
 assert_contains "$SCHEMA" "echoed Hugin request remains Hugin-owned" 'echoed_request.*hugin, copied byte-for-byte by gille-inference'

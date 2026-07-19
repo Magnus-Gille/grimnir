@@ -217,7 +217,7 @@
               "payload_digest": {
                 "algorithm": "sha256",
                 "version": "trusted-evidence-payload-jcs-v1",
-                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
               }
             }
           }
@@ -483,7 +483,7 @@
               "payload_digest": {
                 "algorithm": "sha256",
                 "version": "trusted-evidence-payload-jcs-v1",
-                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
               }
             }
           }
@@ -841,7 +841,7 @@
               "payload_digest": {
                 "algorithm": "sha256",
                 "version": "trusted-evidence-payload-jcs-v1",
-                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
               }
             }
           }
@@ -1268,7 +1268,7 @@
               "payload_digest": {
                 "algorithm": "sha256",
                 "version": "trusted-evidence-payload-jcs-v1",
-                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
               }
             }
           }
@@ -1672,7 +1672,7 @@
               "payload_digest": {
                 "algorithm": "sha256",
                 "version": "trusted-evidence-payload-jcs-v1",
-                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
               }
             }
           }
@@ -2122,7 +2122,7 @@
               "payload_digest": {
                 "algorithm": "sha256",
                 "version": "trusted-evidence-payload-jcs-v1",
-                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
               }
             }
           }
@@ -2618,7 +2618,7 @@
               "payload_digest": {
                 "algorithm": "sha256",
                 "version": "trusted-evidence-payload-jcs-v1",
-                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
               }
             }
           }
@@ -3045,7 +3045,7 @@
               "payload_digest": {
                 "algorithm": "sha256",
                 "version": "trusted-evidence-payload-jcs-v1",
-                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
               }
             }
           }
@@ -3334,7 +3334,7 @@
               "payload_digest": {
                 "algorithm": "sha256",
                 "version": "trusted-evidence-payload-jcs-v1",
-                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
               }
             }
           }
@@ -3577,7 +3577,7 @@
               "payload_digest": {
                 "algorithm": "sha256",
                 "version": "trusted-evidence-payload-jcs-v1",
-                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+                "digest": "b64e6c00ca17cc1aafc8ec372641baa92910f66e0fe31b1e62573753b5fbff9c"
               }
             }
           }
@@ -4123,37 +4123,6 @@
     }
   },
   {
-    "source_ref": "source-doc:quality/qr-cfb94bcb44ec647526263aef",
-    "source_type": "quality-receipt-native-v1",
-    "source_version": "hugin-quality-receipt-v1",
-    "document": {
-      "schemaVersion": 1,
-      "receiptId": "qr-cfb94bcb44ec647526263aef",
-      "taskId": "task-001",
-      "rating": "pass",
-      "ratingReason": "Fixture review passed.",
-      "verificationOutcome": "accepted_unchanged",
-      "retriesCount": 0,
-      "ratedAt": "2026-07-19T10:02:00Z",
-      "reviewer": {
-        "principal": "principal:reviewer-1",
-        "independence": "independent"
-      },
-      "bindingAttestation": "server-bound",
-      "binding": {
-        "taskDocumentSha256": "247b64d04a2308dc9ab56109ef4fc3e7e3c4da091361c6fbe8ef18710ddf1540",
-        "structuredResultSha256": "3cb419ee88b4ded261d747a05745c7c2a8161bb98a048fe761cd3419fd8e9af1",
-        "repository": {
-          "state": "changes-present",
-          "baseBranch": "main",
-          "baseCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "headCommit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "diffSha256": "8888888888888888888888888888888888888888888888888888888888888888"
-        }
-      }
-    }
-  },
-  {
     "source_ref": "source-doc:raw/gateway-task-001",
     "source_type": "raw-input",
     "source_version": "raw-input-v1",
@@ -4297,6 +4266,37 @@
         "min_p": null,
         "max_tokens": 128,
         "n": 1
+      }
+    }
+  },
+  {
+    "source_ref": "source-doc:quality/qr-cfb94bcb44ec647526263aef",
+    "source_type": "quality-receipt-native-v1",
+    "source_version": "hugin-quality-receipt-v1",
+    "document": {
+      "schemaVersion": 1,
+      "receiptId": "qr-cfb94bcb44ec647526263aef",
+      "taskId": "task-001",
+      "rating": "pass",
+      "ratingReason": "Fixture review passed.",
+      "verificationOutcome": "accepted_unchanged",
+      "retriesCount": 0,
+      "ratedAt": "2026-07-19T10:02:00Z",
+      "reviewer": {
+        "principal": "principal:reviewer-1",
+        "independence": "independent"
+      },
+      "bindingAttestation": "server-bound",
+      "binding": {
+        "taskDocumentSha256": "247b64d04a2308dc9ab56109ef4fc3e7e3c4da091361c6fbe8ef18710ddf1540",
+        "structuredResultSha256": "3cb419ee88b4ded261d747a05745c7c2a8161bb98a048fe761cd3419fd8e9af1",
+        "repository": {
+          "state": "changes-present",
+          "baseBranch": "main",
+          "baseCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "headCommit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "diffSha256": "8888888888888888888888888888888888888888888888888888888888888888"
+        }
       }
     }
   }

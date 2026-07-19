@@ -506,15 +506,24 @@ function validateGovernance(record, errors) {
         || Date.parse(attestation.delegation.issued_at) > Date.parse(governance.policy_manifest.approved_at)
         || Date.parse(attestation.delegation.expires_at) < Date.parse(governance.policy_manifest.approved_at)) errors.push(`delegation attestation is invalid for ${attestation.content_owner}`);
     }
-    const authorityPayload = {
+    const authorityIdentity = {
       content_owner: attestation.content_owner,
       authenticated_principal: attestation.authenticated_principal,
       authentication: attestation.authentication,
       delegation: attestation.delegation,
     };
+    const approvedPolicies = governance.policies.filter((policy) => policy.content_owner === attestation.content_owner).sort((a, b) => compareUtf16CodeUnits(a.subject_ref, b.subject_ref));
+    const requiredApproval = {
+      manifest: { manifest_id: governance.policy_manifest.manifest_id, version: governance.policy_manifest.version, approved_at: governance.policy_manifest.approved_at },
+      record_binding: { producer: record.producer.component, record_kind: record.record_kind, task: record.task },
+      policy_subset_digest: { algorithm: "sha256", version: "owner-policy-subset-jcs-v1", digest: digestCanonical(approvedPolicies) },
+    };
     const expectedIssuer = attestation.authentication === "authenticated-owner" ? attestation.authenticated_principal : attestation.delegation.delegated_by;
     if (attestation.authority_evidence.issuer !== expectedIssuer) errors.push(`owner attestation issuer is not authoritative for ${attestation.content_owner}`);
-    validateTrustedEvidence(attestation.authority_evidence, "owner-authority", errors, authorityPayload, `owner attestation for ${attestation.content_owner}`);
+    const authorityValid = validateTrustedEvidence(attestation.authority_evidence, "owner-authority", errors, undefined, `owner attestation for ${attestation.content_owner}`);
+    const authorityPayload = trustedEvidence.get(attestation.authority_evidence.evidence_id)?.payload;
+    if (authorityValid && (canonical({ content_owner: authorityPayload?.content_owner, authenticated_principal: authorityPayload?.authenticated_principal, authentication: authorityPayload?.authentication, delegation: authorityPayload?.delegation }) !== canonical(authorityIdentity)
+      || !authorityPayload?.approvals?.some((approval) => canonical(approval) === canonical(requiredApproval)))) errors.push(`owner attestation does not bind the exact approved policy subset and manifest/record identity for ${attestation.content_owner}`);
   }
   const sourceOwnerAttestation = governance.policy_manifest.owner_attestations.find((attestation) => attestation.content_owner === record.task.source.content_owner.id);
   const expectedAttestationMode = record.task.source.content_owner.authority === "authenticated-owner" ? "authenticated-owner" : "delegation-attestation";
@@ -665,6 +674,16 @@ function validateTombstone(record) {
   if (record.record_kind === "pipeline-accounting" && !basis.startsWith("pipeline-") && basis !== "not-denominator-bearing") errors.push("pipeline accounting tombstone has an invalid denominator basis");
   if (!["task-outcome", "inference-exposure", "pipeline-accounting"].includes(record.record_kind) && basis !== "not-denominator-bearing") errors.push(`${record.record_kind} tombstone cannot declare a denominator basis`);
   const expectedCounters = basisCounters[basis] ?? [];
+  const basisIssuer = basis.startsWith("hugin-task-") || basis === "joined-exposure" ? "hugin"
+    : basis === "direct-exposure" ? "gille-inference"
+      : record.producer.component;
+  const basisEvidence = trustedEvidence.get(record.tombstone.denominator_basis_evidence.evidence_id);
+  const basisIssuedAt = basisEvidence?.payload?.issued_at;
+  const basisPayload = { producer: record.producer.component, record_kind: record.record_kind, superseded_record_id: record.tombstone.superseded_record_id, denominator_basis: basis, counters: [...expectedCounters].sort(compareUtf16CodeUnits), issued_at: basisIssuedAt };
+  if (record.tombstone.denominator_basis_evidence.issuer !== basisIssuer
+    || !validateTrustedEvidence(record.tombstone.denominator_basis_evidence, "denominator-basis", errors, basisPayload, "tombstone denominator basis")
+    || !isExactUtcDateTime(basisIssuedAt)
+    || Date.parse(basisIssuedAt) > Date.parse(protocol.requested_at)) errors.push("tombstone denominator basis is not authenticated by its authoritative owner with a valid pre-erasure issue clock");
   const basisRequiresMembership = record.tombstone.denominator_basis !== "not-denominator-bearing";
   if (basisRequiresMembership && (record.tombstone.denominator_impact !== "denominator-membership-preserved" || record.tombstone.counter_audit.length === 0)) errors.push("denominator-bearing tombstone requires an idempotent membership receipt");
   if (record.tombstone.denominator_impact === "not-denominator-bearing" && record.tombstone.counter_audit.length !== 0) errors.push("non-denominator tombstone cannot fabricate counter receipts");
@@ -688,7 +707,9 @@ function validateTombstone(record) {
       || membershipPayload?.period_utc !== entry.period_utc
       || membershipPayload?.superseded_record_id !== record.tombstone.superseded_record_id
       || canonical(membershipPayload?.denominator_natural_key_digest) !== canonical(receipt.membership_key_digest)
-      || Date.parse(membershipPayload?.issued_at) > Date.parse(protocol.requested_at)) errors.push(`counter ${entry.counter} membership token does not bind owner, natural key, occurrence month, and superseded record`);
+      || !isExactUtcDateTime(membershipPayload?.issued_at)
+      || Date.parse(membershipPayload?.issued_at) > Date.parse(protocol.requested_at)
+      || Date.parse(membershipPayload?.issued_at) > Date.parse(receipt.confirmed_at)) errors.push(`counter ${entry.counter} membership token does not bind owner, natural key, occurrence month, superseded record, and valid issue time`);
     if (receipt.membership_key_digest.version !== "denominator-natural-key-jcs-v1") errors.push(`counter ${entry.counter} does not retain the exact denominator natural-key digest`);
     if ((receipt.outcome === "inserted" && receipt.delta !== 1) || (receipt.outcome === "already-present" && receipt.delta !== 0)) errors.push(`counter ${entry.counter} membership outcome and delta are incoherent`);
     if (Date.parse(receipt.confirmed_at) < Date.parse(protocol.requested_at)
@@ -1092,13 +1113,30 @@ function validateEvaluationBundle(accountingRecord, records, errors) {
     errors.push("evaluation bundle is not fully loaded and trusted");
     return;
   }
+  const availableRecords = records.filter((record) => record.lifecycle_state === "active" && Date.parse(record.recorded_at) <= Date.parse(bundle.decision_at));
+  const effectiveLeaves = (candidates) => {
+    const groups = new Map();
+    for (const candidate of candidates) {
+      const key = correctionNaturalKey(candidate);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(candidate);
+    }
+    return [...groups.values()].map(effectiveSupersessionLeaf);
+  };
+  for (const referenced of [outcome, exposure, capability, ...qualities]) {
+    const group = availableRecords.filter((candidate) => candidate.producer.component === referenced.producer.component && candidate.record_kind === referenced.record_kind && correctionNaturalKey(candidate) === correctionNaturalKey(referenced));
+    if (effectiveSupersessionLeaf(group)?.record_id !== referenced.record_id) errors.push("evaluation bundle does not reference the effective correction leaf at decision time");
+  }
+  if (bundle.decision_at !== event.denominator.occurrence_at || Date.parse(bundle.decision_at) > Date.parse(event.observed_at)) errors.push("evaluation denominator occurrence must equal decision time and not follow accounting observation");
+  if ([outcome, exposure, capability, ...qualities].some((record) => Date.parse(record.recorded_at) > Date.parse(bundle.decision_at))) errors.push("evaluation bundle includes evidence that was not available at decision time");
   if (!governanceEligibleAt(outcome, bundle.decision_at) || !candidateProvenanceComplete(outcome)) errors.push("evaluation candidate lacks complete provenance/governance at decision time");
   if (canonical(outcome.task) !== canonical(exposure.task) || canonical(outcome.execution) !== canonical(exposure.execution) || canonical(outcome.task) !== canonical(capability.task) || canonical(outcome.execution) !== canonical(capability.execution) || qualities.some((record) => record.quality_receipt.task_id !== outcome.task.instance_id || record.quality_receipt.attempt_id !== outcome.execution.attempt_id)) errors.push("evaluation bundle evidence does not join one exact task attempt");
   if (capability.capability.admission_state !== "admissible" || capability.capability.verifier.independence !== "independent") errors.push("evaluation bundle verifier evidence is not independently admissible");
-  const summary = summarizeImmutable(qualities, "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0];
-  if ((summary && summary.result === "conflicted") || qualities.some((record) => record.quality_receipt.reviewer.independence !== "independent")) errors.push("evaluation bundle quality evidence is conflicted or non-independent");
-  const sameLineage = records.filter((record) => record.lifecycle_state === "active" && record.record_kind === "task-outcome" && record.task.instance_id === outcome.task.instance_id && record.execution.attempt_id === outcome.execution.attempt_id);
-  if (sameLineage.length !== 1) errors.push("evaluation bundle does not prove a unique task-outcome lineage");
+  const summaries = summarizeImmutable(qualities, "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"]);
+  const summary = summaries[0];
+  if (summaries.length > 1 || (summary && summary.result === "conflicted") || qualities.some((record) => record.quality_receipt.reviewer.independence !== "independent")) errors.push("evaluation bundle quality evidence must be one independent non-conflicted binding/rubric cohort");
+  const sameLineageLeaves = effectiveLeaves(availableRecords.filter((record) => record.record_kind === "task-outcome" && record.task.instance_id === outcome.task.instance_id && record.execution.attempt_id === outcome.execution.attempt_id));
+  if (sameLineageLeaves.length !== 1 || sameLineageLeaves[0]?.record_id !== outcome.record_id) errors.push("evaluation bundle does not prove one effective task-outcome lineage leaf at decision time");
   const payloads = evaluationBundlePayloads(outcome, exposure, capability, qualities, bundle.decision_at);
   for (const [field, payload, version] of [
     ["governance_snapshot_digest", payloads.governance, "evaluation-governance-jcs-v1"],
@@ -1368,7 +1406,7 @@ assert.equal(validationContext.schema_version, "learning-task-validation-context
 assert.equal(validationContext.fixture_only, true, "checked-in trust anchors are fixture-only, never production authority");
 assert.equal(trustedEvidence.size, validationContext.trusted_evidence.length, "trusted validation evidence ids must be unique");
 for (const evidence of validationContext.trusted_evidence) {
-  assert.ok(["owner-authority", "hugin-task-attempt", "denominator-membership", "accounting-boundary", "ledger-partition"].includes(evidence.kind), `unknown trusted evidence kind ${evidence.kind}`);
+  assert.ok(["owner-authority", "hugin-task-attempt", "denominator-membership", "denominator-basis", "accounting-boundary", "ledger-partition"].includes(evidence.kind), `unknown trusted evidence kind ${evidence.kind}`);
   assert.equal(evidence.payload_digest.digest, digestCanonical(evidence.payload), `trusted evidence ${evidence.evidence_id} payload digest must verify`);
 }
 for (const source of sourceDocumentList) {
@@ -1439,9 +1477,25 @@ mismatchedConfigWrapper.transport.gateway_echo.echoed_request = structuredClone(
 mismatchedConfigWrapper.transport.gateway_echo.principal_binding_digest.digest = digestCanonical({ authenticated_principal_id: mismatchedConfigWrapper.transport.gateway_echo.authenticated_principal_id, request_stamp: mismatchedConfigWrapper.transport.hugin_request_stamp });
 assert.ok(validateDataset([mismatchedConfigWrapper]).some((error) => error.includes("component/kind/id/version wrapper")), "config labels cannot drift from their typed source-document component/kind/id/version");
 assert.equal(governanceEligibleAt(positive[0], nonM5Fixture.evaluationClock.post_expiry_at), false, "read-time expiry is checked against an explicit fixture clock");
+let dynamicEvidenceOrdinal = 0;
+function addTrustedFixtureEvidence(kind, issuer, payload) {
+  dynamicEvidenceOrdinal += 1;
+  const evidence = { evidence_id: `dynamic-fixture-evidence-${dynamicEvidenceOrdinal}`, kind, issuer, payload_digest: { algorithm: "sha256", version: "trusted-evidence-payload-jcs-v1", digest: digestCanonical(payload) }, payload };
+  trustedEvidence.set(evidence.evidence_id, evidence);
+  return { validation_context_id: validationContext.context_id, evidence_id: evidence.evidence_id, issuer, payload_digest: structuredClone(evidence.payload_digest) };
+}
+function installOwnerApproval(record) {
+  for (const attestation of record.governance.policy_manifest.owner_attestations) {
+    const policies = record.governance.policies.filter((policy) => policy.content_owner === attestation.content_owner).sort((a, b) => compareUtf16CodeUnits(a.subject_ref, b.subject_ref));
+    const approval = { manifest: { manifest_id: record.governance.policy_manifest.manifest_id, version: record.governance.policy_manifest.version, approved_at: record.governance.policy_manifest.approved_at }, record_binding: { producer: record.producer.component, record_kind: record.record_kind, task: record.task }, policy_subset_digest: { algorithm: "sha256", version: "owner-policy-subset-jcs-v1", digest: digestCanonical(policies) } };
+    const payload = { content_owner: attestation.content_owner, authenticated_principal: attestation.authenticated_principal, authentication: attestation.authentication, delegation: attestation.delegation, approvals: [approval] };
+    attestation.authority_evidence = addTrustedFixtureEvidence("owner-authority", attestation.content_owner, payload);
+  }
+}
 const noExpiryPolicy = structuredClone(positive[0]);
 for (const policy of noExpiryPolicy.governance.policies) policy.retention.expires_at = { value: null, unknown_reason: "not-applicable" };
 noExpiryPolicy.governance.effective.expires_at = { value: null, unknown_reason: "not-applicable" };
+installOwnerApproval(noExpiryPolicy);
 const noExpiryManifestRef = noExpiryPolicy.governance.policy_manifest.digest.source_ref;
 const savedNoExpiryManifest = sourceDocuments.get(noExpiryManifestRef);
 const noExpiryManifestDocument = {
@@ -1458,14 +1512,24 @@ sourceDocuments.set(noExpiryManifestRef, { ...savedNoExpiryManifest, document: n
 noExpiryPolicy.governance.policy_manifest.digest.digest = digestCanonical(noExpiryManifestDocument);
 assert.deepEqual(validateDataset([noExpiryPolicy]), [], "explicit no-expiry policy remains evaluation eligible");
 sourceDocuments.set(noExpiryManifestRef, savedNoExpiryManifest);
+const producerRewrittenPolicy = structuredClone(positive[0]);
+producerRewrittenPolicy.governance.policies[0].allowed_uses = ["operations"];
+const rewrittenManifestRef = producerRewrittenPolicy.governance.policy_manifest.digest.source_ref;
+const savedRewrittenManifest = sourceDocuments.get(rewrittenManifestRef);
+const rewrittenManifestDocument = { ...structuredClone(savedRewrittenManifest.document), policies: [...producerRewrittenPolicy.governance.policies].sort((a, b) => compareUtf16CodeUnits(a.subject_ref, b.subject_ref)) };
+sourceDocuments.set(rewrittenManifestRef, { ...savedRewrittenManifest, document: rewrittenManifestDocument });
+producerRewrittenPolicy.governance.policy_manifest.digest.digest = digestCanonical(rewrittenManifestDocument);
+assert.ok(validateDataset([producerRewrittenPolicy]).some((error) => error.includes("does not bind the exact approved policy subset")), "a producer cannot rewrite owner policy and manifest content while reusing identity-only authority proof");
+sourceDocuments.set(rewrittenManifestRef, savedRewrittenManifest);
 const mixedExpiry = structuredClone(positive[0]);
 for (const policy of mixedExpiry.governance.policies) policy.retention.expires_at = "2028-01-01T00:00:00Z";
 mixedExpiry.governance.policies[0].retention.expires_at = "2027-01-01T00:00:00.900Z";
 mixedExpiry.governance.policies[1].retention.expires_at = "2027-01-01T00:00:00Z";
 mixedExpiry.governance.effective.expires_at = "2027-01-01T00:00:00Z";
+installOwnerApproval(mixedExpiry);
 const mixedExpiryManifestRef = mixedExpiry.governance.policy_manifest.digest.source_ref;
 const savedMixedExpiryManifest = sourceDocuments.get(mixedExpiryManifestRef);
-const mixedExpiryManifestDocument = { ...structuredClone(savedMixedExpiryManifest.document), policies: [...mixedExpiry.governance.policies].sort((a, b) => compareUtf16CodeUnits(a.subject_ref, b.subject_ref)) };
+const mixedExpiryManifestDocument = { ...structuredClone(savedMixedExpiryManifest.document), manifest: { ...structuredClone(savedMixedExpiryManifest.document.manifest), owner_attestations: [...mixedExpiry.governance.policy_manifest.owner_attestations].sort((a, b) => compareUtf16CodeUnits(a.content_owner, b.content_owner)) }, policies: [...mixedExpiry.governance.policies].sort((a, b) => compareUtf16CodeUnits(a.subject_ref, b.subject_ref)) };
 sourceDocuments.set(mixedExpiryManifestRef, { ...savedMixedExpiryManifest, document: mixedExpiryManifestDocument });
 mixedExpiry.governance.policy_manifest.digest.digest = digestCanonical(mixedExpiryManifestDocument);
 assert.deepEqual(validateDataset([mixedExpiry]), [], "earliest governance expiry is selected by instant, not lexicographic timestamp text");
@@ -1514,13 +1578,6 @@ const inconsistentSourceClaim = structuredClone(positive[0]);
 inconsistentSourceClaim.transport.hugin_request_stamp.hugin_envelope.digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 assert.ok(validateDataset([inconsistentSourceClaim]).some((error) => error.includes("inconsistent immutable source document claim")), "repeated source refs cannot overwrite inconsistent digest claims");
 const notApplicable = () => ({ value: null, unknown_reason: "not-applicable" });
-let dynamicEvidenceOrdinal = 0;
-function addTrustedFixtureEvidence(kind, issuer, payload) {
-  dynamicEvidenceOrdinal += 1;
-  const evidence = { evidence_id: `dynamic-fixture-evidence-${dynamicEvidenceOrdinal}`, kind, issuer, payload_digest: { algorithm: "sha256", version: "trusted-evidence-payload-jcs-v1", digest: digestCanonical(payload) }, payload };
-  trustedEvidence.set(evidence.evidence_id, evidence);
-  return { validation_context_id: validationContext.context_id, evidence_id: evidence.evidence_id, issuer, payload_digest: structuredClone(evidence.payload_digest) };
-}
 function boundaryEvidence(event, failureCode) {
   const kind = failureCode === "synthetic-test" ? "synthetic-declaration" : "compatibility-window";
   const boundary = { kind, declared_at: "2026-06-30T00:00:00Z", valid_from: "2026-07-01T00:00:00Z", valid_through: "2026-07-31T23:59:59.999Z" };
@@ -1865,6 +1922,14 @@ evaluationAdmitted.pipeline_accounting.related_record = evidenceRef(joinedOutcom
 evaluationAdmitted.pipeline_accounting.denominator = { counter: "evaluation-candidate-denominator", occurrence_at: "2026-07-19T10:02:01Z", occurrence_month_utc: "2026-07", decision: "admitted", boundary_evidence: notApplicable() };
 evaluationAdmitted.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [joinedQuality], "2026-07-19T10:02:01Z");
 assert.deepEqual(validateDataset([joinedOutcome, joinedExposure, joinedCapability, joinedQuality, evaluationAdmitted]), [], "evaluation admission succeeds only with the complete joined candidate evidence bundle loaded");
+const prematureEvaluation = structuredClone(evaluationAdmitted);
+prematureEvaluation.pipeline_accounting.observed_at = "2026-07-19T10:00:59Z";
+prematureEvaluation.pipeline_accounting.denominator.occurrence_at = "2026-07-19T10:00:59Z";
+prematureEvaluation.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [joinedQuality], "2026-07-19T10:00:59Z");
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, joinedQuality, prematureEvaluation]).some((error) => error.includes("evidence that was not available at decision time")), "evaluation cannot predate its loaded outcome, exposure, capability, or quality evidence");
+const incoherentEvaluationClock = structuredClone(evaluationAdmitted);
+incoherentEvaluationClock.pipeline_accounting.denominator.occurrence_at = "2026-07-19T10:02:00Z";
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, joinedQuality, incoherentEvaluationClock]).some((error) => error.includes("denominator occurrence must equal decision time")), "evaluation denominator occurrence cannot drift from the exact decision clock");
 const unratedEvaluationAdmitted = structuredClone(evaluationAdmitted);
 unratedEvaluationAdmitted.record_id = "opaque:72727272-7272-4272-8272-727272727272";
 unratedEvaluationAdmitted.pipeline_accounting.event_id = "opaque:73737373-7373-4373-8373-737373737373";
@@ -1932,6 +1997,7 @@ function installCorrectionGovernance(record, sourceRef, correctionRef) {
   record.governance.effective.derived_from_subject_refs = record.governance.effective.derived_from_subject_refs.map((ref) => ref === oldSourceRef ? sourceRef : ref);
   if (correctionRef) record.governance.effective.derived_from_subject_refs.push(correctionRef);
   record.governance.effective.derived_from_subject_refs.sort(compareUtf16CodeUnits);
+  installOwnerApproval(record);
   const manifest = record.governance.policy_manifest;
   const document = {
     schema_version: "governance-policy-manifest/v1",
@@ -1948,6 +2014,31 @@ function installCorrectionGovernance(record, sourceRef, correctionRef) {
   sourceDocuments.set(sourceRef, { source_ref: sourceRef, source_type: "governance-policy-manifest", source_version: "governance-policy-manifest-v1", document });
   manifest.digest.digest = digestCanonical(document);
 }
+
+function correctedRecord(source, { recordId, recordedAt, correctionRef, manifestRef }) {
+  const record = structuredClone(source);
+  record.record_id = recordId;
+  record.recorded_at = recordedAt;
+  record.artifacts.items.push({ kind: "correction", owner: "principal:owner", ref: correctionRef, content_hash: { value: null, unknown_reason: "not-observed" } });
+  const factDomain = { "task-outcome": "outcome", "inference-exposure": "exposure", "capability-evidence": "capability" }[source.record_kind];
+  record.lineage.correction_targets = [{ producer: source.producer.component, record_kind: source.record_kind, fact_domain: factDomain, record_id: source.record_id }];
+  record.lineage.correction_ref = correctionRef;
+  installCorrectionGovernance(record, manifestRef, correctionRef);
+  return record;
+}
+
+const preDecisionExposureCorrection = correctedRecord(joinedExposure, { recordId: "opaque:76767676-7676-4676-8676-767676767677", recordedAt: "2026-07-19T10:01:02Z", correctionRef: "mimir:correction/exposure-pre-decision", manifestRef: "source-doc:governance/exposure-pre-decision" });
+const staleExposureAdmission = structuredClone(evaluationAdmitted);
+assert.ok(validateDataset([joinedOutcome, joinedExposure, preDecisionExposureCorrection, joinedCapability, joinedQuality, staleExposureAdmission]).some((error) => error.includes("effective correction leaf at decision time")), "evaluation cannot select an exposure predecessor corrected before its decision");
+const preDecisionCapabilityCorrection = correctedRecord(joinedCapability, { recordId: "opaque:79797979-7979-4979-8979-797979797979", recordedAt: "2026-07-19T10:01:03Z", correctionRef: "mimir:correction/capability-pre-decision", manifestRef: "source-doc:governance/capability-pre-decision" });
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, preDecisionCapabilityCorrection, joinedQuality, evaluationAdmitted]).some((error) => error.includes("effective correction leaf at decision time")), "evaluation cannot select a capability predecessor corrected before its decision");
+const postDecisionExposureCorrection = correctedRecord(joinedExposure, { recordId: "opaque:77777777-7777-4777-8777-777777777778", recordedAt: "2026-07-19T10:02:02Z", correctionRef: "mimir:correction/exposure-post-decision", manifestRef: "source-doc:governance/exposure-post-decision" });
+assert.deepEqual(validateDataset([joinedOutcome, joinedExposure, postDecisionExposureCorrection, joinedCapability, joinedQuality, evaluationAdmitted]), [], "a correction recorded after evaluation does not invalidate the leaf selected at decision time");
+const correctedOutcomeLeaf = correctedRecord(joinedOutcome, { recordId: "opaque:78787878-7878-4878-8878-787878787878", recordedAt: "2026-07-19T10:01:01Z", correctionRef: "mimir:correction/outcome-pre-decision", manifestRef: "source-doc:governance/outcome-pre-decision" });
+const correctedOutcomeAdmission = structuredClone(unratedEvaluationAdmitted);
+correctedOutcomeAdmission.pipeline_accounting.related_record = evidenceRef(correctedOutcomeLeaf);
+correctedOutcomeAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(correctedOutcomeLeaf, joinedExposure, joinedCapability, [], "2026-07-19T10:02:01Z");
+assert.deepEqual(validateDataset([joinedOutcome, correctedOutcomeLeaf, joinedExposure, joinedCapability, correctedOutcomeAdmission]), [], "a corrected task outcome remains eligible when the bundle references its unique effective lineage leaf");
 
 const correctedQuality = structuredClone(quality);
 correctedQuality.record_id = "opaque:55555555-5555-4555-8555-555555555556";
@@ -1998,7 +2089,15 @@ assert.deepEqual(validateDataset([quality, conflictingQuality]), [], "an indepen
 assert.equal(summarizeImmutable([quality, conflictingQuality], "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0].result, "conflicted", "any rating/disposition disagreement summarizes as conflicted");
 const conflictedQualityAdmission = structuredClone(evaluationAdmitted);
 conflictedQualityAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [quality, conflictingQuality], "2026-07-19T10:02:01Z");
-assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, conflictingQuality, conflictedQualityAdmission]).some((error) => error.includes("quality evidence is conflicted or non-independent")), "a conflicting optional quality cohort cannot support evaluation admission");
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, conflictingQuality, conflictedQualityAdmission]).some((error) => error.includes("one independent non-conflicted binding/rubric cohort")), "a conflicting optional quality cohort cannot support evaluation admission");
+const differentBindingQuality = structuredClone(quality);
+differentBindingQuality.record_id = "opaque:75757575-7575-4575-8575-757575757575";
+differentBindingQuality.quality_receipt.binding.structured_result_sha256 = "9999999999999999999999999999999999999999999999999999999999999999";
+installQualityNativeArtifact(differentBindingQuality, 1, "Fixture different result binding.");
+installCorrectionGovernance(differentBindingQuality, "source-doc:governance/different-binding-quality");
+const mixedCohortAdmission = structuredClone(evaluationAdmitted);
+mixedCohortAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [quality, differentBindingQuality], "2026-07-19T10:02:01Z");
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, differentBindingQuality, mixedCohortAdmission]).some((error) => error.includes("one independent non-conflicted binding/rubric cohort")), "evaluation cannot silently summarize only the first of multiple binding or rubric cohorts");
 const selfReviewedQuality = structuredClone(quality);
 selfReviewedQuality.record_id = "opaque:74747474-7474-4474-8474-747474747474";
 selfReviewedQuality.quality_receipt.reviewer = { principal: "principal:self-reviewer", independence: "self" };
@@ -2007,7 +2106,7 @@ installQualityNativeArtifact(selfReviewedQuality, 1, "Fixture self review.");
 installCorrectionGovernance(selfReviewedQuality, "source-doc:governance/self-reviewed-quality");
 const selfReviewedAdmission = structuredClone(evaluationAdmitted);
 selfReviewedAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [selfReviewedQuality], "2026-07-19T10:02:01Z");
-assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, selfReviewedQuality, selfReviewedAdmission]).some((error) => error.includes("quality evidence is conflicted or non-independent")), "a non-independent optional quality receipt cannot support evaluation admission");
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, selfReviewedQuality, selfReviewedAdmission]).some((error) => error.includes("one independent non-conflicted binding/rubric cohort")), "a non-independent optional quality receipt cannot support evaluation admission");
 sourceDocuments.delete(correctedQualityManifestRef);
 const experimentRating = positive.find((record) => record.record_kind === "experiment-product-rating");
 const secondRating = structuredClone(experimentRating);
@@ -2050,11 +2149,27 @@ function setMembershipReceipt(entry, counter, owner, membershipKey) {
   const payload = { owner_component: owner, counter, period_utc: entry.period_utc, denominator_natural_key_digest: entry.membership_receipt.membership_key_digest, superseded_record_id: positiveErased.tombstone.superseded_record_id, issued_at: "2026-07-19T10:00:01Z" };
   entry.membership_receipt.membership_token = addTrustedFixtureEvidence("denominator-membership", owner, payload);
 }
+function installDenominatorBasisEvidence(record, issuer) {
+  const counters = record.tombstone.counter_audit.map((entry) => entry.counter).sort(compareUtf16CodeUnits);
+  const payload = { producer: record.producer.component, record_kind: record.record_kind, superseded_record_id: record.tombstone.superseded_record_id, denominator_basis: record.tombstone.denominator_basis, counters, issued_at: "2026-07-19T10:00:01Z" };
+  record.tombstone.denominator_basis_evidence = addTrustedFixtureEvidence("denominator-basis", issuer, payload);
+}
 const joinedExposureTombstone = structuredClone(positiveErased);
 joinedExposureTombstone.tombstone.denominator_basis = "joined-exposure";
 setMembershipReceipt(joinedExposureTombstone.tombstone.counter_audit[0], "hugin-m5-join-denominator", "hugin", "membership:hugin-join:opaque-erased-001");
+installDenominatorBasisEvidence(joinedExposureTombstone, "hugin");
 assert.deepEqual(validateDataset([joinedExposureTombstone]), [], "gille-produced joined exposure may carry the Hugin-owned join membership receipt");
 assert.equal(joinedExposureTombstone.tombstone.counter_audit[0].membership_receipt.membership_token.issuer, "hugin", "cross-owner erasure cites a trusted Hugin-issued immutable membership token");
+const missingMembershipIssueClock = structuredClone(positiveErased);
+const missingClockPayload = structuredClone(trustedEvidence.get("fixture-membership-direct-july").payload);
+delete missingClockPayload.issued_at;
+missingMembershipIssueClock.tombstone.counter_audit[0].membership_receipt.membership_token = addTrustedFixtureEvidence("denominator-membership", "gille-inference", missingClockPayload);
+assert.ok(validateDataset([missingMembershipIssueClock]).some((error) => error.includes("valid issue time")), "membership authority without an exact issue clock fails closed");
+const impossibleBasisClock = structuredClone(positiveErased);
+const impossibleBasisPayload = structuredClone(trustedEvidence.get("fixture-denominator-basis-direct").payload);
+impossibleBasisPayload.issued_at = "2026-02-30T00:00:00Z";
+impossibleBasisClock.tombstone.denominator_basis_evidence = addTrustedFixtureEvidence("denominator-basis", "gille-inference", impossibleBasisPayload);
+assert.ok(validateDataset([impossibleBasisClock]).some((error) => error.includes("valid pre-erasure issue clock")), "denominator basis authority rejects calendar-normalized impossible issue dates");
 const shiftedMembershipPeriod = structuredClone(joinedExposureTombstone);
 shiftedMembershipPeriod.tombstone.counter_audit[0].period_utc = "2026-08";
 assert.ok(validateDataset([shiftedMembershipPeriod]).some((error) => error.includes("membership token does not bind owner, natural key, occurrence month")), "erasure cannot shift a July denominator membership into August");
@@ -2072,11 +2187,17 @@ const joinMembership = structuredClone(huginTaskM5Tombstone.tombstone.counter_au
 joinMembership.membership_receipt.receipt_id = "opaque:59595959-5959-4959-8959-595959595959";
 setMembershipReceipt(joinMembership, "hugin-m5-join-denominator", "hugin", "membership:hugin-join:opaque-erased-002");
 huginTaskM5Tombstone.tombstone.counter_audit = [captureMembership, joinMembership];
+installDenominatorBasisEvidence(huginTaskM5Tombstone, "hugin");
 assert.deepEqual(validateDataset([huginTaskM5Tombstone]), [], "M5-backed Hugin task erasure preserves exact capture and join memberships");
 const huginTaskNonM5Tombstone = structuredClone(huginTaskM5Tombstone);
 huginTaskNonM5Tombstone.tombstone.denominator_basis = "hugin-task-non-m5";
 huginTaskNonM5Tombstone.tombstone.counter_audit = [captureMembership];
+installDenominatorBasisEvidence(huginTaskNonM5Tombstone, "hugin");
 assert.deepEqual(validateDataset([huginTaskNonM5Tombstone]), [], "non-M5 Hugin task erasure preserves exactly capture membership");
+const forgedNonM5Basis = structuredClone(huginTaskM5Tombstone);
+forgedNonM5Basis.tombstone.denominator_basis = "hugin-task-non-m5";
+forgedNonM5Basis.tombstone.counter_audit = [captureMembership];
+assert.ok(validateDataset([forgedNonM5Basis]).some((error) => error.includes("denominator basis is not authenticated")), "an M5 task cannot self-select non-M5 basis and suppress its trusted join membership");
 const missingJoinMembership = structuredClone(huginTaskM5Tombstone);
 missingJoinMembership.tombstone.counter_audit = [captureMembership];
 assert.ok(validateDataset([missingJoinMembership]).some((error) => error.includes("do not exactly match the declared denominator basis")), "M5-backed task erasure cannot omit join membership");
@@ -2084,6 +2205,7 @@ const pipelineDenominatorTombstone = structuredClone(positiveErased);
 pipelineDenominatorTombstone.record_kind = "pipeline-accounting";
 pipelineDenominatorTombstone.producer = { component: "gille-inference", schema_version: "pipeline-accounting-v1" };
 pipelineDenominatorTombstone.tombstone.denominator_basis = "pipeline-direct-m5-exposure-denominator";
+installDenominatorBasisEvidence(pipelineDenominatorTombstone, "gille-inference");
 assert.deepEqual(validateDataset([pipelineDenominatorTombstone]), [], "denominator-decision accounting erasure preserves exactly its counter membership");
 const missingExposureMembership = structuredClone(positiveErased);
 missingExposureMembership.tombstone.counter_audit = [];
@@ -2095,6 +2217,7 @@ genuinelyNonDenominatorTombstone.producer = { component: "hugin", schema_version
 genuinelyNonDenominatorTombstone.tombstone.denominator_basis = "not-denominator-bearing";
 genuinelyNonDenominatorTombstone.tombstone.denominator_impact = "not-denominator-bearing";
 genuinelyNonDenominatorTombstone.tombstone.counter_audit = [];
+installDenominatorBasisEvidence(genuinelyNonDenominatorTombstone, "hugin");
 assert.deepEqual(validateDataset([genuinelyNonDenominatorTombstone]), [], "genuinely non-denominator evidence erases without fabricating counter membership");
 
 for (const testCase of negative) {
