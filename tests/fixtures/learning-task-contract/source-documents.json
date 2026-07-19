@@ -1,0 +1,3683 @@
+[
+  {
+    "source_ref": "source-doc:artifact/mellum-v1",
+    "source_type": "artifact-manifest",
+    "source_version": "gille-artifact-manifest-v1",
+    "document": {
+      "schema_version": "artifact-manifest/v1",
+      "model_id": "mellum",
+      "files": [
+        {
+          "path": "mellum.gguf",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 4294967296
+        }
+      ],
+      "quantization": "gguf"
+    }
+  },
+  {
+    "source_ref": "source-doc:capability/policy-2026-07-19",
+    "source_type": "capability-policy-config",
+    "source_version": "config-source-v1",
+    "document": {
+      "schema_version": "config-source/v1",
+      "component": "gille-inference",
+      "config_kind": "capability-policy",
+      "id": "capability-policy",
+      "version": "2026-07-19",
+      "settings": {
+        "partial_requires_policy": true,
+        "independent_verifier": true
+      }
+    }
+  },
+  {
+    "source_ref": "source-doc:config/direct-harness-v1",
+    "source_type": "origin-harness-config",
+    "source_version": "config-source-v1",
+    "document": {
+      "schema_version": "config-source/v1",
+      "component": "gille-inference",
+      "config_kind": "harness",
+      "id": "openai-chat",
+      "version": "v1",
+      "settings": {
+        "endpoint": "/v1/chat/completions"
+      }
+    }
+  },
+  {
+    "source_ref": "source-doc:config/direct-prompt-v1",
+    "source_type": "origin-prompt-config",
+    "source_version": "config-source-v1",
+    "document": {
+      "schema_version": "config-source/v1",
+      "component": "gille-inference",
+      "config_kind": "prompt",
+      "id": "direct-chat",
+      "version": "v1",
+      "settings": {
+        "envelope": "openai-chat"
+      }
+    }
+  },
+  {
+    "source_ref": "source-doc:config/direct-tools-v1",
+    "source_type": "origin-tool-policy-config",
+    "source_version": "config-source-v1",
+    "document": {
+      "schema_version": "config-source/v1",
+      "component": "gille-inference",
+      "config_kind": "tool-policy",
+      "id": "no-tools",
+      "version": "v1",
+      "settings": {
+        "allow": []
+      }
+    }
+  },
+  {
+    "source_ref": "source-doc:config/gateway-harness-v7",
+    "source_type": "gateway-harness-config",
+    "source_version": "config-source-v1",
+    "document": {
+      "schema_version": "config-source/v1",
+      "component": "gille-inference",
+      "config_kind": "gateway-harness",
+      "id": "gateway-orchestrator",
+      "version": "v7",
+      "settings": {
+        "runtime": "llama-swap",
+        "admission": "authenticated"
+      }
+    }
+  },
+  {
+    "source_ref": "source-doc:config/gateway-tools-v5",
+    "source_type": "gateway-tool-policy-config",
+    "source_version": "config-source-v1",
+    "document": {
+      "schema_version": "config-source/v1",
+      "component": "gille-inference",
+      "config_kind": "gateway-tool-policy",
+      "id": "gateway-tools",
+      "version": "v5",
+      "settings": {
+        "code_loop": "caged",
+        "raw_shell": false
+      }
+    }
+  },
+  {
+    "source_ref": "source-doc:config/hugin-harness-v3",
+    "source_type": "origin-harness-config",
+    "source_version": "config-source-v1",
+    "document": {
+      "schema_version": "config-source/v1",
+      "component": "hugin",
+      "config_kind": "harness",
+      "id": "homeserver-executor",
+      "version": "v3",
+      "settings": {
+        "adapter": "m5-gateway",
+        "timeout_policy": "bounded"
+      }
+    }
+  },
+  {
+    "source_ref": "source-doc:config/hugin-prompt-v4",
+    "source_type": "origin-prompt-config",
+    "source_version": "config-source-v1",
+    "document": {
+      "schema_version": "config-source/v1",
+      "component": "hugin",
+      "config_kind": "prompt",
+      "id": "hugin-agent",
+      "version": "v4",
+      "settings": {
+        "envelope": "task+context+instructions"
+      }
+    }
+  },
+  {
+    "source_ref": "source-doc:config/hugin-tools-v2",
+    "source_type": "origin-tool-policy-config",
+    "source_version": "config-source-v1",
+    "document": {
+      "schema_version": "config-source/v1",
+      "component": "hugin",
+      "config_kind": "tool-policy",
+      "id": "bounded-delegate",
+      "version": "v2",
+      "settings": {
+        "allow": [
+          "delegate"
+        ],
+        "deny": [
+          "unbounded-shell"
+        ]
+      }
+    }
+  },
+  {
+    "source_ref": "source-doc:experiment/exp-001-run-001",
+    "source_type": "experiment-config",
+    "source_version": "experiment-source-v1",
+    "document": {
+      "schema_version": "experiment-config/v1",
+      "experiment_id": "exp-001",
+      "run_id": "run-001",
+      "arms": [
+        "champion",
+        "challenger"
+      ],
+      "holdout": false,
+      "metric": "verified-task-success"
+    }
+  },
+  {
+    "source_ref": "source-doc:governance/derived-non-admitted",
+    "source_type": "governance-policy-manifest",
+    "source_version": "governance-policy-manifest-v1",
+    "document": {
+      "schema_version": "governance-policy-manifest/v1",
+      "contract": {
+        "contract_version": "grimnir.learning-task/v1",
+        "schema_revision": 1
+      },
+      "manifest": {
+        "manifest_id": "opaque:c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1",
+        "version": "governance-policy-manifest-jcs-v1",
+        "approved_at": "2026-07-19T09:58:00Z",
+        "owner_attestations": [
+          {
+            "content_owner": "principal:owner",
+            "authenticated_principal": "principal:owner",
+            "authentication": "authenticated-owner",
+            "delegation": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            }
+          }
+        ]
+      },
+      "record_binding": {
+        "record_kind": "task-outcome",
+        "producer": "hugin",
+        "task": {
+          "origin_component": "hugin",
+          "instance_id": "task-001",
+          "source": {
+            "component": "hugin",
+            "system": "broker",
+            "id": "broker-001",
+            "created_at": "2026-07-19T09:59:00Z",
+            "accepted_at": "2026-07-19T10:00:00Z",
+            "principal": {
+              "id": "principal:owner",
+              "authentication": "verified-signature",
+              "scope": "owner"
+            },
+            "content_owner": {
+              "id": "principal:owner",
+              "authority": "authenticated-owner"
+            }
+          },
+          "task_type": {
+            "id": "summarize",
+            "taxonomy_id": "gille-inference/task-types",
+            "taxonomy_version": "gille-inference-task-types-2026-07-19-v1"
+          },
+          "raw_fingerprint": {
+            "algorithm": "sha256",
+            "version": "trim-utf8-sha256-v1",
+            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          }
+        }
+      },
+      "policies": [
+        {
+          "subject_ref": "fingerprint:raw",
+          "subject_kind": "raw-fingerprint",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-harness-v3",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-prompt-v4",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-tools-v2",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:governance/derived-non-admitted",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/hugin-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source:hugin:broker-001",
+          "subject_kind": "source",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:governance/derived-non-m5",
+    "source_type": "governance-policy-manifest",
+    "source_version": "governance-policy-manifest-v1",
+    "document": {
+      "schema_version": "governance-policy-manifest/v1",
+      "contract": {
+        "contract_version": "grimnir.learning-task/v1",
+        "schema_revision": 1
+      },
+      "manifest": {
+        "manifest_id": "opaque:c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1",
+        "version": "governance-policy-manifest-jcs-v1",
+        "approved_at": "2026-07-19T09:58:00Z",
+        "owner_attestations": [
+          {
+            "content_owner": "principal:owner",
+            "authenticated_principal": "principal:owner",
+            "authentication": "authenticated-owner",
+            "delegation": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            }
+          }
+        ]
+      },
+      "record_binding": {
+        "record_kind": "task-outcome",
+        "producer": "hugin",
+        "task": {
+          "origin_component": "hugin",
+          "instance_id": "task-001",
+          "source": {
+            "component": "hugin",
+            "system": "broker",
+            "id": "broker-001",
+            "created_at": "2026-07-19T09:59:00Z",
+            "accepted_at": "2026-07-19T10:00:00Z",
+            "principal": {
+              "id": "principal:owner",
+              "authentication": "verified-signature",
+              "scope": "owner"
+            },
+            "content_owner": {
+              "id": "principal:owner",
+              "authority": "authenticated-owner"
+            }
+          },
+          "task_type": {
+            "id": "summarize",
+            "taxonomy_id": "gille-inference/task-types",
+            "taxonomy_version": "gille-inference-task-types-2026-07-19-v1"
+          },
+          "raw_fingerprint": {
+            "algorithm": "sha256",
+            "version": "trim-utf8-sha256-v1",
+            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          }
+        }
+      },
+      "policies": [
+        {
+          "subject_ref": "fingerprint:raw",
+          "subject_kind": "raw-fingerprint",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-harness-v3",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-prompt-v4",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-tools-v2",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:governance/derived-non-m5",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/hugin-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/runtime-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source:hugin:broker-001",
+          "subject_kind": "source",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:governance/positive-0",
+    "source_type": "governance-policy-manifest",
+    "source_version": "governance-policy-manifest-v1",
+    "document": {
+      "schema_version": "governance-policy-manifest/v1",
+      "contract": {
+        "contract_version": "grimnir.learning-task/v1",
+        "schema_revision": 1
+      },
+      "manifest": {
+        "manifest_id": "opaque:c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1",
+        "version": "governance-policy-manifest-jcs-v1",
+        "approved_at": "2026-07-19T09:58:00Z",
+        "owner_attestations": [
+          {
+            "content_owner": "principal:owner",
+            "authenticated_principal": "principal:owner",
+            "authentication": "authenticated-owner",
+            "delegation": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            }
+          }
+        ]
+      },
+      "record_binding": {
+        "record_kind": "task-outcome",
+        "producer": "hugin",
+        "task": {
+          "origin_component": "hugin",
+          "instance_id": "task-001",
+          "source": {
+            "component": "hugin",
+            "system": "broker",
+            "id": "broker-001",
+            "created_at": "2026-07-19T09:59:00Z",
+            "accepted_at": "2026-07-19T10:00:00Z",
+            "principal": {
+              "id": "principal:owner",
+              "authentication": "verified-signature",
+              "scope": "owner"
+            },
+            "content_owner": {
+              "id": "principal:owner",
+              "authority": "authenticated-owner"
+            }
+          },
+          "task_type": {
+            "id": "summarize",
+            "taxonomy_id": "gille-inference/task-types",
+            "taxonomy_version": "gille-inference-task-types-2026-07-19-v1"
+          },
+          "raw_fingerprint": {
+            "algorithm": "sha256",
+            "version": "trim-utf8-sha256-v1",
+            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          }
+        }
+      },
+      "policies": [
+        {
+          "subject_ref": "fingerprint:raw",
+          "subject_kind": "raw-fingerprint",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-harness-v7",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-tools-v5",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-harness-v3",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-prompt-v4",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-tools-v2",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:governance/positive-0",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/gateway-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/hugin-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/runtime-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source:hugin:broker-001",
+          "subject_kind": "source",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:governance/positive-1",
+    "source_type": "governance-policy-manifest",
+    "source_version": "governance-policy-manifest-v1",
+    "document": {
+      "schema_version": "governance-policy-manifest/v1",
+      "contract": {
+        "contract_version": "grimnir.learning-task/v1",
+        "schema_revision": 1
+      },
+      "manifest": {
+        "manifest_id": "opaque:d1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1",
+        "version": "governance-policy-manifest-jcs-v1",
+        "approved_at": "2026-07-19T09:58:00Z",
+        "owner_attestations": [
+          {
+            "content_owner": "principal:owner",
+            "authenticated_principal": "principal:owner",
+            "authentication": "authenticated-owner",
+            "delegation": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            }
+          }
+        ]
+      },
+      "record_binding": {
+        "record_kind": "inference-exposure",
+        "producer": "gille-inference",
+        "task": {
+          "origin_component": "gille-inference",
+          "instance_id": "gateway-task-001",
+          "source": {
+            "component": "gille-inference",
+            "system": "openai-chat",
+            "id": "request-001",
+            "created_at": "2026-07-19T11:00:00Z",
+            "accepted_at": "2026-07-19T11:00:01Z",
+            "principal": {
+              "id": "principal:owner",
+              "authentication": "gateway-owner-auth",
+              "scope": "owner"
+            },
+            "content_owner": {
+              "id": "principal:owner",
+              "authority": "authenticated-owner"
+            }
+          },
+          "task_type": {
+            "id": "conversation",
+            "taxonomy_id": "gille-inference/task-types",
+            "taxonomy_version": "gille-inference-task-types-2026-07-19-v1"
+          },
+          "raw_fingerprint": {
+            "algorithm": "sha256",
+            "version": "trim-utf8-sha256-v1",
+            "digest": "583a0051d7985da84221aa58213ea5d323e69af1390f5525ee42c6caf73195d7"
+          }
+        }
+      },
+      "policies": [
+        {
+          "subject_ref": "fingerprint:raw",
+          "subject_kind": "raw-fingerprint",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/direct-harness-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/direct-prompt-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/direct-tools-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-harness-v7",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-tools-v5",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:governance/positive-1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/gateway-direct-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/runtime-direct-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source:gille-inference:request-001",
+          "subject_kind": "source",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:governance/positive-2",
+    "source_type": "governance-policy-manifest",
+    "source_version": "governance-policy-manifest-v1",
+    "document": {
+      "schema_version": "governance-policy-manifest/v1",
+      "contract": {
+        "contract_version": "grimnir.learning-task/v1",
+        "schema_revision": 1
+      },
+      "manifest": {
+        "manifest_id": "opaque:c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1",
+        "version": "governance-policy-manifest-jcs-v1",
+        "approved_at": "2026-07-19T09:58:00Z",
+        "owner_attestations": [
+          {
+            "content_owner": "principal:owner",
+            "authenticated_principal": "principal:owner",
+            "authentication": "authenticated-owner",
+            "delegation": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            }
+          }
+        ]
+      },
+      "record_binding": {
+        "record_kind": "capability-evidence",
+        "producer": "gille-inference",
+        "task": {
+          "origin_component": "hugin",
+          "instance_id": "task-001",
+          "source": {
+            "component": "hugin",
+            "system": "broker",
+            "id": "broker-001",
+            "created_at": "2026-07-19T09:59:00Z",
+            "accepted_at": "2026-07-19T10:00:00Z",
+            "principal": {
+              "id": "principal:owner",
+              "authentication": "verified-signature",
+              "scope": "owner"
+            },
+            "content_owner": {
+              "id": "principal:owner",
+              "authority": "authenticated-owner"
+            }
+          },
+          "task_type": {
+            "id": "summarize",
+            "taxonomy_id": "gille-inference/task-types",
+            "taxonomy_version": "gille-inference-task-types-2026-07-19-v1"
+          },
+          "raw_fingerprint": {
+            "algorithm": "sha256",
+            "version": "trim-utf8-sha256-v1",
+            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          }
+        }
+      },
+      "policies": [
+        {
+          "subject_ref": "fingerprint:raw",
+          "subject_kind": "raw-fingerprint",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:capability/policy-2026-07-19",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-harness-v7",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-tools-v5",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-harness-v3",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-prompt-v4",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-tools-v2",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:governance/positive-2",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/gateway-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/hugin-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/runtime-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source:hugin:broker-001",
+          "subject_kind": "source",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:governance/positive-3",
+    "source_type": "governance-policy-manifest",
+    "source_version": "governance-policy-manifest-v1",
+    "document": {
+      "schema_version": "governance-policy-manifest/v1",
+      "contract": {
+        "contract_version": "grimnir.learning-task/v1",
+        "schema_revision": 1
+      },
+      "manifest": {
+        "manifest_id": "opaque:c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1",
+        "version": "governance-policy-manifest-jcs-v1",
+        "approved_at": "2026-07-19T09:58:00Z",
+        "owner_attestations": [
+          {
+            "content_owner": "principal:owner",
+            "authenticated_principal": "principal:owner",
+            "authentication": "authenticated-owner",
+            "delegation": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            }
+          }
+        ]
+      },
+      "record_binding": {
+        "record_kind": "experiment-observation",
+        "producer": "hugin",
+        "task": {
+          "origin_component": "hugin",
+          "instance_id": "task-001",
+          "source": {
+            "component": "hugin",
+            "system": "broker",
+            "id": "broker-001",
+            "created_at": "2026-07-19T09:59:00Z",
+            "accepted_at": "2026-07-19T10:00:00Z",
+            "principal": {
+              "id": "principal:owner",
+              "authentication": "verified-signature",
+              "scope": "owner"
+            },
+            "content_owner": {
+              "id": "principal:owner",
+              "authority": "authenticated-owner"
+            }
+          },
+          "task_type": {
+            "id": "summarize",
+            "taxonomy_id": "gille-inference/task-types",
+            "taxonomy_version": "gille-inference-task-types-2026-07-19-v1"
+          },
+          "raw_fingerprint": {
+            "algorithm": "sha256",
+            "version": "trim-utf8-sha256-v1",
+            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          }
+        }
+      },
+      "policies": [
+        {
+          "subject_ref": "fingerprint:raw",
+          "subject_kind": "raw-fingerprint",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "git:task-001:changed-files",
+          "subject_kind": "repository-file-list",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "repository:diff-hash",
+          "subject_kind": "repository-diff-hash",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-harness-v7",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-tools-v5",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-harness-v3",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-prompt-v4",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-tools-v2",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:experiment/exp-001-run-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:governance/positive-3",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/gateway-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/hugin-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/runtime-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source:hugin:broker-001",
+          "subject_kind": "source",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:governance/positive-4",
+    "source_type": "governance-policy-manifest",
+    "source_version": "governance-policy-manifest-v1",
+    "document": {
+      "schema_version": "governance-policy-manifest/v1",
+      "contract": {
+        "contract_version": "grimnir.learning-task/v1",
+        "schema_revision": 1
+      },
+      "manifest": {
+        "manifest_id": "opaque:c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1",
+        "version": "governance-policy-manifest-jcs-v1",
+        "approved_at": "2026-07-19T09:58:00Z",
+        "owner_attestations": [
+          {
+            "content_owner": "principal:owner",
+            "authenticated_principal": "principal:owner",
+            "authentication": "authenticated-owner",
+            "delegation": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            }
+          }
+        ]
+      },
+      "record_binding": {
+        "record_kind": "inference-exposure",
+        "producer": "gille-inference",
+        "task": {
+          "origin_component": "hugin",
+          "instance_id": "task-001",
+          "source": {
+            "component": "hugin",
+            "system": "broker",
+            "id": "broker-001",
+            "created_at": "2026-07-19T09:59:00Z",
+            "accepted_at": "2026-07-19T10:00:00Z",
+            "principal": {
+              "id": "principal:owner",
+              "authentication": "verified-signature",
+              "scope": "owner"
+            },
+            "content_owner": {
+              "id": "principal:owner",
+              "authority": "authenticated-owner"
+            }
+          },
+          "task_type": {
+            "id": "summarize",
+            "taxonomy_id": "gille-inference/task-types",
+            "taxonomy_version": "gille-inference-task-types-2026-07-19-v1"
+          },
+          "raw_fingerprint": {
+            "algorithm": "sha256",
+            "version": "trim-utf8-sha256-v1",
+            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          }
+        }
+      },
+      "policies": [
+        {
+          "subject_ref": "fingerprint:raw",
+          "subject_kind": "raw-fingerprint",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-harness-v7",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-tools-v5",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-harness-v3",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-prompt-v4",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/hugin-tools-v2",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:governance/positive-4",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/gateway-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/hugin-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/runtime-task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source:hugin:broker-001",
+          "subject_kind": "source",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:governance/positive-6",
+    "source_type": "governance-policy-manifest",
+    "source_version": "governance-policy-manifest-v1",
+    "document": {
+      "schema_version": "governance-policy-manifest/v1",
+      "contract": {
+        "contract_version": "grimnir.learning-task/v1",
+        "schema_revision": 1
+      },
+      "manifest": {
+        "manifest_id": "opaque:c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1",
+        "version": "governance-policy-manifest-jcs-v1",
+        "approved_at": "2026-07-19T09:58:00Z",
+        "owner_attestations": [
+          {
+            "content_owner": "principal:owner",
+            "authenticated_principal": "principal:owner",
+            "authentication": "authenticated-owner",
+            "delegation": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            }
+          }
+        ]
+      },
+      "record_binding": {
+        "record_kind": "quality-receipt",
+        "producer": "hugin",
+        "task": {
+          "origin_component": "hugin",
+          "instance_id": "task-001",
+          "source": {
+            "component": "hugin",
+            "system": "broker",
+            "id": "broker-001",
+            "created_at": "2026-07-19T09:59:00Z",
+            "accepted_at": "2026-07-19T10:00:00Z",
+            "principal": {
+              "id": "principal:owner",
+              "authentication": "verified-signature",
+              "scope": "owner"
+            },
+            "content_owner": {
+              "id": "principal:owner",
+              "authority": "authenticated-owner"
+            }
+          },
+          "task_type": {
+            "id": "summarize",
+            "taxonomy_id": "gille-inference/task-types",
+            "taxonomy_version": "gille-inference-task-types-2026-07-19-v1"
+          },
+          "raw_fingerprint": {
+            "algorithm": "sha256",
+            "version": "trim-utf8-sha256-v1",
+            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          }
+        }
+      },
+      "policies": [
+        {
+          "subject_ref": "fingerprint:raw",
+          "subject_kind": "raw-fingerprint",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "quality:rating-reason",
+          "subject_kind": "rating-reason",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "quality:structured-result",
+          "subject_kind": "quality-binding",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "quality:task-document",
+          "subject_kind": "quality-binding",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:governance/positive-6",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:rubric/quality-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source:hugin:broker-001",
+          "subject_kind": "source",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:governance/positive-7",
+    "source_type": "governance-policy-manifest",
+    "source_version": "governance-policy-manifest-v1",
+    "document": {
+      "schema_version": "governance-policy-manifest/v1",
+      "contract": {
+        "contract_version": "grimnir.learning-task/v1",
+        "schema_revision": 1
+      },
+      "manifest": {
+        "manifest_id": "opaque:c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1",
+        "version": "governance-policy-manifest-jcs-v1",
+        "approved_at": "2026-07-19T09:58:00Z",
+        "owner_attestations": [
+          {
+            "content_owner": "principal:owner",
+            "authenticated_principal": "principal:owner",
+            "authentication": "authenticated-owner",
+            "delegation": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            }
+          }
+        ]
+      },
+      "record_binding": {
+        "record_kind": "experiment-product-rating",
+        "producer": "hugin",
+        "task": {
+          "origin_component": "hugin",
+          "instance_id": "task-001",
+          "source": {
+            "component": "hugin",
+            "system": "broker",
+            "id": "broker-001",
+            "created_at": "2026-07-19T09:59:00Z",
+            "accepted_at": "2026-07-19T10:00:00Z",
+            "principal": {
+              "id": "principal:owner",
+              "authentication": "verified-signature",
+              "scope": "owner"
+            },
+            "content_owner": {
+              "id": "principal:owner",
+              "authority": "authenticated-owner"
+            }
+          },
+          "task_type": {
+            "id": "summarize",
+            "taxonomy_id": "gille-inference/task-types",
+            "taxonomy_version": "gille-inference-task-types-2026-07-19-v1"
+          },
+          "raw_fingerprint": {
+            "algorithm": "sha256",
+            "version": "trim-utf8-sha256-v1",
+            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          }
+        }
+      },
+      "policies": [
+        {
+          "subject_ref": "experiment:rating-reason",
+          "subject_kind": "rating-reason",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "fingerprint:raw",
+          "subject_kind": "raw-fingerprint",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:experiment/exp-001-run-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:governance/positive-7",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:rubric/experiment-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source:hugin:broker-001",
+          "subject_kind": "source",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:governance/service-source-positive",
+    "source_type": "governance-policy-manifest",
+    "source_version": "governance-policy-manifest-v1",
+    "document": {
+      "schema_version": "governance-policy-manifest/v1",
+      "contract": {
+        "contract_version": "grimnir.learning-task/v1",
+        "schema_revision": 1
+      },
+      "manifest": {
+        "manifest_id": "opaque:d1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1",
+        "version": "governance-policy-manifest-jcs-v1",
+        "approved_at": "2026-07-19T09:58:00Z",
+        "owner_attestations": [
+          {
+            "content_owner": "principal:owner",
+            "authenticated_principal": "principal:owner",
+            "authentication": "authenticated-owner",
+            "delegation": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            }
+          }
+        ]
+      },
+      "record_binding": {
+        "record_kind": "inference-exposure",
+        "producer": "gille-inference",
+        "task": {
+          "origin_component": "gille-inference",
+          "instance_id": "service-task-001",
+          "source": {
+            "component": "gille-inference",
+            "system": "openai-chat",
+            "id": "service-request-001",
+            "created_at": "2026-07-19T13:00:00Z",
+            "accepted_at": "2026-07-19T13:00:01Z",
+            "principal": {
+              "id": "service:hugin-ingress",
+              "authentication": "service-auth",
+              "scope": "service"
+            },
+            "content_owner": {
+              "id": "principal:owner",
+              "authority": "authenticated-owner"
+            }
+          },
+          "task_type": {
+            "id": "conversation",
+            "taxonomy_id": "gille-inference/task-types",
+            "taxonomy_version": "gille-inference-task-types-2026-07-19-v1"
+          },
+          "raw_fingerprint": {
+            "algorithm": "sha256",
+            "version": "trim-utf8-sha256-v1",
+            "digest": "b4481a3dc2567769f028485b0a1f49986f48246194c99b14176d14588d3f5fb2"
+          }
+        }
+      },
+      "policies": [
+        {
+          "subject_ref": "fingerprint:raw",
+          "subject_kind": "raw-fingerprint",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/direct-harness-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/direct-prompt-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/direct-tools-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-harness-v7",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:config/gateway-tools-v5",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:governance/service-source-positive",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/gateway-direct-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:prompt/runtime-direct-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source:gille-inference:service-request-001",
+          "subject_kind": "source",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:prompt/gateway-direct-v1",
+    "source_type": "prompt-stage",
+    "source_version": "prompt-stage-v1",
+    "document": {
+      "schema_version": "prompt-stage/v1",
+      "stage": "gateway-canonical-envelope",
+      "messages": [
+        {
+          "role": "system",
+          "content_ref": "direct-chat:v1"
+        },
+        {
+          "role": "user",
+          "content_ref": "direct-request:raw"
+        }
+      ],
+      "canonical_role_order": [
+        "system",
+        "user"
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:prompt/gateway-task-001",
+    "source_type": "prompt-stage",
+    "source_version": "prompt-stage-v1",
+    "document": {
+      "schema_version": "prompt-stage/v1",
+      "stage": "gateway-canonical-envelope",
+      "messages": [
+        {
+          "role": "system",
+          "content_ref": "hugin-agent:v4"
+        },
+        {
+          "role": "user",
+          "content_ref": "task:task-001:raw"
+        }
+      ],
+      "canonical_role_order": [
+        "system",
+        "user"
+      ],
+      "task_binding": "task-001"
+    }
+  },
+  {
+    "source_ref": "source-doc:prompt/hugin-task-001",
+    "source_type": "prompt-stage",
+    "source_version": "prompt-stage-v1",
+    "document": {
+      "schema_version": "prompt-stage/v1",
+      "stage": "hugin-envelope",
+      "messages": [
+        {
+          "role": "system",
+          "content_ref": "hugin-agent:v4"
+        },
+        {
+          "role": "user",
+          "content_ref": "task:task-001:raw"
+        }
+      ],
+      "task_binding": "task-001"
+    }
+  },
+  {
+    "source_ref": "source-doc:prompt/runtime-direct-v1",
+    "source_type": "prompt-stage",
+    "source_version": "prompt-stage-v1",
+    "document": {
+      "schema_version": "prompt-stage/v1",
+      "stage": "runtime-chat-template-render",
+      "template": "llama-swap-chat-template-v1",
+      "ordered_message_refs": [
+        "direct-chat:v1",
+        "direct-request:raw"
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:prompt/runtime-task-001",
+    "source_type": "prompt-stage",
+    "source_version": "prompt-stage-v1",
+    "document": {
+      "schema_version": "prompt-stage/v1",
+      "stage": "runtime-chat-template-render",
+      "template": "llama-swap-chat-template-v1",
+      "ordered_message_refs": [
+        "hugin-agent:v4",
+        "task:task-001:raw"
+      ],
+      "task_binding": "task-001"
+    }
+  },
+  {
+    "source_ref": "source-doc:rubric/experiment-v1",
+    "source_type": "rubric-config",
+    "source_version": "rubric-source-v1",
+    "document": {
+      "schema_version": "rubric-config/v1",
+      "id": "experiment-rubric",
+      "version": "v1",
+      "outcomes": [
+        "accepted-unchanged",
+        "minor-edit",
+        "major-rewrite",
+        "discarded"
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:rubric/quality-v1",
+    "source_type": "rubric-config",
+    "source_version": "rubric-source-v1",
+    "document": {
+      "schema_version": "rubric-config/v1",
+      "id": "quality-rubric",
+      "version": "v1",
+      "ratings": [
+        "pass",
+        "partial",
+        "redo",
+        "wrong"
+      ]
+    }
+  },
+  {
+    "source_ref": "source-doc:runtime/mellum-v1",
+    "source_type": "effective-runtime-config",
+    "source_version": "gille-effective-runtime-config-v1",
+    "document": {
+      "schema_version": "effective-runtime-config/v1",
+      "runtime_id": "llama-swap",
+      "provider_id": "m5",
+      "model_id": "mellum",
+      "context_tokens": 32768,
+      "backend": "llama.cpp",
+      "chat_template": "llama-swap-chat-template-v1"
+    }
+  },
+  {
+    "source_ref": "source-doc:sampling/mellum-v1",
+    "source_type": "effective-sampling-post-default-post-clamp",
+    "source_version": "gille-sampling-v1",
+    "document": {
+      "schema_version": "effective-sampling/v1",
+      "model_id": "mellum",
+      "requested": {
+        "temperature": 0,
+        "max_tokens": 4096
+      },
+      "defaults_applied": {
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": null,
+        "n": 1
+      },
+      "clamps_applied": {
+        "temperature_floor": 0.6,
+        "max_tokens_ceiling": 12288
+      },
+      "final": {
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": null,
+        "max_tokens": 4096,
+        "n": 1
+      }
+    }
+  }
+]

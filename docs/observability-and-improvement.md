@@ -77,7 +77,8 @@ local terms explicitly until adoption:
 | M5 task exposure registry | Implemented | Observed events exist for declared lanes. A contract negative-coverage query is a separate bounded assertion over exactly chat, mcp-ask, delegate, delegate-disagreement, delegate-shadow, and code-loop; direct loopback calls and incomplete history remain explicit. |
 | M5 capability ledger and deterministic verifiers | Implemented | Sole node/model/task capability truth; unverified evidence cannot be promoted by Hugin. |
 | M5 organic judge and delegate policy | Shadow | Must remain non-authoritative until representative human calibration, independent evidence, and versioned admission policy pass. |
-| Hugin↔M5 authenticated stamp/echo | Future | Hugin currently sends one unstamped request and the gateway does not yet return the exact authenticated join echo required by v1. Capability-negotiated dual read/write precedes enforcement. |
+| Hugin↔M5 authenticated preflight/stamp/echo | Future | Hugin currently sends one unstamped request and the gateway does not yet expose the authenticated versioned preflight or return the exact join echo required by v1. Preflight/read-only compatibility precedes any v1 send. |
+| Immutable pipeline accounting | Future | v1 requires natural-keyed append-only capture/join/direct-exposure/evaluation, retry, delivery-ordinal emission, and verifiable aggregate-close events so missing/rejected records remain in denominators without duplicate members. |
 | Product rating, candidate approval, verifier approval, change deployment | Manual | Human-reviewed by design in v1. |
 | Durable all-outcome registry and candidate packager | Future | Required to connect ordinary failures/successes to experiments. |
 | Verified Hugin-experiment import and guarded route reload | Future | Required to turn reviewed evidence into operational micro-routing. |
@@ -89,7 +90,7 @@ The required fields and owner are normative in
 [LearningTaskContract v1](learning-task-contract.md). In summary, a decision-driving observation
 must bind:
 
-- one stable task/source instance and canonical task taxonomy version;
+- one stable task/source instance, distinct transport principal/content owner, and canonical task taxonomy version;
 - the raw task fingerprint plus Hugin envelope, gateway canonical envelope, and runtime chat-template
   render as distinct separately versioned identities;
 - exact execution attempt, input/output/repository references and hashes;
@@ -100,9 +101,12 @@ must bind:
 - execution, repository, publication, immutable late product review, and capability outcomes without
   collapsing them;
 - failure/correction/successor and authenticated reviewer provenance; and
-- an authenticated Hugin request stamp and gateway echo for joined traffic;
+- an authenticated fresh preflight, Hugin request stamp, gateway echo, and ordered attempt/admission/model clocks for joined traffic;
 - exact typed per-source/derivative governance or explicit policy-unavailable denial; and
-- the reduced content-removal tombstone only after all store readbacks and backup expiry complete.
+- immutable source-document refs and owner/delegation attestations for every governed derivative;
+- append-only pipeline accounting when no valid learning record exists; and
+- the reduced content-removal tombstone only after all store readbacks, exact idempotent
+  current-month denominator-membership receipts, and backup expiry complete.
 
 A missing field remains missing. An inference, successful exit, changed file, model self-report, or
 uncalibrated judge does not fill an owner-controlled product or capability verdict.
@@ -157,7 +161,7 @@ in v1.
 | Order | Owning repo | Deliverable | Exit evidence |
 |---:|---|---|---|
 | 1 | Grimnir + both reviewers | Adopt v1 seam and immutable shared fixtures | Hugin and `gille-inference` owner reviews recorded; both consumer suites accept the same fixture. |
-| 2 | Hugin + `gille-inference` | Capability-negotiated stamp/echo and canonical raw/exposure identity | Real authenticated Hugin stamp is exactly echoed; substitution and retry-identity tests fail closed; six-lane negative query is separate from observed events. |
+| 2 | Hugin + `gille-inference` | Authenticated preflight, stamp/echo, canonical raw/exposure identity, and immutable accounting | Preflight revision/features/freshness fail closed; real Hugin stamp is exactly echoed; request/delivery retries are accounting events; six-lane negative query is separate from observed events. |
 | 3 | Hugin + `gille-inference` | Three-stage prompt and reproducible effective-serving provenance | Captured Hugin, gateway, runtime, manifest, runtime-config, and sampling sources recompute to the exported digests. |
 | 4 | Both producers | Complete governance/erasure projections | Direct-owner policy lookup meets its SLO; unavailable policy denies; all stores and backup expiry produce readback receipts. |
 | 5 | Hugin | Close receipt first-create concurrency; append immutable review records and durable all-outcome registry | Parallel first receipts are preserved; failures/no-ops/publication failures and late labels stay joinable without mutating observations. |

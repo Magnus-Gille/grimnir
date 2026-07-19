@@ -53,6 +53,7 @@ for definition in positive_derived:
 
 schema_negative_names = {
     "unknown contract major",
+    "unknown schema revision fails closed",
     "missing gateway canonical prompt identity",
     "legacy joint rendered prompt is rejected",
     "capability evidence cannot be produced by Hugin",
@@ -72,6 +73,10 @@ schema_negative_names = {
     "tombstone cannot retain task projection",
     "pending store readback cannot produce tombstone",
     "backup expiry must be confirmed before erasure",
+    "Hugin contract request matches record revision",
+    "partial preflight advertisement fails closed",
+    "request retry telemetry is forbidden in immutable stamp",
+    "delivery retry telemetry is forbidden in immutable evidence",
 }
 
 by_name = {case["name"]: case for case in negative}

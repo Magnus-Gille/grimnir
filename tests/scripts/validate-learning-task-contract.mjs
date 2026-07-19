@@ -11,13 +11,38 @@ const positive = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/lear
 const positiveDerivedDefinitions = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/positive-derived.json"), "utf8"));
 const positiveErased = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/positive-erased.json"), "utf8"));
 const negative = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/negative.json"), "utf8"));
+const sourceDocumentList = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/source-documents.json"), "utf8"));
+const sourceDocumentNegative = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/source-document-negative.json"), "utf8"));
+const jcsConformanceVectors = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/jcs-conformance-vectors.json"), "utf8"));
+const sourceDocuments = new Map(sourceDocumentList.map((source) => [source.source_ref, source]));
+
+function compareUtf16CodeUnits(left, right) {
+  return left === right ? 0 : left < right ? -1 : 1;
+}
 
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+    return `{${Object.keys(value).sort(compareUtf16CodeUnits).map((key) => {
+      assertValidUnicodeScalarString(key);
+      return `${JSON.stringify(key)}:${canonical(value[key])}`;
+    }).join(",")}}`;
   }
+  if (typeof value === "string") assertValidUnicodeScalarString(value);
+  if (typeof value === "number" && !Number.isFinite(value)) throw new Error("JCS rejects non-finite numbers");
+  if (!["string", "number", "boolean"].includes(typeof value) && value !== null) throw new Error(`JCS rejects non-JSON value ${typeof value}`);
   return JSON.stringify(value);
+}
+
+function assertValidUnicodeScalarString(value) {
+  for (let index = 0; index < value.length; index += 1) {
+    const unit = value.charCodeAt(index);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) throw new Error("JCS rejects lone high surrogate");
+      index += 1;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) throw new Error("JCS rejects lone low surrogate");
+  }
 }
 
 function resolveRef(ref) {
@@ -115,32 +140,109 @@ function digest(value) {
   return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
+function digestCanonical(value) {
+  return digest(canonical(value));
+}
+
+function sourceDocumentClaims(value, found = []) {
+  if (Array.isArray(value)) for (const item of value) sourceDocumentClaims(item, found);
+  else if (value && typeof value === "object") {
+    if (typeof value.source_ref === "string" && typeof value.source_type === "string" && typeof value.digest === "string") found.push(value);
+    for (const child of Object.values(value)) sourceDocumentClaims(child, found);
+  }
+  return found;
+}
+
+const sourceDocumentRequiredKeys = {
+  "prompt-stage": ["schema_version", "stage"],
+  "origin-prompt-config": ["schema_version", "component", "config_kind", "id", "version", "settings"],
+  "origin-harness-config": ["schema_version", "component", "config_kind", "id", "version", "settings"],
+  "origin-tool-policy-config": ["schema_version", "component", "config_kind", "id", "version", "settings"],
+  "gateway-harness-config": ["schema_version", "component", "config_kind", "id", "version", "settings"],
+  "gateway-tool-policy-config": ["schema_version", "component", "config_kind", "id", "version", "settings"],
+  "capability-policy-config": ["schema_version", "component", "config_kind", "id", "version", "settings"],
+  "experiment-config": ["schema_version", "experiment_id", "run_id", "arms", "holdout", "metric"],
+  "rubric-config": ["schema_version", "id", "version"],
+  "artifact-manifest": ["schema_version", "model_id", "files", "quantization"],
+  "effective-runtime-config": ["schema_version", "runtime_id", "provider_id", "model_id", "context_tokens", "backend", "chat_template"],
+  "effective-sampling-post-default-post-clamp": ["schema_version", "model_id", "requested", "defaults_applied", "clamps_applied", "final"],
+  "governance-policy-manifest": ["schema_version", "contract", "manifest", "record_binding", "policies"],
+};
+
+function validateSourceDocumentDigest(claim, errors) {
+  const source = sourceDocuments.get(claim.source_ref);
+  if (!source) {
+    errors.push(`missing immutable source document ${claim.source_ref}`);
+    return;
+  }
+  if (source.source_type !== claim.source_type || source.source_version !== claim.source_version) errors.push(`source document identity mismatch for ${claim.source_ref}`);
+  if (claim.digest !== digestCanonical(source.document)) errors.push(`source document digest mismatch for ${claim.source_ref}`);
+  const requiredKeys = sourceDocumentRequiredKeys[source.source_type];
+  if (!requiredKeys || source.document === null || typeof source.document !== "object" || Array.isArray(source.document) || requiredKeys.some((key) => !Object.hasOwn(source.document, key))) errors.push(`source document ${claim.source_ref} does not match typed ${source.source_type} shape`);
+  if (source.source_type === "effective-sampling-post-default-post-clamp") {
+    const final = source.document.final;
+    const exactFields = ["temperature", "top_p", "top_k", "min_p", "max_tokens", "n"];
+    if (!final || canonical(Object.keys(final).sort()) !== canonical(exactFields.sort())) errors.push(`sampling source ${claim.source_ref} lacks exact post-default/post-clamp fields`);
+    if (source.document.model_id === "mellum" && canonical(final) !== canonical({ temperature: 0.6, top_p: 0.95, top_k: 20, min_p: null, max_tokens: 4096, n: 1 })) errors.push("Mellum fixture sampling does not represent gille final defaults and clamps");
+  }
+}
+
+function validateSourceRole(claim, expectedType, errors, label, expectedStage) {
+  if (!claim || isUnknown(claim)) return;
+  if (claim.source_type !== expectedType) errors.push(`${label} must bind a typed ${expectedType} source document`);
+  const source = sourceDocuments.get(claim.source_ref);
+  if (expectedStage && source?.document?.stage !== expectedStage) errors.push(`${label} source document must identify stage ${expectedStage}`);
+}
+
+function validateReproducibilityRoles(record, errors) {
+  const execution = record.execution;
+  if (execution) {
+    validateSourceRole(execution.prompt_identity.hugin_envelope, "prompt-stage", errors, "Hugin envelope", "hugin-envelope");
+    validateSourceRole(execution.prompt_identity.gateway_canonical_envelope, "prompt-stage", errors, "gateway canonical envelope", "gateway-canonical-envelope");
+    validateSourceRole(execution.prompt_identity.runtime_chat_template_render, "prompt-stage", errors, "runtime chat-template render", "runtime-chat-template-render");
+    validateSourceRole(execution.origin_config.prompt.config_digest, "origin-prompt-config", errors, "origin prompt config");
+    validateSourceRole(execution.origin_config.harness.config_digest, "origin-harness-config", errors, "origin harness config");
+    validateSourceRole(execution.origin_config.tool_policy.config_digest, "origin-tool-policy-config", errors, "origin tool-policy config");
+    if (!isUnknown(execution.effective_gateway_config)) {
+      validateSourceRole(execution.effective_gateway_config.harness.config_digest, "gateway-harness-config", errors, "gateway harness config");
+      validateSourceRole(execution.effective_gateway_config.tool_policy.config_digest, "gateway-tool-policy-config", errors, "gateway tool-policy config");
+    }
+    if (!isUnknown(execution.serving)) {
+      validateSourceRole(execution.serving.model.artifact_manifest_digest, "artifact-manifest", errors, "model artifact manifest");
+      validateSourceRole(execution.serving.model.effective_config_digest, "effective-runtime-config", errors, "effective runtime config");
+      validateSourceRole(execution.serving.sampling_digest, "effective-sampling-post-default-post-clamp", errors, "effective sampling config");
+    }
+  }
+  validateSourceRole(record.capability?.policy_epoch.config_digest, "capability-policy-config", errors, "capability policy epoch");
+  validateSourceRole(record.experiment?.configuration_fingerprint, "experiment-config", errors, "experiment configuration");
+  validateSourceRole(record.quality_receipt?.rubric.config_digest, "rubric-config", errors, "quality rubric");
+  validateSourceRole(record.experiment_product_rating?.configuration_fingerprint, "experiment-config", errors, "experiment rating configuration");
+  validateSourceRole(record.experiment_product_rating?.rubric.config_digest, "rubric-config", errors, "experiment rating rubric");
+  if (record.governance?.capture_state === "complete") validateSourceRole(record.governance.policy_manifest.digest, "governance-policy-manifest", errors, "governance policy manifest");
+}
+
 const lanes = ["chat", "mcp-ask", "delegate", "delegate-disagreement", "delegate-shadow", "code-loop"];
 
 function expectedGovernanceSubjects(record) {
   assert.equal(isUnknown(record.task.source.principal), false, "complete governance requires a known authenticated source principal");
+  const sourceOwner = record.task.source.content_owner.id;
   const expected = new Map([
-    [`source:${record.task.origin_component}:${record.task.source.id}`, ["source", record.task.source.principal.id]],
-    ["fingerprint:raw", ["raw-fingerprint", record.task.source.principal.id]],
+    [`source:${record.task.origin_component}:${record.task.source.id}`, ["source", sourceOwner]],
+    ["fingerprint:raw", ["raw-fingerprint", sourceOwner]],
   ]);
-  if (record.execution) {
-    const prompts = record.execution.prompt_identity;
-    if (!isUnknown(prompts.hugin_envelope)) expected.set("fingerprint:hugin-envelope", ["hugin-envelope", record.task.source.principal.id]);
-    if (!isUnknown(prompts.gateway_canonical_envelope)) expected.set("fingerprint:gateway-canonical-envelope", ["gateway-canonical-envelope", record.task.source.principal.id]);
-    if (!isUnknown(prompts.runtime_chat_template_render)) expected.set("fingerprint:runtime-chat-template-render", ["runtime-chat-template-render", record.task.source.principal.id]);
-  }
+  for (const sourceRef of new Set(sourceDocumentClaims(record).map((claim) => claim.source_ref))) expected.set(sourceRef, ["source-document", sourceOwner]);
   for (const artifact of record.artifacts.items) expected.set(artifact.ref, ["artifact", artifact.owner]);
   const repository = record.artifacts.repository;
   if (!isUnknown(repository)) {
-    if (!isUnknown(repository.diff_hash)) expected.set("repository:diff-hash", ["repository-diff-hash", record.task.source.principal.id]);
-    if (!isUnknown(repository.changed_files_ref)) expected.set(repository.changed_files_ref, ["repository-file-list", record.task.source.principal.id]);
+    if (!isUnknown(repository.diff_hash)) expected.set("repository:diff-hash", ["repository-diff-hash", sourceOwner]);
+    if (!isUnknown(repository.changed_files_ref)) expected.set(repository.changed_files_ref, ["repository-file-list", sourceOwner]);
   }
   if (record.quality_receipt) {
-    expected.set("quality:task-document", ["quality-binding", record.task.source.principal.id]);
-    expected.set("quality:structured-result", ["quality-binding", record.task.source.principal.id]);
-    expected.set("quality:rating-reason", ["rating-reason", record.task.source.principal.id]);
+    expected.set("quality:task-document", ["quality-binding", sourceOwner]);
+    expected.set("quality:structured-result", ["quality-binding", sourceOwner]);
+    expected.set("quality:rating-reason", ["rating-reason", sourceOwner]);
   }
-  if (record.experiment_product_rating) expected.set("experiment:rating-reason", ["rating-reason", record.task.source.principal.id]);
+  if (record.experiment_product_rating) expected.set("experiment:rating-reason", ["rating-reason", sourceOwner]);
   return expected;
 }
 
@@ -149,8 +251,8 @@ function effectiveGovernance(policies) {
   const erasureRank = { active: 0, requested: 1, expired: 2, erased: 3 };
   const sensitivity = policies.reduce((current, p) => sensitivityRank[p.sensitivity] > sensitivityRank[current] ? p.sensitivity : current, "public");
   const allowedUses = policies.slice(1).reduce((uses, p) => uses.filter((use) => p.allowed_uses.includes(use)), [...policies[0].allowed_uses]).sort();
-  const knownExpiries = policies.map((p) => p.retention.expires_at).filter((value) => typeof value === "string").sort();
-  const expiresAt = knownExpiries[0] ?? { value: null, unknown_reason: "not-applicable" };
+  const knownExpiries = policies.map((p) => p.retention.expires_at).filter((value) => typeof value === "string");
+  const expiresAt = knownExpiries.reduce((earliest, value) => earliest === null || Date.parse(value) < Date.parse(earliest) ? value : earliest, null) ?? { value: null, unknown_reason: "not-applicable" };
   const erasureState = policies.reduce((current, p) => erasureRank[p.erasure.state] > erasureRank[current] ? p.erasure.state : current, "active");
   return { sensitivity, allowedUses, expiresAt, erasureState };
 }
@@ -221,7 +323,6 @@ function validateGovernance(record, errors) {
     errors.push("complete governance requires a known authenticated source principal");
     return;
   }
-  if (governance.policy_manifest.authenticated_principal !== record.task.source.principal.id) errors.push("policy manifest principal is not the authenticated source principal");
   if (Date.parse(governance.policy_manifest.approved_at) > Date.parse(record.task.source.accepted_at)) errors.push("policy manifest was approved after task acceptance");
   const expected = expectedGovernanceSubjects(record);
   const actual = new Map();
@@ -243,6 +344,37 @@ function validateGovernance(record, errors) {
     }
   }
   for (const ref of actual.keys()) if (!expected.has(ref)) errors.push(`unexpected governance policy for ${ref}`);
+  const distinctOwners = [...new Set(governance.policies.map((policy) => policy.content_owner))].sort();
+  const attestationOwners = governance.policy_manifest.owner_attestations.map((attestation) => attestation.content_owner).sort();
+  if (canonical(attestationOwners) !== canonical(distinctOwners) || new Set(attestationOwners).size !== attestationOwners.length) errors.push("policy manifest must carry exactly one owner attestation per distinct content owner");
+  for (const attestation of governance.policy_manifest.owner_attestations) {
+    if (attestation.authentication === "authenticated-owner") {
+      if (attestation.authenticated_principal !== attestation.content_owner || !isUnknown(attestation.delegation) || attestation.delegation.unknown_reason !== "not-applicable") errors.push(`authenticated owner attestation is invalid for ${attestation.content_owner}`);
+    } else {
+      if (isUnknown(attestation.delegation)
+        || attestation.delegation.delegated_by !== attestation.content_owner
+        || attestation.delegation.delegated_to !== attestation.authenticated_principal
+        || Date.parse(attestation.delegation.issued_at) > Date.parse(governance.policy_manifest.approved_at)
+        || Date.parse(attestation.delegation.expires_at) < Date.parse(governance.policy_manifest.approved_at)) errors.push(`delegation attestation is invalid for ${attestation.content_owner}`);
+    }
+  }
+  const sourceOwnerAttestation = governance.policy_manifest.owner_attestations.find((attestation) => attestation.content_owner === record.task.source.content_owner.id);
+  const expectedAttestationMode = record.task.source.content_owner.authority === "authenticated-owner" ? "authenticated-owner" : "delegation-attestation";
+  if (!sourceOwnerAttestation || sourceOwnerAttestation.authentication !== expectedAttestationMode) errors.push("source content-owner authority must match its verified owner-attestation mode");
+  const manifestSource = sourceDocuments.get(governance.policy_manifest.digest.source_ref);
+  const expectedManifest = {
+    schema_version: "governance-policy-manifest/v1",
+    contract: { contract_version: record.contract_version, schema_revision: record.schema_revision },
+    manifest: {
+      manifest_id: governance.policy_manifest.manifest_id,
+      version: governance.policy_manifest.version,
+      approved_at: governance.policy_manifest.approved_at,
+      owner_attestations: [...governance.policy_manifest.owner_attestations].sort((a, b) => compareUtf16CodeUnits(a.content_owner, b.content_owner)),
+    },
+    record_binding: { record_kind: record.record_kind, producer: record.producer.component, task: record.task },
+    policies: [...governance.policies].sort((a, b) => compareUtf16CodeUnits(a.subject_ref, b.subject_ref)),
+  };
+  if (!manifestSource || canonical(manifestSource.document) !== canonical(expectedManifest)) errors.push("policy manifest source does not exactly bind contract, task, source, content owner, and sorted policies");
   const computed = effectiveGovernance(governance.policies);
   const declared = governance.effective;
   if (declared.sensitivity !== computed.sensitivity) errors.push(`effective sensitivity ${declared.sensitivity} does not equal strictest ${computed.sensitivity}`);
@@ -271,6 +403,7 @@ function validateTransport(record, errors) {
       ["serving", record.execution.serving],
       ["effective gateway config", record.execution.effective_gateway_config],
     ]) if (isUnknown(value)) errors.push(`direct gateway ${name} must be known`);
+    if (isUnknown(record.execution.model_started_at) || isUnknown(record.execution.model_ended_at)) errors.push("direct gateway model clocks must be known");
     return;
   }
 
@@ -302,6 +435,15 @@ function validateTransport(record, errors) {
   if (canonical(request.origin_config) !== canonical(record.execution.origin_config)) errors.push("transport stamp does not bind origin config");
   if (canonical(request.macro_decision) !== canonical(record.execution.routing.macro)) errors.push("transport stamp does not bind macro decision");
   if (request.contract_request.contract_version !== record.contract_version || request.contract_request.schema_revision !== record.schema_revision) errors.push("Hugin contract request does not match record version/revision");
+  if (Date.parse(request.stamped_at) > Date.parse(record.execution.started_at)) errors.push("Hugin request stamp follows attempt start");
+  const preflight = request.preflight;
+  if (canonical(preflight.request.requested_capabilities) !== canonical(request.contract_request)
+    || canonical(preflight.response.capabilities) !== canonical(request.contract_request)) errors.push("preflight advertisement/request does not bind exact requested revision and features");
+  if (preflight.response.authenticated_principal_id !== "service:gille-inference") errors.push("preflight response is not authenticated as gille-inference");
+  if (!(Date.parse(preflight.request.requested_at) <= Date.parse(preflight.response.advertised_at)
+    && Date.parse(preflight.response.advertised_at) <= Date.parse(request.stamped_at)
+    && Date.parse(request.stamped_at) < Date.parse(preflight.response.expires_at))) errors.push("preflight freshness window does not cover request stamp");
+  if (Date.parse(preflight.response.expires_at) - Date.parse(preflight.response.advertised_at) > 15 * 60 * 1000) errors.push("preflight advertisement cache TTL exceeds 15 minutes");
   if (state === "m5-not-admitted") {
     for (const [name, value] of [
       ["gateway envelope", record.execution.prompt_identity.gateway_canonical_envelope],
@@ -313,6 +455,9 @@ function validateTransport(record, errors) {
       if (!isUnknown(value) || !["not-admitted", "transport-auth-failed", "producer-error"].includes(value.unknown_reason)) errors.push(`M5 non-admission ${name} must carry the missing-echo reason`);
       else if (value.unknown_reason !== echo.unknown_reason) errors.push(`M5 non-admission ${name} reason must match the missing echo`);
     }
+    for (const [name, value] of [["model start", record.execution.model_started_at], ["model end", record.execution.model_ended_at]]) {
+      if (!isUnknown(value) || value.unknown_reason !== echo.unknown_reason) errors.push(`M5 non-admission ${name} reason must match the missing echo`);
+    }
     return;
   }
   if (isUnknown(echo)) {
@@ -322,18 +467,11 @@ function validateTransport(record, errors) {
   if (canonical(request) !== canonical(echo.echoed_request)) errors.push("gateway echo does not exactly reproduce Hugin request stamp");
   if (canonical(request.contract_request) !== canonical(echo.capabilities)) errors.push("gateway capabilities do not match Hugin contract request");
   if (echo.authenticated_principal_id !== request.expected_transport_principal_id) errors.push("gateway authenticated principal does not match expected transport principal");
-  const principalBindingSource = {
-    authenticated_principal_id: echo.authenticated_principal_id,
-    expected_transport_principal_id: request.expected_transport_principal_id,
-    client_id: request.client_id,
-    idempotency_key: request.idempotency_key,
-    request_id: request.request_id,
-    task_instance_id: request.task_instance_id,
-    attempt_id: request.attempt_id,
-    contract_request: request.contract_request,
-  };
-  if (echo.principal_binding_digest.digest !== digest(canonical(principalBindingSource))) errors.push("gateway principal binding digest does not bind principal/request identity");
-  if (Date.parse(echo.admitted_at) < Date.parse(record.task.source.accepted_at) || Date.parse(echo.admitted_at) > Date.parse(record.execution.started_at)) errors.push("gateway admission clock is outside acceptance/start interval");
+  const principalBindingSource = { authenticated_principal_id: echo.authenticated_principal_id, request_stamp: request };
+  if (echo.principal_binding_digest.digest !== digestCanonical(principalBindingSource)) errors.push("gateway principal binding digest does not bind principal/request identity");
+  if (Date.parse(echo.admitted_at) < Date.parse(record.execution.started_at)
+    || isUnknown(record.execution.model_started_at)
+    || Date.parse(echo.admitted_at) > Date.parse(record.execution.model_started_at)) errors.push("gateway admission clock is outside attempt-start/model-start interval");
 }
 
 function validateTombstone(record) {
@@ -345,22 +483,130 @@ function validateTombstone(record) {
   if (canonical(protocol.core_stores.map((entry) => entry.store).sort()) !== canonical([...expectedStores].sort())) errors.push("erasure protocol must cover every core store exactly once");
   if (protocol.artifact_stores.length !== protocol.expected_artifact_store_receipts) errors.push("erasure protocol artifact receipt count does not match pre-erasure inventory");
   if (new Set(protocol.artifact_stores.map((receipt) => receipt.inventory_entry_id)).size !== protocol.artifact_stores.length) errors.push("artifact erasure receipts must bind unique inventory entries");
+  const allReceipts = [...protocol.core_stores, ...protocol.artifact_stores];
+  if (new Set(allReceipts.map((receipt) => receipt.receipt_id)).size !== allReceipts.length) errors.push("erasure store receipt ids must be unique");
+  if (allReceipts.some((receipt) => !["deleted", "absent-confirmed"].includes(receipt.status))) errors.push("every inventoried store must read back deleted or absent-confirmed");
   for (const receipt of [...protocol.core_stores, ...protocol.artifact_stores]) if (Date.parse(receipt.readback_at) < Date.parse(protocol.requested_at) || Date.parse(receipt.readback_at) > Date.parse(record.tombstone.effective_at)) errors.push(`store ${receipt.store ?? receipt.store_class} readback clock is outside erasure interval`);
   if (!(Date.parse(protocol.requested_at) <= Date.parse(protocol.backup_expiry.deadline)
     && Date.parse(protocol.backup_expiry.deadline) <= Date.parse(protocol.backup_expiry.verified_at)
     && Date.parse(protocol.backup_expiry.verified_at) <= Date.parse(record.tombstone.effective_at))) errors.push("backup expiry clocks must satisfy requested <= deadline <= verified <= effective");
-  const counterOwners = { "hugin-capture-denominator": "hugin", "hugin-m5-join-denominator": "hugin", "direct-m5-exposure-denominator": "gille-inference", "evaluation-candidate-denominator": "hugin" };
+  const basisCounters = {
+    "hugin-task-non-m5": ["hugin-capture-denominator"],
+    "hugin-task-m5": ["hugin-capture-denominator", "hugin-m5-join-denominator"],
+    "joined-exposure": ["hugin-m5-join-denominator"],
+    "direct-exposure": ["direct-m5-exposure-denominator"],
+    "pipeline-hugin-capture-denominator": ["hugin-capture-denominator"],
+    "pipeline-hugin-m5-join-denominator": ["hugin-m5-join-denominator"],
+    "pipeline-direct-m5-exposure-denominator": ["direct-m5-exposure-denominator"],
+    "pipeline-evaluation-candidate-denominator": ["evaluation-candidate-denominator"],
+    "not-denominator-bearing": [],
+  };
+  const basis = record.tombstone.denominator_basis;
+  if (record.record_kind === "task-outcome" && !["hugin-task-non-m5", "hugin-task-m5"].includes(basis)) errors.push("task-outcome tombstone must declare its exact capture/join denominator basis");
+  if (record.record_kind === "inference-exposure" && !["joined-exposure", "direct-exposure"].includes(basis)) errors.push("inference-exposure tombstone must declare its exact join/direct denominator basis");
+  if (record.record_kind === "pipeline-accounting" && !basis.startsWith("pipeline-") && basis !== "not-denominator-bearing") errors.push("pipeline accounting tombstone has an invalid denominator basis");
+  if (!["task-outcome", "inference-exposure", "pipeline-accounting"].includes(record.record_kind) && basis !== "not-denominator-bearing") errors.push(`${record.record_kind} tombstone cannot declare a denominator basis`);
+  const expectedCounters = basisCounters[basis] ?? [];
+  const basisRequiresMembership = record.tombstone.denominator_basis !== "not-denominator-bearing";
+  if (basisRequiresMembership && (record.tombstone.denominator_impact !== "denominator-membership-preserved" || record.tombstone.counter_audit.length === 0)) errors.push("denominator-bearing tombstone requires an idempotent membership receipt");
+  if (record.tombstone.denominator_impact === "not-denominator-bearing" && record.tombstone.counter_audit.length !== 0) errors.push("non-denominator tombstone cannot fabricate counter receipts");
+  if (!basisRequiresMembership && record.tombstone.denominator_impact !== "not-denominator-bearing") errors.push("non-denominator basis cannot claim preserved denominator membership");
+  if (canonical(record.tombstone.counter_audit.map((entry) => entry.counter).sort(compareUtf16CodeUnits)) !== canonical([...expectedCounters].sort(compareUtf16CodeUnits))) errors.push("tombstone counter receipts do not exactly match the declared denominator basis");
   const counterPeriods = new Set();
   for (const entry of record.tombstone.counter_audit) {
-    if (counterOwners[entry.counter] !== record.producer.component) errors.push(`producer ${record.producer.component} does not own counter ${entry.counter}`);
-    if (entry.disposition !== "preserved") errors.push("counter audit is preservation-only");
-    const key = `${entry.counter}|${entry.period_utc}`;
+    const receipt = entry.membership_receipt;
+    if (counterOwners[entry.counter] !== receipt.owner_component) errors.push(`membership receipt owner ${receipt.owner_component} does not own counter ${entry.counter}`);
+    if (record.tombstone.denominator_basis.startsWith("pipeline-") && receipt.owner_component !== record.producer.component) errors.push("pipeline denominator tombstone membership remains owned by its accounting producer");
+    if (entry.disposition !== "idempotent-membership-preserved") errors.push("counter audit requires idempotent membership preservation");
+    const key = `${receipt.owner_component}|${entry.counter}|${entry.period_utc}|${receipt.membership_key}`;
     if (counterPeriods.has(key)) errors.push(`duplicate counter audit key ${key}`);
     counterPeriods.add(key);
-    const [year, month] = entry.period_utc.split("-").map(Number);
-    const periodClose = Date.UTC(year, month, 1);
-    if (periodClose > Date.parse(record.tombstone.effective_at)) errors.push(`counter period ${entry.period_utc} is not closed before erasure`);
+    const membershipPayload = { owner_component: receipt.owner_component, counter: entry.counter, period_utc: entry.period_utc, membership_key: receipt.membership_key };
+    if (receipt.membership_key_digest.version !== "denominator-membership-key-jcs-v1" || receipt.membership_key_digest.digest !== digestCanonical(membershipPayload)) errors.push(`counter ${entry.counter} membership key digest is not reproducible`);
+    if ((receipt.outcome === "inserted" && receipt.delta !== 1) || (receipt.outcome === "already-present" && receipt.delta !== 0)) errors.push(`counter ${entry.counter} membership outcome and delta are incoherent`);
+    if (Date.parse(receipt.confirmed_at) < Date.parse(protocol.requested_at)
+      || Date.parse(receipt.confirmed_at) > Date.parse(record.tombstone.effective_at)) errors.push(`counter ${entry.counter} membership was not confirmed before effective removal`);
   }
+  return errors;
+}
+
+const counterOwners = { "hugin-capture-denominator": "hugin", "hugin-m5-join-denominator": "hugin", "direct-m5-exposure-denominator": "gille-inference", "evaluation-candidate-denominator": "hugin" };
+const counterStages = { "hugin-capture-denominator": "capture", "hugin-m5-join-denominator": "join", "direct-m5-exposure-denominator": "direct-exposure", "evaluation-candidate-denominator": "evaluation" };
+const candidateExclusionCodes = new Set(["candidate-governance-denied", "candidate-erased-or-expired", "candidate-exposure-incomplete", "candidate-provenance-incomplete", "candidate-product-quality-conflicted", "candidate-verifier-inadmissible", "candidate-duplicate-lineage"]);
+const operationalFailureCodes = new Set(["producer-error", "consumer-error", "schema-rejected", "join-mismatch", "late-over-24h", "policy-unavailable", "transport-auth-failed", "gateway-not-admitted", "transport-error"]);
+
+function utcMonth(timestamp) {
+  return new Date(Date.parse(timestamp)).toISOString().slice(0, 7);
+}
+
+function validatePipelineAccounting(record) {
+  const errors = [];
+  const event = record.pipeline_accounting;
+  if (record.producer.component !== event.owner_component) errors.push("pipeline accounting producer must equal counter/event owner");
+  if (Date.parse(event.observed_at) > Date.parse(record.recorded_at)) errors.push("pipeline accounting event follows record creation");
+  if (Date.parse(record.accounting_governance.expires_at) <= Date.parse(record.recorded_at)) errors.push("pipeline accounting retention is already expired");
+  for (const namespace of Object.keys(record.extensions)) if (namespace !== record.producer.component) errors.push(`extension namespace ${namespace} is not owned by producer ${record.producer.component}`);
+  for (const target of record.lineage.correction_targets) if (target.producer !== record.producer.component || target.record_kind !== "pipeline-accounting" || target.fact_domain !== "pipeline-accounting") errors.push("correction target must retain the same producer, record kind, and fact domain");
+  if (record.lineage.correction_targets.length > 0 && isUnknown(record.lineage.correction_ref)) errors.push("pipeline correction targets require an immutable correction reference");
+  const retryKnown = !isUnknown(event.retry);
+  const denominatorKnown = !isUnknown(event.denominator);
+  const aggregateKnown = !isUnknown(event.aggregate_close);
+  const relatedKnown = !isUnknown(event.related_record);
+  const deliveryOrdinalKnown = !isUnknown(event.delivery_ordinal);
+  if (event.event_type === "denominator-decision") {
+    if (!denominatorKnown || retryKnown || aggregateKnown || deliveryOrdinalKnown || !["capture", "join", "direct-exposure", "evaluation"].includes(event.stage) || !["admitted", "failed", "excluded"].includes(event.disposition)) errors.push("denominator decision has incoherent immutable accounting fields");
+    else {
+      if (counterOwners[event.denominator.counter] !== event.owner_component || counterStages[event.denominator.counter] !== event.stage || event.denominator.decision !== event.disposition) errors.push("denominator decision does not match its owner, stage, and disposition");
+      if (["capture", "join"].includes(event.stage) && (event.owner_component !== "hugin" || event.task_link.origin_component !== "hugin")) errors.push(`${event.stage} accounting requires Hugin owner and Hugin-origin task linkage`);
+      if (event.stage === "direct-exposure" && (event.owner_component !== "gille-inference" || event.task_link.origin_component !== "gille-inference")) errors.push("direct-exposure accounting requires gille-inference owner and direct-origin task linkage");
+      if (utcMonth(event.denominator.occurrence_at) !== event.denominator.occurrence_month_utc) errors.push("denominator occurrence month must derive from occurrence_at in UTC");
+      if (Date.parse(event.denominator.occurrence_at) > Date.parse(event.observed_at)) errors.push("denominator occurrence_at must not follow observed_at");
+      if (event.disposition === "admitted" && event.failure_code !== "not-applicable") errors.push("admitted denominator event cannot carry a failure code");
+      const expectedAdmittedRecord = event.stage === "capture" ? ["hugin", "task-outcome"]
+        : ["join", "direct-exposure"].includes(event.stage) ? ["gille-inference", "inference-exposure"]
+          : null;
+      if (event.disposition === "admitted" && (!relatedKnown || (expectedAdmittedRecord && (event.related_record.producer !== expectedAdmittedRecord[0] || event.related_record.record_kind !== expectedAdmittedRecord[1])))) errors.push(`${event.stage} admission must bind its expected immutable learning record`);
+      if (["capture", "join", "direct-exposure"].includes(event.stage) && ["failed", "excluded"].includes(event.disposition) && relatedKnown) errors.push(`${event.stage} failure or boundary exclusion cannot claim a valid learning record`);
+      if (event.stage === "evaluation" && ["admitted", "excluded"].includes(event.disposition) && !relatedKnown) errors.push("evaluation admission or exclusion must bind the evaluated candidate record");
+      if (event.stage === "evaluation" && event.disposition === "failed" && relatedKnown) errors.push("failed evaluation pipeline event cannot claim a completed candidate record");
+      if (event.disposition === "excluded") {
+        const allowed = event.stage === "evaluation" ? candidateExclusionCodes
+          : ["capture", "direct-exposure"].includes(event.stage) ? new Set(["synthetic-test", "pre-v1-migration"])
+            : new Set(["not-m5-routed", "pre-v1-migration"]);
+        if (!allowed.has(event.failure_code)) errors.push(`${event.stage} exclusion requires its closed boundary code`);
+      }
+      if (event.disposition === "failed" && !operationalFailureCodes.has(event.failure_code)) errors.push("failed denominator event requires an operational omission/failure code");
+    }
+  } else if (["request-retry", "record-delivery-retry"].includes(event.event_type)) {
+    const expectedKind = event.event_type === "request-retry" ? "request-transport" : "record-delivery";
+    if (!retryKnown || event.retry.kind !== expectedKind || event.stage !== expectedKind || event.disposition !== "retry" || denominatorKnown || aggregateKnown) errors.push("retry accounting event has incoherent immutable retry fields");
+    if (event.retry.ordinal < 2) errors.push("retry ordinal must start at two");
+    if (event.event_type === "request-retry" && (event.owner_component !== "hugin" || event.task_link.origin_component !== "hugin" || relatedKnown || event.related_record.unknown_reason !== "not-applicable" || deliveryOrdinalKnown || event.failure_code !== "transport-error")) errors.push("request retry requires Hugin request linkage, transport-error, and no related record or delivery ordinal");
+    if (event.event_type === "record-delivery-retry" && (!relatedKnown || !deliveryOrdinalKnown || event.delivery_ordinal !== event.retry.ordinal || event.failure_code !== "record-delivery-failed")) errors.push("delivery retry requires a known record, matching delivery ordinal, and record-delivery-failed");
+  } else if (event.event_type === "record-emission") {
+    if (retryKnown || denominatorKnown || aggregateKnown || !deliveryOrdinalKnown || event.stage !== "record-delivery" || !["succeeded", "failed"].includes(event.disposition)) errors.push("record emission accounting event has incoherent fields");
+    if (!relatedKnown) errors.push("successful emission must bind its immutable record identity");
+    if (relatedKnown && event.owner_component !== event.related_record.producer) errors.push("record delivery accounting must be owned by the related record producer");
+    if (event.disposition === "succeeded" && event.failure_code !== "not-applicable") errors.push("successful emission must bind its immutable record identity without a failure code");
+    if (event.disposition === "failed" && !["record-delivery-failed", "schema-rejected", "consumer-error"].includes(event.failure_code)) errors.push("failed emission requires a delivery/schema/consumer failure code");
+  } else if (event.event_type === "aggregate-close") {
+    if (!aggregateKnown || retryKnown || denominatorKnown || deliveryOrdinalKnown || event.stage !== "aggregate" || event.disposition !== "succeeded" || event.failure_code !== "not-applicable") errors.push("aggregate close has incoherent immutable fields");
+    else {
+      const close = event.aggregate_close;
+      if (counterOwners[close.counter] !== event.owner_component) errors.push("aggregate close owner does not own counter");
+      if (!(Date.parse(close.included_through) <= Date.parse(close.closed_at) && Date.parse(close.closed_at) <= Date.parse(record.recorded_at))) errors.push("aggregate close clocks are not ordered");
+      const [year, month] = close.period_utc.split("-").map(Number);
+      const nextMonthBoundary = Date.UTC(year, month, 1);
+      if (Date.parse(close.included_through) < nextMonthBoundary) errors.push("aggregate close included_through must reach the next UTC month boundary");
+      if (nextMonthBoundary > Date.parse(close.closed_at)) errors.push("aggregate close cannot close an open occurrence month");
+      if (record.lineage.correction_targets.length === 0 && Date.parse(close.closed_at) > nextMonthBoundary + 24 * 60 * 60 * 1000) errors.push("initial aggregate close exceeds the 24-hour close grace");
+    }
+  }
+  if (event.event_type !== "aggregate-close" && (isUnknown(event.task_link.origin_component) || isUnknown(event.task_link.task_instance_id) || isUnknown(event.task_link.attempt_id))) errors.push("pipeline accounting event must retain origin, task, and attempt linkage even when no learning record exists");
+  const notM5Boundary = event.event_type === "denominator-decision" && event.stage === "join" && event.disposition === "excluded" && event.failure_code === "not-m5-routed";
+  if (notM5Boundary) {
+    if (!isUnknown(event.task_link.request_id) || event.task_link.request_id.unknown_reason !== "not-applicable" || !isUnknown(event.task_link.idempotency_key) || event.task_link.idempotency_key.unknown_reason !== "not-applicable") errors.push("not-m5-routed join exclusion requires not-applicable request and idempotency linkage");
+  } else if ((event.event_type === "request-retry" || event.stage === "join") && (isUnknown(event.task_link.request_id) || isUnknown(event.task_link.idempotency_key))) errors.push("dispatched join and request-retry accounting require request and idempotency linkage");
   return errors;
 }
 
@@ -373,29 +619,64 @@ function validateReviewPair(record, errors) {
 
 function validateSemantics(record) {
   if (record.lifecycle_state === "content-removed-tombstone") return validateTombstone(record);
+  if (record.record_kind === "pipeline-accounting") return validatePipelineAccounting(record);
   const errors = [];
   if (record.task.origin_component !== record.task.source.component) errors.push("task origin_component must equal task.source.component");
   if (Date.parse(record.task.source.accepted_at) < Date.parse(record.task.source.created_at)) errors.push("task source accepted_at precedes created_at");
   if (Date.parse(record.recorded_at) < Date.parse(record.task.source.accepted_at)) errors.push("recorded_at precedes task acceptance");
   if (record.execution) {
     if (Date.parse(record.execution.started_at) < Date.parse(record.task.source.accepted_at)) errors.push("execution started_at precedes task acceptance");
+    if (Date.parse(record.execution.started_at) > Date.parse(record.recorded_at)) errors.push("execution started_at exceeds recorded_at");
     if (!isUnknown(record.execution.ended_at) && Date.parse(record.execution.ended_at) < Date.parse(record.execution.started_at)) errors.push("execution ended_at precedes started_at");
     if (!isUnknown(record.execution.ended_at) && Date.parse(record.execution.ended_at) > Date.parse(record.recorded_at)) errors.push("execution ended_at exceeds recorded_at");
+    const modelStartUnknown = isUnknown(record.execution.model_started_at);
+    const modelEndUnknown = isUnknown(record.execution.model_ended_at);
+    if (modelStartUnknown !== modelEndUnknown || (modelStartUnknown && record.execution.model_started_at.unknown_reason !== record.execution.model_ended_at.unknown_reason)) errors.push("model clocks must be known together or share one qualified missing reason");
+    if (!modelStartUnknown && (Date.parse(record.execution.model_started_at) < Date.parse(record.execution.started_at)
+      || Date.parse(record.execution.model_ended_at) < Date.parse(record.execution.model_started_at)
+      || isUnknown(record.execution.ended_at)
+      || Date.parse(record.execution.model_ended_at) > Date.parse(record.execution.ended_at))) errors.push("model clocks are outside the task attempt interval");
+    if (servingProvenanceComplete(record.execution.serving) && modelStartUnknown) errors.push("known serving execution requires known model clocks");
   }
+  const sourceClaims = sourceDocumentClaims(record);
+  for (const claim of sourceClaims) validateSourceDocumentDigest(claim, errors);
+  const sourceIdentities = new Map();
+  for (const claim of sourceClaims) {
+    const identity = canonical({ source_type: claim.source_type, source_version: claim.source_version, digest: claim.digest });
+    if (sourceIdentities.has(claim.source_ref) && sourceIdentities.get(claim.source_ref) !== identity) errors.push(`inconsistent immutable source document claim for ${claim.source_ref}`);
+    else sourceIdentities.set(claim.source_ref, identity);
+  }
+  validateReproducibilityRoles(record, errors);
   validateReviewPair(record, errors);
+  if (!isUnknown(record.review.reviewed_at) && Date.parse(record.review.reviewed_at) < Date.parse(record.task.source.accepted_at)) errors.push("review predates source acceptance");
   validateGovernance(record, errors);
   validateTransport(record, errors);
   for (const namespace of Object.keys(record.extensions)) if (namespace !== record.producer.component) errors.push(`extension namespace ${namespace} is not owned by producer ${record.producer.component}`);
+  if (record.producer.component === "gille-inference" && !isUnknown(record.artifacts.repository)) errors.push("gille-inference records cannot assert repository bindings");
   if (!isUnknown(record.lineage.correction_ref) && !record.artifacts.items.some((item) => item.kind === "correction" && item.ref === record.lineage.correction_ref)) errors.push("correction_ref must bind a correction artifact");
+  if (record.lineage.correction_targets.length > 0 && isUnknown(record.lineage.correction_ref)) errors.push("correction targets require a same-owner correction artifact");
+  const factDomains = { "task-outcome": "outcome", "inference-exposure": "exposure", "capability-evidence": "capability", "experiment-observation": "experiment", "quality-receipt": "quality", "experiment-product-rating": "experiment-product", "pipeline-accounting": "pipeline-accounting" };
+  for (const target of record.lineage.correction_targets) {
+    if (target.producer !== record.producer.component || target.record_kind !== record.record_kind || target.fact_domain !== factDomains[record.record_kind]) errors.push("correction target must retain the same producer, record kind, and fact domain");
+  }
   if (record.exposure?.kind === "observed-event") {
     if (record.exposure.fingerprint_version !== record.task.raw_fingerprint.version) errors.push("observed exposure fingerprint version differs from raw task fingerprint");
-    if (Date.parse(record.exposure.first_seen_at) > Date.parse(record.exposure.last_seen_at) || Date.parse(record.exposure.last_seen_at) > Date.parse(record.recorded_at)) errors.push("observed exposure clocks are not ordered");
+    if (canonical(record.exposure.raw_fingerprint) !== canonical(record.task.raw_fingerprint)) errors.push("observed exposure raw fingerprint differs from authoritative task fingerprint");
+    if (record.transport?.hugin_request_stamp && !isUnknown(record.transport.hugin_request_stamp) && canonical(record.exposure.raw_fingerprint) !== canonical(record.transport.hugin_request_stamp.raw_fingerprint)) errors.push("observed exposure raw fingerprint differs from stamped fingerprint");
+    if (Date.parse(record.exposure.first_seen_at) < Date.parse(record.task.source.accepted_at)
+      || Date.parse(record.exposure.first_seen_at) > Date.parse(record.exposure.last_seen_at)
+      || (record.execution && !isUnknown(record.execution.ended_at) && Date.parse(record.exposure.last_seen_at) > Date.parse(record.execution.ended_at))
+      || Date.parse(record.exposure.last_seen_at) > Date.parse(record.recorded_at)) errors.push("observed exposure clocks are not ordered within accepted task attempt");
   }
   if (record.exposure?.kind === "negative-coverage-query") {
     if (canonical(record.exposure.queried_fingerprint) !== canonical(record.task.raw_fingerprint)) errors.push("negative coverage query fingerprint differs from task fingerprint");
     if (canonical([...record.exposure.coverage.lanes].sort()) !== canonical([...lanes].sort())) errors.push("negative coverage query does not cover the exact six lanes");
     const c = record.exposure.coverage;
-    if (!(Date.parse(c.from) <= Date.parse(c.relevant_task_at) && Date.parse(c.relevant_task_at) <= Date.parse(c.through) && Date.parse(c.through) <= Date.parse(record.exposure.queried_at) && Date.parse(record.exposure.queried_at) <= Date.parse(record.recorded_at))) errors.push("negative coverage clocks are not ordered");
+    if (!(Date.parse(c.from) <= Date.parse(record.task.source.accepted_at)
+      && Date.parse(record.task.source.accepted_at) <= Date.parse(c.relevant_task_at)
+      && Date.parse(c.relevant_task_at) <= Date.parse(c.through)
+      && Date.parse(c.through) <= Date.parse(record.exposure.queried_at)
+      && Date.parse(record.exposure.queried_at) <= Date.parse(record.recorded_at))) errors.push("negative coverage clocks are not ordered around source acceptance");
   }
   if (record.capability) {
     const verifier = record.capability.verifier;
@@ -403,6 +684,7 @@ function validateSemantics(record) {
     const qualifiedOutcome = (record.capability.outcome === "pass" && record.capability.admission_basis === "full-pass")
       || (record.capability.outcome === "partial" && record.capability.admission_basis === "policy-qualified-partial");
     if (record.capability.admission_state === "admissible" && (!calibrated || verifier.independence !== "independent" || !qualifiedOutcome)) errors.push("capability admission requires independent calibrated policy-qualified evidence");
+    if (record.capability.admission_state === "admissible" && (!candidateProvenanceComplete(record) || !["m5-admitted", "direct-gateway"].includes(record.transport.state))) errors.push("capability admission requires complete nested serving provenance from a model-running transport");
     if (record.capability.admission_state === "inadmissible" && record.capability.admission_basis !== "none") errors.push("inadmissible capability evidence must use admission basis none");
     if (record.capability.admission_state === "inadmissible" && record.capability.routing_effect === "admit") errors.push("inadmissible capability evidence cannot admit routing");
     if (verifier.kind === "advisory-judge" && record.capability.routing_effect !== "none-shadow") errors.push("advisory judge cannot affect routing");
@@ -430,12 +712,12 @@ function validateSemantics(record) {
   if (record.quality_receipt) {
     const receipt = record.quality_receipt;
     if (receipt.task_id !== record.task.instance_id || receipt.reviewer.principal !== record.review.reviewer_principal_id || receipt.rated_at !== record.review.reviewed_at) errors.push("quality receipt native binding/reviewer does not match envelope");
-    if (Date.parse(receipt.rated_at) > Date.parse(record.recorded_at)) errors.push("quality receipt rated_at exceeds recorded_at");
+    if (Date.parse(receipt.rated_at) < Date.parse(record.task.source.accepted_at) || Date.parse(receipt.rated_at) > Date.parse(record.recorded_at)) errors.push("quality receipt clock is outside source acceptance/record interval");
   }
   if (record.experiment_product_rating) {
     const rating = record.experiment_product_rating;
     if (rating.reviewer.principal !== record.review.reviewer_principal_id || rating.rated_at !== record.review.reviewed_at) errors.push("experiment rating reviewer does not match envelope");
-    if (Date.parse(rating.rated_at) > Date.parse(record.recorded_at)) errors.push("experiment rating rated_at exceeds recorded_at");
+    if (Date.parse(rating.rated_at) < Date.parse(record.task.source.accepted_at) || Date.parse(rating.rated_at) > Date.parse(record.recorded_at)) errors.push("experiment rating clock is outside source acceptance/record interval");
   }
   return errors;
 }
@@ -444,7 +726,7 @@ function joinedIdentityErrors(records) {
   const errors = [];
   const groups = new Map();
   for (const record of records) {
-    if (record.lifecycle_state !== "active" || record.task.origin_component !== "hugin" || !record.execution) continue;
+    if (record.lifecycle_state !== "active" || record.task?.origin_component !== "hugin" || !record.execution) continue;
     const key = `${record.task.instance_id}|${record.execution.attempt_id}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(record);
@@ -460,7 +742,110 @@ function joinedIdentityErrors(records) {
 }
 
 function conflictKey(record, fields) {
-  return fields.map((field) => canonical(pointer(record, field))).join("|");
+  return fields.map((field) => {
+    const value = pointer(record, field);
+    return value === undefined ? "<absent>" : canonical(value);
+  }).join("|");
+}
+
+function supersessionErrors(group, label) {
+  const errors = [];
+  const unique = [...new Map(group.map((record) => [`${record.producer.component}|${record.record_id}`, record])).values()];
+  if (unique.length <= 1) return errors;
+  const byId = new Map(unique.map((record) => [record.record_id, record]));
+  const childCount = new Map(unique.map((record) => [record.record_id, 0]));
+  const parentById = new Map();
+  for (const record of unique) {
+    const targets = record.lineage.correction_targets ?? [];
+    if (targets.length === 0) continue;
+    if (targets.length !== 1) {
+      errors.push(`${label} correction must target exactly one predecessor`);
+      continue;
+    }
+    const targetId = targets[0].record_id;
+    if (targetId === record.record_id) errors.push(`${label} correction cannot target itself`);
+    if (!byId.has(targetId)) {
+      errors.push(`${label} correction target is missing or belongs to another natural key`);
+      continue;
+    }
+    if (byId.has(targetId) && Date.parse(record.recorded_at) < Date.parse(byId.get(targetId).recorded_at)) errors.push(`${label} correcting record cannot predate its predecessor`);
+    parentById.set(record.record_id, targetId);
+    childCount.set(targetId, childCount.get(targetId) + 1);
+  }
+  if ([...childCount.values()].some((count) => count > 1)) errors.push(`${label} correction supersession cannot fork`);
+  const roots = unique.filter((record) => !parentById.has(record.record_id));
+  const leaves = unique.filter((record) => childCount.get(record.record_id) === 0);
+  if (roots.length !== 1) errors.push(`${label} correction supersession must have one root and no cycle`);
+  if (leaves.length !== 1) errors.push(`${label} correction supersession must have one effective leaf`);
+  for (const record of unique) {
+    const visited = new Set();
+    let cursor = record.record_id;
+    while (parentById.has(cursor)) {
+      if (visited.has(cursor)) {
+        errors.push(`${label} correction supersession contains a cycle`);
+        break;
+      }
+      visited.add(cursor);
+      cursor = parentById.get(cursor);
+    }
+  }
+  return [...new Set(errors)];
+}
+
+function effectiveSupersessionLeaf(group) {
+  const unique = [...new Map(group.map((record) => [`${record.producer.component}|${record.record_id}`, record])).values()];
+  if (unique.length === 1) return unique[0];
+  const targeted = new Set(unique.flatMap((record) => (record.lineage.correction_targets ?? []).map((target) => target.record_id)));
+  return unique.find((record) => !targeted.has(record.record_id));
+}
+
+function accountingTaskLinkKey(event) {
+  return canonical(event.task_link);
+}
+
+function denominatorNaturalKey(event) {
+  return canonical({
+    owner_component: event.owner_component,
+    counter: event.denominator.counter,
+    occurrence_month_utc: event.denominator.occurrence_month_utc,
+    task_link: {
+      origin_component: event.task_link.origin_component,
+      task_instance_id: event.task_link.task_instance_id,
+      attempt_id: event.task_link.attempt_id,
+    },
+  });
+}
+
+function aggregateNaturalKey(event) {
+  return canonical({ owner_component: event.owner_component, counter: event.aggregate_close.counter, period_utc: event.aggregate_close.period_utc });
+}
+
+function correctionNaturalKey(record) {
+  if (record.record_kind !== "pipeline-accounting") return conflictKey(record, schema["x-grimnir-conflict-keys"][record.record_kind]);
+  const event = record.pipeline_accounting;
+  if (event.event_type === "denominator-decision") return `denominator|${denominatorNaturalKey(event)}`;
+  if (event.event_type === "request-retry") return `request-retry|${canonical({ owner_component: event.owner_component, task_link: event.task_link, ordinal: event.retry.ordinal })}`;
+  if (event.event_type === "record-delivery-retry") return `record-delivery-retry|${canonical({ owner_component: event.owner_component, related_record: event.related_record, ordinal: event.retry.ordinal })}`;
+  if (event.event_type === "record-emission") return `record-emission|${canonical({ owner_component: event.owner_component, related_record: event.related_record, delivery_ordinal: event.delivery_ordinal })}`;
+  return `aggregate-close|${aggregateNaturalKey(event)}`;
+}
+
+function aggregateDigestPayload(closeRecord, decisions) {
+  const event = closeRecord.pipeline_accounting;
+  const close = event.aggregate_close;
+  const entries = decisions.map((record) => ({
+    natural_key: denominatorNaturalKey(record.pipeline_accounting),
+    event_id: record.pipeline_accounting.event_id,
+  })).sort((left, right) => compareUtf16CodeUnits(left.natural_key, right.natural_key) || compareUtf16CodeUnits(left.event_id, right.event_id));
+  return {
+    schema_version: "pipeline-aggregate-close/v1",
+    owner_component: event.owner_component,
+    counter: close.counter,
+    period_utc: close.period_utc,
+    included_through: close.included_through,
+    event_count: entries.length,
+    decisions: entries,
+  };
 }
 
 function validateDataset(records) {
@@ -485,24 +870,113 @@ function validateDataset(records) {
   }
   if (errors.length > 0) return errors;
 
+  const byProducerAndId = new Map(records.map((record) => [`${record.producer.component}|${record.record_id}`, record]));
+  const factDomains = { "task-outcome": "outcome", "inference-exposure": "exposure", "capability-evidence": "capability", "experiment-observation": "experiment", "quality-receipt": "quality", "experiment-product-rating": "experiment-product", "pipeline-accounting": "pipeline-accounting" };
+  for (const record of records) {
+    if (record.lifecycle_state !== "active") continue;
+    for (const target of record.lineage.correction_targets ?? []) {
+      if (target.record_id === record.record_id) errors.push("correction cannot target itself");
+      const targetRecord = byProducerAndId.get(`${target.producer}|${target.record_id}`);
+      if (!targetRecord) errors.push("correction target is missing from the validated dataset");
+      else if (targetRecord.lifecycle_state !== "active" || targetRecord.record_kind !== target.record_kind || factDomains[targetRecord.record_kind] !== target.fact_domain) errors.push("present correction target does not bind same-producer same-kind fact domain");
+      else if (correctionNaturalKey(record) !== correctionNaturalKey(targetRecord)) errors.push("correction target belongs to another natural conflict key");
+    }
+  }
+  if (errors.length > 0) return errors;
+
   const keyDefinitions = schema["x-grimnir-conflict-keys"];
   for (const [name, fields] of Object.entries(keyDefinitions)) {
-    const seen = new Map();
+    const groups = new Map();
     for (const record of records) {
       if (name !== "record" && (record.record_kind !== name || record.lifecycle_state !== "active")) continue;
       const key = conflictKey(record, fields);
-      const body = canonical(record);
-      if (seen.has(key) && seen.get(key) !== body) errors.push(`conflicting ${name} key ${key}`);
-      else seen.set(key, body);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(record);
+    }
+    for (const [key, group] of groups) {
+      const bodies = new Set(group.map(canonical));
+      if (bodies.size <= 1) continue;
+      if (name === "record") errors.push(`conflicting ${name} key ${key}`);
+      else errors.push(...supersessionErrors(group, `${name} key ${key}`));
     }
   }
+
+  const accountingRecords = records.filter((record) => record.lifecycle_state === "active" && record.record_kind === "pipeline-accounting");
+  const accountingNaturalGroups = new Map();
+  for (const [eventType, keyOf] of [
+    ["denominator-decision", (event) => denominatorNaturalKey(event)],
+    ["request-retry", (event) => canonical({ owner_component: event.owner_component, stage: event.stage, task_link: event.task_link, ordinal: event.retry.ordinal })],
+    ["record-delivery-retry", (event) => canonical({ owner_component: event.owner_component, related_record: event.related_record, ordinal: event.retry.ordinal })],
+    ["record-emission", (event) => canonical({ owner_component: event.owner_component, related_record: event.related_record, delivery_ordinal: event.delivery_ordinal })],
+  ]) {
+    for (const record of accountingRecords.filter((candidate) => candidate.pipeline_accounting.event_type === eventType)) {
+      const key = keyOf(record.pipeline_accounting);
+      const groupedKey = `${eventType}|${key}`;
+      if (!accountingNaturalGroups.has(groupedKey)) accountingNaturalGroups.set(groupedKey, []);
+      accountingNaturalGroups.get(groupedKey).push(record);
+    }
+  }
+  for (const [key, group] of accountingNaturalGroups) errors.push(...supersessionErrors(group, `${key} natural key`));
+  const aggregateGroups = new Map();
+  for (const record of accountingRecords.filter((candidate) => candidate.pipeline_accounting.event_type === "aggregate-close")) {
+    const key = aggregateNaturalKey(record.pipeline_accounting);
+    if (!aggregateGroups.has(key)) aggregateGroups.set(key, []);
+    aggregateGroups.get(key).push(record);
+  }
+  for (const [key, group] of aggregateGroups) errors.push(...supersessionErrors(group, `aggregate-close key ${key}`));
+  if (errors.length > 0) return errors;
+
+  for (const record of accountingRecords.filter((candidate) => candidate.pipeline_accounting.event_type === "denominator-decision")) {
+    const event = record.pipeline_accounting;
+    const matching = records.find((candidate) => candidate.lifecycle_state === "active" && candidate.task && candidate.execution
+      && candidate.task.origin_component === event.task_link.origin_component
+      && candidate.task.instance_id === event.task_link.task_instance_id
+      && candidate.execution.attempt_id === event.task_link.attempt_id);
+    if (matching && ["capture", "join"].includes(event.stage) && event.denominator.occurrence_at !== matching.execution.started_at) errors.push(`${event.stage} denominator occurrence_at does not match authoritative execution.started_at`);
+    if (matching && event.stage === "direct-exposure" && event.denominator.occurrence_at !== matching.task.source.accepted_at) errors.push("direct-exposure denominator occurrence_at does not match authoritative source.accepted_at");
+    if (matching && event.stage === "join") {
+      const macro = matching.execution.routing.macro;
+      if (event.failure_code === "not-m5-routed" && (!macro || isUnknown(macro) || macro.target === "m5")) errors.push("not-m5-routed join exclusion does not match the authoritative macro route");
+      if (event.failure_code !== "not-m5-routed" && (!macro || isUnknown(macro) || macro.target !== "m5")) errors.push("dispatched join accounting does not match an authoritative M5 macro route");
+    }
+    if (!isUnknown(event.related_record)) {
+      const related = records.find((candidate) => candidate.lifecycle_state === "active" && candidate.producer.component === event.related_record.producer && candidate.record_kind === event.related_record.record_kind && candidate.record_id === event.related_record.record_id);
+      if (related && related.task && related.execution && (related.task.origin_component !== event.task_link.origin_component || related.task.instance_id !== event.task_link.task_instance_id || related.execution.attempt_id !== event.task_link.attempt_id)) errors.push("denominator related record does not match authoritative task/attempt linkage");
+    }
+  }
+  for (const closeRecord of accountingRecords.filter((candidate) => candidate.pipeline_accounting.event_type === "aggregate-close")) {
+    const event = closeRecord.pipeline_accounting;
+    const close = event.aggregate_close;
+    const decisionGroups = new Map();
+    for (const candidate of accountingRecords.filter((item) => item.pipeline_accounting.event_type === "denominator-decision"
+      && Date.parse(item.recorded_at) <= Date.parse(close.closed_at)
+      && Date.parse(item.pipeline_accounting.denominator.occurrence_at) < Date.parse(close.included_through))) {
+      const key = denominatorNaturalKey(candidate.pipeline_accounting);
+      if (!decisionGroups.has(key)) decisionGroups.set(key, []);
+      decisionGroups.get(key).push(candidate);
+    }
+    const constituents = [...decisionGroups.values()].map(effectiveSupersessionLeaf).filter((candidate) => {
+      const candidateEvent = candidate.pipeline_accounting;
+      return candidateEvent.owner_component === event.owner_component
+        && candidateEvent.denominator.counter === close.counter
+        && candidateEvent.denominator.occurrence_month_utc === close.period_utc;
+    });
+    if (close.verification_scope === "partial-dataset-deferred") {
+      if (constituents.length > 0) errors.push("partial aggregate verification must remain deferred when the full period partition is not loaded");
+      continue;
+    }
+    const payload = aggregateDigestPayload(closeRecord, constituents);
+    if (close.event_count !== constituents.length) errors.push("aggregate close event_count does not match the loaded full period partition");
+    if (close.immutable_event_set_digest.version !== "pipeline-event-set-jcs-v1" || close.immutable_event_set_digest.digest !== digestCanonical(payload)) errors.push("aggregate close digest does not bind its loaded full period partition");
+  }
+  if (errors.length > 0) return errors;
 
   const attemptsByIdempotency = new Map();
   for (const record of records) {
     const stamp = record.transport?.hugin_request_stamp;
     if (!stamp || isUnknown(stamp)) continue;
     const key = stamp.idempotency_key;
-    const identity = canonical({ task: stamp.task_instance_id, attempt: stamp.attempt_id, request: stamp.request_id, client: stamp.client_id, ordinal: stamp.retry.model_execution_ordinal });
+    const identity = canonical({ task: stamp.task_instance_id, attempt: stamp.attempt_id, request: stamp.request_id, client: stamp.client_id });
     if (attemptsByIdempotency.has(key) && attemptsByIdempotency.get(key) !== identity) errors.push("idempotency key was reused for a different task/attempt/model execution");
     else attemptsByIdempotency.set(key, identity);
   }
@@ -511,6 +985,8 @@ function validateDataset(records) {
     const receipt = record.quality_receipt;
     const taskExecutions = records.filter((candidate) => candidate.lifecycle_state === "active" && candidate.execution && candidate.task.instance_id === receipt.task_id);
     if (taskExecutions.length > 0 && !taskExecutions.some((candidate) => candidate.execution.attempt_id === receipt.attempt_id && canonical(candidate.task) === canonical(record.task))) errors.push("quality receipt does not bind a known task execution attempt");
+    const matchingOutcome = taskExecutions.find((candidate) => candidate.record_kind === "task-outcome" && candidate.execution.attempt_id === receipt.attempt_id && canonical(candidate.task) === canonical(record.task));
+    if (matchingOutcome && !isUnknown(matchingOutcome.execution.ended_at) && Date.parse(receipt.rated_at) < Date.parse(matchingOutcome.execution.ended_at)) errors.push("quality receipt predates the relevant task outcome");
   }
   for (const record of records) {
     if (record.lifecycle_state !== "active" || record.record_kind !== "experiment-product-rating") continue;
@@ -521,13 +997,39 @@ function validateDataset(records) {
     }
     const sameRun = records.find((candidate) => candidate.lifecycle_state === "active" && candidate.record_kind === "experiment-observation" && candidate.experiment.experiment_id === rating.experiment_id && candidate.experiment.run_id === rating.run_id);
     if (!observation && sameRun) errors.push("experiment product rating does not bind referenced observation");
+    if (observation && Date.parse(rating.rated_at) < Date.parse(observation.recorded_at)) errors.push("experiment product rating predates referenced observation");
+  }
+  for (const record of records) {
+    if (record.lifecycle_state !== "active" || record.record_kind !== "pipeline-accounting") continue;
+    const event = record.pipeline_accounting;
+    if (!["request-retry", "record-delivery-retry"].includes(event.event_type) || isUnknown(event.retry)) continue;
+    if (event.event_type === "request-retry") {
+      if (event.retry.replayed_identity_digest.version !== "request-stamp-jcs-v1") errors.push("request retry digest version must be request-stamp-jcs-v1");
+      const source = records.find((candidate) => candidate.lifecycle_state === "active" && candidate.transport && !isUnknown(candidate.transport.hugin_request_stamp)
+        && candidate.transport.hugin_request_stamp.task_instance_id === event.task_link.task_instance_id
+        && candidate.transport.hugin_request_stamp.attempt_id === event.task_link.attempt_id
+        && candidate.transport.hugin_request_stamp.request_id === event.task_link.request_id
+        && candidate.transport.hugin_request_stamp.idempotency_key === event.task_link.idempotency_key);
+      if (source && event.retry.replayed_identity_digest.digest !== digestCanonical(source.transport.hugin_request_stamp)) errors.push("request retry does not replay the identical immutable request stamp");
+    } else {
+      if (event.retry.replayed_identity_digest.version !== "record-ref-jcs-v1") errors.push("record-delivery retry digest version must be record-ref-jcs-v1");
+      if (!isUnknown(event.related_record) && event.retry.replayed_identity_digest.digest !== digestCanonical(event.related_record)) errors.push("record-delivery retry does not replay the identical immutable record identity");
+    }
   }
   return errors;
 }
 
 function summarizeImmutable(records, section, resultFields, bindingFields) {
-  const groups = new Map();
+  const naturalIdField = section === "quality_receipt" ? "receipt_id" : "rating_id";
+  const correctionGroups = new Map();
   for (const record of records) {
+    const key = record[section][naturalIdField];
+    if (!correctionGroups.has(key)) correctionGroups.set(key, []);
+    correctionGroups.get(key).push(record);
+  }
+  const effectiveRecords = [...correctionGroups.values()].map(effectiveSupersessionLeaf);
+  const groups = new Map();
+  for (const record of effectiveRecords) {
     const value = record[section];
     const key = canonical({ binding: bindingFields.map((field) => value[field]), rubric: value.rubric });
     if (!groups.has(key)) groups.set(key, []);
@@ -553,6 +1055,9 @@ function mutate(record, mutation) {
 }
 
 assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
+for (const vector of jcsConformanceVectors) assert.equal(canonical(vector.input), vector.expected, `${vector.name} must match RFC 8785 canonical bytes`);
+assert.deepEqual(["ä-policy", "z-policy", "Å-policy"].sort(compareUtf16CodeUnits), ["z-policy", "Å-policy", "ä-policy"], "policy ordering uses deterministic UTF-16 code units rather than locale collation");
+assert.throws(() => canonical({ bad: "\ud800" }), /lone high surrogate/, "JCS source documents fail closed on non-I-JSON Unicode");
 assert.deepEqual(schema.oneOf.map((entry) => entry.$ref), [
   "#/$defs/taskOutcomeRecord",
   "#/$defs/inferenceExposureRecord",
@@ -560,11 +1065,18 @@ assert.deepEqual(schema.oneOf.map((entry) => entry.$ref), [
   "#/$defs/experimentObservationRecord",
   "#/$defs/qualityReceiptRecord",
   "#/$defs/experimentProductRatingRecord",
+  "#/$defs/pipelineAccountingRecord",
 ]);
-assert.deepEqual(Object.keys(schema["x-grimnir-conflict-keys"]), ["record", "task-outcome", "inference-exposure", "capability-evidence", "experiment-observation", "quality-receipt", "experiment-product-rating"]);
+assert.deepEqual(Object.keys(schema["x-grimnir-conflict-keys"]), ["record", "task-outcome", "inference-exposure", "capability-evidence", "experiment-observation", "quality-receipt", "experiment-product-rating", "pipeline-accounting"]);
 const ownerMap = schema["x-grimnir-field-owners"];
-for (const requiredOwnerGroup of ["/tombstone/**", "/transport/hugin_request_stamp", "/transport/gateway_echo/echoed_request", "/transport/gateway_echo/gateway_request_id,/transport/gateway_echo/admission_id,/transport/gateway_echo/admitted_at,/transport/gateway_echo/authenticated_principal_id,/transport/gateway_echo/authentication,/transport/gateway_echo/principal_binding_digest,/transport/gateway_echo/capabilities", "/exposure/**", "/capability/**", "/experiment/**", "/quality_receipt/**", "/experiment_product_rating/**", "/extensions/{producer.component}/**"]) {
+for (const requiredOwnerGroup of ["/tombstone/**", "/transport/hugin_request_stamp", "/transport/gateway_echo/echoed_request", "/transport/gateway_echo/gateway_request_id,/transport/gateway_echo/admission_id,/transport/gateway_echo/admitted_at,/transport/gateway_echo/authenticated_principal_id,/transport/gateway_echo/authentication,/transport/gateway_echo/principal_binding_digest,/transport/gateway_echo/capabilities", "/exposure/**", "/capability/**", "/experiment/**", "/quality_receipt/**", "/experiment_product_rating/**", "/pipeline_accounting/**", "/extensions/{producer.component}/**"]) {
   assert.equal(typeof ownerMap[requiredOwnerGroup], "string", `machine ownership map must cover ${requiredOwnerGroup}`);
+}
+assert.equal(sourceDocuments.size, sourceDocumentList.length, "source document refs must be unique");
+for (const source of sourceDocumentList) {
+  assert.match(source.source_ref, /^source-doc:[a-z0-9][a-z0-9._/-]*$/);
+  assert.equal(typeof source.source_version, "string");
+  assert.ok(sourceDocumentRequiredKeys[source.source_type], `source document ${source.source_ref} has an unknown type`);
 }
 
 const positiveErrors = validateDataset(positive);
@@ -583,16 +1095,313 @@ assert.equal(provenanceAndGovernanceEligibleAt(nonAdmittedFixture.record, nonAdm
 const nestedServingUnknown = structuredClone(positive[0]);
 nestedServingUnknown.execution.serving.model.artifact_manifest_digest = { value: null, unknown_reason: "not-observed" };
 assert.equal(provenanceAndGovernanceEligibleAt(nestedServingUnknown, nonM5Fixture.evaluationClock.eligible_at), false, "nested serving provenance must be complete, not merely wrapped in a known object");
+const wrongConfigRole = structuredClone(positive[0]);
+wrongConfigRole.execution.origin_config.prompt.config_digest = structuredClone(positive[0].execution.origin_config.harness.config_digest);
+assert.ok(validateDataset([wrongConfigRole]).some((error) => error.includes("origin prompt config must bind a typed origin-prompt-config source document")), "a valid source document cannot be substituted into the wrong reproducibility role");
+const wrongPromptStage = structuredClone(positive[0]);
+wrongPromptStage.execution.prompt_identity.hugin_envelope = structuredClone(positive[0].execution.prompt_identity.gateway_canonical_envelope);
+assert.ok(validateDataset([wrongPromptStage]).some((error) => error.includes("Hugin envelope source document must identify stage hugin-envelope")), "prompt-stage source documents cannot move between adjacent prompt stages");
 assert.equal(governanceEligibleAt(positive[0], nonM5Fixture.evaluationClock.post_expiry_at), false, "read-time expiry is checked against an explicit fixture clock");
 const noExpiryPolicy = structuredClone(positive[0]);
 for (const policy of noExpiryPolicy.governance.policies) policy.retention.expires_at = { value: null, unknown_reason: "not-applicable" };
 noExpiryPolicy.governance.effective.expires_at = { value: null, unknown_reason: "not-applicable" };
+const noExpiryManifestRef = noExpiryPolicy.governance.policy_manifest.digest.source_ref;
+const savedNoExpiryManifest = sourceDocuments.get(noExpiryManifestRef);
+const noExpiryManifestDocument = {
+  ...structuredClone(savedNoExpiryManifest.document),
+  manifest: {
+    manifest_id: noExpiryPolicy.governance.policy_manifest.manifest_id,
+    version: noExpiryPolicy.governance.policy_manifest.version,
+    approved_at: noExpiryPolicy.governance.policy_manifest.approved_at,
+    owner_attestations: [...noExpiryPolicy.governance.policy_manifest.owner_attestations].sort((a, b) => compareUtf16CodeUnits(a.content_owner, b.content_owner)),
+  },
+  policies: [...noExpiryPolicy.governance.policies].sort((a, b) => compareUtf16CodeUnits(a.subject_ref, b.subject_ref)),
+};
+sourceDocuments.set(noExpiryManifestRef, { ...savedNoExpiryManifest, document: noExpiryManifestDocument });
+noExpiryPolicy.governance.policy_manifest.digest.digest = digestCanonical(noExpiryManifestDocument);
 assert.deepEqual(validateDataset([noExpiryPolicy]), [], "explicit no-expiry policy remains evaluation eligible");
+sourceDocuments.set(noExpiryManifestRef, savedNoExpiryManifest);
+const mixedExpiry = structuredClone(positive[0]);
+for (const policy of mixedExpiry.governance.policies) policy.retention.expires_at = "2028-01-01T00:00:00Z";
+mixedExpiry.governance.policies[0].retention.expires_at = "2027-01-01T00:00:00.900Z";
+mixedExpiry.governance.policies[1].retention.expires_at = "2027-01-01T00:00:00Z";
+mixedExpiry.governance.effective.expires_at = "2027-01-01T00:00:00Z";
+const mixedExpiryManifestRef = mixedExpiry.governance.policy_manifest.digest.source_ref;
+const savedMixedExpiryManifest = sourceDocuments.get(mixedExpiryManifestRef);
+const mixedExpiryManifestDocument = { ...structuredClone(savedMixedExpiryManifest.document), policies: [...mixedExpiry.governance.policies].sort((a, b) => compareUtf16CodeUnits(a.subject_ref, b.subject_ref)) };
+sourceDocuments.set(mixedExpiryManifestRef, { ...savedMixedExpiryManifest, document: mixedExpiryManifestDocument });
+mixedExpiry.governance.policy_manifest.digest.digest = digestCanonical(mixedExpiryManifestDocument);
+assert.deepEqual(validateDataset([mixedExpiry]), [], "earliest governance expiry is selected by instant, not lexicographic timestamp text");
+const lexicographicExpiryBug = structuredClone(mixedExpiry);
+lexicographicExpiryBug.governance.effective.expires_at = "2027-01-01T00:00:00.900Z";
+assert.ok(validateDataset([lexicographicExpiryBug]).some((error) => error.includes("effective expires_at is not the earliest safe expiry")), "fractional RFC3339 timestamp cannot move the effective expiry later");
+sourceDocuments.set(mixedExpiryManifestRef, savedMixedExpiryManifest);
 const legacyUnknownPrincipal = structuredClone(positive[5]);
 legacyUnknownPrincipal.task.source.principal = { value: null, unknown_reason: "legacy" };
 assert.deepEqual(validateDataset([legacyUnknownPrincipal]), [], "qualified legacy source principal is policy-unavailable and evaluation-ineligible, not fabricated");
-assert.deepEqual(new Set(positive.map((record) => record.record_kind)), new Set(["task-outcome", "inference-exposure", "capability-evidence", "experiment-observation", "quality-receipt", "experiment-product-rating"]));
-assert.equal(positive.some((record) => record.task.origin_component === "gille-inference"), true, "positive fixtures must cover direct gateway origin");
+assert.deepEqual(new Set(positive.map((record) => record.record_kind)), new Set(["task-outcome", "inference-exposure", "capability-evidence", "experiment-observation", "quality-receipt", "experiment-product-rating", "pipeline-accounting"]));
+assert.equal(positive.some((record) => record.task?.origin_component === "gille-inference"), true, "positive fixtures must cover direct gateway origin");
+const serviceSource = positive.find((record) => record.task?.source.principal?.scope === "service");
+assert.ok(serviceSource, "positive fixtures must cover service-auth transport with separate content-owner authority");
+assert.equal(serviceSource.task.source.content_owner.id, "principal:owner");
+assert.equal(serviceSource.governance.policy_manifest.owner_attestations.some((attestation) => attestation.content_owner === "principal:owner" && attestation.authenticated_principal === "principal:owner"), true, "service source must carry real owner authorization");
+const mismatchedOwnerAuthority = structuredClone(serviceSource);
+mismatchedOwnerAuthority.task.source.content_owner.authority = "delegated-owner";
+assert.ok(validateDataset([mismatchedOwnerAuthority]).some((error) => error.includes("source content-owner authority must match its verified owner-attestation mode")), "declared content-owner authority must match the verified attestation mode");
+const inconsistentSourceClaim = structuredClone(positive[0]);
+inconsistentSourceClaim.transport.hugin_request_stamp.hugin_envelope.digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+assert.ok(validateDataset([inconsistentSourceClaim]).some((error) => error.includes("inconsistent immutable source document claim")), "repeated source refs cannot overwrite inconsistent digest claims");
+const accountingSeed = positive.find((record) => record.record_kind === "pipeline-accounting" && record.pipeline_accounting.event_type === "denominator-decision");
+const accountingPositiveCases = [];
+for (const failureCode of ["producer-error", "consumer-error", "schema-rejected", "join-mismatch", "late-over-24h", "policy-unavailable", "transport-auth-failed", "gateway-not-admitted", "transport-error"]) {
+  const record = structuredClone(accountingSeed);
+  record.pipeline_accounting.failure_code = failureCode;
+  accountingPositiveCases.push(record);
+}
+for (const failureCode of ["candidate-governance-denied", "candidate-erased-or-expired", "candidate-exposure-incomplete", "candidate-provenance-incomplete", "candidate-product-quality-conflicted", "candidate-verifier-inadmissible", "candidate-duplicate-lineage"]) {
+  const record = structuredClone(accountingSeed);
+  record.pipeline_accounting.stage = "evaluation";
+  record.pipeline_accounting.disposition = "excluded";
+  record.pipeline_accounting.failure_code = failureCode;
+  record.pipeline_accounting.related_record = { producer: "hugin", record_kind: "task-outcome", record_id: positive[0].record_id };
+  record.pipeline_accounting.denominator = { counter: "evaluation-candidate-denominator", occurrence_at: "2026-07-19T10:00:04Z", occurrence_month_utc: "2026-07", decision: "excluded" };
+  accountingPositiveCases.push(record);
+}
+const captureAdmitted = structuredClone(accountingSeed);
+captureAdmitted.pipeline_accounting.stage = "capture";
+captureAdmitted.pipeline_accounting.disposition = "admitted";
+captureAdmitted.pipeline_accounting.failure_code = "not-applicable";
+captureAdmitted.pipeline_accounting.related_record = { producer: "hugin", record_kind: "task-outcome", record_id: positive[0].record_id };
+captureAdmitted.pipeline_accounting.denominator = { counter: "hugin-capture-denominator", occurrence_at: "2026-07-19T10:00:01Z", occurrence_month_utc: "2026-07", decision: "admitted" };
+accountingPositiveCases.push(captureAdmitted);
+const directFailure = structuredClone(accountingSeed);
+directFailure.producer.component = "gille-inference";
+directFailure.pipeline_accounting.owner_component = "gille-inference";
+directFailure.pipeline_accounting.stage = "direct-exposure";
+directFailure.pipeline_accounting.failure_code = "transport-error";
+directFailure.pipeline_accounting.task_link.origin_component = "gille-inference";
+directFailure.pipeline_accounting.denominator = { counter: "direct-m5-exposure-denominator", occurrence_at: "2026-07-19T10:00:01Z", occurrence_month_utc: "2026-07", decision: "failed" };
+directFailure.extensions = { "gille-inference": {} };
+accountingPositiveCases.push(directFailure);
+for (const [stage, failureCode, counter, owner, origin] of [
+  ["capture", "synthetic-test", "hugin-capture-denominator", "hugin", "hugin"],
+  ["capture", "pre-v1-migration", "hugin-capture-denominator", "hugin", "hugin"],
+  ["direct-exposure", "synthetic-test", "direct-m5-exposure-denominator", "gille-inference", "gille-inference"],
+  ["direct-exposure", "pre-v1-migration", "direct-m5-exposure-denominator", "gille-inference", "gille-inference"],
+  ["join", "not-m5-routed", "hugin-m5-join-denominator", "hugin", "hugin"],
+  ["join", "pre-v1-migration", "hugin-m5-join-denominator", "hugin", "hugin"],
+]) {
+  const record = structuredClone(accountingSeed);
+  record.producer.component = owner;
+  record.pipeline_accounting.owner_component = owner;
+  record.pipeline_accounting.stage = stage;
+  record.pipeline_accounting.disposition = "excluded";
+  record.pipeline_accounting.failure_code = failureCode;
+  record.pipeline_accounting.task_link.origin_component = origin;
+  record.pipeline_accounting.related_record = { value: null, unknown_reason: "not-applicable" };
+  if (failureCode === "not-m5-routed") {
+    record.pipeline_accounting.task_link.request_id = { value: null, unknown_reason: "not-applicable" };
+    record.pipeline_accounting.task_link.idempotency_key = { value: null, unknown_reason: "not-applicable" };
+  }
+  record.pipeline_accounting.denominator = { counter, occurrence_at: "2026-07-19T10:00:01Z", occurrence_month_utc: "2026-07", decision: "excluded" };
+  record.extensions = { [owner]: {} };
+  accountingPositiveCases.push(record);
+}
+for (const record of accountingPositiveCases) assert.deepEqual(validateDataset([record]), [], `pipeline accounting must represent ${record.pipeline_accounting.failure_code}`);
+const notM5BoundaryDecision = accountingPositiveCases.find((record) => record.pipeline_accounting.failure_code === "not-m5-routed");
+assert.deepEqual(validateDataset([nonM5Fixture.record, notM5BoundaryDecision]), [], "not-m5-routed is a truthful join exclusion with no dispatched request identity");
+assert.ok(validateDataset([positive[0], notM5BoundaryDecision]).includes("not-m5-routed join exclusion does not match the authoritative macro route"), "not-m5-routed cannot contradict an M5 macro route");
+assert.deepEqual(validateDataset([positive[0], captureAdmitted]), [], "capture admission binds the exact Hugin task-outcome record");
+const admittedJoin = structuredClone(accountingSeed);
+admittedJoin.pipeline_accounting.disposition = "admitted";
+admittedJoin.pipeline_accounting.failure_code = "not-applicable";
+admittedJoin.pipeline_accounting.related_record = { producer: "gille-inference", record_kind: "inference-exposure", record_id: positive[4].record_id };
+admittedJoin.pipeline_accounting.denominator.decision = "admitted";
+assert.deepEqual(validateDataset([positive[0], positive[4], admittedJoin]), [], "join admission binds the exact gille inference-exposure record");
+const admittedWithoutRecord = structuredClone(admittedJoin);
+admittedWithoutRecord.pipeline_accounting.related_record = { value: null, unknown_reason: "producer-error" };
+assert.ok(validateDataset([admittedWithoutRecord]).some((error) => error.includes("join admission must bind its expected immutable learning record")), "admitted join coverage cannot exist without a learning record identity");
+const incoherentEvaluationBoundary = structuredClone(accountingPositiveCases.find((record) => record.pipeline_accounting.stage === "evaluation"));
+incoherentEvaluationBoundary.pipeline_accounting.failure_code = "synthetic-test";
+assert.ok(validateDataset([incoherentEvaluationBoundary]).some((error) => error.includes("evaluation exclusion requires its closed boundary code")), "evaluation exclusions cannot use capture boundary codes");
+const wrongOccurrenceMonth = structuredClone(accountingSeed);
+wrongOccurrenceMonth.pipeline_accounting.denominator.occurrence_month_utc = "2026-08";
+assert.ok(validateDataset([wrongOccurrenceMonth]).some((error) => error.includes("occurrence month must derive from occurrence_at")), "denominator membership month is derived from occurrence_at");
+const wrongAuthoritativeOccurrence = structuredClone(accountingSeed);
+wrongAuthoritativeOccurrence.pipeline_accounting.denominator.occurrence_at = "2026-07-19T10:00:02Z";
+assert.ok(validateDataset([positive[0], wrongAuthoritativeOccurrence]).includes("join denominator occurrence_at does not match authoritative execution.started_at"), "joined accounting binds the authoritative attempt start");
+const secondCounterDecision = structuredClone(captureAdmitted);
+secondCounterDecision.record_id = "opaque:40404040-4040-4040-8040-404040404040";
+secondCounterDecision.pipeline_accounting.event_id = "opaque:41414141-4141-4141-8141-414141414141";
+assert.deepEqual(validateDataset([accountingSeed, secondCounterDecision]), [], "different counters may admit one linked task without a natural-key collision");
+
+const requestRetry = structuredClone(accountingSeed);
+requestRetry.record_id = "opaque:20202020-2020-4020-8020-202020202020";
+requestRetry.pipeline_accounting.event_id = "opaque:21212121-2121-4121-8121-212121212121";
+requestRetry.pipeline_accounting.event_type = "request-retry";
+requestRetry.pipeline_accounting.stage = "request-transport";
+requestRetry.pipeline_accounting.disposition = "retry";
+requestRetry.pipeline_accounting.failure_code = "transport-error";
+requestRetry.pipeline_accounting.related_record = { value: null, unknown_reason: "not-applicable" };
+requestRetry.pipeline_accounting.retry = { kind: "request-transport", ordinal: 2, replayed_identity_digest: { algorithm: "sha256", version: "request-stamp-jcs-v1", digest: digestCanonical(positive[0].transport.hugin_request_stamp) } };
+requestRetry.pipeline_accounting.denominator = { value: null, unknown_reason: "not-applicable" };
+assert.deepEqual(validateDataset([positive[0], requestRetry]), [], "request retry is a separate immutable accounting event replaying the exact stamp");
+const badRequestRetry = structuredClone(requestRetry);
+badRequestRetry.pipeline_accounting.retry.replayed_identity_digest.digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+assert.ok(validateDataset([positive[0], badRequestRetry]).includes("request retry does not replay the identical immutable request stamp"), "request retry identity drift fails closed");
+const badRequestRetryVersion = structuredClone(requestRetry);
+badRequestRetryVersion.pipeline_accounting.retry.replayed_identity_digest.version = "record-ref-jcs-v1";
+assert.ok(validateDataset([badRequestRetryVersion]).includes("request retry digest version must be request-stamp-jcs-v1"), "request retry digest semantics are version-pinned");
+
+const deliveryRetry = structuredClone(positive.find((record) => record.record_kind === "pipeline-accounting" && record.pipeline_accounting.event_type === "record-emission"));
+deliveryRetry.record_id = "opaque:22222222-2020-4020-8020-202020202020";
+deliveryRetry.pipeline_accounting.event_id = "opaque:23232323-2323-4323-8323-232323232323";
+deliveryRetry.pipeline_accounting.event_type = "record-delivery-retry";
+deliveryRetry.pipeline_accounting.disposition = "retry";
+deliveryRetry.pipeline_accounting.failure_code = "record-delivery-failed";
+deliveryRetry.pipeline_accounting.delivery_ordinal = 2;
+deliveryRetry.pipeline_accounting.retry = { kind: "record-delivery", ordinal: 2, replayed_identity_digest: { algorithm: "sha256", version: "record-ref-jcs-v1", digest: digestCanonical(deliveryRetry.pipeline_accounting.related_record) } };
+assert.deepEqual(validateDataset([deliveryRetry]), [], "record-delivery retry is separate accounting and does not imply another model run");
+const secondRecordRetry = structuredClone(deliveryRetry);
+secondRecordRetry.record_id = "opaque:29292929-2929-4929-8929-292929292929";
+secondRecordRetry.pipeline_accounting.event_id = "opaque:30303030-3030-4030-8030-303030303030";
+secondRecordRetry.pipeline_accounting.related_record.record_id = "opaque:31313131-3131-4131-8131-313131313131";
+secondRecordRetry.pipeline_accounting.retry.replayed_identity_digest.digest = digestCanonical(secondRecordRetry.pipeline_accounting.related_record);
+assert.deepEqual(validateDataset([deliveryRetry, secondRecordRetry]), [], "two records from one task may each have delivery retry ordinal two");
+const duplicateRecordRetry = structuredClone(deliveryRetry);
+duplicateRecordRetry.record_id = "opaque:32323232-3232-4232-8232-323232323232";
+duplicateRecordRetry.pipeline_accounting.event_id = "opaque:33333333-3333-4333-8333-333333333333";
+assert.ok(validateDataset([deliveryRetry, duplicateRecordRetry]).some((error) => error.includes("record-delivery-retry") && error.includes("one effective leaf")), "one record delivery attempt cannot fork into duplicate retry events");
+const badDeliveryRetryVersion = structuredClone(deliveryRetry);
+badDeliveryRetryVersion.pipeline_accounting.retry.replayed_identity_digest.version = "request-stamp-jcs-v1";
+assert.ok(validateDataset([badDeliveryRetryVersion]).includes("record-delivery retry digest version must be record-ref-jcs-v1"), "delivery retry digest semantics are version-pinned");
+
+const initialDeliveryFailure = structuredClone(positive.find((record) => record.record_kind === "pipeline-accounting" && record.pipeline_accounting.event_type === "record-emission"));
+initialDeliveryFailure.record_id = "opaque:34343434-3434-4434-8434-343434343434";
+initialDeliveryFailure.pipeline_accounting.event_id = "opaque:35353535-3535-4535-8535-353535353535";
+initialDeliveryFailure.pipeline_accounting.disposition = "failed";
+initialDeliveryFailure.pipeline_accounting.failure_code = "record-delivery-failed";
+const retriedDeliverySuccess = structuredClone(initialDeliveryFailure);
+retriedDeliverySuccess.record_id = "opaque:36363636-3636-4636-8636-363636363636";
+retriedDeliverySuccess.pipeline_accounting.event_id = "opaque:37373737-3737-4737-8737-373737373737";
+retriedDeliverySuccess.pipeline_accounting.delivery_ordinal = 2;
+retriedDeliverySuccess.pipeline_accounting.disposition = "succeeded";
+retriedDeliverySuccess.pipeline_accounting.failure_code = "not-applicable";
+assert.deepEqual(validateDataset([initialDeliveryFailure, deliveryRetry, retriedDeliverySuccess]), [], "a retry outcome appends at a new delivery ordinal without mutating the initial failure");
+const duplicateDeliveryOutcome = structuredClone(retriedDeliverySuccess);
+duplicateDeliveryOutcome.record_id = "opaque:38383838-3838-4838-8838-383838383838";
+duplicateDeliveryOutcome.pipeline_accounting.event_id = "opaque:39393939-3939-4939-8939-393939393939";
+assert.ok(validateDataset([retriedDeliverySuccess, duplicateDeliveryOutcome]).some((error) => error.includes("record-emission") && error.includes("one effective leaf")), "one delivery attempt cannot fork into duplicate outcomes");
+
+const aggregateClose = structuredClone(accountingSeed);
+aggregateClose.record_id = "opaque:24242424-2424-4424-8424-242424242424";
+aggregateClose.recorded_at = "2026-07-01T00:00:02Z";
+aggregateClose.pipeline_accounting = {
+  event_id: "opaque:25252525-2525-4525-8525-252525252525",
+  owner_component: "hugin",
+  event_type: "aggregate-close",
+  stage: "aggregate",
+  disposition: "succeeded",
+  failure_code: "not-applicable",
+  observed_at: "2026-07-01T00:00:01Z",
+  task_link: { origin_component: { value: null, unknown_reason: "not-applicable" }, task_instance_id: { value: null, unknown_reason: "not-applicable" }, attempt_id: { value: null, unknown_reason: "not-applicable" }, request_id: { value: null, unknown_reason: "not-applicable" }, idempotency_key: { value: null, unknown_reason: "not-applicable" } },
+  related_record: { value: null, unknown_reason: "not-applicable" },
+  delivery_ordinal: { value: null, unknown_reason: "not-applicable" },
+  retry: { value: null, unknown_reason: "not-applicable" },
+  denominator: { value: null, unknown_reason: "not-applicable" },
+  aggregate_close: { counter: "hugin-m5-join-denominator", period_utc: "2026-06", included_through: "2026-07-01T00:00:00Z", event_count: 42, immutable_event_set_digest: { algorithm: "sha256", version: "pipeline-event-set-jcs-v1", digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, verification_scope: "partial-dataset-deferred", closed_at: "2026-07-01T00:00:01Z" },
+};
+assert.deepEqual(validateDataset([aggregateClose]), [], "closed-period aggregates are immutable snapshots over event sets");
+const correctedDenominator = structuredClone(accountingSeed);
+correctedDenominator.record_id = "opaque:42424242-4242-4242-8242-424242424242";
+correctedDenominator.recorded_at = "2026-07-19T10:00:06Z";
+correctedDenominator.pipeline_accounting.event_id = "opaque:43434343-4343-4343-8343-434343434343";
+correctedDenominator.pipeline_accounting.failure_code = "consumer-error";
+correctedDenominator.lineage.correction_targets = [{ producer: "hugin", record_kind: "pipeline-accounting", fact_domain: "pipeline-accounting", record_id: accountingSeed.record_id }];
+correctedDenominator.lineage.correction_ref = "mimir:correction/pipeline-denominator-001";
+assert.deepEqual(validateDataset([accountingSeed, correctedDenominator]), [], "a denominator correction forms one explicit same-natural-key supersession chain");
+const unlinkedDenominatorDuplicate = structuredClone(correctedDenominator);
+unlinkedDenominatorDuplicate.lineage.correction_targets = [];
+unlinkedDenominatorDuplicate.lineage.correction_ref = { value: null, unknown_reason: "not-applicable" };
+assert.ok(validateDataset([accountingSeed, unlinkedDenominatorDuplicate]).some((error) => error.includes("denominator-decision") && error.includes("one effective leaf")), "a random event id cannot duplicate a denominator decision natural key");
+const alternateRequestDuplicate = structuredClone(unlinkedDenominatorDuplicate);
+alternateRequestDuplicate.pipeline_accounting.task_link.request_id = "opaque:50505050-5050-4050-8050-505050505050";
+alternateRequestDuplicate.pipeline_accounting.task_link.idempotency_key = "opaque:51515151-5151-4151-8151-515151515151";
+assert.ok(validateDataset([accountingSeed, alternateRequestDuplicate]).some((error) => error.includes("denominator-decision") && error.includes("one effective leaf")), "a second request id cannot create another denominator member for one attempt");
+const denominatorFork = structuredClone(correctedDenominator);
+denominatorFork.record_id = "opaque:44444444-4444-4444-8444-444444444445";
+denominatorFork.pipeline_accounting.event_id = "opaque:45454545-4545-4545-8545-454545454545";
+assert.ok(validateDataset([accountingSeed, correctedDenominator, denominatorFork]).some((error) => error.includes("cannot fork")), "denominator corrections cannot fork");
+
+const verifiedAggregateClose = structuredClone(aggregateClose);
+verifiedAggregateClose.record_id = "opaque:46464646-4646-4646-8646-464646464646";
+verifiedAggregateClose.recorded_at = "2026-08-01T00:00:02Z";
+verifiedAggregateClose.pipeline_accounting.event_id = "opaque:47474747-4747-4747-8747-474747474747";
+verifiedAggregateClose.pipeline_accounting.observed_at = "2026-08-01T00:00:01Z";
+verifiedAggregateClose.pipeline_accounting.aggregate_close = {
+  counter: "hugin-m5-join-denominator",
+  period_utc: "2026-07",
+  included_through: "2026-08-01T00:00:00Z",
+  event_count: 1,
+  immutable_event_set_digest: { algorithm: "sha256", version: "pipeline-event-set-jcs-v1", digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  verification_scope: "full-period-partition",
+  closed_at: "2026-08-01T00:00:01Z",
+};
+verifiedAggregateClose.pipeline_accounting.aggregate_close.immutable_event_set_digest.digest = digestCanonical(aggregateDigestPayload(verifiedAggregateClose, [correctedDenominator]));
+assert.deepEqual(validateDataset([accountingSeed, correctedDenominator, verifiedAggregateClose]), [], "full aggregate close hashes only the unique effective denominator leaf");
+const wrongAggregateCount = structuredClone(verifiedAggregateClose);
+wrongAggregateCount.pipeline_accounting.aggregate_close.event_count = 2;
+assert.ok(validateDataset([accountingSeed, correctedDenominator, wrongAggregateCount]).includes("aggregate close event_count does not match the loaded full period partition"), "aggregate event count is mechanically verified");
+const wrongAggregateDigest = structuredClone(verifiedAggregateClose);
+wrongAggregateDigest.pipeline_accounting.aggregate_close.immutable_event_set_digest.digest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+assert.ok(validateDataset([accountingSeed, correctedDenominator, wrongAggregateDigest]).includes("aggregate close digest does not bind its loaded full period partition"), "aggregate event-set digest is mechanically verified");
+const deferredWithConstituents = structuredClone(verifiedAggregateClose);
+deferredWithConstituents.pipeline_accounting.aggregate_close.verification_scope = "partial-dataset-deferred";
+assert.ok(validateDataset([accountingSeed, correctedDenominator, deferredWithConstituents]).includes("partial aggregate verification must remain deferred when the full period partition is not loaded"), "partial dataset loads cannot silently claim aggregate verification");
+const correctedAggregateClose = structuredClone(verifiedAggregateClose);
+correctedAggregateClose.record_id = "opaque:48484848-4848-4848-8848-484848484848";
+correctedAggregateClose.recorded_at = "2026-08-01T00:00:03Z";
+correctedAggregateClose.pipeline_accounting.event_id = "opaque:49494949-4949-4949-8949-494949494949";
+correctedAggregateClose.lineage.correction_targets = [{ producer: "hugin", record_kind: "pipeline-accounting", fact_domain: "pipeline-accounting", record_id: verifiedAggregateClose.record_id }];
+correctedAggregateClose.lineage.correction_ref = "mimir:correction/aggregate-close-001";
+assert.deepEqual(validateDataset([accountingSeed, correctedDenominator, verifiedAggregateClose, correctedAggregateClose]), [], "a late aggregate re-close is an explicit same-key supersession with one effective snapshot");
+const unlinkedAggregateClose = structuredClone(correctedAggregateClose);
+unlinkedAggregateClose.lineage.correction_targets = [];
+unlinkedAggregateClose.lineage.correction_ref = { value: null, unknown_reason: "not-applicable" };
+assert.ok(validateDataset([accountingSeed, correctedDenominator, verifiedAggregateClose, unlinkedAggregateClose]).some((error) => error.includes("aggregate-close") && error.includes("one effective leaf")), "unlinked duplicate aggregate closes fail closed");
+const tooEarlyAggregateCutoff = structuredClone(aggregateClose);
+tooEarlyAggregateCutoff.pipeline_accounting.aggregate_close.included_through = "2026-06-30T23:59:59.999Z";
+assert.ok(validateDataset([tooEarlyAggregateCutoff]).some((error) => error.includes("included_through must reach the next UTC month boundary")), "period close uses a complete half-open UTC month boundary");
+
+const preCorrectionClose = structuredClone(verifiedAggregateClose);
+preCorrectionClose.pipeline_accounting.aggregate_close.immutable_event_set_digest.digest = digestCanonical(aggregateDigestPayload(preCorrectionClose, [accountingSeed]));
+const postCloseDenominatorCorrection = structuredClone(correctedDenominator);
+postCloseDenominatorCorrection.recorded_at = "2026-08-01T00:00:05Z";
+const postCorrectionReclose = structuredClone(preCorrectionClose);
+postCorrectionReclose.record_id = "opaque:52525252-5252-4252-8252-525252525252";
+postCorrectionReclose.recorded_at = "2026-08-01T00:00:07Z";
+postCorrectionReclose.pipeline_accounting.event_id = "opaque:53535353-5353-4353-8353-535353535353";
+postCorrectionReclose.pipeline_accounting.observed_at = "2026-08-01T00:00:06Z";
+postCorrectionReclose.pipeline_accounting.aggregate_close.closed_at = "2026-08-01T00:00:06Z";
+postCorrectionReclose.lineage.correction_targets = [{ producer: "hugin", record_kind: "pipeline-accounting", fact_domain: "pipeline-accounting", record_id: preCorrectionClose.record_id }];
+postCorrectionReclose.lineage.correction_ref = "mimir:correction/aggregate-close-as-of-001";
+postCorrectionReclose.pipeline_accounting.aggregate_close.immutable_event_set_digest.digest = digestCanonical(aggregateDigestPayload(postCorrectionReclose, [postCloseDenominatorCorrection]));
+assert.deepEqual(validateDataset([accountingSeed, preCorrectionClose, postCloseDenominatorCorrection, postCorrectionReclose]), [], "an old close keeps its as-of leaf while an explicit re-close incorporates a later denominator correction");
+
+const deliberateExecution = structuredClone(positive[0]);
+deliberateExecution.record_id = "opaque:26262626-2626-4626-8626-262626262626";
+deliberateExecution.execution.attempt_id = "attempt-2";
+deliberateExecution.transport.hugin_request_stamp.attempt_id = "attempt-2";
+deliberateExecution.transport.hugin_request_stamp.request_id = "opaque:27272727-2727-4727-8727-272727272727";
+deliberateExecution.transport.hugin_request_stamp.idempotency_key = "opaque:28282828-2828-4828-8828-282828282828";
+deliberateExecution.transport.gateway_echo.echoed_request = structuredClone(deliberateExecution.transport.hugin_request_stamp);
+deliberateExecution.transport.gateway_echo.principal_binding_digest.digest = digestCanonical({ authenticated_principal_id: deliberateExecution.transport.gateway_echo.authenticated_principal_id, request_stamp: deliberateExecution.transport.hugin_request_stamp });
+assert.deepEqual(validateDataset([positive[0], deliberateExecution]), [], "deliberate new model execution uses new attempt, request, and idempotency identities");
+const reusedExecutionIdentity = structuredClone(deliberateExecution);
+reusedExecutionIdentity.transport.hugin_request_stamp.idempotency_key = positive[0].transport.hugin_request_stamp.idempotency_key;
+reusedExecutionIdentity.transport.gateway_echo.echoed_request = structuredClone(reusedExecutionIdentity.transport.hugin_request_stamp);
+reusedExecutionIdentity.transport.gateway_echo.principal_binding_digest.digest = digestCanonical({ authenticated_principal_id: reusedExecutionIdentity.transport.gateway_echo.authenticated_principal_id, request_stamp: reusedExecutionIdentity.transport.hugin_request_stamp });
+assert.ok(validateDataset([positive[0], reusedExecutionIdentity]).includes("idempotency key was reused for a different task/attempt/model execution"), "new execution cannot reuse request idempotency identity");
 const joinedOutcome = positive.find((record) => record.record_kind === "task-outcome");
 const joinedCapability = positive.find((record) => record.record_kind === "capability-evidence");
 const joinedExposure = positive.find((record) => record.record_kind === "inference-exposure" && record.task.origin_component === "hugin");
@@ -613,9 +1422,63 @@ for (const record of [joinedCapability, joinedExposure]) {
   assert.deepEqual(record.transport.hugin_request_stamp, joinedOutcome.transport.hugin_request_stamp, "joined request stamp must match exactly");
   assert.deepEqual(record.transport.gateway_echo, joinedOutcome.transport.gateway_echo, "joined gateway echo must match exactly");
 }
-assert.notEqual(joinedExposure.transport.record_delivery_attempt, joinedOutcome.transport.record_delivery_attempt, "producer-owned delivery counters may differ across an otherwise exact join");
+assert.equal(Object.hasOwn(joinedOutcome.transport, "record_delivery_attempt"), false, "mutable delivery attempts never enter immutable learning evidence");
 
 const quality = positive.find((record) => record.record_kind === "quality-receipt");
+function installCorrectionGovernance(record, sourceRef, correctionRef) {
+  const oldSourceRef = record.governance.policy_manifest.digest.source_ref;
+  record.governance.policy_manifest.manifest_id = "opaque:54545454-5454-4454-8454-545454545454";
+  record.governance.policy_manifest.digest.source_ref = sourceRef;
+  const manifestPolicy = record.governance.policies.find((policy) => policy.subject_ref === oldSourceRef);
+  manifestPolicy.subject_ref = sourceRef;
+  const correctionPolicy = structuredClone(record.governance.policies[0]);
+  correctionPolicy.subject_ref = correctionRef;
+  correctionPolicy.subject_kind = "artifact";
+  record.governance.policies.push(correctionPolicy);
+  record.governance.effective.derived_from_subject_refs = record.governance.effective.derived_from_subject_refs.map((ref) => ref === oldSourceRef ? sourceRef : ref);
+  record.governance.effective.derived_from_subject_refs.push(correctionRef);
+  record.governance.effective.derived_from_subject_refs.sort(compareUtf16CodeUnits);
+  const manifest = record.governance.policy_manifest;
+  const document = {
+    schema_version: "governance-policy-manifest/v1",
+    contract: { contract_version: record.contract_version, schema_revision: record.schema_revision },
+    manifest: {
+      manifest_id: manifest.manifest_id,
+      version: manifest.version,
+      approved_at: manifest.approved_at,
+      owner_attestations: [...manifest.owner_attestations].sort((a, b) => compareUtf16CodeUnits(a.content_owner, b.content_owner)),
+    },
+    record_binding: { record_kind: record.record_kind, producer: record.producer.component, task: record.task },
+    policies: [...record.governance.policies].sort((a, b) => compareUtf16CodeUnits(a.subject_ref, b.subject_ref)),
+  };
+  sourceDocuments.set(sourceRef, { source_ref: sourceRef, source_type: "governance-policy-manifest", source_version: "governance-policy-manifest-v1", document });
+  manifest.digest.digest = digestCanonical(document);
+}
+
+const correctedQuality = structuredClone(quality);
+correctedQuality.record_id = "opaque:55555555-5555-4555-8555-555555555556";
+correctedQuality.recorded_at = "2026-07-19T10:02:02Z";
+correctedQuality.quality_receipt.disposition = "minor_edit";
+const qualityCorrectionRef = "mimir:correction/quality-receipt-001";
+correctedQuality.artifacts.items.push({ kind: "correction", owner: "principal:owner", ref: qualityCorrectionRef, content_hash: { value: null, unknown_reason: "not-observed" } });
+correctedQuality.lineage.correction_targets = [{ producer: "hugin", record_kind: "quality-receipt", fact_domain: "quality", record_id: quality.record_id }];
+correctedQuality.lineage.correction_ref = qualityCorrectionRef;
+const correctedQualityManifestRef = "source-doc:governance/corrected-quality";
+installCorrectionGovernance(correctedQuality, correctedQualityManifestRef, qualityCorrectionRef);
+assert.deepEqual(validateDataset([quality, correctedQuality]), [], "a real fact correction preserves the original task attempt and forms one same-key supersession chain");
+assert.deepEqual(summarizeImmutable([quality, correctedQuality], "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0].result, { rating: "pass", disposition: "minor_edit" }, "derived summaries select the unique corrected leaf rather than reporting a false conflict");
+const crossKeyCorrection = structuredClone(correctedQuality);
+crossKeyCorrection.quality_receipt.receipt_id = "qr-565656565656565656565656";
+assert.ok(validateDataset([quality, crossKeyCorrection]).includes("correction target belongs to another natural conflict key"), "corrections cannot move across natural conflict keys");
+const missingCorrectionTarget = structuredClone(correctedQuality);
+missingCorrectionTarget.lineage.correction_targets[0].record_id = "opaque:57575757-5757-4757-8757-575757575757";
+assert.ok(validateDataset([quality, missingCorrectionTarget]).includes("correction target is missing from the validated dataset"), "correction targets must exist in the validated dataset");
+const timeTravelCorrection = structuredClone(correctedQuality);
+timeTravelCorrection.recorded_at = "2026-07-19T10:02:00Z";
+assert.ok(validateDataset([quality, timeTravelCorrection]).some((error) => error.includes("correcting record cannot predate its predecessor")), "a correction cannot predate the record it supersedes");
+const selfCorrection = structuredClone(correctedQuality);
+selfCorrection.lineage.correction_targets[0].record_id = selfCorrection.record_id;
+assert.ok(validateDataset([selfCorrection]).some((error) => error.includes("correction cannot target itself") || error.includes("correction target is missing")), "a correction cannot target itself");
 const secondQuality = structuredClone(quality);
 secondQuality.record_id = "opaque:12121212-1212-4212-8212-121212121212";
 secondQuality.quality_receipt.receipt_id = "qr-121212121212121212121212";
@@ -626,6 +1489,7 @@ assert.deepEqual(summarizeImmutable([quality, secondQuality], "quality_receipt",
 const conflictingQuality = structuredClone(secondQuality);
 conflictingQuality.quality_receipt.disposition = "minor_edit";
 assert.equal(summarizeImmutable([quality, conflictingQuality], "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0].result, "conflicted", "any rating/disposition disagreement summarizes as conflicted");
+sourceDocuments.delete(correctedQualityManifestRef);
 const experimentRating = positive.find((record) => record.record_kind === "experiment-product-rating");
 const secondRating = structuredClone(experimentRating);
 secondRating.record_id = "opaque:13131313-1313-4313-8313-131313131313";
@@ -638,43 +1502,71 @@ const conflictingRating = structuredClone(secondRating);
 conflictingRating.experiment_product_rating.product_outcome = "discarded";
 assert.equal(summarizeImmutable([experimentRating, conflictingRating], "experiment_product_rating", ["product_outcome"], ["observation_record_id", "experiment_id", "run_id", "configuration_fingerprint"])[0].result, "conflicted", "disagreeing experiment ratings summarize as conflicted");
 
-const fixtureDigests = [
-  [positive[0].task.raw_fingerprint.digest, "Summarize quarterly release notes"],
-  [positive[1].task.raw_fingerprint.digest, "Hello M5"],
-  [positive[5].task.raw_fingerprint.digest, "Fresh task"],
-  [positive[0].execution.prompt_identity.hugin_envelope.digest, "hugin-envelope:task-001:v1"],
-  [positive[0].execution.prompt_identity.gateway_canonical_envelope.digest, "gateway-envelope:task-001:v1"],
-  [positive[0].execution.prompt_identity.runtime_chat_template_render.digest, "runtime-render:task-001:v1"],
-  [positive[1].execution.prompt_identity.gateway_canonical_envelope.digest, "gateway-envelope:direct:v1"],
-  [positive[1].execution.prompt_identity.runtime_chat_template_render.digest, "runtime-render:direct:v1"],
-  [positive[0].execution.serving.model.artifact_manifest_digest.digest, "artifact-manifest:mellum:v1"],
-  [positive[0].execution.serving.model.effective_config_digest.digest, "effective-runtime-config:mellum:v1"],
-  [positive[0].execution.serving.sampling_digest.digest, "effective-sampling:mellum:v1"],
-  [positive[0].execution.origin_config.prompt.config_digest.digest, "hugin-prompt:v4"],
-  [positive[0].execution.origin_config.harness.config_digest.digest, "hugin-harness:v3"],
-  [positive[0].execution.origin_config.tool_policy.config_digest.digest, "hugin-tools:v2"],
-  [positive[0].execution.effective_gateway_config.harness.config_digest.digest, "gateway-harness:v7"],
-  [positive[0].execution.effective_gateway_config.tool_policy.config_digest.digest, "gateway-tools:v5"],
-  [positive[1].execution.origin_config.prompt.config_digest.digest, "direct-prompt:v1"],
-  [positive[1].execution.origin_config.harness.config_digest.digest, "direct-harness:v1"],
-  [positive[1].execution.origin_config.tool_policy.config_digest.digest, "direct-tools:v1"],
-  [positive[2].capability.policy_epoch.config_digest.digest, "capability-policy:2026-07-19"],
-  [positive[3].experiment.configuration_fingerprint.digest, "experiment-config:exp-001:run-001"],
-  [positive[6].quality_receipt.binding.task_document_sha256, "quality-task-document"],
-  [positive[6].quality_receipt.binding.structured_result_sha256, "quality-structured-result"],
-  [positive[6].quality_receipt.rating_reason_sha256, "quality-rating-reason"],
-  [positive[6].quality_receipt.rubric.config_digest.digest, "quality-rubric"],
-  [positive[7].experiment_product_rating.rating_reason_sha256, "experiment-rating-reason"],
-  [positive[7].experiment_product_rating.rubric.config_digest.digest, "experiment-rubric"],
-];
-for (const [actual, source] of fixtureDigests) assert.equal(actual, digest(source), `fixture digest must be computed from ${source}`);
+for (const record of positive.filter((candidate) => candidate.record_kind !== "pipeline-accounting")) {
+  for (const claim of sourceDocumentClaims(record)) {
+    const errors = [];
+    validateSourceDocumentDigest(claim, errors);
+    assert.deepEqual(errors, [], `source document claim ${claim.source_ref} must be executable`);
+  }
+}
+for (const testCase of sourceDocumentNegative) {
+  const original = sourceDocuments.get(testCase.source_ref);
+  const mutated = structuredClone(original);
+  mutate(mutated, { op: "set", path: testCase.path, value: testCase.value });
+  sourceDocuments.set(testCase.source_ref, mutated);
+  const errors = validateDataset([positive[0]]);
+  sourceDocuments.set(testCase.source_ref, original);
+  assert.ok(errors.join("\n").includes(testCase.expected_error), `${testCase.name}: expected ${testCase.expected_error} in:\n${errors.join("\n")}`);
+}
 
 const erasedErrors = validateDataset([positiveErased]);
 assert.deepEqual(erasedErrors, [], `erased tombstone fixture must validate:\n${erasedErrors.join("\n")}`);
 assert.deepEqual(Object.keys(positiveErased).sort(), ["contract_version", "lifecycle_state", "producer", "record_id", "record_kind", "recorded_at", "schema_revision", "tombstone"].sort(), "tombstone must expose only its reduced envelope");
-const noCounterTombstone = structuredClone(positiveErased);
-noCounterTombstone.tombstone.counter_audit = [];
-assert.deepEqual(validateDataset([noCounterTombstone]), [], "tombstone may omit counter adjustments rather than fabricate them");
+function setMembershipReceipt(entry, counter, owner, membershipKey) {
+  entry.counter = counter;
+  entry.membership_receipt.owner_component = owner;
+  entry.membership_receipt.membership_key = membershipKey;
+  entry.membership_receipt.membership_key_digest.digest = digestCanonical({ owner_component: owner, counter, period_utc: entry.period_utc, membership_key: membershipKey });
+}
+const joinedExposureTombstone = structuredClone(positiveErased);
+joinedExposureTombstone.tombstone.denominator_basis = "joined-exposure";
+setMembershipReceipt(joinedExposureTombstone.tombstone.counter_audit[0], "hugin-m5-join-denominator", "hugin", "membership:hugin-join:opaque-erased-001");
+assert.deepEqual(validateDataset([joinedExposureTombstone]), [], "gille-produced joined exposure may carry the Hugin-owned join membership receipt");
+const huginTaskM5Tombstone = structuredClone(positiveErased);
+huginTaskM5Tombstone.record_kind = "task-outcome";
+huginTaskM5Tombstone.producer = { component: "hugin", schema_version: "task-outcome-v1" };
+huginTaskM5Tombstone.tombstone.denominator_basis = "hugin-task-m5";
+const captureMembership = structuredClone(huginTaskM5Tombstone.tombstone.counter_audit[0]);
+captureMembership.membership_receipt.receipt_id = "opaque:58585858-5858-4858-8858-585858585858";
+setMembershipReceipt(captureMembership, "hugin-capture-denominator", "hugin", "membership:hugin-capture:opaque-erased-001");
+const joinMembership = structuredClone(huginTaskM5Tombstone.tombstone.counter_audit[0]);
+joinMembership.membership_receipt.receipt_id = "opaque:59595959-5959-4959-8959-595959595959";
+setMembershipReceipt(joinMembership, "hugin-m5-join-denominator", "hugin", "membership:hugin-join:opaque-erased-002");
+huginTaskM5Tombstone.tombstone.counter_audit = [captureMembership, joinMembership];
+assert.deepEqual(validateDataset([huginTaskM5Tombstone]), [], "M5-backed Hugin task erasure preserves exact capture and join memberships");
+const huginTaskNonM5Tombstone = structuredClone(huginTaskM5Tombstone);
+huginTaskNonM5Tombstone.tombstone.denominator_basis = "hugin-task-non-m5";
+huginTaskNonM5Tombstone.tombstone.counter_audit = [captureMembership];
+assert.deepEqual(validateDataset([huginTaskNonM5Tombstone]), [], "non-M5 Hugin task erasure preserves exactly capture membership");
+const missingJoinMembership = structuredClone(huginTaskM5Tombstone);
+missingJoinMembership.tombstone.counter_audit = [captureMembership];
+assert.ok(validateDataset([missingJoinMembership]).some((error) => error.includes("do not exactly match the declared denominator basis")), "M5-backed task erasure cannot omit join membership");
+const pipelineDenominatorTombstone = structuredClone(positiveErased);
+pipelineDenominatorTombstone.record_kind = "pipeline-accounting";
+pipelineDenominatorTombstone.producer = { component: "gille-inference", schema_version: "pipeline-accounting-v1" };
+pipelineDenominatorTombstone.tombstone.denominator_basis = "pipeline-direct-m5-exposure-denominator";
+assert.deepEqual(validateDataset([pipelineDenominatorTombstone]), [], "denominator-decision accounting erasure preserves exactly its counter membership");
+const missingExposureMembership = structuredClone(positiveErased);
+missingExposureMembership.tombstone.counter_audit = [];
+missingExposureMembership.tombstone.denominator_impact = "not-denominator-bearing";
+assert.ok(validateDataset([missingExposureMembership]).some((error) => error.includes("denominator-bearing tombstone requires an idempotent membership receipt")), "inference-exposure erasure cannot evade denominator membership");
+const genuinelyNonDenominatorTombstone = structuredClone(positiveErased);
+genuinelyNonDenominatorTombstone.record_kind = "quality-receipt";
+genuinelyNonDenominatorTombstone.producer = { component: "hugin", schema_version: "quality-receipt-v1" };
+genuinelyNonDenominatorTombstone.tombstone.denominator_basis = "not-denominator-bearing";
+genuinelyNonDenominatorTombstone.tombstone.denominator_impact = "not-denominator-bearing";
+genuinelyNonDenominatorTombstone.tombstone.counter_audit = [];
+assert.deepEqual(validateDataset([genuinelyNonDenominatorTombstone]), [], "genuinely non-denominator evidence erases without fabricating counter membership");
 
 for (const testCase of negative) {
   const firstSource = testCase.from_erased ? positiveErased
