@@ -158,6 +158,16 @@ function assertSupportedSchemaKeywords(node, at = "$") {
   const plainMap = (value) => value && typeof value === "object" && !Array.isArray(value);
   const isSchemaNode = (value) => typeof value === "boolean" || plainMap(value);
   for (const key of ["$ref", "$schema", "$id", "title", "description"]) if (node[key] !== undefined) assert.equal(typeof node[key], "string", `${key} must be a string at ${at}`);
+  if (node.$ref !== undefined) {
+    assert.match(node.$ref, /^#\//, `only local #/ schema refs are supported at ${at}`);
+    let target = schema;
+    for (const rawToken of node.$ref.slice(2).split("/")) {
+      const token = rawToken.replaceAll("~1", "/").replaceAll("~0", "~");
+      assert.ok(plainMap(target) && Object.hasOwn(target, token), `unresolved local schema ref ${node.$ref} at ${at}`);
+      target = target[token];
+    }
+    assert.ok(isSchemaNode(target), `local schema ref ${node.$ref} does not resolve to a schema node at ${at}`);
+  }
   if (node.type !== undefined) assert.ok(typeof node.type === "string" && ["object", "array", "string", "integer", "boolean", "null"].includes(node.type), `unsupported schema type or type array at ${at}; custom validation must not diverge from Draft 2020-12`);
   if (node.enum !== undefined) assert.ok(Array.isArray(node.enum) && node.enum.length > 0, `enum must be a non-empty array at ${at}`);
   for (const key of ["minLength", "minItems", "maxItems"]) if (node[key] !== undefined) assert.ok(Number.isInteger(node[key]) && node[key] >= 0, `${key} must be a non-negative integer at ${at}`);
@@ -1158,13 +1168,15 @@ function validateEvaluationBundle(accountingRecord, records, errors) {
   if (summaries.length > 1 || (summary && summary.result === "conflicted") || qualities.some((record) => record.quality_receipt.reviewer.independence !== "independent")) errors.push("evaluation bundle quality evidence must be one independent non-conflicted binding/rubric cohort");
   const availableQualityLeaves = effectiveLeaves(availableRecords.filter((record) => record.record_kind === "quality-receipt" && record.quality_receipt.task_id === outcome.task.instance_id && record.quality_receipt.attempt_id === outcome.execution.attempt_id));
   const qualityCohortKey = (record) => canonical({ binding: record.quality_receipt.binding, rubric: record.quality_receipt.rubric });
+  const availableCohorts = new Set(availableQualityLeaves.map(qualityCohortKey));
   if (qualities.length === 0) {
     if (availableQualityLeaves.length !== 0) errors.push("evaluation bundle cannot claim unrated while an effective quality receipt exists at decision time");
   } else {
     const selectedCohort = qualityCohortKey(qualities[0]);
-    const availableCohortRefs = availableQualityLeaves.filter((record) => qualityCohortKey(record) === selectedCohort).map((record) => canonical(evidenceRef(record))).sort(compareUtf16CodeUnits);
+    const availableCohortRefs = availableQualityLeaves.map((record) => canonical(evidenceRef(record))).sort(compareUtf16CodeUnits);
     const bundledCohortRefs = qualities.map((record) => canonical(evidenceRef(record))).sort(compareUtf16CodeUnits);
-    if (qualities.some((record) => qualityCohortKey(record) !== selectedCohort) || canonical(bundledCohortRefs) !== canonical(availableCohortRefs)) errors.push("evaluation bundle must include every effective quality leaf available in its exact binding/rubric cohort at decision time");
+    if (availableCohorts.size !== 1) errors.push("evaluation bundle cannot choose among multiple available quality binding/rubric cohorts without an explicit governed selector");
+    if (qualities.some((record) => qualityCohortKey(record) !== selectedCohort) || canonical(bundledCohortRefs) !== canonical(availableCohortRefs)) errors.push("evaluation bundle must include every effective quality leaf in the sole available binding/rubric cohort at decision time");
   }
   const sameLineageLeaves = effectiveLeaves(availableRecords.filter((record) => record.record_kind === "task-outcome" && record.task.instance_id === outcome.task.instance_id && record.execution.attempt_id === outcome.execution.attempt_id));
   if (sameLineageLeaves.length !== 1 || sameLineageLeaves[0]?.record_id !== outcome.record_id) errors.push("evaluation bundle does not prove one effective task-outcome lineage leaf at decision time");
@@ -1416,6 +1428,8 @@ assert.throws(() => assertSupportedSchemaKeywords({ type: "object", properties: 
 assert.throws(() => assertSupportedSchemaKeywords({ type: "object", required: "name" }), /required must be an array of unique strings/, "scalar required declarations fail meta-validation");
 assert.throws(() => assertSupportedSchemaKeywords({ enum: { value: "x" } }), /enum must be a non-empty array/, "non-array enums fail meta-validation");
 assert.throws(() => assertSupportedSchemaKeywords({ type: "string", pattern: 42 }), /pattern must be a string/, "non-string regex constraints fail meta-validation");
+assert.throws(() => assertSupportedSchemaKeywords({ $ref: "https://example.invalid/schema.json" }), /only local #\/ schema refs are supported/, "external refs fail meta-validation because the dependency-free resolver cannot execute them");
+assert.throws(() => assertSupportedSchemaKeywords({ $ref: "#/$defs/missingSchema" }), /unresolved local schema ref/, "missing local refs fail meta-validation before record validation");
 assert.throws(() => assertSupportedSchemaKeywords({ $ref: "#/$defs/nonEmptyString", minLength: 2 }), /validation siblings beside \$ref are unsupported/, "$ref validation siblings cannot be skipped by the early-return engine");
 assert.throws(() => assertSupportedSchemaKeywords({ oneOf: [{ type: "string" }], minLength: 2 }), /validation siblings beside oneOf are unsupported/, "oneOf validation siblings cannot be skipped by the early-return engine");
 assert.ok(validateNode(schema.$defs.timestamp, "2026-02-30T00:00:00Z").some((error) => error.includes("invalid RFC 3339 UTC date-time")), "calendar-normalized impossible dates fail exact timestamp validation");
@@ -2163,9 +2177,31 @@ differentBindingQuality.record_id = "opaque:75757575-7575-4575-8575-757575757575
 differentBindingQuality.quality_receipt.binding.structured_result_sha256 = "9999999999999999999999999999999999999999999999999999999999999999";
 installQualityNativeArtifact(differentBindingQuality, 1, "Fixture different result binding.");
 installCorrectionGovernance(differentBindingQuality, "source-doc:governance/different-binding-quality");
+const omittedDifferentBindingAdmission = structuredClone(evaluationAdmitted);
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, differentBindingQuality, omittedDifferentBindingAdmission]).some((error) => error.includes("cannot choose among multiple available quality binding/rubric cohorts")), "evaluation cannot omit a pre-decision receipt from a different binding cohort");
 const mixedCohortAdmission = structuredClone(evaluationAdmitted);
 mixedCohortAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [quality, differentBindingQuality], "2026-07-19T10:02:01Z");
 assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, differentBindingQuality, mixedCohortAdmission]).some((error) => error.includes("one independent non-conflicted binding/rubric cohort")), "evaluation cannot silently summarize only the first of multiple binding or rubric cohorts");
+const differentRubricQuality = structuredClone(quality);
+differentRubricQuality.record_id = "opaque:73737373-7373-4373-8373-737373737373";
+const originalRubricRef = differentRubricQuality.quality_receipt.rubric.config_digest.source_ref;
+const differentRubricRef = "source-doc:rubric/quality-v2";
+const differentRubricSource = structuredClone(sourceDocuments.get(originalRubricRef));
+differentRubricSource.source_ref = differentRubricRef;
+differentRubricSource.source_version = "rubric-source-v2";
+differentRubricSource.document.version = "v2";
+sourceDocuments.set(differentRubricRef, differentRubricSource);
+differentRubricQuality.quality_receipt.rubric.version = "v2";
+differentRubricQuality.quality_receipt.rubric.config_digest.source_ref = differentRubricRef;
+differentRubricQuality.quality_receipt.rubric.config_digest.source_version = "rubric-source-v2";
+differentRubricQuality.quality_receipt.rubric.config_digest.digest = digestCanonical(differentRubricSource.document);
+differentRubricQuality.governance.policies.find((policy) => policy.subject_ref === originalRubricRef).subject_ref = differentRubricRef;
+differentRubricQuality.governance.effective.derived_from_subject_refs = differentRubricQuality.governance.effective.derived_from_subject_refs.map((ref) => ref === originalRubricRef ? differentRubricRef : ref).sort(compareUtf16CodeUnits);
+installQualityNativeArtifact(differentRubricQuality, 1, "Fixture different rubric review.");
+installCorrectionGovernance(differentRubricQuality, "source-doc:governance/different-rubric-quality");
+assert.deepEqual(validateDataset([quality, differentRubricQuality]), [], "immutable quality receipts may retain separate rubric cohorts outside evaluation admission");
+const omittedDifferentRubricAdmission = structuredClone(evaluationAdmitted);
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, differentRubricQuality, omittedDifferentRubricAdmission]).some((error) => error.includes("cannot choose among multiple available quality binding/rubric cohorts")), "evaluation cannot omit a pre-decision receipt from a different rubric cohort");
 const selfReviewedQuality = structuredClone(quality);
 selfReviewedQuality.record_id = "opaque:74747474-7474-4474-8474-747474747474";
 selfReviewedQuality.quality_receipt.reviewer = { principal: "principal:self-reviewer", independence: "self" };

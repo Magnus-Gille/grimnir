@@ -74,6 +74,10 @@ summary per exact binding and rubric version as follows:
    is `conflicted` and cannot support admission or promotion; and
 5. a new rubric/version is a separate cohort. Newest-wins and destructive re-rating are forbidden.
 
+That separation preserves honest immutable summaries. V1 evaluation admission cannot choose among
+multiple available cohorts because it has no independently governed cohort selector; it fails
+closed until a future contract supplies one.
+
 A quality correction uses a **new** future native v2 receipt id, explicitly names the predecessor
 native receipt, retains an exact `quality-correction-group-jcs-v1` key over
 task/attempt/reviewer/rubric/binding, and targets the predecessor contract record. It never reuses a
@@ -494,11 +498,12 @@ Every bundle ref selects the unique effective same-natural-key correction leaf a
 clock. Corrections recorded later do not rewrite the historical decision. Task-outcome lineage is
 likewise collapsed as of decision, so a valid predecessor plus correction is one lineage rather than
 a permanent duplicate.
-Quality evidence is complete per exact native binding/rubric cohort: the first bundled receipt
-selects the cohort and the bundle must contain every effective correction leaf available in that
-cohort at decision time. Other cohorts remain separate. An empty list truthfully means `unrated`
-only when no effective receipt for the task/attempt exists at decision time; it cannot hide an
-unfavorable or conflicting receipt.
+Quality evidence is complete and fail-closed at the evaluated task/attempt. At decision time there
+must be either no effective receipt, producing a truthful `unrated`, or exactly one available exact
+native binding/rubric cohort; the bundle must contain every effective correction leaf in that sole
+cohort. Multiple available binding or rubric cohorts make the evaluation ineligible because v1 has no
+independently governed selector. An empty list truthfully means `unrated` only in the zero-receipt case and cannot hide an
+unfavorable, conflicting, or differently bound receipt.
 
 Closed failure codes include `producer-error`, `consumer-error`, `schema-rejected`, `join-mismatch`,
 `late-over-24h`, `policy-unavailable`, `transport-auth-failed`, `gateway-not-admitted`, `transport-error`, and
@@ -578,7 +583,8 @@ dates such as February 30; passing only the structural check is insufficient. Th
 dependency-free validator also rejects schema keywords it does not implement, preventing a future
 keyword from being silently ignored. It likewise rejects malformed shapes for every supported
 keyword (`items`, `properties`, `$defs`, combinators, required/enums, and scalar constraints) rather
-than ignoring or crashing on them; Draft 2020-12 remains the authoritative schema semantics.
+than ignoring or crashing on them. Because the dependency-free resolver implements only local
+`#/` pointers, external and unresolved local `$ref` values also fail meta-validation. Draft 2020-12 remains the authoritative schema semantics.
 
 Producer and consumer suites MUST prove:
 
