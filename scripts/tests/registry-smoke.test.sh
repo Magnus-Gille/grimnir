@@ -91,6 +91,22 @@ assert_eq "valid registry -> exit 0" "0" "$(run_validator "$TMP_DIR/valid.json")
 REPO_REGISTRY="$SCRIPT_DIR/../../services.json"
 assert_eq "real services.json -> exit 0" "0" "$(run_validator "$REPO_REGISTRY")"
 
+# Grimnir's committed system units are intentionally install-ready rather than
+# templates. Keep the control-plane path fixed so a private registry cannot
+# silently disagree with their WorkingDirectory and sandbox paths.
+cat > "$TMP_DIR/grimnir-wrong-control-plane-path.json" << 'EOF'
+{
+  "components": [
+    { "name": "grimnir", "repo": "grimnir", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/opt/grimnir",
+      "needs_build": false, "deploy_mode": "git-pull",
+      "systemd_units": [{ "name": "grimnir-validate", "type": "timer" }] }
+  ]
+}
+EOF
+assert_eq "grimnir control-plane path must match install-ready units -> exit 1" "1" \
+  "$(run_validator "$TMP_DIR/grimnir-wrong-control-plane-path.json")"
+
 # ── rsync persistent-path safety ───────────────────────────────────────────
 cat > "$TMP_DIR/missing-persistent-paths.json" << 'EOF'
 {

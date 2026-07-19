@@ -3,9 +3,9 @@
 #
 # notify_telegram "message"  → pushes a one-line operator alert.
 #
-# Preferred path: the Ratatoskr bot's /api/send endpoint, reached over the
-# private network with a Bearer key:
-#   POST http://ai-core.internal:3034/api/send  {chat_id:<number>, text:<string>}
+# Preferred path: an explicitly configured Ratatoskr /api/send endpoint,
+# reached over a private network with a Bearer key:
+#   POST <RATATOSKR_URL>  {chat_id:<number>, text:<string>}
 #   Authorization: Bearer <RATATOSKR_SEND_API_KEY>
 # Falls back to the direct Telegram Bot API if Ratatoskr is unreachable.
 #
@@ -25,7 +25,6 @@
 
 RATATOSKR_ENV="${RATATOSKR_ENV:-$HOME/repos/ratatoskr/.env}"
 NOTIFY_ENV="${NOTIFY_ENV:-$HOME/.config/grimnir/notify.env}"
-RATATOSKR_URL_DEFAULT="http://ai-core.internal:3034/api/send"
 
 # JSON-escape an arbitrary string into a quoted JSON string literal.
 _notify_json_string() {
@@ -55,7 +54,6 @@ notify_telegram() {
   # Resolve each value: environment wins, else the chosen config file.
   local url send_key chat_id bot_token
   url="${RATATOSKR_URL:-$(_notify_cfg_get "$cfg" RATATOSKR_URL)}"
-  url="${url:-$RATATOSKR_URL_DEFAULT}"
   send_key="${RATATOSKR_SEND_API_KEY:-$(_notify_cfg_get "$cfg" RATATOSKR_SEND_API_KEY)}"
   # A newline in the key would terminate the curl --config header line and let a
   # malformed key inject a second directive — strip CR/LF defensively.
@@ -83,13 +81,15 @@ notify_telegram() {
   # Preferred: Ratatoskr endpoint. The Bearer header (if any) goes via curl
   # --config (stdin) so the key never lands in argv. chat_id MUST be an unquoted
   # JSON number; text_json is a pre-escaped JSON string literal.
-  local auth_cfg=""
-  [[ -n "$send_key" ]] && auth_cfg="header = \"Authorization: Bearer ${send_key}\""
-  local code
-  code="$(printf '%s\n' "$auth_cfg" | curl -sS -m 8 -o /dev/null -w '%{http_code}' --config - \
-       -X POST "$url" \
-       -H "Content-Type: application/json" \
-       -d "{\"chat_id\": ${chat_id}, \"text\": ${text_json}}" 2>/dev/null || echo 000)"
+  local code="not configured"
+  if [[ -n "$url" ]]; then
+    local auth_cfg=""
+    [[ -n "$send_key" ]] && auth_cfg="header = \"Authorization: Bearer ${send_key}\""
+    code="$(printf '%s\n' "$auth_cfg" | curl -sS -m 8 -o /dev/null -w '%{http_code}' --config - \
+         -X POST "$url" \
+         -H "Content-Type: application/json" \
+         -d "{\"chat_id\": ${chat_id}, \"text\": ${text_json}}" 2>/dev/null || echo 000)"
+  fi
   if [[ "$code" == "200" ]]; then
     return 0
   fi

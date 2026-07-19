@@ -1,0 +1,4 @@
+# Exact historical fake GitHub-token fixtures from issue #22. Keep this list
+# fingerprint-scoped so new findings in the same test file still fail scans.
+d85061aa0419e9fb57aa086b93c580240689e776:tests/scripts/test-security-scan-skip.sh:github-pat:56
+d85061aa0419e9fb57aa086b93c580240689e776:tests/scripts/test-security-scan-skip.sh:github-pat:62

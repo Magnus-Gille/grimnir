@@ -8,6 +8,7 @@ This map prevents configuration from silently diverging across repositories and 
 |---|---|---|
 | Public registry schema and example topology | `services.json` | tests, public documentation |
 | A real installation's hosts, ports, paths, enabled components, and units | ignored `services.local.json` or explicit `REGISTRY_PATH` | deploy, scan, and snapshot scripts |
+| Grimnir control-plane system account and deploy path | committed Grimnir systemd units (`grimnir`, `/srv/grimnir/control-plane`) | registry validation and deployment |
 | Install-ready systemd unit contents | owning component repository | deployment tooling |
 | Global deploy safety rules | `scripts/deploy.sh` and `scripts/lib/deploy-safety.sh` | deployment tests |
 | Repository names and component roles | `docs/conventions.md` | README and architecture |
@@ -35,6 +36,9 @@ This map prevents configuration from silently diverging across repositories and 
    one-shot timer must declare `timer_semantics: "one-shot"`.
 8. **Unit files are install-ready artifacts.** Deployment does not render component-specific
    templates. Active unit lines with unresolved placeholders fail preflight.
+9. **The control-plane unit contract is fixed.** Grimnir's own system units run as `grimnir` from
+   `/srv/grimnir/control-plane`; registry validation rejects another Grimnir deploy path. The
+   deployer's `DEPLOY_USER` selects the SSH login only and does not rewrite systemd `User=`.
 
 ## Generated snapshots
 

@@ -60,6 +60,7 @@ var VALID_COMPONENT_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 var VALID_HOST = /^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/;
 var VALID_ABSOLUTE_PATH = /^\/[A-Za-z0-9._@%+,=:\/-]+$/;
 var INVALID_RSYNC_EXCLUDE_CHARS = /[\x00-\x1f*?[\]{}\\]/;
+var GRIMNIR_CONTROL_PLANE_PATH = '/srv/grimnir/control-plane';
 
 function isWithinPath(candidate, parent) {
   if (parent === '/') return path.posix.isAbsolute(candidate);
@@ -138,6 +139,10 @@ data.components.forEach(function (c, i) {
     }
     if (typeof c.host !== 'string' || !VALID_HOST.test(c.host)) {
       fail(label + ': deploy=true requires a non-empty "host"');
+    }
+    if (c.name === 'grimnir' && c.deploy_path !== GRIMNIR_CONTROL_PLANE_PATH) {
+      fail(label + ': deploy_path must be "' + GRIMNIR_CONTROL_PLANE_PATH +
+        '" because the committed control-plane systemd units use that fixed path');
     }
   }
 

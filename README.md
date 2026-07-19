@@ -63,8 +63,8 @@ For a real installation:
 
 ```bash
 cp services.json services.local.json
-# Set public_example to false and replace every example hostname, path,
-# component choice, account, and unit.
+# Set public_example to false and replace example hostnames, component choices,
+# unit selections, and paths other than Grimnir's fixed control-plane path.
 make test
 make deploy ARGS="munin-memory"
 ```
@@ -73,6 +73,12 @@ make deploy ARGS="munin-memory"
 ignored. Do not publish them. The local registry is selected automatically when present; automation
 can instead set `REGISTRY_PATH` explicitly. Deployment fails closed unless the selected registry
 contains the exact JSON boolean `"public_example": false`.
+
+The Grimnir control plane has one explicit fixed deployment contract: its system units run as the
+`grimnir` system account from `/srv/grimnir/control-plane`. The registry validator rejects another
+deploy path for the `grimnir` component because these committed units are installed without
+rendering. `DEPLOY_USER` controls the SSH login used by the deployer; it does not change the runtime
+account in those units.
 
 ## Repository map
 
