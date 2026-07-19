@@ -18,12 +18,13 @@
     "inference-exposure": ["/exposure/kind", "/exposure/event_key", "/exposure/lookup_id"],
     "capability-evidence": ["/capability/evidence_id"],
     "experiment-observation": ["/experiment/experiment_id", "/experiment/run_id"],
-    "quality-receipt": ["/quality_receipt/receipt_id"],
+    "quality-receipt": ["/quality_receipt/native_receipt/receipt_id"],
     "experiment-product-rating": ["/experiment_product_rating/rating_id"],
     "pipeline-accounting": ["/pipeline_accounting/event_id"]
   },
   "x-grimnir-conflict-key-applicability": "record applies to active records and tombstones; kind-specific keys apply only when lifecycle_state is active",
-  "x-grimnir-correction-semantics": "A differing same-natural-key record is valid only as one acyclic same-producer/same-kind/same-domain supersession chain. Consumers select the unique unsuperseded leaf; unlinked conflicts, forks, cycles, self-targets, cross-key targets, and time-travel corrections fail closed.",
+  "x-grimnir-inference-exposure-conflict-key-semantics": "The combined pointer list is conditional: observed-event supplies event_key and negative-coverage-query supplies lookup_id; the absent sibling is encoded by the conflict-key evaluator, so these are two distinct keys rather than one three-field live key.",
+  "x-grimnir-correction-semantics": "A differing same-natural-key record is valid only as one strictly time-advancing acyclic same-producer/same-kind/same-domain supersession chain. Quality corrections use a new native receipt id and a stable correction_group_key. Consumers select the unique unsuperseded leaf; unlinked conflicts, forks, cycles, self-targets, cross-key targets, and time-travel corrections fail closed.",
   "x-grimnir-accounting-natural-keys": {
     "denominator-decision": ["owner_component", "denominator.counter", "denominator.occurrence_month_utc", "task_link.origin_component", "task_link.task_instance_id", "task_link.attempt_id"],
     "request-retry": ["owner_component", "task_link.origin_component", "task_link.task_instance_id", "task_link.attempt_id", "task_link.request_id", "task_link.idempotency_key", "retry.ordinal"],
@@ -34,8 +35,8 @@
   "x-grimnir-field-owners": {
     "/contract_version,/schema_revision,/lifecycle_state,/record_kind": "grimnir",
     "/record_id,/producer/**,/recorded_at": "producer.component",
-    "/tombstone/**": "producer.component; counter_audit membership receipts retain each counter's actual owner and may therefore cross the record-producer boundary",
-    "/task/origin_component,/task/instance_id,/task/source/**,/task/task_type/id,/task/raw_fingerprint": "task.origin_component",
+    "/tombstone/**": "producer.component; counter_audit verifies separately trusted membership tokens issued by each actual counter owner and may therefore cross the record-producer boundary",
+    "/task/origin_component,/task/instance_id,/task/source/**,/task/task_type/id,/task/raw_input,/task/raw_fingerprint": "task.origin_component",
     "/task/task_type/taxonomy_id,/task/task_type/taxonomy_version": "gille-inference",
     "/execution/attempt_id,/execution/started_at,/execution/ended_at": "task.origin_component",
     "/execution/model_started_at,/execution/model_ended_at": "the serving runtime; producer.component copies the immutable observation",
@@ -56,7 +57,8 @@
     "/exposure/**": "gille-inference",
     "/capability/**": "gille-inference",
     "/experiment/**": "hugin",
-    "/quality_receipt/**": "hugin, preserving native receipt and reviewer stamps",
+    "/quality_receipt/native_receipt/**": "hugin native artifact; schema v1 is preserved exactly and future correction v2 is explicitly versioned",
+    "/quality_receipt/**": "hugin normalized bridge projection; derived attempt/rubric fields are not claims about native v1",
     "/experiment_product_rating/**": "hugin, preserving immutable reviewer stamps",
     "/pipeline_accounting/**": "pipeline_accounting.owner_component",
     "/governance/policies/*/subject_ref,/governance/policies/*/subject_kind": "producer.component",
@@ -84,7 +86,7 @@
     "timestamp": {
       "type": "string",
       "format": "date-time",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$"
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,3})?Z$"
     },
     "unknown": {
       "type": "object",
@@ -157,7 +159,7 @@
         "canonicalization": { "const": "jcs-rfc8785-utf8-v1" },
         "source_ref": { "type": "string", "pattern": "^source-doc:[a-z0-9][a-z0-9._/-]*$" },
         "source_type": {
-          "enum": ["prompt-stage", "origin-prompt-config", "origin-harness-config", "origin-tool-policy-config", "gateway-harness-config", "gateway-tool-policy-config", "capability-policy-config", "experiment-config", "rubric-config", "artifact-manifest", "effective-runtime-config", "effective-sampling-post-default-post-clamp", "governance-policy-manifest"]
+          "enum": ["raw-input", "prompt-stage", "origin-prompt-config", "origin-harness-config", "origin-tool-policy-config", "gateway-harness-config", "gateway-tool-policy-config", "capability-policy-config", "experiment-config", "rubric-config", "quality-receipt-native-v1", "quality-receipt-native-v2", "artifact-manifest", "effective-runtime-config", "effective-sampling-post-default-post-clamp", "governance-policy-manifest"]
         },
         "source_version": { "$ref": "#/$defs/nonEmptyString" },
         "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
@@ -282,12 +284,18 @@
     "task": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["origin_component", "instance_id", "source", "task_type", "raw_fingerprint"],
+      "required": ["origin_component", "instance_id", "source", "task_type", "raw_input", "raw_fingerprint"],
       "properties": {
         "origin_component": { "enum": ["hugin", "gille-inference"] },
         "instance_id": { "$ref": "#/$defs/nonEmptyString" },
         "source": { "$ref": "#/$defs/source" },
         "task_type": { "$ref": "#/$defs/taskType" },
+        "raw_input": {
+          "allOf": [
+            { "$ref": "#/$defs/sourceDocumentDigest" },
+            { "properties": { "source_type": { "const": "raw-input" } } }
+          ]
+        },
         "raw_fingerprint": { "$ref": "#/$defs/rawTaskFingerprint" }
       }
     },
@@ -465,7 +473,7 @@
     "huginRequestStamp": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["task_instance_id", "attempt_id", "client_id", "expected_transport_principal_id", "idempotency_key", "request_id", "stamped_at", "contract_request", "preflight", "source", "task_type", "raw_fingerprint", "hugin_envelope", "origin_config", "macro_decision"],
+      "required": ["task_instance_id", "attempt_id", "client_id", "expected_transport_principal_id", "idempotency_key", "request_id", "stamped_at", "contract_request", "preflight", "source", "task_type", "raw_input", "raw_fingerprint", "hugin_envelope", "origin_config", "macro_decision"],
       "properties": {
         "task_instance_id": { "$ref": "#/$defs/nonEmptyString" },
         "attempt_id": { "$ref": "#/$defs/nonEmptyString" },
@@ -478,6 +486,12 @@
         "preflight": { "$ref": "#/$defs/capabilityPreflight" },
         "source": { "$ref": "#/$defs/source" },
         "task_type": { "$ref": "#/$defs/taskType" },
+        "raw_input": {
+          "allOf": [
+            { "$ref": "#/$defs/sourceDocumentDigest" },
+            { "properties": { "source_type": { "const": "raw-input" } } }
+          ]
+        },
         "raw_fingerprint": { "$ref": "#/$defs/rawTaskFingerprint" },
         "hugin_envelope": { "$ref": "#/$defs/sourceDocumentDigest" },
         "origin_config": { "$ref": "#/$defs/originConfig" },
@@ -685,7 +699,7 @@
     "ownerAttestation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["content_owner", "authenticated_principal", "authentication", "delegation"],
+      "required": ["content_owner", "authenticated_principal", "authentication", "delegation", "authority_evidence"],
       "properties": {
         "content_owner": { "$ref": "#/$defs/nonEmptyString" },
         "authenticated_principal": { "$ref": "#/$defs/nonEmptyString" },
@@ -695,7 +709,19 @@
             { "$ref": "#/$defs/delegationAttestation" },
             { "$ref": "#/$defs/notApplicable" }
           ]
-        }
+        },
+        "authority_evidence": { "$ref": "#/$defs/trustedEvidenceRef" }
+      }
+    },
+    "trustedEvidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validation_context_id", "evidence_id", "issuer", "payload_digest"],
+      "properties": {
+        "validation_context_id": { "$ref": "#/$defs/nonEmptyString" },
+        "evidence_id": { "$ref": "#/$defs/nonEmptyString" },
+        "issuer": { "$ref": "#/$defs/nonEmptyString" },
+        "payload_digest": { "$ref": "#/$defs/fingerprint" }
       }
     },
     "policyManifest": {
@@ -784,7 +810,7 @@
     "negativeExposure": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "lookup_id", "coverage_epoch_id", "queried_at", "fingerprint_version", "queried_fingerprint", "task_attempt_id", "coverage"],
+      "required": ["kind", "lookup_id", "coverage_epoch_id", "queried_at", "fingerprint_version", "queried_fingerprint", "task_attempt_id", "attempt_proof", "coverage"],
       "properties": {
         "kind": { "const": "negative-coverage-query" },
         "lookup_id": { "$ref": "#/$defs/opaqueId" },
@@ -793,6 +819,7 @@
         "fingerprint_version": { "const": "trim-utf8-sha256-v1" },
         "queried_fingerprint": { "$ref": "#/$defs/rawTaskFingerprint" },
         "task_attempt_id": { "$ref": "#/$defs/nonEmptyString" },
+        "attempt_proof": { "$ref": "#/$defs/trustedEvidenceRef" },
         "coverage": {
           "type": "object",
           "additionalProperties": false,
@@ -889,16 +916,31 @@
     "qualityReceipt": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["receipt_id", "native_schema_version", "task_id", "attempt_id", "rating", "rating_reason_sha256", "disposition", "retries_count", "rated_at", "reviewer", "rubric", "binding_attestation", "binding"],
+      "required": ["projection_version", "native_receipt", "correction_group_key", "task_id", "attempt_id", "rating", "rating_reason_sha256", "disposition", "retries_count", "rated_at", "reviewer", "rubric", "binding_attestation", "binding"],
       "properties": {
-        "receipt_id": { "type": "string", "pattern": "^qr-[0-9a-f]{24}$" },
-        "native_schema_version": { "const": 1 },
+        "projection_version": { "const": "learning-quality-normalized/v2" },
+        "native_receipt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "receipt_id", "artifact_digest"],
+          "properties": {
+            "schema_version": { "enum": [1, 2] },
+            "receipt_id": { "type": "string", "pattern": "^qr-[0-9a-f]{24}$" },
+            "artifact_digest": { "$ref": "#/$defs/sourceDocumentDigest" }
+          }
+        },
+        "correction_group_key": { "$ref": "#/$defs/fingerprint" },
         "task_id": { "$ref": "#/$defs/nonEmptyString" },
         "attempt_id": { "$ref": "#/$defs/nonEmptyString" },
         "rating": { "enum": ["pass", "partial", "redo", "wrong"] },
         "rating_reason_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "disposition": { "enum": ["accepted_unchanged", "minor_edit", "major_rewrite", "discarded", "escalated_to_claude"] },
-        "retries_count": { "type": "integer", "minimum": 0 },
+        "retries_count": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        },
         "rated_at": { "$ref": "#/$defs/timestamp" },
         "reviewer": {
           "type": "object",
@@ -1001,6 +1043,40 @@
         "record_id": { "$ref": "#/$defs/opaqueId" }
       }
     },
+    "evaluationEvidenceBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle_id", "decision_at", "task_outcome", "exposure", "capability_evidence", "quality_receipts", "governance_snapshot_digest", "complete_provenance_digest", "exposure_coverage_digest", "quality_consensus_digest", "unique_lineage_digest"],
+      "properties": {
+        "bundle_id": { "$ref": "#/$defs/opaqueId" },
+        "decision_at": { "$ref": "#/$defs/timestamp" },
+        "task_outcome": { "$ref": "#/$defs/accountingRecordRef" },
+        "exposure": { "$ref": "#/$defs/accountingRecordRef" },
+        "capability_evidence": { "$ref": "#/$defs/accountingRecordRef" },
+        "quality_receipts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/accountingRecordRef" },
+          "uniqueItems": true
+        },
+        "governance_snapshot_digest": { "$ref": "#/$defs/fingerprint" },
+        "complete_provenance_digest": { "$ref": "#/$defs/fingerprint" },
+        "exposure_coverage_digest": { "$ref": "#/$defs/fingerprint" },
+        "quality_consensus_digest": { "$ref": "#/$defs/fingerprint" },
+        "unique_lineage_digest": { "$ref": "#/$defs/fingerprint" }
+      }
+    },
+    "accountingBoundaryEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "declared_at", "valid_from", "valid_through", "proof"],
+      "properties": {
+        "kind": { "enum": ["synthetic-declaration", "compatibility-window"] },
+        "declared_at": { "$ref": "#/$defs/timestamp" },
+        "valid_from": { "$ref": "#/$defs/timestamp" },
+        "valid_through": { "$ref": "#/$defs/timestamp" },
+        "proof": { "$ref": "#/$defs/trustedEvidenceRef" }
+      }
+    },
     "accountingRetry": {
       "type": "object",
       "additionalProperties": false,
@@ -1014,18 +1090,24 @@
     "accountingDenominatorDecision": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["counter", "occurrence_at", "occurrence_month_utc", "decision"],
+      "required": ["counter", "occurrence_at", "occurrence_month_utc", "decision", "boundary_evidence"],
       "properties": {
         "counter": { "enum": ["hugin-capture-denominator", "hugin-m5-join-denominator", "direct-m5-exposure-denominator", "evaluation-candidate-denominator"] },
         "occurrence_at": { "$ref": "#/$defs/timestamp" },
         "occurrence_month_utc": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" },
-        "decision": { "enum": ["admitted", "failed", "excluded"] }
+        "decision": { "enum": ["admitted", "failed", "excluded"] },
+        "boundary_evidence": {
+          "oneOf": [
+            { "$ref": "#/$defs/accountingBoundaryEvidence" },
+            { "$ref": "#/$defs/notApplicable" }
+          ]
+        }
       }
     },
     "accountingAggregateClose": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["counter", "period_utc", "included_through", "event_count", "immutable_event_set_digest", "verification_scope", "closed_at"],
+      "required": ["counter", "period_utc", "included_through", "event_count", "immutable_event_set_digest", "verification_scope", "partition_proof", "closed_at"],
       "properties": {
         "counter": { "enum": ["hugin-capture-denominator", "hugin-m5-join-denominator", "direct-m5-exposure-denominator", "evaluation-candidate-denominator"] },
         "period_utc": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" },
@@ -1033,13 +1115,19 @@
         "event_count": { "type": "integer", "minimum": 0 },
         "immutable_event_set_digest": { "$ref": "#/$defs/fingerprint" },
         "verification_scope": { "enum": ["full-period-partition", "partial-dataset-deferred"] },
+        "partition_proof": {
+          "oneOf": [
+            { "$ref": "#/$defs/trustedEvidenceRef" },
+            { "$ref": "#/$defs/notApplicable" }
+          ]
+        },
         "closed_at": { "$ref": "#/$defs/timestamp" }
       }
     },
     "pipelineAccounting": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["event_id", "owner_component", "event_type", "stage", "disposition", "failure_code", "observed_at", "task_link", "related_record", "delivery_ordinal", "retry", "denominator", "aggregate_close"],
+      "required": ["event_id", "owner_component", "event_type", "stage", "disposition", "failure_code", "observed_at", "task_link", "related_record", "delivery_ordinal", "retry", "denominator", "evaluation_bundle", "aggregate_close"],
       "properties": {
         "event_id": { "$ref": "#/$defs/opaqueId" },
         "owner_component": { "enum": ["hugin", "gille-inference"] },
@@ -1053,6 +1141,7 @@
         "delivery_ordinal": { "oneOf": [{ "type": "integer", "minimum": 1 }, { "$ref": "#/$defs/notApplicable" }] },
         "retry": { "oneOf": [{ "$ref": "#/$defs/accountingRetry" }, { "$ref": "#/$defs/notApplicable" }] },
         "denominator": { "oneOf": [{ "$ref": "#/$defs/accountingDenominatorDecision" }, { "$ref": "#/$defs/notApplicable" }] },
+        "evaluation_bundle": { "oneOf": [{ "$ref": "#/$defs/evaluationEvidenceBundle" }, { "$ref": "#/$defs/notApplicable" }] },
         "aggregate_close": { "oneOf": [{ "$ref": "#/$defs/accountingAggregateClose" }, { "$ref": "#/$defs/notApplicable" }] }
       }
     },
@@ -1082,12 +1171,12 @@
         "membership_receipt": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["receipt_id", "owner_component", "membership_key", "membership_key_digest", "outcome", "delta", "confirmed_at"],
+          "required": ["receipt_id", "owner_component", "membership_key_digest", "membership_token", "outcome", "delta", "confirmed_at"],
           "properties": {
             "receipt_id": { "$ref": "#/$defs/opaqueId" },
             "owner_component": { "enum": ["hugin", "gille-inference"] },
-            "membership_key": { "$ref": "#/$defs/nonEmptyString" },
             "membership_key_digest": { "$ref": "#/$defs/fingerprint" },
+            "membership_token": { "$ref": "#/$defs/trustedEvidenceRef" },
             "outcome": { "enum": ["inserted", "already-present"] },
             "delta": { "enum": [0, 1] },
             "confirmed_at": { "$ref": "#/$defs/timestamp" }

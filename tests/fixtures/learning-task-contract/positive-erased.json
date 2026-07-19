@@ -89,20 +89,29 @@
     "counter_audit": [
       {
         "counter": "direct-m5-exposure-denominator",
-        "period_utc": "2026-08",
+        "period_utc": "2026-07",
         "disposition": "idempotent-membership-preserved",
         "membership_receipt": {
           "receipt_id": "opaque:76767676-7676-4676-8676-767676767676",
           "owner_component": "gille-inference",
-          "membership_key": "membership:direct-m5-exposure:opaque-erased-001",
           "membership_key_digest": {
             "algorithm": "sha256",
-            "version": "denominator-membership-key-jcs-v1",
-            "digest": "46bf095c72e8b250d3f264a6d28c13a08a0b846e7f640b28560ef0e4483088f1"
+            "version": "denominator-natural-key-jcs-v1",
+            "digest": "accee6ff97534ffa32e3b42f15059d2300080cf93496307acab3fd10980c9036"
           },
           "outcome": "inserted",
           "delta": 1,
-          "confirmed_at": "2026-08-01T00:00:08.500Z"
+          "confirmed_at": "2026-08-01T00:00:08.500Z",
+          "membership_token": {
+            "validation_context_id": "fixture:learning-task-contract-v1",
+            "evidence_id": "fixture-membership-direct-july",
+            "issuer": "gille-inference",
+            "payload_digest": {
+              "algorithm": "sha256",
+              "version": "trusted-evidence-payload-jcs-v1",
+              "digest": "27b03127cc610c4b1278ed01c9c758cb50ead72811e798c1a7cfc2bb13c1fca3"
+            }
+          }
         }
       }
     ],

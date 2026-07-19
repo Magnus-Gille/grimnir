@@ -71,14 +71,14 @@ local terms explicitly until adoption:
 | Mechanism | State | Boundary |
 |---|---|---|
 | Hugin task/result and managed-repository evidence | Implemented | Captures execution facts; successful completion is not product quality. |
-| Hugin Quality Receipt v1 | Implemented mechanism; manual use; concurrency partial | Receipts are native immutable review facts, but the current task-embedded summary can still lose the first pair: two concurrent first writers can both observe no feedback, pass `current?.updated_at` as undefined, and perform unconditional Munin writes. The v1 seam exports each surviving receipt as its own record and never treats the mutable summary as evidence completeness. Closing first-create storage remains required. |
+| Hugin Quality Receipt v1 | Implemented mechanism; manual use; concurrency partial | Native v1 has a content-derived receipt id, task/result/repository binding, text reason, and optional retries; it has no attempt/rubric and rejects a second verdict by the same reviewer/binding. The contract therefore preserves the exact v1 artifact and labels attempt/rubric as future normalized-v2 facts. Same-reviewer corrections require a new native-v2 capability. The current task-embedded summary can also still lose the first pair: two concurrent first writers can both observe no feedback, pass `current?.updated_at` as undefined, and perform unconditional Munin writes. |
 | Hugin daily candidate factory | Implemented | Content-blind, rolling candidate snapshot only; not a sealed holdout, durable registry, evaluation, or promotion path. |
 | Hugin controlled experiment ledger/evaluator | Implemented | One-axis matched evaluation and champion lineage; current reusable runner is narrow. |
 | M5 task exposure registry | Implemented | Observed events exist for declared lanes. A contract negative-coverage query is a separate bounded assertion over exactly chat, mcp-ask, delegate, delegate-disagreement, delegate-shadow, and code-loop; direct loopback calls and incomplete history remain explicit. |
 | M5 capability ledger and deterministic verifiers | Implemented | Sole node/model/task capability truth; unverified evidence cannot be promoted by Hugin. |
 | M5 organic judge and delegate policy | Shadow | Must remain non-authoritative until representative human calibration, independent evidence, and versioned admission policy pass. |
 | Hugin↔M5 authenticated preflight/stamp/echo | Future | Hugin currently sends one unstamped request and the gateway does not yet expose the authenticated versioned preflight or return the exact join echo required by v1. Preflight/read-only compatibility precedes any v1 send. |
-| Immutable pipeline accounting | Future | v1 requires natural-keyed append-only capture/join/direct-exposure/evaluation, retry, delivery-ordinal emission, and verifiable aggregate-close events so missing/rejected records remain in denominators without duplicate members. |
+| Immutable pipeline accounting | Future | v1 requires natural-keyed append-only capture/join/direct-exposure/evaluation, trusted boundary declarations, retry, delivery-ordinal emission, and aggregate closes verified against an authoritative ledger partition/high-water proof. A partial/empty load never certifies completeness. |
 | Product rating, candidate approval, verifier approval, change deployment | Manual | Human-reviewed by design in v1. |
 | Durable all-outcome registry and candidate packager | Future | Required to connect ordinary failures/successes to experiments. |
 | Verified Hugin-experiment import and guarded route reload | Future | Required to turn reviewed evidence into operational micro-routing. |
@@ -91,10 +91,10 @@ The required fields and owner are normative in
 must bind:
 
 - one stable task/source instance, distinct transport principal/content owner, and canonical task taxonomy version;
-- the raw task fingerprint plus Hugin envelope, gateway canonical envelope, and runtime chat-template
-  render as distinct separately versioned identities;
+- the typed exact pre-orchestration raw input/fingerprint plus Hugin envelope, gateway canonical
+  envelope, and runtime chat-template render as distinct exact-byte identities;
 - exact execution attempt, input/output/repository references and hashes;
-- effective llama-swap runtime, provider, model artifact manifest, effective runtime config, and
+- effective serving runtime, provider, model artifact manifest, effective runtime config, and
   post-default/post-clamp sampling digests with reproducible canonicalization;
 - origin prompt/harness/tool config plus effective gateway harness/tool config and separate macro-
   and micro-routing policy/decision identities;
@@ -103,10 +103,13 @@ must bind:
 - failure/correction/successor and authenticated reviewer provenance; and
 - an authenticated fresh preflight, Hugin request stamp, gateway echo, and ordered attempt/admission/model clocks for joined traffic;
 - exact typed per-source/derivative governance or explicit policy-unavailable denial; and
-- immutable source-document refs and owner/delegation attestations for every governed derivative;
+- immutable source-document refs and owner/delegation attestations verified through a separately
+  trusted validation context for every governed derivative;
 - append-only pipeline accounting when no valid learning record exists; and
+- a complete joined governance/provenance/exposure/verifier/quality/lineage bundle for evaluation
+  admission; and
 - the reduced content-removal tombstone only after all store readbacks, exact idempotent
-  current-month denominator-membership receipts, and backup expiry complete.
+  occurrence-month denominator-membership tokens from each counter owner, and backup expiry complete.
 
 A missing field remains missing. An inference, successful exit, changed file, model self-report, or
 uncalibrated judge does not fill an owner-controlled product or capability verdict.
@@ -163,9 +166,9 @@ in v1.
 | 1 | Grimnir + both reviewers | Adopt v1 seam and immutable shared fixtures | Hugin and `gille-inference` owner reviews recorded; both consumer suites accept the same fixture. |
 | 2 | Hugin + `gille-inference` | Authenticated preflight, stamp/echo, canonical raw/exposure identity, and immutable accounting | Preflight revision/features/freshness fail closed; real Hugin stamp is exactly echoed; request/delivery retries are accounting events; six-lane negative query is separate from observed events. |
 | 3 | Hugin + `gille-inference` | Three-stage prompt and reproducible effective-serving provenance | Captured Hugin, gateway, runtime, manifest, runtime-config, and sampling sources recompute to the exported digests. |
-| 4 | Both producers | Complete governance/erasure projections | Direct-owner policy lookup meets its SLO; unavailable policy denies; all stores and backup expiry produce readback receipts. |
-| 5 | Hugin | Close receipt first-create concurrency; append immutable review records and durable all-outcome registry | Parallel first receipts are preserved; failures/no-ops/publication failures and late labels stay joinable without mutating observations. |
-| 6 | Hugin | Independent candidate packager | A governed production candidate is rechecked, frozen, independently verified, and imported into a one-axis experiment. |
+| 4 | Both producers | Complete governance/erasure projections and validation-context distribution | Direct-owner authority is cryptographically/out-of-band verified; unavailable policy denies; counter owners issue denominator-membership tokens; all stores and backup expiry produce readback receipts. |
+| 5 | Hugin | Close receipt first-create concurrency; add native-v2 correction identity; append immutable review records and durable all-outcome registry | Parallel first receipts are preserved; a correction mints a new native id/group without pretending v1 supports it; failures/no-ops/publication failures and late labels stay joinable without mutating observations. |
+| 6 | Hugin | Independent candidate packager | A governed production candidate is rechecked, frozen, joined with the complete evidence bundle, independently verified, and imported into a one-axis experiment. |
 | 7 | `gille-inference` | Versioned capability admission and verified experiment import | Only independent calibrated passing evidence affects capability state. |
 | 8 | `gille-inference` | Reviewed routing-table lifecycle | Generate, diff, approve, deploy/reload, canary, and rollback are demonstrated without silent promotion. |
 | 9 | Hugin | Read-only next-experiment proposals | Proposals cite evidence and require human approval; they do not mutate prompts/routes/config. |

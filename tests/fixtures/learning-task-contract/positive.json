@@ -37,7 +37,15 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+        "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
+      },
+      "raw_input": {
+        "algorithm": "sha256",
+        "canonicalization": "jcs-rfc8785-utf8-v1",
+        "source_ref": "source-doc:raw/task-001",
+        "source_type": "raw-input",
+        "source_version": "raw-input-v1",
+        "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
       }
     },
     "artifacts": {
@@ -58,7 +66,7 @@
           "source_ref": "source-doc:governance/positive-0",
           "source_type": "governance-policy-manifest",
           "source_version": "governance-policy-manifest-v1",
-          "digest": "ed6dda2ed9daf25eff1a439b823965fe98f05cad0ce7c37190f0f085bc111148"
+          "digest": "81a98d356800d28be554d47bcd25c0f763b9e6bd1c51c0f4b66a0fc70e4500e8"
         },
         "owner_attestations": [
           {
@@ -68,6 +76,16 @@
             "delegation": {
               "value": null,
               "unknown_reason": "not-applicable"
+            },
+            "authority_evidence": {
+              "validation_context_id": "fixture:learning-task-contract-v1",
+              "evidence_id": "fixture-evidence-001",
+              "issuer": "principal:owner",
+              "payload_digest": {
+                "algorithm": "sha256",
+                "version": "trusted-evidence-payload-jcs-v1",
+                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+              }
             }
           }
         ],
@@ -98,7 +116,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_ref": "source-doc:artifact/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -259,7 +277,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/gateway-task-001",
+          "subject_ref": "source-doc:prompt/gateway-task-001-m5",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -305,7 +323,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/runtime-task-001",
+          "subject_ref": "source-doc:prompt/runtime-task-001-m5",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -328,7 +346,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_ref": "source-doc:raw/task-001",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -351,7 +369,30 @@
           }
         },
         {
-          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_ref": "source-doc:runtime/fixture-gateway-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -407,18 +448,19 @@
         "erasure_state": "active",
         "derived_from_subject_refs": [
           "fingerprint:raw",
-          "source-doc:artifact/mellum-v1",
+          "source-doc:artifact/fixture-model-v1",
           "source-doc:config/gateway-harness-v7",
           "source-doc:config/gateway-tools-v5",
           "source-doc:config/hugin-harness-v3",
           "source-doc:config/hugin-prompt-v4",
           "source-doc:config/hugin-tools-v2",
           "source-doc:governance/positive-0",
-          "source-doc:prompt/gateway-task-001",
+          "source-doc:prompt/gateway-task-001-m5",
           "source-doc:prompt/hugin-task-001",
-          "source-doc:prompt/runtime-task-001",
-          "source-doc:runtime/mellum-v1",
-          "source-doc:sampling/mellum-v1",
+          "source-doc:prompt/runtime-task-001-m5",
+          "source-doc:raw/task-001",
+          "source-doc:runtime/fixture-gateway-v1",
+          "source-doc:sampling/fixture-model-v1",
           "source:hugin:broker-001"
         ],
         "evaluation_eligible": true
@@ -453,24 +495,24 @@
           "canonicalization": "jcs-rfc8785-utf8-v1",
           "source_ref": "source-doc:prompt/hugin-task-001",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+          "source_version": "prompt-stage-v2",
+          "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
         },
         "gateway_canonical_envelope": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/gateway-task-001",
+          "source_ref": "source-doc:prompt/gateway-task-001-m5",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "61e26a1fc632f6f52e29c88f97cffd71502e6c52ee3264e0e4d57aa18ea5b7ea"
+          "source_version": "prompt-stage-v2",
+          "digest": "15cdff71ada2b5559edce0dfa08313c81e6d73d55f6efebdc4f6d26af0498d00"
         },
         "runtime_chat_template_render": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/runtime-task-001",
+          "source_ref": "source-doc:prompt/runtime-task-001-m5",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "42e1a65ab02660f77b393d63589e3b2efc7c167219a5be607ecf888395563937"
+          "source_version": "prompt-stage-v2",
+          "digest": "055c5e6402c21dfe2ce74d921b2697bf786cd27657451db9f1006db50abf59e6"
         }
       },
       "routing": {
@@ -488,34 +530,34 @@
         }
       },
       "serving": {
-        "runtime_id": "llama-swap",
-        "provider_id": "m5",
+        "runtime_id": "fixture-gateway-runtime",
+        "provider_id": "fixture-provider",
         "model": {
-          "id": "mellum",
+          "id": "fixture-model-v1",
           "artifact_manifest_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:artifact/mellum-v1",
+            "source_ref": "source-doc:artifact/fixture-model-v1",
             "source_type": "artifact-manifest",
             "source_version": "gille-artifact-manifest-v1",
-            "digest": "5d2159b3928ddcc20561d2cbdf34cf3a191cd781b8ec0a56f8c07c88d800eea8"
+            "digest": "e3174a8d6f32299704f56d654b0a0f355a96b203a6e6730a08ce60b93e2ed00e"
           },
           "effective_config_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:runtime/mellum-v1",
+            "source_ref": "source-doc:runtime/fixture-gateway-v1",
             "source_type": "effective-runtime-config",
             "source_version": "gille-effective-runtime-config-v1",
-            "digest": "96d37fda2b1932031cec62848992a3618bd6dee64f6761c2e1220f1fb37e1a3a"
+            "digest": "efc7994b23abb16c3651042922ba25170c986566a37a31a384e29aa617e3bae5"
           }
         },
         "sampling_digest": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:sampling/mellum-v1",
+          "source_ref": "source-doc:sampling/fixture-model-v1",
           "source_type": "effective-sampling-post-default-post-clamp",
           "source_version": "gille-sampling-v1",
-          "digest": "351d088de68111b0832bd2a1a55b813f2065195c6872c58e0e88272e757ee7c9"
+          "digest": "cc78206750842dd7e4ceac4e83ba003128700a7170350c7d9c27856bf51b8abe"
         }
       },
       "origin_config": {
@@ -528,7 +570,7 @@
             "source_ref": "source-doc:config/hugin-prompt-v4",
             "source_type": "origin-prompt-config",
             "source_version": "config-source-v1",
-            "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+            "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
           }
         },
         "harness": {
@@ -540,7 +582,7 @@
             "source_ref": "source-doc:config/hugin-harness-v3",
             "source_type": "origin-harness-config",
             "source_version": "config-source-v1",
-            "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+            "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
           }
         },
         "tool_policy": {
@@ -552,7 +594,7 @@
             "source_ref": "source-doc:config/hugin-tools-v2",
             "source_type": "origin-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+            "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
           }
         }
       },
@@ -566,7 +608,7 @@
             "source_ref": "source-doc:config/gateway-harness-v7",
             "source_type": "gateway-harness-config",
             "source_version": "config-source-v1",
-            "digest": "17ac4519f7ba313aaf880c238d79270e1046734030d237d3a978a3000a156db3"
+            "digest": "25c749933e82cd11fc9ed6a191f73b255128ebe331bb96d59daf336f3bda981c"
           }
         },
         "tool_policy": {
@@ -578,7 +620,7 @@
             "source_ref": "source-doc:config/gateway-tools-v5",
             "source_type": "gateway-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "16998442cab496990102e9fd384f0ef963f4957530b8f4b72d0723d80a3e9131"
+            "digest": "269493dc04cc5ecd47aa6db295b289a91d437bb6e172c731b6ab0f05167d1d6a"
           }
         }
       },
@@ -628,15 +670,15 @@
         "raw_fingerprint": {
           "algorithm": "sha256",
           "version": "trim-utf8-sha256-v1",
-          "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
         },
         "hugin_envelope": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
           "source_ref": "source-doc:prompt/hugin-task-001",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+          "source_version": "prompt-stage-v2",
+          "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
         },
         "origin_config": {
           "prompt": {
@@ -648,7 +690,7 @@
               "source_ref": "source-doc:config/hugin-prompt-v4",
               "source_type": "origin-prompt-config",
               "source_version": "config-source-v1",
-              "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+              "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
             }
           },
           "harness": {
@@ -660,7 +702,7 @@
               "source_ref": "source-doc:config/hugin-harness-v3",
               "source_type": "origin-harness-config",
               "source_version": "config-source-v1",
-              "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+              "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
             }
           },
           "tool_policy": {
@@ -672,7 +714,7 @@
               "source_ref": "source-doc:config/hugin-tools-v2",
               "source_type": "origin-tool-policy-config",
               "source_version": "config-source-v1",
-              "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+              "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
             }
           }
         },
@@ -683,7 +725,7 @@
           "target": "m5",
           "service": "gille-inference"
         },
-        "stamped_at": "2026-07-19T10:00:00.750Z",
+        "stamped_at": "2026-07-19T10:00:01.250Z",
         "preflight": {
           "request": {
             "request_id": "opaque:f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1",
@@ -720,6 +762,14 @@
               ]
             }
           }
+        },
+        "raw_input": {
+          "algorithm": "sha256",
+          "canonicalization": "jcs-rfc8785-utf8-v1",
+          "source_ref": "source-doc:raw/task-001",
+          "source_type": "raw-input",
+          "source_version": "raw-input-v1",
+          "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
         }
       },
       "gateway_echo": {
@@ -764,15 +814,15 @@
           "raw_fingerprint": {
             "algorithm": "sha256",
             "version": "trim-utf8-sha256-v1",
-            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+            "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
           },
           "hugin_envelope": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
             "source_ref": "source-doc:prompt/hugin-task-001",
             "source_type": "prompt-stage",
-            "source_version": "prompt-stage-v1",
-            "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+            "source_version": "prompt-stage-v2",
+            "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
           },
           "origin_config": {
             "prompt": {
@@ -784,7 +834,7 @@
                 "source_ref": "source-doc:config/hugin-prompt-v4",
                 "source_type": "origin-prompt-config",
                 "source_version": "config-source-v1",
-                "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+                "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
               }
             },
             "harness": {
@@ -796,7 +846,7 @@
                 "source_ref": "source-doc:config/hugin-harness-v3",
                 "source_type": "origin-harness-config",
                 "source_version": "config-source-v1",
-                "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+                "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
               }
             },
             "tool_policy": {
@@ -808,7 +858,7 @@
                 "source_ref": "source-doc:config/hugin-tools-v2",
                 "source_type": "origin-tool-policy-config",
                 "source_version": "config-source-v1",
-                "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+                "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
               }
             }
           },
@@ -819,7 +869,7 @@
             "target": "m5",
             "service": "gille-inference"
           },
-          "stamped_at": "2026-07-19T10:00:00.750Z",
+          "stamped_at": "2026-07-19T10:00:01.250Z",
           "preflight": {
             "request": {
               "request_id": "opaque:f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1",
@@ -856,6 +906,14 @@
                 ]
               }
             }
+          },
+          "raw_input": {
+            "algorithm": "sha256",
+            "canonicalization": "jcs-rfc8785-utf8-v1",
+            "source_ref": "source-doc:raw/task-001",
+            "source_type": "raw-input",
+            "source_version": "raw-input-v1",
+            "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
           }
         },
         "gateway_request_id": "opaque:e3e3e3e3-e3e3-4e3e-8e3e-e3e3e3e3e3e3",
@@ -866,7 +924,7 @@
         "principal_binding_digest": {
           "algorithm": "sha256",
           "version": "gateway-principal-request-binding-jcs-v1",
-          "digest": "6979ba5df79cbddf999c5b4fe44d44a12e8791bdb82d1203706bdb44e53e93d1"
+          "digest": "e3b8655e3f2704d5c38e7c5935ed4596121507b81d1341d196c8144eea5ea83f"
         },
         "capabilities": {
           "contract_version": "grimnir.learning-task/v1",
@@ -925,7 +983,15 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "583a0051d7985da84221aa58213ea5d323e69af1390f5525ee42c6caf73195d7"
+        "digest": "63846616fc03843358aae14214d9475dd84ec29216c3ebcbda7eba078fe26f48"
+      },
+      "raw_input": {
+        "algorithm": "sha256",
+        "canonicalization": "jcs-rfc8785-utf8-v1",
+        "source_ref": "source-doc:raw/gateway-task-001",
+        "source_type": "raw-input",
+        "source_version": "raw-input-v1",
+        "digest": "34c8cdb793eeaf55ee806bd54fb8627bd1049c250ff94ce3db43a4c21ad1abed"
       }
     },
     "artifacts": {
@@ -946,7 +1012,7 @@
           "source_ref": "source-doc:governance/positive-1",
           "source_type": "governance-policy-manifest",
           "source_version": "governance-policy-manifest-v1",
-          "digest": "d9448e4bd371c55f2ac80d44d18dd2b940aacbb799d0212823f860a5d3c61297"
+          "digest": "9ff04e526f4a9624ded25117ca2597b46ac6db149949694cb4a22efdadf2c0e2"
         },
         "owner_attestations": [
           {
@@ -956,6 +1022,16 @@
             "delegation": {
               "value": null,
               "unknown_reason": "not-applicable"
+            },
+            "authority_evidence": {
+              "validation_context_id": "fixture:learning-task-contract-v1",
+              "evidence_id": "fixture-evidence-001",
+              "issuer": "principal:owner",
+              "payload_digest": {
+                "algorithm": "sha256",
+                "version": "trusted-evidence-payload-jcs-v1",
+                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+              }
             }
           }
         ],
@@ -986,7 +1062,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_ref": "source-doc:artifact/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -1147,7 +1223,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/gateway-direct-v1",
+          "subject_ref": "source-doc:prompt/gateway-gateway-task-001-direct",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -1170,7 +1246,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/runtime-direct-v1",
+          "subject_ref": "source-doc:prompt/runtime-gateway-task-001-direct",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -1193,7 +1269,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_ref": "source-doc:raw/gateway-task-001",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -1216,7 +1292,30 @@
           }
         },
         {
-          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_ref": "source-doc:runtime/fixture-gateway-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -1272,17 +1371,18 @@
         "erasure_state": "active",
         "derived_from_subject_refs": [
           "fingerprint:raw",
-          "source-doc:artifact/mellum-v1",
+          "source-doc:artifact/fixture-model-v1",
           "source-doc:config/direct-harness-v1",
           "source-doc:config/direct-prompt-v1",
           "source-doc:config/direct-tools-v1",
           "source-doc:config/gateway-harness-v7",
           "source-doc:config/gateway-tools-v5",
           "source-doc:governance/positive-1",
-          "source-doc:prompt/gateway-direct-v1",
-          "source-doc:prompt/runtime-direct-v1",
-          "source-doc:runtime/mellum-v1",
-          "source-doc:sampling/mellum-v1",
+          "source-doc:prompt/gateway-gateway-task-001-direct",
+          "source-doc:prompt/runtime-gateway-task-001-direct",
+          "source-doc:raw/gateway-task-001",
+          "source-doc:runtime/fixture-gateway-v1",
+          "source-doc:sampling/fixture-model-v1",
           "source:gille-inference:request-001"
         ],
         "evaluation_eligible": true
@@ -1319,18 +1419,18 @@
         "gateway_canonical_envelope": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/gateway-direct-v1",
+          "source_ref": "source-doc:prompt/gateway-gateway-task-001-direct",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "da035fd8121a859edc9093881d97fbcb534086a512e1071b65f120377607aacd"
+          "source_version": "prompt-stage-v2",
+          "digest": "eba23e591f0ecbbbda33dd485a14828326addd32ac23db2c6c5c96d19653ef51"
         },
         "runtime_chat_template_render": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/runtime-direct-v1",
+          "source_ref": "source-doc:prompt/runtime-gateway-task-001-direct",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "f10d91ea986202b1a98dc5847b652223ea9b6720507bb5cd656c3e5aa1e3a92d"
+          "source_version": "prompt-stage-v2",
+          "digest": "7920e991ad5aaeba48c69884676abbabfe63451ae6ee51b338d46c5a5cc7ef3f"
         }
       },
       "routing": {
@@ -1345,34 +1445,34 @@
         }
       },
       "serving": {
-        "runtime_id": "llama-swap",
-        "provider_id": "m5",
+        "runtime_id": "fixture-gateway-runtime",
+        "provider_id": "fixture-provider",
         "model": {
-          "id": "mellum",
+          "id": "fixture-model-v1",
           "artifact_manifest_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:artifact/mellum-v1",
+            "source_ref": "source-doc:artifact/fixture-model-v1",
             "source_type": "artifact-manifest",
             "source_version": "gille-artifact-manifest-v1",
-            "digest": "5d2159b3928ddcc20561d2cbdf34cf3a191cd781b8ec0a56f8c07c88d800eea8"
+            "digest": "e3174a8d6f32299704f56d654b0a0f355a96b203a6e6730a08ce60b93e2ed00e"
           },
           "effective_config_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:runtime/mellum-v1",
+            "source_ref": "source-doc:runtime/fixture-gateway-v1",
             "source_type": "effective-runtime-config",
             "source_version": "gille-effective-runtime-config-v1",
-            "digest": "96d37fda2b1932031cec62848992a3618bd6dee64f6761c2e1220f1fb37e1a3a"
+            "digest": "efc7994b23abb16c3651042922ba25170c986566a37a31a384e29aa617e3bae5"
           }
         },
         "sampling_digest": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:sampling/mellum-v1",
+          "source_ref": "source-doc:sampling/fixture-model-v1",
           "source_type": "effective-sampling-post-default-post-clamp",
           "source_version": "gille-sampling-v1",
-          "digest": "351d088de68111b0832bd2a1a55b813f2065195c6872c58e0e88272e757ee7c9"
+          "digest": "cc78206750842dd7e4ceac4e83ba003128700a7170350c7d9c27856bf51b8abe"
         }
       },
       "origin_config": {
@@ -1385,7 +1485,7 @@
             "source_ref": "source-doc:config/direct-prompt-v1",
             "source_type": "origin-prompt-config",
             "source_version": "config-source-v1",
-            "digest": "fa899f2e0045de0613c6881b974ad45164e42d5760a806f02586293284ccc2fd"
+            "digest": "2ce07699321796f0928b3cb5b84c53cf72cc77c10c9e2aaac6fa9f1ef2a33fea"
           }
         },
         "harness": {
@@ -1397,7 +1497,7 @@
             "source_ref": "source-doc:config/direct-harness-v1",
             "source_type": "origin-harness-config",
             "source_version": "config-source-v1",
-            "digest": "628d705df17b19d2677c3cff661aaf28d1efde10a3679bada32efd996e4469ec"
+            "digest": "d83d2efcad48c9d1d52fddd0b0d76dd9cc9c271685eea46e5b20354cb4dd5c25"
           }
         },
         "tool_policy": {
@@ -1409,7 +1509,7 @@
             "source_ref": "source-doc:config/direct-tools-v1",
             "source_type": "origin-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "c17344bce97f6a4173c8aebae1e1fe8ac1908025a02411cbfb07bfdf93a84946"
+            "digest": "a820dbd440b13e32f503abdfe9319b9e30b4d3074908976104383ab73dceea0c"
           }
         }
       },
@@ -1423,7 +1523,7 @@
             "source_ref": "source-doc:config/gateway-harness-v7",
             "source_type": "gateway-harness-config",
             "source_version": "config-source-v1",
-            "digest": "17ac4519f7ba313aaf880c238d79270e1046734030d237d3a978a3000a156db3"
+            "digest": "25c749933e82cd11fc9ed6a191f73b255128ebe331bb96d59daf336f3bda981c"
           }
         },
         "tool_policy": {
@@ -1435,7 +1535,7 @@
             "source_ref": "source-doc:config/gateway-tools-v5",
             "source_type": "gateway-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "16998442cab496990102e9fd384f0ef963f4957530b8f4b72d0723d80a3e9131"
+            "digest": "269493dc04cc5ecd47aa6db295b289a91d437bb6e172c731b6ab0f05167d1d6a"
           }
         }
       },
@@ -1463,7 +1563,7 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "583a0051d7985da84221aa58213ea5d323e69af1390f5525ee42c6caf73195d7"
+        "digest": "63846616fc03843358aae14214d9475dd84ec29216c3ebcbda7eba078fe26f48"
       }
     }
   },
@@ -1505,7 +1605,15 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+        "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
+      },
+      "raw_input": {
+        "algorithm": "sha256",
+        "canonicalization": "jcs-rfc8785-utf8-v1",
+        "source_ref": "source-doc:raw/task-001",
+        "source_type": "raw-input",
+        "source_version": "raw-input-v1",
+        "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
       }
     },
     "artifacts": {
@@ -1526,7 +1634,7 @@
           "source_ref": "source-doc:governance/positive-2",
           "source_type": "governance-policy-manifest",
           "source_version": "governance-policy-manifest-v1",
-          "digest": "d63f54f9030e7d42a9a5177e29bedd419692959d36608eee92395b015257aaef"
+          "digest": "4b7399a4d038d8f3ca757b1fac76db76b6b3bf5d19a8a00482e67fb7561a8234"
         },
         "owner_attestations": [
           {
@@ -1536,6 +1644,16 @@
             "delegation": {
               "value": null,
               "unknown_reason": "not-applicable"
+            },
+            "authority_evidence": {
+              "validation_context_id": "fixture:learning-task-contract-v1",
+              "evidence_id": "fixture-evidence-001",
+              "issuer": "principal:owner",
+              "payload_digest": {
+                "algorithm": "sha256",
+                "version": "trusted-evidence-payload-jcs-v1",
+                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+              }
             }
           }
         ],
@@ -1566,7 +1684,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_ref": "source-doc:artifact/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -1750,7 +1868,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/gateway-task-001",
+          "subject_ref": "source-doc:prompt/gateway-task-001-m5",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -1796,7 +1914,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/runtime-task-001",
+          "subject_ref": "source-doc:prompt/runtime-task-001-m5",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -1819,7 +1937,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_ref": "source-doc:raw/task-001",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -1842,7 +1960,30 @@
           }
         },
         {
-          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_ref": "source-doc:runtime/fixture-gateway-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -1898,7 +2039,7 @@
         "erasure_state": "active",
         "derived_from_subject_refs": [
           "fingerprint:raw",
-          "source-doc:artifact/mellum-v1",
+          "source-doc:artifact/fixture-model-v1",
           "source-doc:capability/policy-2026-07-19",
           "source-doc:config/gateway-harness-v7",
           "source-doc:config/gateway-tools-v5",
@@ -1906,11 +2047,12 @@
           "source-doc:config/hugin-prompt-v4",
           "source-doc:config/hugin-tools-v2",
           "source-doc:governance/positive-2",
-          "source-doc:prompt/gateway-task-001",
+          "source-doc:prompt/gateway-task-001-m5",
           "source-doc:prompt/hugin-task-001",
-          "source-doc:prompt/runtime-task-001",
-          "source-doc:runtime/mellum-v1",
-          "source-doc:sampling/mellum-v1",
+          "source-doc:prompt/runtime-task-001-m5",
+          "source-doc:raw/task-001",
+          "source-doc:runtime/fixture-gateway-v1",
+          "source-doc:sampling/fixture-model-v1",
           "source:hugin:broker-001"
         ],
         "evaluation_eligible": true
@@ -1945,24 +2087,24 @@
           "canonicalization": "jcs-rfc8785-utf8-v1",
           "source_ref": "source-doc:prompt/hugin-task-001",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+          "source_version": "prompt-stage-v2",
+          "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
         },
         "gateway_canonical_envelope": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/gateway-task-001",
+          "source_ref": "source-doc:prompt/gateway-task-001-m5",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "61e26a1fc632f6f52e29c88f97cffd71502e6c52ee3264e0e4d57aa18ea5b7ea"
+          "source_version": "prompt-stage-v2",
+          "digest": "15cdff71ada2b5559edce0dfa08313c81e6d73d55f6efebdc4f6d26af0498d00"
         },
         "runtime_chat_template_render": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/runtime-task-001",
+          "source_ref": "source-doc:prompt/runtime-task-001-m5",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "42e1a65ab02660f77b393d63589e3b2efc7c167219a5be607ecf888395563937"
+          "source_version": "prompt-stage-v2",
+          "digest": "055c5e6402c21dfe2ce74d921b2697bf786cd27657451db9f1006db50abf59e6"
         }
       },
       "routing": {
@@ -1980,34 +2122,34 @@
         }
       },
       "serving": {
-        "runtime_id": "llama-swap",
-        "provider_id": "m5",
+        "runtime_id": "fixture-gateway-runtime",
+        "provider_id": "fixture-provider",
         "model": {
-          "id": "mellum",
+          "id": "fixture-model-v1",
           "artifact_manifest_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:artifact/mellum-v1",
+            "source_ref": "source-doc:artifact/fixture-model-v1",
             "source_type": "artifact-manifest",
             "source_version": "gille-artifact-manifest-v1",
-            "digest": "5d2159b3928ddcc20561d2cbdf34cf3a191cd781b8ec0a56f8c07c88d800eea8"
+            "digest": "e3174a8d6f32299704f56d654b0a0f355a96b203a6e6730a08ce60b93e2ed00e"
           },
           "effective_config_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:runtime/mellum-v1",
+            "source_ref": "source-doc:runtime/fixture-gateway-v1",
             "source_type": "effective-runtime-config",
             "source_version": "gille-effective-runtime-config-v1",
-            "digest": "96d37fda2b1932031cec62848992a3618bd6dee64f6761c2e1220f1fb37e1a3a"
+            "digest": "efc7994b23abb16c3651042922ba25170c986566a37a31a384e29aa617e3bae5"
           }
         },
         "sampling_digest": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:sampling/mellum-v1",
+          "source_ref": "source-doc:sampling/fixture-model-v1",
           "source_type": "effective-sampling-post-default-post-clamp",
           "source_version": "gille-sampling-v1",
-          "digest": "351d088de68111b0832bd2a1a55b813f2065195c6872c58e0e88272e757ee7c9"
+          "digest": "cc78206750842dd7e4ceac4e83ba003128700a7170350c7d9c27856bf51b8abe"
         }
       },
       "origin_config": {
@@ -2020,7 +2162,7 @@
             "source_ref": "source-doc:config/hugin-prompt-v4",
             "source_type": "origin-prompt-config",
             "source_version": "config-source-v1",
-            "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+            "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
           }
         },
         "harness": {
@@ -2032,7 +2174,7 @@
             "source_ref": "source-doc:config/hugin-harness-v3",
             "source_type": "origin-harness-config",
             "source_version": "config-source-v1",
-            "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+            "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
           }
         },
         "tool_policy": {
@@ -2044,7 +2186,7 @@
             "source_ref": "source-doc:config/hugin-tools-v2",
             "source_type": "origin-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+            "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
           }
         }
       },
@@ -2058,7 +2200,7 @@
             "source_ref": "source-doc:config/gateway-harness-v7",
             "source_type": "gateway-harness-config",
             "source_version": "config-source-v1",
-            "digest": "17ac4519f7ba313aaf880c238d79270e1046734030d237d3a978a3000a156db3"
+            "digest": "25c749933e82cd11fc9ed6a191f73b255128ebe331bb96d59daf336f3bda981c"
           }
         },
         "tool_policy": {
@@ -2070,7 +2212,7 @@
             "source_ref": "source-doc:config/gateway-tools-v5",
             "source_type": "gateway-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "16998442cab496990102e9fd384f0ef963f4957530b8f4b72d0723d80a3e9131"
+            "digest": "269493dc04cc5ecd47aa6db295b289a91d437bb6e172c731b6ab0f05167d1d6a"
           }
         }
       },
@@ -2120,15 +2262,15 @@
         "raw_fingerprint": {
           "algorithm": "sha256",
           "version": "trim-utf8-sha256-v1",
-          "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
         },
         "hugin_envelope": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
           "source_ref": "source-doc:prompt/hugin-task-001",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+          "source_version": "prompt-stage-v2",
+          "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
         },
         "origin_config": {
           "prompt": {
@@ -2140,7 +2282,7 @@
               "source_ref": "source-doc:config/hugin-prompt-v4",
               "source_type": "origin-prompt-config",
               "source_version": "config-source-v1",
-              "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+              "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
             }
           },
           "harness": {
@@ -2152,7 +2294,7 @@
               "source_ref": "source-doc:config/hugin-harness-v3",
               "source_type": "origin-harness-config",
               "source_version": "config-source-v1",
-              "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+              "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
             }
           },
           "tool_policy": {
@@ -2164,7 +2306,7 @@
               "source_ref": "source-doc:config/hugin-tools-v2",
               "source_type": "origin-tool-policy-config",
               "source_version": "config-source-v1",
-              "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+              "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
             }
           }
         },
@@ -2175,7 +2317,7 @@
           "target": "m5",
           "service": "gille-inference"
         },
-        "stamped_at": "2026-07-19T10:00:00.750Z",
+        "stamped_at": "2026-07-19T10:00:01.250Z",
         "preflight": {
           "request": {
             "request_id": "opaque:f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1",
@@ -2212,6 +2354,14 @@
               ]
             }
           }
+        },
+        "raw_input": {
+          "algorithm": "sha256",
+          "canonicalization": "jcs-rfc8785-utf8-v1",
+          "source_ref": "source-doc:raw/task-001",
+          "source_type": "raw-input",
+          "source_version": "raw-input-v1",
+          "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
         }
       },
       "gateway_echo": {
@@ -2256,15 +2406,15 @@
           "raw_fingerprint": {
             "algorithm": "sha256",
             "version": "trim-utf8-sha256-v1",
-            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+            "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
           },
           "hugin_envelope": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
             "source_ref": "source-doc:prompt/hugin-task-001",
             "source_type": "prompt-stage",
-            "source_version": "prompt-stage-v1",
-            "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+            "source_version": "prompt-stage-v2",
+            "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
           },
           "origin_config": {
             "prompt": {
@@ -2276,7 +2426,7 @@
                 "source_ref": "source-doc:config/hugin-prompt-v4",
                 "source_type": "origin-prompt-config",
                 "source_version": "config-source-v1",
-                "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+                "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
               }
             },
             "harness": {
@@ -2288,7 +2438,7 @@
                 "source_ref": "source-doc:config/hugin-harness-v3",
                 "source_type": "origin-harness-config",
                 "source_version": "config-source-v1",
-                "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+                "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
               }
             },
             "tool_policy": {
@@ -2300,7 +2450,7 @@
                 "source_ref": "source-doc:config/hugin-tools-v2",
                 "source_type": "origin-tool-policy-config",
                 "source_version": "config-source-v1",
-                "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+                "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
               }
             }
           },
@@ -2311,7 +2461,7 @@
             "target": "m5",
             "service": "gille-inference"
           },
-          "stamped_at": "2026-07-19T10:00:00.750Z",
+          "stamped_at": "2026-07-19T10:00:01.250Z",
           "preflight": {
             "request": {
               "request_id": "opaque:f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1",
@@ -2348,6 +2498,14 @@
                 ]
               }
             }
+          },
+          "raw_input": {
+            "algorithm": "sha256",
+            "canonicalization": "jcs-rfc8785-utf8-v1",
+            "source_ref": "source-doc:raw/task-001",
+            "source_type": "raw-input",
+            "source_version": "raw-input-v1",
+            "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
           }
         },
         "gateway_request_id": "opaque:e3e3e3e3-e3e3-4e3e-8e3e-e3e3e3e3e3e3",
@@ -2358,7 +2516,7 @@
         "principal_binding_digest": {
           "algorithm": "sha256",
           "version": "gateway-principal-request-binding-jcs-v1",
-          "digest": "6979ba5df79cbddf999c5b4fe44d44a12e8791bdb82d1203706bdb44e53e93d1"
+          "digest": "e3b8655e3f2704d5c38e7c5935ed4596121507b81d1341d196c8144eea5ea83f"
         },
         "capabilities": {
           "contract_version": "grimnir.learning-task/v1",
@@ -2389,7 +2547,7 @@
         }
       },
       "policy_epoch": {
-        "id": "capability-admission-policy",
+        "id": "capability-policy",
         "version": "2026-07-19",
         "config_digest": {
           "algorithm": "sha256",
@@ -2397,7 +2555,7 @@
           "source_ref": "source-doc:capability/policy-2026-07-19",
           "source_type": "capability-policy-config",
           "source_version": "config-source-v1",
-          "digest": "7b76fe183647fc9cc7970a040a34f298e4c2d5c6227c8111e5a30f6827ba0f6a"
+          "digest": "c2b82867648a519de5d51230c51a6b8dc1cf015ef7ea5ab73db79885bfacc71f"
         }
       },
       "admission_state": "admissible",
@@ -2443,7 +2601,15 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+        "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
+      },
+      "raw_input": {
+        "algorithm": "sha256",
+        "canonicalization": "jcs-rfc8785-utf8-v1",
+        "source_ref": "source-doc:raw/task-001",
+        "source_type": "raw-input",
+        "source_version": "raw-input-v1",
+        "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
       }
     },
     "artifacts": {
@@ -2470,7 +2636,7 @@
           "source_ref": "source-doc:governance/positive-3",
           "source_type": "governance-policy-manifest",
           "source_version": "governance-policy-manifest-v1",
-          "digest": "aed3279f3c4259fff7961186c5a48a036f3eb4fcdf3537975761b3f644435c30"
+          "digest": "04bd74aa9db1dd299318d0b85c295268756b23e95f68ac7bc8bd7eee70373077"
         },
         "owner_attestations": [
           {
@@ -2480,6 +2646,16 @@
             "delegation": {
               "value": null,
               "unknown_reason": "not-applicable"
+            },
+            "authority_evidence": {
+              "validation_context_id": "fixture:learning-task-contract-v1",
+              "evidence_id": "fixture-evidence-001",
+              "issuer": "principal:owner",
+              "payload_digest": {
+                "algorithm": "sha256",
+                "version": "trusted-evidence-payload-jcs-v1",
+                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+              }
             }
           }
         ],
@@ -2556,7 +2732,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_ref": "source-doc:artifact/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -2740,7 +2916,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/gateway-task-001",
+          "subject_ref": "source-doc:prompt/gateway-task-001-m5",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -2786,7 +2962,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/runtime-task-001",
+          "subject_ref": "source-doc:prompt/runtime-task-001-m5",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -2809,7 +2985,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_ref": "source-doc:raw/task-001",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -2832,7 +3008,30 @@
           }
         },
         {
-          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_ref": "source-doc:runtime/fixture-gateway-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -2890,7 +3089,7 @@
           "fingerprint:raw",
           "git:task-001:changed-files",
           "repository:diff-hash",
-          "source-doc:artifact/mellum-v1",
+          "source-doc:artifact/fixture-model-v1",
           "source-doc:config/gateway-harness-v7",
           "source-doc:config/gateway-tools-v5",
           "source-doc:config/hugin-harness-v3",
@@ -2898,11 +3097,12 @@
           "source-doc:config/hugin-tools-v2",
           "source-doc:experiment/exp-001-run-001",
           "source-doc:governance/positive-3",
-          "source-doc:prompt/gateway-task-001",
+          "source-doc:prompt/gateway-task-001-m5",
           "source-doc:prompt/hugin-task-001",
-          "source-doc:prompt/runtime-task-001",
-          "source-doc:runtime/mellum-v1",
-          "source-doc:sampling/mellum-v1",
+          "source-doc:prompt/runtime-task-001-m5",
+          "source-doc:raw/task-001",
+          "source-doc:runtime/fixture-gateway-v1",
+          "source-doc:sampling/fixture-model-v1",
           "source:hugin:broker-001"
         ],
         "evaluation_eligible": true
@@ -2937,24 +3137,24 @@
           "canonicalization": "jcs-rfc8785-utf8-v1",
           "source_ref": "source-doc:prompt/hugin-task-001",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+          "source_version": "prompt-stage-v2",
+          "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
         },
         "gateway_canonical_envelope": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/gateway-task-001",
+          "source_ref": "source-doc:prompt/gateway-task-001-m5",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "61e26a1fc632f6f52e29c88f97cffd71502e6c52ee3264e0e4d57aa18ea5b7ea"
+          "source_version": "prompt-stage-v2",
+          "digest": "15cdff71ada2b5559edce0dfa08313c81e6d73d55f6efebdc4f6d26af0498d00"
         },
         "runtime_chat_template_render": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/runtime-task-001",
+          "source_ref": "source-doc:prompt/runtime-task-001-m5",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "42e1a65ab02660f77b393d63589e3b2efc7c167219a5be607ecf888395563937"
+          "source_version": "prompt-stage-v2",
+          "digest": "055c5e6402c21dfe2ce74d921b2697bf786cd27657451db9f1006db50abf59e6"
         }
       },
       "routing": {
@@ -2972,34 +3172,34 @@
         }
       },
       "serving": {
-        "runtime_id": "llama-swap",
-        "provider_id": "m5",
+        "runtime_id": "fixture-gateway-runtime",
+        "provider_id": "fixture-provider",
         "model": {
-          "id": "mellum",
+          "id": "fixture-model-v1",
           "artifact_manifest_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:artifact/mellum-v1",
+            "source_ref": "source-doc:artifact/fixture-model-v1",
             "source_type": "artifact-manifest",
             "source_version": "gille-artifact-manifest-v1",
-            "digest": "5d2159b3928ddcc20561d2cbdf34cf3a191cd781b8ec0a56f8c07c88d800eea8"
+            "digest": "e3174a8d6f32299704f56d654b0a0f355a96b203a6e6730a08ce60b93e2ed00e"
           },
           "effective_config_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:runtime/mellum-v1",
+            "source_ref": "source-doc:runtime/fixture-gateway-v1",
             "source_type": "effective-runtime-config",
             "source_version": "gille-effective-runtime-config-v1",
-            "digest": "96d37fda2b1932031cec62848992a3618bd6dee64f6761c2e1220f1fb37e1a3a"
+            "digest": "efc7994b23abb16c3651042922ba25170c986566a37a31a384e29aa617e3bae5"
           }
         },
         "sampling_digest": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:sampling/mellum-v1",
+          "source_ref": "source-doc:sampling/fixture-model-v1",
           "source_type": "effective-sampling-post-default-post-clamp",
           "source_version": "gille-sampling-v1",
-          "digest": "351d088de68111b0832bd2a1a55b813f2065195c6872c58e0e88272e757ee7c9"
+          "digest": "cc78206750842dd7e4ceac4e83ba003128700a7170350c7d9c27856bf51b8abe"
         }
       },
       "origin_config": {
@@ -3012,7 +3212,7 @@
             "source_ref": "source-doc:config/hugin-prompt-v4",
             "source_type": "origin-prompt-config",
             "source_version": "config-source-v1",
-            "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+            "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
           }
         },
         "harness": {
@@ -3024,7 +3224,7 @@
             "source_ref": "source-doc:config/hugin-harness-v3",
             "source_type": "origin-harness-config",
             "source_version": "config-source-v1",
-            "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+            "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
           }
         },
         "tool_policy": {
@@ -3036,7 +3236,7 @@
             "source_ref": "source-doc:config/hugin-tools-v2",
             "source_type": "origin-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+            "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
           }
         }
       },
@@ -3050,7 +3250,7 @@
             "source_ref": "source-doc:config/gateway-harness-v7",
             "source_type": "gateway-harness-config",
             "source_version": "config-source-v1",
-            "digest": "17ac4519f7ba313aaf880c238d79270e1046734030d237d3a978a3000a156db3"
+            "digest": "25c749933e82cd11fc9ed6a191f73b255128ebe331bb96d59daf336f3bda981c"
           }
         },
         "tool_policy": {
@@ -3062,7 +3262,7 @@
             "source_ref": "source-doc:config/gateway-tools-v5",
             "source_type": "gateway-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "16998442cab496990102e9fd384f0ef963f4957530b8f4b72d0723d80a3e9131"
+            "digest": "269493dc04cc5ecd47aa6db295b289a91d437bb6e172c731b6ab0f05167d1d6a"
           }
         }
       },
@@ -3112,15 +3312,15 @@
         "raw_fingerprint": {
           "algorithm": "sha256",
           "version": "trim-utf8-sha256-v1",
-          "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
         },
         "hugin_envelope": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
           "source_ref": "source-doc:prompt/hugin-task-001",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+          "source_version": "prompt-stage-v2",
+          "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
         },
         "origin_config": {
           "prompt": {
@@ -3132,7 +3332,7 @@
               "source_ref": "source-doc:config/hugin-prompt-v4",
               "source_type": "origin-prompt-config",
               "source_version": "config-source-v1",
-              "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+              "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
             }
           },
           "harness": {
@@ -3144,7 +3344,7 @@
               "source_ref": "source-doc:config/hugin-harness-v3",
               "source_type": "origin-harness-config",
               "source_version": "config-source-v1",
-              "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+              "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
             }
           },
           "tool_policy": {
@@ -3156,7 +3356,7 @@
               "source_ref": "source-doc:config/hugin-tools-v2",
               "source_type": "origin-tool-policy-config",
               "source_version": "config-source-v1",
-              "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+              "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
             }
           }
         },
@@ -3167,7 +3367,7 @@
           "target": "m5",
           "service": "gille-inference"
         },
-        "stamped_at": "2026-07-19T10:00:00.750Z",
+        "stamped_at": "2026-07-19T10:00:01.250Z",
         "preflight": {
           "request": {
             "request_id": "opaque:f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1",
@@ -3204,6 +3404,14 @@
               ]
             }
           }
+        },
+        "raw_input": {
+          "algorithm": "sha256",
+          "canonicalization": "jcs-rfc8785-utf8-v1",
+          "source_ref": "source-doc:raw/task-001",
+          "source_type": "raw-input",
+          "source_version": "raw-input-v1",
+          "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
         }
       },
       "gateway_echo": {
@@ -3248,15 +3456,15 @@
           "raw_fingerprint": {
             "algorithm": "sha256",
             "version": "trim-utf8-sha256-v1",
-            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+            "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
           },
           "hugin_envelope": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
             "source_ref": "source-doc:prompt/hugin-task-001",
             "source_type": "prompt-stage",
-            "source_version": "prompt-stage-v1",
-            "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+            "source_version": "prompt-stage-v2",
+            "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
           },
           "origin_config": {
             "prompt": {
@@ -3268,7 +3476,7 @@
                 "source_ref": "source-doc:config/hugin-prompt-v4",
                 "source_type": "origin-prompt-config",
                 "source_version": "config-source-v1",
-                "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+                "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
               }
             },
             "harness": {
@@ -3280,7 +3488,7 @@
                 "source_ref": "source-doc:config/hugin-harness-v3",
                 "source_type": "origin-harness-config",
                 "source_version": "config-source-v1",
-                "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+                "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
               }
             },
             "tool_policy": {
@@ -3292,7 +3500,7 @@
                 "source_ref": "source-doc:config/hugin-tools-v2",
                 "source_type": "origin-tool-policy-config",
                 "source_version": "config-source-v1",
-                "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+                "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
               }
             }
           },
@@ -3303,7 +3511,7 @@
             "target": "m5",
             "service": "gille-inference"
           },
-          "stamped_at": "2026-07-19T10:00:00.750Z",
+          "stamped_at": "2026-07-19T10:00:01.250Z",
           "preflight": {
             "request": {
               "request_id": "opaque:f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1",
@@ -3340,6 +3548,14 @@
                 ]
               }
             }
+          },
+          "raw_input": {
+            "algorithm": "sha256",
+            "canonicalization": "jcs-rfc8785-utf8-v1",
+            "source_ref": "source-doc:raw/task-001",
+            "source_type": "raw-input",
+            "source_version": "raw-input-v1",
+            "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
           }
         },
         "gateway_request_id": "opaque:e3e3e3e3-e3e3-4e3e-8e3e-e3e3e3e3e3e3",
@@ -3350,7 +3566,7 @@
         "principal_binding_digest": {
           "algorithm": "sha256",
           "version": "gateway-principal-request-binding-jcs-v1",
-          "digest": "6979ba5df79cbddf999c5b4fe44d44a12e8791bdb82d1203706bdb44e53e93d1"
+          "digest": "e3b8655e3f2704d5c38e7c5935ed4596121507b81d1341d196c8144eea5ea83f"
         },
         "capabilities": {
           "contract_version": "grimnir.learning-task/v1",
@@ -3376,7 +3592,7 @@
         "source_ref": "source-doc:experiment/exp-001-run-001",
         "source_type": "experiment-config",
         "source_version": "experiment-source-v1",
-        "digest": "fa80cb915b2c90e04c397f5cf88297465d36b2e3d8e7a97fc5f5b4ba4c30f8d2"
+        "digest": "0335342b805a3435237d7080649072772815c76bdeda8df6ade1a9c8c3ea7063"
       },
       "verification_outcome": "pass",
       "failure_mode": "not-applicable",
@@ -3432,7 +3648,15 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+        "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
+      },
+      "raw_input": {
+        "algorithm": "sha256",
+        "canonicalization": "jcs-rfc8785-utf8-v1",
+        "source_ref": "source-doc:raw/task-001",
+        "source_type": "raw-input",
+        "source_version": "raw-input-v1",
+        "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
       }
     },
     "artifacts": {
@@ -3453,7 +3677,7 @@
           "source_ref": "source-doc:governance/positive-4",
           "source_type": "governance-policy-manifest",
           "source_version": "governance-policy-manifest-v1",
-          "digest": "0c9d7448b758e1ce3587a327658e3f38ecc620c81938f90b934205890575133f"
+          "digest": "2a3e31a833b44d268f2ff879b2dd8f243d0d4caa3075f22e7f77dcab21116642"
         },
         "owner_attestations": [
           {
@@ -3463,6 +3687,16 @@
             "delegation": {
               "value": null,
               "unknown_reason": "not-applicable"
+            },
+            "authority_evidence": {
+              "validation_context_id": "fixture:learning-task-contract-v1",
+              "evidence_id": "fixture-evidence-001",
+              "issuer": "principal:owner",
+              "payload_digest": {
+                "algorithm": "sha256",
+                "version": "trusted-evidence-payload-jcs-v1",
+                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+              }
             }
           }
         ],
@@ -3493,7 +3727,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_ref": "source-doc:artifact/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -3654,7 +3888,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/gateway-task-001",
+          "subject_ref": "source-doc:prompt/gateway-task-001-m5",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -3700,7 +3934,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/runtime-task-001",
+          "subject_ref": "source-doc:prompt/runtime-task-001-m5",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -3723,7 +3957,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_ref": "source-doc:raw/task-001",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -3746,7 +3980,30 @@
           }
         },
         {
-          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_ref": "source-doc:runtime/fixture-gateway-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -3802,18 +4059,19 @@
         "erasure_state": "active",
         "derived_from_subject_refs": [
           "fingerprint:raw",
-          "source-doc:artifact/mellum-v1",
+          "source-doc:artifact/fixture-model-v1",
           "source-doc:config/gateway-harness-v7",
           "source-doc:config/gateway-tools-v5",
           "source-doc:config/hugin-harness-v3",
           "source-doc:config/hugin-prompt-v4",
           "source-doc:config/hugin-tools-v2",
           "source-doc:governance/positive-4",
-          "source-doc:prompt/gateway-task-001",
+          "source-doc:prompt/gateway-task-001-m5",
           "source-doc:prompt/hugin-task-001",
-          "source-doc:prompt/runtime-task-001",
-          "source-doc:runtime/mellum-v1",
-          "source-doc:sampling/mellum-v1",
+          "source-doc:prompt/runtime-task-001-m5",
+          "source-doc:raw/task-001",
+          "source-doc:runtime/fixture-gateway-v1",
+          "source-doc:sampling/fixture-model-v1",
           "source:hugin:broker-001"
         ],
         "evaluation_eligible": true
@@ -3848,24 +4106,24 @@
           "canonicalization": "jcs-rfc8785-utf8-v1",
           "source_ref": "source-doc:prompt/hugin-task-001",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+          "source_version": "prompt-stage-v2",
+          "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
         },
         "gateway_canonical_envelope": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/gateway-task-001",
+          "source_ref": "source-doc:prompt/gateway-task-001-m5",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "61e26a1fc632f6f52e29c88f97cffd71502e6c52ee3264e0e4d57aa18ea5b7ea"
+          "source_version": "prompt-stage-v2",
+          "digest": "15cdff71ada2b5559edce0dfa08313c81e6d73d55f6efebdc4f6d26af0498d00"
         },
         "runtime_chat_template_render": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/runtime-task-001",
+          "source_ref": "source-doc:prompt/runtime-task-001-m5",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "42e1a65ab02660f77b393d63589e3b2efc7c167219a5be607ecf888395563937"
+          "source_version": "prompt-stage-v2",
+          "digest": "055c5e6402c21dfe2ce74d921b2697bf786cd27657451db9f1006db50abf59e6"
         }
       },
       "routing": {
@@ -3883,34 +4141,34 @@
         }
       },
       "serving": {
-        "runtime_id": "llama-swap",
-        "provider_id": "m5",
+        "runtime_id": "fixture-gateway-runtime",
+        "provider_id": "fixture-provider",
         "model": {
-          "id": "mellum",
+          "id": "fixture-model-v1",
           "artifact_manifest_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:artifact/mellum-v1",
+            "source_ref": "source-doc:artifact/fixture-model-v1",
             "source_type": "artifact-manifest",
             "source_version": "gille-artifact-manifest-v1",
-            "digest": "5d2159b3928ddcc20561d2cbdf34cf3a191cd781b8ec0a56f8c07c88d800eea8"
+            "digest": "e3174a8d6f32299704f56d654b0a0f355a96b203a6e6730a08ce60b93e2ed00e"
           },
           "effective_config_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:runtime/mellum-v1",
+            "source_ref": "source-doc:runtime/fixture-gateway-v1",
             "source_type": "effective-runtime-config",
             "source_version": "gille-effective-runtime-config-v1",
-            "digest": "96d37fda2b1932031cec62848992a3618bd6dee64f6761c2e1220f1fb37e1a3a"
+            "digest": "efc7994b23abb16c3651042922ba25170c986566a37a31a384e29aa617e3bae5"
           }
         },
         "sampling_digest": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:sampling/mellum-v1",
+          "source_ref": "source-doc:sampling/fixture-model-v1",
           "source_type": "effective-sampling-post-default-post-clamp",
           "source_version": "gille-sampling-v1",
-          "digest": "351d088de68111b0832bd2a1a55b813f2065195c6872c58e0e88272e757ee7c9"
+          "digest": "cc78206750842dd7e4ceac4e83ba003128700a7170350c7d9c27856bf51b8abe"
         }
       },
       "origin_config": {
@@ -3923,7 +4181,7 @@
             "source_ref": "source-doc:config/hugin-prompt-v4",
             "source_type": "origin-prompt-config",
             "source_version": "config-source-v1",
-            "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+            "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
           }
         },
         "harness": {
@@ -3935,7 +4193,7 @@
             "source_ref": "source-doc:config/hugin-harness-v3",
             "source_type": "origin-harness-config",
             "source_version": "config-source-v1",
-            "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+            "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
           }
         },
         "tool_policy": {
@@ -3947,7 +4205,7 @@
             "source_ref": "source-doc:config/hugin-tools-v2",
             "source_type": "origin-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+            "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
           }
         }
       },
@@ -3961,7 +4219,7 @@
             "source_ref": "source-doc:config/gateway-harness-v7",
             "source_type": "gateway-harness-config",
             "source_version": "config-source-v1",
-            "digest": "17ac4519f7ba313aaf880c238d79270e1046734030d237d3a978a3000a156db3"
+            "digest": "25c749933e82cd11fc9ed6a191f73b255128ebe331bb96d59daf336f3bda981c"
           }
         },
         "tool_policy": {
@@ -3973,7 +4231,7 @@
             "source_ref": "source-doc:config/gateway-tools-v5",
             "source_type": "gateway-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "16998442cab496990102e9fd384f0ef963f4957530b8f4b72d0723d80a3e9131"
+            "digest": "269493dc04cc5ecd47aa6db295b289a91d437bb6e172c731b6ab0f05167d1d6a"
           }
         }
       },
@@ -4023,15 +4281,15 @@
         "raw_fingerprint": {
           "algorithm": "sha256",
           "version": "trim-utf8-sha256-v1",
-          "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+          "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
         },
         "hugin_envelope": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
           "source_ref": "source-doc:prompt/hugin-task-001",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+          "source_version": "prompt-stage-v2",
+          "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
         },
         "origin_config": {
           "prompt": {
@@ -4043,7 +4301,7 @@
               "source_ref": "source-doc:config/hugin-prompt-v4",
               "source_type": "origin-prompt-config",
               "source_version": "config-source-v1",
-              "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+              "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
             }
           },
           "harness": {
@@ -4055,7 +4313,7 @@
               "source_ref": "source-doc:config/hugin-harness-v3",
               "source_type": "origin-harness-config",
               "source_version": "config-source-v1",
-              "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+              "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
             }
           },
           "tool_policy": {
@@ -4067,7 +4325,7 @@
               "source_ref": "source-doc:config/hugin-tools-v2",
               "source_type": "origin-tool-policy-config",
               "source_version": "config-source-v1",
-              "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+              "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
             }
           }
         },
@@ -4078,7 +4336,7 @@
           "target": "m5",
           "service": "gille-inference"
         },
-        "stamped_at": "2026-07-19T10:00:00.750Z",
+        "stamped_at": "2026-07-19T10:00:01.250Z",
         "preflight": {
           "request": {
             "request_id": "opaque:f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1",
@@ -4115,6 +4373,14 @@
               ]
             }
           }
+        },
+        "raw_input": {
+          "algorithm": "sha256",
+          "canonicalization": "jcs-rfc8785-utf8-v1",
+          "source_ref": "source-doc:raw/task-001",
+          "source_type": "raw-input",
+          "source_version": "raw-input-v1",
+          "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
         }
       },
       "gateway_echo": {
@@ -4159,15 +4425,15 @@
           "raw_fingerprint": {
             "algorithm": "sha256",
             "version": "trim-utf8-sha256-v1",
-            "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+            "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
           },
           "hugin_envelope": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
             "source_ref": "source-doc:prompt/hugin-task-001",
             "source_type": "prompt-stage",
-            "source_version": "prompt-stage-v1",
-            "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+            "source_version": "prompt-stage-v2",
+            "digest": "22c85f6697051810fcd2d47fe0b11826b0dcb1906f3d4b11ab6a3ad6d769a2b2"
           },
           "origin_config": {
             "prompt": {
@@ -4179,7 +4445,7 @@
                 "source_ref": "source-doc:config/hugin-prompt-v4",
                 "source_type": "origin-prompt-config",
                 "source_version": "config-source-v1",
-                "digest": "451e3862e46f72455d11623a982435d34de2415510f140eb58e6d08125d8a8a1"
+                "digest": "d6935e2446ce2c77319fd779971365e347f8500a6752a278497cfc1b1d732183"
               }
             },
             "harness": {
@@ -4191,7 +4457,7 @@
                 "source_ref": "source-doc:config/hugin-harness-v3",
                 "source_type": "origin-harness-config",
                 "source_version": "config-source-v1",
-                "digest": "962788078834c331d0ddb545ff99327d3ab60fda5e940616383ceb666f83afb0"
+                "digest": "e3689c6a408e2697ba47f26e36149c4e868752594c6181b96b2931cb36cf6d4b"
               }
             },
             "tool_policy": {
@@ -4203,7 +4469,7 @@
                 "source_ref": "source-doc:config/hugin-tools-v2",
                 "source_type": "origin-tool-policy-config",
                 "source_version": "config-source-v1",
-                "digest": "a7a426cfb8abad36e519f0477c720f55260c9b1a610eabf11b8aad042a0476f5"
+                "digest": "a37c9f3c82e11595505ff12d7b13dae17c364fc9efb253ce6a482356f78fb8bc"
               }
             }
           },
@@ -4214,7 +4480,7 @@
             "target": "m5",
             "service": "gille-inference"
           },
-          "stamped_at": "2026-07-19T10:00:00.750Z",
+          "stamped_at": "2026-07-19T10:00:01.250Z",
           "preflight": {
             "request": {
               "request_id": "opaque:f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1",
@@ -4251,6 +4517,14 @@
                 ]
               }
             }
+          },
+          "raw_input": {
+            "algorithm": "sha256",
+            "canonicalization": "jcs-rfc8785-utf8-v1",
+            "source_ref": "source-doc:raw/task-001",
+            "source_type": "raw-input",
+            "source_version": "raw-input-v1",
+            "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
           }
         },
         "gateway_request_id": "opaque:e3e3e3e3-e3e3-4e3e-8e3e-e3e3e3e3e3e3",
@@ -4261,7 +4535,7 @@
         "principal_binding_digest": {
           "algorithm": "sha256",
           "version": "gateway-principal-request-binding-jcs-v1",
-          "digest": "6979ba5df79cbddf999c5b4fe44d44a12e8791bdb82d1203706bdb44e53e93d1"
+          "digest": "e3b8655e3f2704d5c38e7c5935ed4596121507b81d1341d196c8144eea5ea83f"
         },
         "capabilities": {
           "contract_version": "grimnir.learning-task/v1",
@@ -4285,7 +4559,7 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+        "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
       }
     }
   },
@@ -4327,7 +4601,15 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "2066d865250ed1f219c71e50511d92d886f88bbb05fd18d505eb60b0eac6d9fa"
+        "digest": "b881fde015047ea1407096ce62b0385b243f0b93ea3ffa38bd92bcc0843d7deb"
+      },
+      "raw_input": {
+        "algorithm": "sha256",
+        "canonicalization": "jcs-rfc8785-utf8-v1",
+        "source_ref": "source-doc:raw/task-negative-001",
+        "source_type": "raw-input",
+        "source_version": "raw-input-v1",
+        "digest": "1fe5d94ae11c79850507d75b8950204b1d6cbdffcf46940d293d5e6d5d0f91cd"
       }
     },
     "artifacts": {
@@ -4372,7 +4654,7 @@
       "queried_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "2066d865250ed1f219c71e50511d92d886f88bbb05fd18d505eb60b0eac6d9fa"
+        "digest": "b881fde015047ea1407096ce62b0385b243f0b93ea3ffa38bd92bcc0843d7deb"
       },
       "task_attempt_id": "candidate-attempt-001",
       "coverage": {
@@ -4388,6 +4670,16 @@
           "delegate-shadow",
           "code-loop"
         ]
+      },
+      "attempt_proof": {
+        "validation_context_id": "fixture:learning-task-contract-v1",
+        "evidence_id": "fixture-evidence-002",
+        "issuer": "hugin",
+        "payload_digest": {
+          "algorithm": "sha256",
+          "version": "trusted-evidence-payload-jcs-v1",
+          "digest": "0fdb10eda0da42fb4690e8d94ea2c1b0513c1790d27d2b49e1b66b4af3c73311"
+        }
       }
     }
   },
@@ -4429,7 +4721,15 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+        "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
+      },
+      "raw_input": {
+        "algorithm": "sha256",
+        "canonicalization": "jcs-rfc8785-utf8-v1",
+        "source_ref": "source-doc:raw/task-001",
+        "source_type": "raw-input",
+        "source_version": "raw-input-v1",
+        "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
       }
     },
     "artifacts": {
@@ -4450,7 +4750,7 @@
           "source_ref": "source-doc:governance/positive-6",
           "source_type": "governance-policy-manifest",
           "source_version": "governance-policy-manifest-v1",
-          "digest": "cb20383a06b8a454f9e77b8b0dc9baf370bf4d1ae8021291ab5ab5a9e160448d"
+          "digest": "ddfccfea4909132295ac4ff26734ad125ef3382e62c6b5bc7f826d15042c2c4b"
         },
         "owner_attestations": [
           {
@@ -4460,6 +4760,16 @@
             "delegation": {
               "value": null,
               "unknown_reason": "not-applicable"
+            },
+            "authority_evidence": {
+              "validation_context_id": "fixture:learning-task-contract-v1",
+              "evidence_id": "fixture-evidence-001",
+              "issuer": "principal:owner",
+              "payload_digest": {
+                "algorithm": "sha256",
+                "version": "trusted-evidence-payload-jcs-v1",
+                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+              }
             }
           }
         ],
@@ -4582,6 +4892,52 @@
           }
         },
         {
+          "subject_ref": "source-doc:quality/qr-cfb94bcb44ec647526263aef",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:raw/task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
           "subject_ref": "source-doc:rubric/quality-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
@@ -4642,6 +4998,8 @@
           "quality:structured-result",
           "quality:task-document",
           "source-doc:governance/positive-6",
+          "source-doc:quality/qr-cfb94bcb44ec647526263aef",
+          "source-doc:raw/task-001",
           "source-doc:rubric/quality-v1",
           "source:hugin:broker-001"
         ],
@@ -4662,12 +5020,28 @@
     },
     "extensions": {},
     "quality_receipt": {
-      "receipt_id": "qr-111111111111111111111111",
-      "native_schema_version": 1,
+      "projection_version": "learning-quality-normalized/v2",
+      "native_receipt": {
+        "schema_version": 1,
+        "receipt_id": "qr-cfb94bcb44ec647526263aef",
+        "artifact_digest": {
+          "algorithm": "sha256",
+          "canonicalization": "jcs-rfc8785-utf8-v1",
+          "source_ref": "source-doc:quality/qr-cfb94bcb44ec647526263aef",
+          "source_type": "quality-receipt-native-v1",
+          "source_version": "hugin-quality-receipt-v1",
+          "digest": "f05052fc718486cfafa72de250570c10e12bfc16d29fa24e209112bed4392535"
+        }
+      },
+      "correction_group_key": {
+        "algorithm": "sha256",
+        "version": "quality-correction-group-jcs-v1",
+        "digest": "d7810217367d212f713e5362fbf6b234e7438d8adb7a77b9a35236b2e7a40f29"
+      },
       "task_id": "task-001",
       "attempt_id": "attempt-1",
       "rating": "pass",
-      "rating_reason_sha256": "88d886d2bfaeb6954f202704f3442d2ef4f05da037d661252a4ef1ec22f80b17",
+      "rating_reason_sha256": "08cbefc5ef72b193f1896fec876ed56f91270d2282c309c083b3a1b607d3a8ba",
       "disposition": "accepted_unchanged",
       "retries_count": 0,
       "rated_at": "2026-07-19T10:02:00Z",
@@ -4676,7 +5050,7 @@
         "independence": "independent"
       },
       "rubric": {
-        "id": "quality-receipt-rubric",
+        "id": "quality-rubric",
         "version": "v1",
         "config_digest": {
           "algorithm": "sha256",
@@ -4684,7 +5058,7 @@
           "source_ref": "source-doc:rubric/quality-v1",
           "source_type": "rubric-config",
           "source_version": "rubric-source-v1",
-          "digest": "10f57e694d7f0886ef8249321ac2c68e677f92653f6d5ab6b33c9b635f8d1427"
+          "digest": "2e1a3ff4b58995e03aedcc3e4fca9f73db9e0bb8ccf8db12458129b1932d081d"
         }
       },
       "binding_attestation": "server-bound",
@@ -4743,7 +5117,15 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "c670f486cc1df09ab898fc3a8cd51f9997ec78a5ecedbe6404fd7e8de189d1ef"
+        "digest": "7b1c423b1792795a9442c6df25d5035af9daa83dbe43c48476f9bd8baa633152"
+      },
+      "raw_input": {
+        "algorithm": "sha256",
+        "canonicalization": "jcs-rfc8785-utf8-v1",
+        "source_ref": "source-doc:raw/task-001",
+        "source_type": "raw-input",
+        "source_version": "raw-input-v1",
+        "digest": "96be47b1f5e2871ecba8730279b3e772e75ccf173738b4afb463e24a88007ba9"
       }
     },
     "artifacts": {
@@ -4764,7 +5146,7 @@
           "source_ref": "source-doc:governance/positive-7",
           "source_type": "governance-policy-manifest",
           "source_version": "governance-policy-manifest-v1",
-          "digest": "199e098fb43607eb8492c3afed554657eb0b841e02f4a9cc5d67337d49bca875"
+          "digest": "a730aa66b6eafa70452cab2aa8c8bb9693f391581346ed17ecdac468d84ae3b0"
         },
         "owner_attestations": [
           {
@@ -4774,6 +5156,16 @@
             "delegation": {
               "value": null,
               "unknown_reason": "not-applicable"
+            },
+            "authority_evidence": {
+              "validation_context_id": "fixture:learning-task-contract-v1",
+              "evidence_id": "fixture-evidence-001",
+              "issuer": "principal:owner",
+              "payload_digest": {
+                "algorithm": "sha256",
+                "version": "trusted-evidence-payload-jcs-v1",
+                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+              }
             }
           }
         ],
@@ -4873,6 +5265,29 @@
           }
         },
         {
+          "subject_ref": "source-doc:raw/task-001",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
           "subject_ref": "source-doc:rubric/experiment-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
@@ -4932,6 +5347,7 @@
           "fingerprint:raw",
           "source-doc:experiment/exp-001-run-001",
           "source-doc:governance/positive-7",
+          "source-doc:raw/task-001",
           "source-doc:rubric/experiment-v1",
           "source:hugin:broker-001"
         ],
@@ -4962,7 +5378,7 @@
         "source_ref": "source-doc:experiment/exp-001-run-001",
         "source_type": "experiment-config",
         "source_version": "experiment-source-v1",
-        "digest": "fa80cb915b2c90e04c397f5cf88297465d36b2e3d8e7a97fc5f5b4ba4c30f8d2"
+        "digest": "0335342b805a3435237d7080649072772815c76bdeda8df6ade1a9c8c3ea7063"
       },
       "product_outcome": "accepted-unchanged",
       "rating_reason_sha256": "b1e334dd0bbc30a42124e36b08ddeadd78ce738a52ccbccf477fc2f1b42e733f",
@@ -4973,7 +5389,7 @@
         "independence": "independent"
       },
       "rubric": {
-        "id": "experiment-product-rubric",
+        "id": "experiment-rubric",
         "version": "v1",
         "config_digest": {
           "algorithm": "sha256",
@@ -4981,7 +5397,7 @@
           "source_ref": "source-doc:rubric/experiment-v1",
           "source_type": "rubric-config",
           "source_version": "rubric-source-v1",
-          "digest": "8e084fe3de4b94044f0fd219b5af7128c5b683fd8496af3e00d3f904b95d71cc"
+          "digest": "270faf530bbd46a71488403bc6d7767188eb564e505dd566dd3b77aac0597ed1"
         }
       }
     }
@@ -5024,7 +5440,15 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "b4481a3dc2567769f028485b0a1f49986f48246194c99b14176d14588d3f5fb2"
+        "digest": "fd1f51675c8254360c0f871fd0a8509cc311df0ce892748d47bd07bbce45ecc6"
+      },
+      "raw_input": {
+        "algorithm": "sha256",
+        "canonicalization": "jcs-rfc8785-utf8-v1",
+        "source_ref": "source-doc:raw/service-task-001",
+        "source_type": "raw-input",
+        "source_version": "raw-input-v1",
+        "digest": "578e757bf6fae8d4a35001345c39b7042dde876d21033ae5063359922dbf517e"
       }
     },
     "artifacts": {
@@ -5045,7 +5469,7 @@
           "source_ref": "source-doc:governance/service-source-positive",
           "source_type": "governance-policy-manifest",
           "source_version": "governance-policy-manifest-v1",
-          "digest": "f01db054418d3266415a6390de8a93abb4d9cd4a8ea1583c09fe5c1cc7780fb9"
+          "digest": "4704c1ba0d753c0b152044646afcfadf78bfd8a0c354c5430c185096ac08d850"
         },
         "owner_attestations": [
           {
@@ -5055,6 +5479,16 @@
             "delegation": {
               "value": null,
               "unknown_reason": "not-applicable"
+            },
+            "authority_evidence": {
+              "validation_context_id": "fixture:learning-task-contract-v1",
+              "evidence_id": "fixture-evidence-001",
+              "issuer": "principal:owner",
+              "payload_digest": {
+                "algorithm": "sha256",
+                "version": "trusted-evidence-payload-jcs-v1",
+                "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+              }
             }
           }
         ],
@@ -5085,7 +5519,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:artifact/mellum-v1",
+          "subject_ref": "source-doc:artifact/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -5246,7 +5680,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/gateway-direct-v1",
+          "subject_ref": "source-doc:prompt/gateway-service-task-001-direct",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -5269,7 +5703,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:prompt/runtime-direct-v1",
+          "subject_ref": "source-doc:prompt/runtime-service-task-001-direct",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -5292,7 +5726,7 @@
           }
         },
         {
-          "subject_ref": "source-doc:runtime/mellum-v1",
+          "subject_ref": "source-doc:raw/service-task-001",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -5315,7 +5749,30 @@
           }
         },
         {
-          "subject_ref": "source-doc:sampling/mellum-v1",
+          "subject_ref": "source-doc:runtime/fixture-gateway-v1",
+          "subject_kind": "source-document",
+          "content_owner": "principal:owner",
+          "sensitivity": "internal",
+          "classification_version": "owner-policy-v1",
+          "allowed_uses": [
+            "operations",
+            "evaluation"
+          ],
+          "retention": {
+            "policy_id": "operational-6m",
+            "expires_at": "2027-01-19T00:00:00Z"
+          },
+          "erasure": {
+            "state": "active",
+            "effective_at": {
+              "value": null,
+              "unknown_reason": "not-applicable"
+            },
+            "digest_disposition": "retained"
+          }
+        },
+        {
+          "subject_ref": "source-doc:sampling/fixture-model-v1",
           "subject_kind": "source-document",
           "content_owner": "principal:owner",
           "sensitivity": "internal",
@@ -5371,17 +5828,18 @@
         "erasure_state": "active",
         "derived_from_subject_refs": [
           "fingerprint:raw",
-          "source-doc:artifact/mellum-v1",
+          "source-doc:artifact/fixture-model-v1",
           "source-doc:config/direct-harness-v1",
           "source-doc:config/direct-prompt-v1",
           "source-doc:config/direct-tools-v1",
           "source-doc:config/gateway-harness-v7",
           "source-doc:config/gateway-tools-v5",
           "source-doc:governance/service-source-positive",
-          "source-doc:prompt/gateway-direct-v1",
-          "source-doc:prompt/runtime-direct-v1",
-          "source-doc:runtime/mellum-v1",
-          "source-doc:sampling/mellum-v1",
+          "source-doc:prompt/gateway-service-task-001-direct",
+          "source-doc:prompt/runtime-service-task-001-direct",
+          "source-doc:raw/service-task-001",
+          "source-doc:runtime/fixture-gateway-v1",
+          "source-doc:sampling/fixture-model-v1",
           "source:gille-inference:service-request-001"
         ],
         "evaluation_eligible": true
@@ -5418,18 +5876,18 @@
         "gateway_canonical_envelope": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/gateway-direct-v1",
+          "source_ref": "source-doc:prompt/gateway-service-task-001-direct",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "da035fd8121a859edc9093881d97fbcb534086a512e1071b65f120377607aacd"
+          "source_version": "prompt-stage-v2",
+          "digest": "524ec8a6cc44324294e9c43aae75ecb51ab105df079cfb780ddb8c4572eb8099"
         },
         "runtime_chat_template_render": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:prompt/runtime-direct-v1",
+          "source_ref": "source-doc:prompt/runtime-service-task-001-direct",
           "source_type": "prompt-stage",
-          "source_version": "prompt-stage-v1",
-          "digest": "f10d91ea986202b1a98dc5847b652223ea9b6720507bb5cd656c3e5aa1e3a92d"
+          "source_version": "prompt-stage-v2",
+          "digest": "bdf416a6eb3b2fdc11be160622c5c2a5f5ed4f2b3e4030c333838ea227411d76"
         }
       },
       "routing": {
@@ -5444,34 +5902,34 @@
         }
       },
       "serving": {
-        "runtime_id": "llama-swap",
-        "provider_id": "m5",
+        "runtime_id": "fixture-gateway-runtime",
+        "provider_id": "fixture-provider",
         "model": {
-          "id": "mellum",
+          "id": "fixture-model-v1",
           "artifact_manifest_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:artifact/mellum-v1",
+            "source_ref": "source-doc:artifact/fixture-model-v1",
             "source_type": "artifact-manifest",
             "source_version": "gille-artifact-manifest-v1",
-            "digest": "5d2159b3928ddcc20561d2cbdf34cf3a191cd781b8ec0a56f8c07c88d800eea8"
+            "digest": "e3174a8d6f32299704f56d654b0a0f355a96b203a6e6730a08ce60b93e2ed00e"
           },
           "effective_config_digest": {
             "algorithm": "sha256",
             "canonicalization": "jcs-rfc8785-utf8-v1",
-            "source_ref": "source-doc:runtime/mellum-v1",
+            "source_ref": "source-doc:runtime/fixture-gateway-v1",
             "source_type": "effective-runtime-config",
             "source_version": "gille-effective-runtime-config-v1",
-            "digest": "96d37fda2b1932031cec62848992a3618bd6dee64f6761c2e1220f1fb37e1a3a"
+            "digest": "efc7994b23abb16c3651042922ba25170c986566a37a31a384e29aa617e3bae5"
           }
         },
         "sampling_digest": {
           "algorithm": "sha256",
           "canonicalization": "jcs-rfc8785-utf8-v1",
-          "source_ref": "source-doc:sampling/mellum-v1",
+          "source_ref": "source-doc:sampling/fixture-model-v1",
           "source_type": "effective-sampling-post-default-post-clamp",
           "source_version": "gille-sampling-v1",
-          "digest": "351d088de68111b0832bd2a1a55b813f2065195c6872c58e0e88272e757ee7c9"
+          "digest": "cc78206750842dd7e4ceac4e83ba003128700a7170350c7d9c27856bf51b8abe"
         }
       },
       "origin_config": {
@@ -5484,7 +5942,7 @@
             "source_ref": "source-doc:config/direct-prompt-v1",
             "source_type": "origin-prompt-config",
             "source_version": "config-source-v1",
-            "digest": "fa899f2e0045de0613c6881b974ad45164e42d5760a806f02586293284ccc2fd"
+            "digest": "2ce07699321796f0928b3cb5b84c53cf72cc77c10c9e2aaac6fa9f1ef2a33fea"
           }
         },
         "harness": {
@@ -5496,7 +5954,7 @@
             "source_ref": "source-doc:config/direct-harness-v1",
             "source_type": "origin-harness-config",
             "source_version": "config-source-v1",
-            "digest": "628d705df17b19d2677c3cff661aaf28d1efde10a3679bada32efd996e4469ec"
+            "digest": "d83d2efcad48c9d1d52fddd0b0d76dd9cc9c271685eea46e5b20354cb4dd5c25"
           }
         },
         "tool_policy": {
@@ -5508,7 +5966,7 @@
             "source_ref": "source-doc:config/direct-tools-v1",
             "source_type": "origin-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "c17344bce97f6a4173c8aebae1e1fe8ac1908025a02411cbfb07bfdf93a84946"
+            "digest": "a820dbd440b13e32f503abdfe9319b9e30b4d3074908976104383ab73dceea0c"
           }
         }
       },
@@ -5522,7 +5980,7 @@
             "source_ref": "source-doc:config/gateway-harness-v7",
             "source_type": "gateway-harness-config",
             "source_version": "config-source-v1",
-            "digest": "17ac4519f7ba313aaf880c238d79270e1046734030d237d3a978a3000a156db3"
+            "digest": "25c749933e82cd11fc9ed6a191f73b255128ebe331bb96d59daf336f3bda981c"
           }
         },
         "tool_policy": {
@@ -5534,7 +5992,7 @@
             "source_ref": "source-doc:config/gateway-tools-v5",
             "source_type": "gateway-tool-policy-config",
             "source_version": "config-source-v1",
-            "digest": "16998442cab496990102e9fd384f0ef963f4957530b8f4b72d0723d80a3e9131"
+            "digest": "269493dc04cc5ecd47aa6db295b289a91d437bb6e172c731b6ab0f05167d1d6a"
           }
         }
       },
@@ -5562,7 +6020,7 @@
       "raw_fingerprint": {
         "algorithm": "sha256",
         "version": "trim-utf8-sha256-v1",
-        "digest": "b4481a3dc2567769f028485b0a1f49986f48246194c99b14176d14588d3f5fb2"
+        "digest": "fd1f51675c8254360c0f871fd0a8509cc311df0ce892748d47bd07bbce45ecc6"
       }
     }
   },
@@ -5609,9 +6067,17 @@
         "counter": "hugin-m5-join-denominator",
         "occurrence_at": "2026-07-19T10:00:01Z",
         "occurrence_month_utc": "2026-07",
-        "decision": "failed"
+        "decision": "failed",
+        "boundary_evidence": {
+          "value": null,
+          "unknown_reason": "not-applicable"
+        }
       },
       "aggregate_close": {
+        "value": null,
+        "unknown_reason": "not-applicable"
+      },
+      "evaluation_bundle": {
         "value": null,
         "unknown_reason": "not-applicable"
       }
@@ -5677,6 +6143,10 @@
         "unknown_reason": "not-applicable"
       },
       "aggregate_close": {
+        "value": null,
+        "unknown_reason": "not-applicable"
+      },
+      "evaluation_bundle": {
         "value": null,
         "unknown_reason": "not-applicable"
       }

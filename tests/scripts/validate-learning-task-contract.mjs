@@ -14,7 +14,10 @@ const negative = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/lear
 const sourceDocumentList = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/source-documents.json"), "utf8"));
 const sourceDocumentNegative = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/source-document-negative.json"), "utf8"));
 const jcsConformanceVectors = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/jcs-conformance-vectors.json"), "utf8"));
+const rawFingerprintVectors = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/raw-fingerprint-vectors.json"), "utf8"));
+const validationContext = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/validation-context.json"), "utf8"));
 const sourceDocuments = new Map(sourceDocumentList.map((source) => [source.source_ref, source]));
+const trustedEvidence = new Map(validationContext.trusted_evidence.map((evidence) => [evidence.evidence_id, evidence]));
 
 function compareUtf16CodeUnits(left, right) {
   return left === right ? 0 : left < right ? -1 : 1;
@@ -62,6 +65,20 @@ function typeMatches(type, value) {
   }
 }
 
+function isExactUtcDateTime(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/.exec(value);
+  if (!match) return false;
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return false;
+  const [, year, month, day, hour, minute, second] = match;
+  return instant.getUTCFullYear() === Number(year)
+    && instant.getUTCMonth() + 1 === Number(month)
+    && instant.getUTCDate() === Number(day)
+    && instant.getUTCHours() === Number(hour)
+    && instant.getUTCMinutes() === Number(minute)
+    && instant.getUTCSeconds() === Number(second);
+}
+
 function validateNode(node, value, at = "$") {
   if (node === true) return [];
   if (node === false) return [`${at}: field is forbidden for this record_kind`];
@@ -92,7 +109,7 @@ function validateNode(node, value, at = "$") {
   if (typeof value === "string") {
     if (node.minLength !== undefined && value.length < node.minLength) errors.push(`${at}: shorter than minLength ${node.minLength}`);
     if (node.pattern && !(new RegExp(node.pattern).test(value))) errors.push(`${at}: does not match ${node.pattern}`);
-    if (node.format === "date-time" && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value) || Number.isNaN(Date.parse(value)))) {
+    if (node.format === "date-time" && !isExactUtcDateTime(value)) {
       errors.push(`${at}: invalid RFC 3339 UTC date-time`);
     }
   }
@@ -128,6 +145,28 @@ function validateNode(node, value, at = "$") {
   return errors;
 }
 
+const supportedSchemaKeywords = new Set([
+  "$ref", "allOf", "oneOf", "const", "enum", "type", "minLength", "pattern", "format", "minimum",
+  "minItems", "maxItems", "uniqueItems", "items", "required", "properties", "additionalProperties",
+  "description", "title", "$schema", "$id", "$defs",
+]);
+function assertSupportedSchemaKeywords(node, at = "$") {
+  if (!node || typeof node !== "object" || Array.isArray(node)) return;
+  for (const key of Object.keys(node)) {
+    assert.ok(supportedSchemaKeywords.has(key) || key.startsWith("x-"), `unsupported JSON Schema keyword ${key} at ${at}; Draft 2020-12 CI must remain authoritative`);
+  }
+  assert.ok(!Array.isArray(node.type), `unsupported schema type array at ${at}; custom validation must not diverge from Draft 2020-12`);
+  if (node.format !== undefined) assert.equal(node.format, "date-time", `unsupported schema format ${node.format} at ${at}`);
+  if (node.additionalProperties !== undefined) assert.equal(typeof node.additionalProperties, "boolean", `schema-valued additionalProperties is unsupported at ${at}`);
+  const executableSiblingKeys = (excluded) => Object.keys(node).filter((key) => !excluded.has(key) && !["title", "description", "$schema", "$id", "$defs"].includes(key) && !key.startsWith("x-"));
+  if (node.$ref) assert.deepEqual(executableSiblingKeys(new Set(["$ref"])), [], `validation siblings beside $ref are unsupported at ${at}`);
+  if (node.oneOf) assert.deepEqual(executableSiblingKeys(new Set(["oneOf"])), [], `validation siblings beside oneOf are unsupported at ${at}`);
+  for (const key of ["allOf", "oneOf"]) for (const [index, child] of (node[key] ?? []).entries()) assertSupportedSchemaKeywords(child, `${at}.${key}[${index}]`);
+  if (node.items && typeof node.items === "object") assertSupportedSchemaKeywords(node.items, `${at}.items`);
+  for (const [key, child] of Object.entries(node.properties ?? {})) assertSupportedSchemaKeywords(child, `${at}.properties.${key}`);
+  for (const [key, child] of Object.entries(node.$defs ?? {})) assertSupportedSchemaKeywords(child, `${at}.$defs.${key}`);
+}
+
 function isUnknown(value) {
   return value && typeof value === "object" && value.value === null && typeof value.unknown_reason === "string";
 }
@@ -144,6 +183,56 @@ function digestCanonical(value) {
   return digest(canonical(value));
 }
 
+function huginStable(value) {
+  if (Array.isArray(value)) return `[${value.map(huginStable).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.entries(value).filter(([, child]) => child !== undefined).sort(([left], [right]) => left.localeCompare(right)).map(([key, child]) => `${JSON.stringify(key)}:${huginStable(child)}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+
+function huginReceiptId(input) {
+  return `qr-${digest(huginStable(input)).slice(0, 24)}`;
+}
+
+function normalizedNativeBinding(binding) {
+  const repository = binding.repository;
+  return {
+    taskDocumentSha256: binding.task_document_sha256,
+    structuredResultSha256: binding.structured_result_sha256,
+    repository: {
+      state: repository.state,
+      ...(typeof repository.base_branch === "string" ? { baseBranch: repository.base_branch } : {}),
+      ...(typeof repository.base_commit === "string" ? { baseCommit: repository.base_commit } : {}),
+      ...(typeof repository.head_commit === "string" ? { headCommit: repository.head_commit } : {}),
+      ...(repository.diff_sha256?.digest ? { diffSha256: repository.diff_sha256.digest } : {}),
+    },
+  };
+}
+
+function validateTrustedEvidence(ref, expectedKind, errors, expectedPayload, label = expectedKind) {
+  if (!ref || isUnknown(ref)) {
+    errors.push(`${label} lacks trusted validation evidence`);
+    return false;
+  }
+  if (ref.validation_context_id !== validationContext.context_id) {
+    errors.push(`${label} names an untrusted validation context`);
+    return false;
+  }
+  const evidence = trustedEvidence.get(ref.evidence_id);
+  if (!evidence || evidence.kind !== expectedKind || evidence.issuer !== ref.issuer || canonical(evidence.payload_digest) !== canonical(ref.payload_digest)) {
+    errors.push(`${label} is absent from the trusted validation context`);
+    return false;
+  }
+  if (evidence.payload_digest.version !== "trusted-evidence-payload-jcs-v1" || evidence.payload_digest.digest !== digestCanonical(evidence.payload)) {
+    errors.push(`${label} trusted payload digest is invalid`);
+    return false;
+  }
+  if (expectedPayload !== undefined && canonical(evidence.payload) !== canonical(expectedPayload)) {
+    errors.push(`${label} trusted payload does not bind the claimed facts`);
+    return false;
+  }
+  return true;
+}
+
 function sourceDocumentClaims(value, found = []) {
   if (Array.isArray(value)) for (const item of value) sourceDocumentClaims(item, found);
   else if (value && typeof value === "object") {
@@ -154,7 +243,8 @@ function sourceDocumentClaims(value, found = []) {
 }
 
 const sourceDocumentRequiredKeys = {
-  "prompt-stage": ["schema_version", "stage"],
+  "raw-input": ["schema_version", "fixture_only", "origin_component", "input_role", "encoding", "text"],
+  "prompt-stage": ["schema_version", "stage", "fixture_only", "encoding", "input_source_refs", "text", "byte_length", "sha256", "task_binding"],
   "origin-prompt-config": ["schema_version", "component", "config_kind", "id", "version", "settings"],
   "origin-harness-config": ["schema_version", "component", "config_kind", "id", "version", "settings"],
   "origin-tool-policy-config": ["schema_version", "component", "config_kind", "id", "version", "settings"],
@@ -163,6 +253,8 @@ const sourceDocumentRequiredKeys = {
   "capability-policy-config": ["schema_version", "component", "config_kind", "id", "version", "settings"],
   "experiment-config": ["schema_version", "experiment_id", "run_id", "arms", "holdout", "metric"],
   "rubric-config": ["schema_version", "id", "version"],
+  "quality-receipt-native-v1": ["schemaVersion", "receiptId", "taskId", "rating", "ratingReason", "verificationOutcome", "ratedAt", "reviewer", "bindingAttestation", "binding"],
+  "quality-receipt-native-v2": ["schemaVersion", "receiptId", "taskId", "attemptId", "rating", "ratingReason", "verificationOutcome", "ratedAt", "reviewer", "rubric", "bindingAttestation", "binding", "correctsReceiptId"],
   "artifact-manifest": ["schema_version", "model_id", "files", "quantization"],
   "effective-runtime-config": ["schema_version", "runtime_id", "provider_id", "model_id", "context_tokens", "backend", "chat_template"],
   "effective-sampling-post-default-post-clamp": ["schema_version", "model_id", "requested", "defaults_applied", "clamps_applied", "final"],
@@ -179,11 +271,20 @@ function validateSourceDocumentDigest(claim, errors) {
   if (claim.digest !== digestCanonical(source.document)) errors.push(`source document digest mismatch for ${claim.source_ref}`);
   const requiredKeys = sourceDocumentRequiredKeys[source.source_type];
   if (!requiredKeys || source.document === null || typeof source.document !== "object" || Array.isArray(source.document) || requiredKeys.some((key) => !Object.hasOwn(source.document, key))) errors.push(`source document ${claim.source_ref} does not match typed ${source.source_type} shape`);
+  if (source.source_type === "raw-input") {
+    if (source.document.encoding !== "utf-8" || source.document.fixture_only !== true) errors.push(`raw input source ${claim.source_ref} is not exact fixture-only UTF-8 text`);
+    const expectedRole = source.document.origin_component === "hugin" ? "hugin-logical-prompt" : "direct-user-turn";
+    if (source.document.input_role !== expectedRole) errors.push(`raw input source ${claim.source_ref} has the wrong pre-orchestration role`);
+  }
+  if (source.source_type === "prompt-stage") {
+    const bytes = Buffer.from(source.document.text ?? "", "utf8");
+    if (source.document.encoding !== "utf-8" || source.document.fixture_only !== true || source.document.byte_length !== bytes.length || source.document.sha256 !== digest(source.document.text ?? "") || !Array.isArray(source.document.input_source_refs) || source.document.input_source_refs.length === 0) errors.push(`prompt source ${claim.source_ref} does not bind exact ordered UTF-8 bytes and immutable inputs`);
+  }
   if (source.source_type === "effective-sampling-post-default-post-clamp") {
     const final = source.document.final;
     const exactFields = ["temperature", "top_p", "top_k", "min_p", "max_tokens", "n"];
     if (!final || canonical(Object.keys(final).sort()) !== canonical(exactFields.sort())) errors.push(`sampling source ${claim.source_ref} lacks exact post-default/post-clamp fields`);
-    if (source.document.model_id === "mellum" && canonical(final) !== canonical({ temperature: 0.6, top_p: 0.95, top_k: 20, min_p: null, max_tokens: 4096, n: 1 })) errors.push("Mellum fixture sampling does not represent gille final defaults and clamps");
+    if (source.document.fixture_only !== true) errors.push(`sampling source ${claim.source_ref} must not masquerade as deployed serving truth`);
   }
 }
 
@@ -194,31 +295,79 @@ function validateSourceRole(claim, expectedType, errors, label, expectedStage) {
   if (expectedStage && source?.document?.stage !== expectedStage) errors.push(`${label} source document must identify stage ${expectedStage}`);
 }
 
+function sourceDocument(claim) {
+  return claim && !isUnknown(claim) ? sourceDocuments.get(claim.source_ref)?.document : undefined;
+}
+
+function validateConfigIdentity(identity, expectedType, expectedComponent, expectedKind, errors, label) {
+  validateSourceRole(identity.config_digest, expectedType, errors, label);
+  const document = sourceDocument(identity.config_digest);
+  if (!document || document.component !== expectedComponent || document.config_kind !== expectedKind || document.id !== identity.id || document.version !== identity.version) errors.push(`${label} source document identity does not match component/kind/id/version wrapper`);
+}
+
+function expectedPromptInputs(record, stage) {
+  const execution = record.execution;
+  const origin = [record.task.raw_input.source_ref, execution.origin_config.prompt.config_digest.source_ref, execution.origin_config.harness.config_digest.source_ref, execution.origin_config.tool_policy.config_digest.source_ref];
+  if (stage === "hugin-envelope") return origin;
+  if (stage === "gateway-canonical-envelope") {
+    const first = record.task.origin_component === "hugin" ? [execution.prompt_identity.hugin_envelope.source_ref] : origin;
+    if (isUnknown(execution.effective_gateway_config)) return first;
+    return [...first, execution.effective_gateway_config.harness.config_digest.source_ref, execution.effective_gateway_config.tool_policy.config_digest.source_ref];
+  }
+  const prior = !isUnknown(execution.prompt_identity.gateway_canonical_envelope) ? execution.prompt_identity.gateway_canonical_envelope.source_ref : execution.prompt_identity.hugin_envelope.source_ref;
+  if (!execution.serving?.model) return sourceDocument(execution.prompt_identity.runtime_chat_template_render)?.input_source_refs ?? [];
+  return [prior, execution.serving.model.artifact_manifest_digest.source_ref, execution.serving.model.effective_config_digest.source_ref, execution.serving.sampling_digest.source_ref];
+}
+
+function validatePromptSource(record, claim, stage, errors, label) {
+  validateSourceRole(claim, "prompt-stage", errors, label, stage);
+  if (!claim || isUnknown(claim)) return;
+  const document = sourceDocument(claim);
+  const inputs = expectedPromptInputs(record, stage);
+  const rawText = sourceDocument(record.task.raw_input)?.text;
+  const recomposed = `fixture-only stage:${stage}\ntask:${record.task.instance_id}\ninputs:${inputs.join(",")}\nraw:${rawText}`;
+  if (!document || document.task_binding !== record.task.instance_id || canonical(document.input_source_refs) !== canonical(inputs) || document.text !== recomposed) errors.push(`${label} does not mechanically bind and recompose the exact raw/config/stage source identities and bytes`);
+}
+
 function validateReproducibilityRoles(record, errors) {
   const execution = record.execution;
+  validateSourceRole(record.task?.raw_input, "raw-input", errors, "raw input");
   if (execution) {
-    validateSourceRole(execution.prompt_identity.hugin_envelope, "prompt-stage", errors, "Hugin envelope", "hugin-envelope");
-    validateSourceRole(execution.prompt_identity.gateway_canonical_envelope, "prompt-stage", errors, "gateway canonical envelope", "gateway-canonical-envelope");
-    validateSourceRole(execution.prompt_identity.runtime_chat_template_render, "prompt-stage", errors, "runtime chat-template render", "runtime-chat-template-render");
-    validateSourceRole(execution.origin_config.prompt.config_digest, "origin-prompt-config", errors, "origin prompt config");
-    validateSourceRole(execution.origin_config.harness.config_digest, "origin-harness-config", errors, "origin harness config");
-    validateSourceRole(execution.origin_config.tool_policy.config_digest, "origin-tool-policy-config", errors, "origin tool-policy config");
+    validatePromptSource(record, execution.prompt_identity.hugin_envelope, "hugin-envelope", errors, "Hugin envelope");
+    validatePromptSource(record, execution.prompt_identity.gateway_canonical_envelope, "gateway-canonical-envelope", errors, "gateway canonical envelope");
+    validatePromptSource(record, execution.prompt_identity.runtime_chat_template_render, "runtime-chat-template-render", errors, "runtime chat-template render");
+    validateConfigIdentity(execution.origin_config.prompt, "origin-prompt-config", record.task.origin_component, "prompt", errors, "origin prompt config");
+    validateConfigIdentity(execution.origin_config.harness, "origin-harness-config", record.task.origin_component, "harness", errors, "origin harness config");
+    validateConfigIdentity(execution.origin_config.tool_policy, "origin-tool-policy-config", record.task.origin_component, "tool-policy", errors, "origin tool-policy config");
     if (!isUnknown(execution.effective_gateway_config)) {
-      validateSourceRole(execution.effective_gateway_config.harness.config_digest, "gateway-harness-config", errors, "gateway harness config");
-      validateSourceRole(execution.effective_gateway_config.tool_policy.config_digest, "gateway-tool-policy-config", errors, "gateway tool-policy config");
+      validateConfigIdentity(execution.effective_gateway_config.harness, "gateway-harness-config", "gille-inference", "gateway-harness", errors, "gateway harness config");
+      validateConfigIdentity(execution.effective_gateway_config.tool_policy, "gateway-tool-policy-config", "gille-inference", "gateway-tool-policy", errors, "gateway tool-policy config");
     }
     if (!isUnknown(execution.serving)) {
       validateSourceRole(execution.serving.model.artifact_manifest_digest, "artifact-manifest", errors, "model artifact manifest");
       validateSourceRole(execution.serving.model.effective_config_digest, "effective-runtime-config", errors, "effective runtime config");
       validateSourceRole(execution.serving.sampling_digest, "effective-sampling-post-default-post-clamp", errors, "effective sampling config");
+      const artifact = sourceDocument(execution.serving.model.artifact_manifest_digest);
+      const runtime = sourceDocument(execution.serving.model.effective_config_digest);
+      const sampling = sourceDocument(execution.serving.sampling_digest);
+      if (!artifact || !runtime || !sampling || artifact.model_id !== execution.serving.model.id || runtime.model_id !== execution.serving.model.id || sampling.model_id !== execution.serving.model.id || runtime.runtime_id !== execution.serving.runtime_id || runtime.provider_id !== execution.serving.provider_id) errors.push("serving wrappers do not match artifact/runtime/sampling source document identities");
     }
   }
-  validateSourceRole(record.capability?.policy_epoch.config_digest, "capability-policy-config", errors, "capability policy epoch");
+  if (record.capability) validateConfigIdentity(record.capability.policy_epoch, "capability-policy-config", "gille-inference", "capability-policy", errors, "capability policy epoch");
   validateSourceRole(record.experiment?.configuration_fingerprint, "experiment-config", errors, "experiment configuration");
   validateSourceRole(record.quality_receipt?.rubric.config_digest, "rubric-config", errors, "quality rubric");
   validateSourceRole(record.experiment_product_rating?.configuration_fingerprint, "experiment-config", errors, "experiment rating configuration");
   validateSourceRole(record.experiment_product_rating?.rubric.config_digest, "rubric-config", errors, "experiment rating rubric");
   if (record.governance?.capture_state === "complete") validateSourceRole(record.governance.policy_manifest.digest, "governance-policy-manifest", errors, "governance policy manifest");
+  if (record.experiment) {
+    const document = sourceDocument(record.experiment.configuration_fingerprint);
+    if (!document || document.experiment_id !== record.experiment.experiment_id || document.run_id !== record.experiment.run_id) errors.push("experiment source document does not match experiment/run wrapper");
+  }
+  for (const [rubric, label] of [[record.quality_receipt?.rubric, "quality"], [record.experiment_product_rating?.rubric, "experiment rating"]]) {
+    if (!rubric) continue;
+    const document = sourceDocument(rubric.config_digest);
+    if (!document || document.id !== rubric.id || document.version !== rubric.version) errors.push(`${label} rubric source document does not match id/version wrapper`);
+  }
 }
 
 const lanes = ["chat", "mcp-ask", "delegate", "delegate-disagreement", "delegate-shadow", "code-loop"];
@@ -357,6 +506,15 @@ function validateGovernance(record, errors) {
         || Date.parse(attestation.delegation.issued_at) > Date.parse(governance.policy_manifest.approved_at)
         || Date.parse(attestation.delegation.expires_at) < Date.parse(governance.policy_manifest.approved_at)) errors.push(`delegation attestation is invalid for ${attestation.content_owner}`);
     }
+    const authorityPayload = {
+      content_owner: attestation.content_owner,
+      authenticated_principal: attestation.authenticated_principal,
+      authentication: attestation.authentication,
+      delegation: attestation.delegation,
+    };
+    const expectedIssuer = attestation.authentication === "authenticated-owner" ? attestation.authenticated_principal : attestation.delegation.delegated_by;
+    if (attestation.authority_evidence.issuer !== expectedIssuer) errors.push(`owner attestation issuer is not authoritative for ${attestation.content_owner}`);
+    validateTrustedEvidence(attestation.authority_evidence, "owner-authority", errors, authorityPayload, `owner attestation for ${attestation.content_owner}`);
   }
   const sourceOwnerAttestation = governance.policy_manifest.owner_attestations.find((attestation) => attestation.content_owner === record.task.source.content_owner.id);
   const expectedAttestationMode = record.task.source.content_owner.authority === "authenticated-owner" ? "authenticated-owner" : "delegation-attestation";
@@ -430,12 +588,12 @@ function validateTransport(record, errors) {
     return;
   }
   if (request.task_instance_id !== record.task.instance_id || request.attempt_id !== record.execution.attempt_id) errors.push("transport stamp does not bind task and attempt");
-  for (const field of ["source", "task_type", "raw_fingerprint"]) if (canonical(request[field]) !== canonical(record.task[field])) errors.push(`transport stamp does not bind task.${field}`);
+  for (const field of ["source", "task_type", "raw_input", "raw_fingerprint"]) if (canonical(request[field]) !== canonical(record.task[field])) errors.push(`transport stamp does not bind task.${field}`);
   if (canonical(request.hugin_envelope) !== canonical(record.execution.prompt_identity.hugin_envelope)) errors.push("transport stamp does not bind Hugin envelope");
   if (canonical(request.origin_config) !== canonical(record.execution.origin_config)) errors.push("transport stamp does not bind origin config");
   if (canonical(request.macro_decision) !== canonical(record.execution.routing.macro)) errors.push("transport stamp does not bind macro decision");
   if (request.contract_request.contract_version !== record.contract_version || request.contract_request.schema_revision !== record.schema_revision) errors.push("Hugin contract request does not match record version/revision");
-  if (Date.parse(request.stamped_at) > Date.parse(record.execution.started_at)) errors.push("Hugin request stamp follows attempt start");
+  if (Date.parse(request.stamped_at) < Date.parse(record.execution.started_at)) errors.push("Hugin request stamp precedes attempt start");
   const preflight = request.preflight;
   if (canonical(preflight.request.requested_capabilities) !== canonical(request.contract_request)
     || canonical(preflight.response.capabilities) !== canonical(request.contract_request)) errors.push("preflight advertisement/request does not bind exact requested revision and features");
@@ -469,9 +627,9 @@ function validateTransport(record, errors) {
   if (echo.authenticated_principal_id !== request.expected_transport_principal_id) errors.push("gateway authenticated principal does not match expected transport principal");
   const principalBindingSource = { authenticated_principal_id: echo.authenticated_principal_id, request_stamp: request };
   if (echo.principal_binding_digest.digest !== digestCanonical(principalBindingSource)) errors.push("gateway principal binding digest does not bind principal/request identity");
-  if (Date.parse(echo.admitted_at) < Date.parse(record.execution.started_at)
+  if (Date.parse(echo.admitted_at) < Date.parse(request.stamped_at)
     || isUnknown(record.execution.model_started_at)
-    || Date.parse(echo.admitted_at) > Date.parse(record.execution.model_started_at)) errors.push("gateway admission clock is outside attempt-start/model-start interval");
+    || Date.parse(echo.admitted_at) > Date.parse(record.execution.model_started_at)) errors.push("gateway admission clock is outside stamp/model-start interval");
 }
 
 function validateTombstone(record) {
@@ -518,11 +676,20 @@ function validateTombstone(record) {
     if (counterOwners[entry.counter] !== receipt.owner_component) errors.push(`membership receipt owner ${receipt.owner_component} does not own counter ${entry.counter}`);
     if (record.tombstone.denominator_basis.startsWith("pipeline-") && receipt.owner_component !== record.producer.component) errors.push("pipeline denominator tombstone membership remains owned by its accounting producer");
     if (entry.disposition !== "idempotent-membership-preserved") errors.push("counter audit requires idempotent membership preservation");
-    const key = `${receipt.owner_component}|${entry.counter}|${entry.period_utc}|${receipt.membership_key}`;
+    const key = `${receipt.owner_component}|${entry.counter}|${entry.period_utc}|${receipt.membership_key_digest.digest}`;
     if (counterPeriods.has(key)) errors.push(`duplicate counter audit key ${key}`);
     counterPeriods.add(key);
-    const membershipPayload = { owner_component: receipt.owner_component, counter: entry.counter, period_utc: entry.period_utc, membership_key: receipt.membership_key };
-    if (receipt.membership_key_digest.version !== "denominator-membership-key-jcs-v1" || receipt.membership_key_digest.digest !== digestCanonical(membershipPayload)) errors.push(`counter ${entry.counter} membership key digest is not reproducible`);
+    const evidence = trustedEvidence.get(receipt.membership_token.evidence_id);
+    const membershipPayload = evidence?.payload;
+    if (!validateTrustedEvidence(receipt.membership_token, "denominator-membership", errors, undefined, `counter ${entry.counter} membership token`)
+      || receipt.membership_token.issuer !== receipt.owner_component
+      || membershipPayload?.owner_component !== receipt.owner_component
+      || membershipPayload?.counter !== entry.counter
+      || membershipPayload?.period_utc !== entry.period_utc
+      || membershipPayload?.superseded_record_id !== record.tombstone.superseded_record_id
+      || canonical(membershipPayload?.denominator_natural_key_digest) !== canonical(receipt.membership_key_digest)
+      || Date.parse(membershipPayload?.issued_at) > Date.parse(protocol.requested_at)) errors.push(`counter ${entry.counter} membership token does not bind owner, natural key, occurrence month, and superseded record`);
+    if (receipt.membership_key_digest.version !== "denominator-natural-key-jcs-v1") errors.push(`counter ${entry.counter} does not retain the exact denominator natural-key digest`);
     if ((receipt.outcome === "inserted" && receipt.delta !== 1) || (receipt.outcome === "already-present" && receipt.delta !== 0)) errors.push(`counter ${entry.counter} membership outcome and delta are incoherent`);
     if (Date.parse(receipt.confirmed_at) < Date.parse(protocol.requested_at)
       || Date.parse(receipt.confirmed_at) > Date.parse(record.tombstone.effective_at)) errors.push(`counter ${entry.counter} membership was not confirmed before effective removal`);
@@ -551,6 +718,7 @@ function validatePipelineAccounting(record) {
   const retryKnown = !isUnknown(event.retry);
   const denominatorKnown = !isUnknown(event.denominator);
   const aggregateKnown = !isUnknown(event.aggregate_close);
+  const evaluationBundleKnown = !isUnknown(event.evaluation_bundle);
   const relatedKnown = !isUnknown(event.related_record);
   const deliveryOrdinalKnown = !isUnknown(event.delivery_ordinal);
   if (event.event_type === "denominator-decision") {
@@ -576,21 +744,36 @@ function validatePipelineAccounting(record) {
         if (!allowed.has(event.failure_code)) errors.push(`${event.stage} exclusion requires its closed boundary code`);
       }
       if (event.disposition === "failed" && !operationalFailureCodes.has(event.failure_code)) errors.push("failed denominator event requires an operational omission/failure code");
+      if (event.stage === "evaluation" && event.disposition === "admitted" && !evaluationBundleKnown) errors.push("evaluation admission requires a complete joined evidence bundle");
+      if (!(event.stage === "evaluation" && event.disposition === "admitted") && evaluationBundleKnown) errors.push("only admitted evaluation decisions may carry an evaluation bundle");
+      const boundaryKnown = !isUnknown(event.denominator.boundary_evidence);
+      if (["synthetic-test", "pre-v1-migration"].includes(event.failure_code)) {
+        if (!boundaryKnown) errors.push(`${event.failure_code} exclusion requires trusted pre-occurrence boundary evidence`);
+        else {
+          const boundary = event.denominator.boundary_evidence;
+          const expectedKind = event.failure_code === "synthetic-test" ? "synthetic-declaration" : "compatibility-window";
+          const payload = { owner_component: event.owner_component, task_link: event.task_link, failure_code: event.failure_code, kind: boundary.kind, declared_at: boundary.declared_at, valid_from: boundary.valid_from, valid_through: boundary.valid_through };
+          if (boundary.kind !== expectedKind || !validateTrustedEvidence(boundary.proof, "accounting-boundary", errors, payload, `${event.failure_code} boundary`)
+            || Date.parse(boundary.declared_at) > Date.parse(event.denominator.occurrence_at)
+            || Date.parse(boundary.valid_from) > Date.parse(event.denominator.occurrence_at)
+            || Date.parse(event.denominator.occurrence_at) > Date.parse(boundary.valid_through)) errors.push(`${event.failure_code} evidence was not declared by the owner before occurrence inside its trusted window`);
+        }
+      } else if (boundaryKnown) errors.push("ordinary denominator decisions cannot carry exclusion boundary evidence");
     }
   } else if (["request-retry", "record-delivery-retry"].includes(event.event_type)) {
     const expectedKind = event.event_type === "request-retry" ? "request-transport" : "record-delivery";
-    if (!retryKnown || event.retry.kind !== expectedKind || event.stage !== expectedKind || event.disposition !== "retry" || denominatorKnown || aggregateKnown) errors.push("retry accounting event has incoherent immutable retry fields");
+    if (!retryKnown || event.retry.kind !== expectedKind || event.stage !== expectedKind || event.disposition !== "retry" || denominatorKnown || aggregateKnown || evaluationBundleKnown) errors.push("retry accounting event has incoherent immutable retry fields");
     if (event.retry.ordinal < 2) errors.push("retry ordinal must start at two");
     if (event.event_type === "request-retry" && (event.owner_component !== "hugin" || event.task_link.origin_component !== "hugin" || relatedKnown || event.related_record.unknown_reason !== "not-applicable" || deliveryOrdinalKnown || event.failure_code !== "transport-error")) errors.push("request retry requires Hugin request linkage, transport-error, and no related record or delivery ordinal");
     if (event.event_type === "record-delivery-retry" && (!relatedKnown || !deliveryOrdinalKnown || event.delivery_ordinal !== event.retry.ordinal || event.failure_code !== "record-delivery-failed")) errors.push("delivery retry requires a known record, matching delivery ordinal, and record-delivery-failed");
   } else if (event.event_type === "record-emission") {
-    if (retryKnown || denominatorKnown || aggregateKnown || !deliveryOrdinalKnown || event.stage !== "record-delivery" || !["succeeded", "failed"].includes(event.disposition)) errors.push("record emission accounting event has incoherent fields");
+    if (retryKnown || denominatorKnown || aggregateKnown || evaluationBundleKnown || !deliveryOrdinalKnown || event.stage !== "record-delivery" || !["succeeded", "failed"].includes(event.disposition)) errors.push("record emission accounting event has incoherent fields");
     if (!relatedKnown) errors.push("successful emission must bind its immutable record identity");
     if (relatedKnown && event.owner_component !== event.related_record.producer) errors.push("record delivery accounting must be owned by the related record producer");
     if (event.disposition === "succeeded" && event.failure_code !== "not-applicable") errors.push("successful emission must bind its immutable record identity without a failure code");
     if (event.disposition === "failed" && !["record-delivery-failed", "schema-rejected", "consumer-error"].includes(event.failure_code)) errors.push("failed emission requires a delivery/schema/consumer failure code");
   } else if (event.event_type === "aggregate-close") {
-    if (!aggregateKnown || retryKnown || denominatorKnown || deliveryOrdinalKnown || event.stage !== "aggregate" || event.disposition !== "succeeded" || event.failure_code !== "not-applicable") errors.push("aggregate close has incoherent immutable fields");
+    if (!aggregateKnown || retryKnown || denominatorKnown || evaluationBundleKnown || deliveryOrdinalKnown || event.stage !== "aggregate" || event.disposition !== "succeeded" || event.failure_code !== "not-applicable") errors.push("aggregate close has incoherent immutable fields");
     else {
       const close = event.aggregate_close;
       if (counterOwners[close.counter] !== event.owner_component) errors.push("aggregate close owner does not own counter");
@@ -600,6 +783,9 @@ function validatePipelineAccounting(record) {
       if (Date.parse(close.included_through) < nextMonthBoundary) errors.push("aggregate close included_through must reach the next UTC month boundary");
       if (nextMonthBoundary > Date.parse(close.closed_at)) errors.push("aggregate close cannot close an open occurrence month");
       if (record.lineage.correction_targets.length === 0 && Date.parse(close.closed_at) > nextMonthBoundary + 24 * 60 * 60 * 1000) errors.push("initial aggregate close exceeds the 24-hour close grace");
+      const proofKnown = !isUnknown(close.partition_proof);
+      if (close.verification_scope === "full-period-partition" && !proofKnown) errors.push("full-period aggregate close requires an authoritative partition proof");
+      if (close.verification_scope === "partial-dataset-deferred" && proofKnown) errors.push("partial aggregate close cannot claim an authoritative partition proof");
     }
   }
   if (event.event_type !== "aggregate-close" && (isUnknown(event.task_link.origin_component) || isUnknown(event.task_link.task_instance_id) || isUnknown(event.task_link.attempt_id))) errors.push("pipeline accounting event must retain origin, task, and attempt linkage even when no learning record exists");
@@ -647,6 +833,8 @@ function validateSemantics(record) {
     else sourceIdentities.set(claim.source_ref, identity);
   }
   validateReproducibilityRoles(record, errors);
+  const rawSource = sourceDocument(record.task.raw_input);
+  if (!rawSource || rawSource.origin_component !== record.task.origin_component || record.task.raw_fingerprint.digest !== digest(rawSource.text.trim())) errors.push("raw fingerprint does not equal trim-utf8-sha256-v1 over the exact pre-orchestration raw input source");
   validateReviewPair(record, errors);
   if (!isUnknown(record.review.reviewed_at) && Date.parse(record.review.reviewed_at) < Date.parse(record.task.source.accepted_at)) errors.push("review predates source acceptance");
   validateGovernance(record, errors);
@@ -677,6 +865,16 @@ function validateSemantics(record) {
       && Date.parse(c.relevant_task_at) <= Date.parse(c.through)
       && Date.parse(c.through) <= Date.parse(record.exposure.queried_at)
       && Date.parse(record.exposure.queried_at) <= Date.parse(record.recorded_at))) errors.push("negative coverage clocks are not ordered around source acceptance");
+    const evidence = trustedEvidence.get(record.exposure.attempt_proof.evidence_id);
+    const attemptPayload = evidence?.payload;
+    if (!validateTrustedEvidence(record.exposure.attempt_proof, "hugin-task-attempt", errors, undefined, "negative exposure attempt proof")
+      || record.exposure.attempt_proof.issuer !== "hugin"
+      || attemptPayload?.outcome_ref?.producer !== "hugin"
+      || attemptPayload?.outcome_ref?.record_kind !== "task-outcome"
+      || attemptPayload?.task_instance_id !== record.task.instance_id
+      || attemptPayload?.attempt_id !== record.exposure.task_attempt_id
+      || attemptPayload?.relevant_task_at !== c.relevant_task_at
+      || canonical(attemptPayload?.raw_fingerprint) !== canonical(record.task.raw_fingerprint)) errors.push("negative exposure is not bound to the immutable Hugin outcome/stamp/attempt");
   }
   if (record.capability) {
     const verifier = record.capability.verifier;
@@ -713,6 +911,21 @@ function validateSemantics(record) {
     const receipt = record.quality_receipt;
     if (receipt.task_id !== record.task.instance_id || receipt.reviewer.principal !== record.review.reviewer_principal_id || receipt.rated_at !== record.review.reviewed_at) errors.push("quality receipt native binding/reviewer does not match envelope");
     if (Date.parse(receipt.rated_at) < Date.parse(record.task.source.accepted_at) || Date.parse(receipt.rated_at) > Date.parse(record.recorded_at)) errors.push("quality receipt clock is outside source acceptance/record interval");
+    const nativeSource = sourceDocuments.get(receipt.native_receipt.artifact_digest.source_ref);
+    const expectedType = `quality-receipt-native-v${receipt.native_receipt.schema_version}`;
+    if (!nativeSource || nativeSource.source_type !== expectedType || receipt.native_receipt.artifact_digest.source_type !== expectedType) errors.push("quality projection does not bind a native receipt artifact matching its schema version");
+    else {
+      const native = nativeSource.document;
+      if (native.receiptId !== receipt.native_receipt.receipt_id || native.taskId !== receipt.task_id || native.rating !== receipt.rating || native.verificationOutcome !== receipt.disposition || digest(native.ratingReason) !== receipt.rating_reason_sha256 || native.ratedAt !== receipt.rated_at || canonical(native.reviewer) !== canonical(receipt.reviewer) || native.bindingAttestation !== receipt.binding_attestation || canonical(native.binding) !== canonical(normalizedNativeBinding(receipt.binding))) errors.push("normalized quality fields do not exactly project the immutable native receipt artifact");
+      if (receipt.native_receipt.schema_version === 1) {
+        if (Object.hasOwn(native, "attemptId") || Object.hasOwn(native, "rubric")) errors.push("native Hugin v1 receipt cannot claim attempt or rubric fields");
+        const semantic = { taskId: native.taskId, reviewerPrincipal: native.reviewer.principal, reviewerIndependence: native.reviewer.independence, rating: native.rating, ratingReason: native.ratingReason, verificationOutcome: native.verificationOutcome, retriesCount: native.retriesCount, bindingAttestation: native.bindingAttestation, binding: native.binding };
+        if (native.receiptId !== huginReceiptId(semantic)) errors.push("native Hugin v1 receipt id is not content-derived from its exact verdict");
+        if ((native.retriesCount ?? null) !== (Number.isInteger(receipt.retries_count) ? receipt.retries_count : null)) errors.push("normalized retry count fabricates an optional native v1 field");
+      } else if (native.attemptId !== receipt.attempt_id || canonical(native.rubric) !== canonical(receipt.rubric) || typeof native.correctsReceiptId !== "string" || native.correctsReceiptId === native.receiptId) errors.push("future native v2 correction does not bind attempt/rubric and a distinct predecessor receipt id");
+    }
+    const expectedGroup = { task_id: receipt.task_id, attempt_id: receipt.attempt_id, reviewer: receipt.reviewer, rubric: receipt.rubric, binding: receipt.binding };
+    if (receipt.correction_group_key.version !== "quality-correction-group-jcs-v1" || receipt.correction_group_key.digest !== digestCanonical(expectedGroup)) errors.push("quality correction group does not bind task/attempt/reviewer/rubric/result");
   }
   if (record.experiment_product_rating) {
     const rating = record.experiment_product_rating;
@@ -768,7 +981,7 @@ function supersessionErrors(group, label) {
       errors.push(`${label} correction target is missing or belongs to another natural key`);
       continue;
     }
-    if (byId.has(targetId) && Date.parse(record.recorded_at) < Date.parse(byId.get(targetId).recorded_at)) errors.push(`${label} correcting record cannot predate its predecessor`);
+    if (byId.has(targetId) && Date.parse(record.recorded_at) <= Date.parse(byId.get(targetId).recorded_at)) errors.push(`${label} correcting record must be strictly later than its predecessor`);
     parentById.set(record.record_id, targetId);
     childCount.set(targetId, childCount.get(targetId) + 1);
   }
@@ -821,6 +1034,7 @@ function aggregateNaturalKey(event) {
 }
 
 function correctionNaturalKey(record) {
+  if (record.record_kind === "quality-receipt") return `quality-correction|${canonical(record.quality_receipt.correction_group_key)}`;
   if (record.record_kind !== "pipeline-accounting") return conflictKey(record, schema["x-grimnir-conflict-keys"][record.record_kind]);
   const event = record.pipeline_accounting;
   if (event.event_type === "denominator-decision") return `denominator|${denominatorNaturalKey(event)}`;
@@ -848,6 +1062,53 @@ function aggregateDigestPayload(closeRecord, decisions) {
   };
 }
 
+function evidenceRef(record) {
+  return { producer: record.producer.component, record_kind: record.record_kind, record_id: record.record_id };
+}
+
+function evaluationBundlePayloads(outcome, exposure, capability, qualities, decisionAt) {
+  const qualitySummary = summarizeImmutable(qualities, "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0];
+  const sortedQualityIds = qualities.map((record) => record.quality_receipt.native_receipt.receipt_id).sort(compareUtf16CodeUnits);
+  return {
+    governance: { task_outcome: outcome.record_id, decision_at: decisionAt, policy_manifest: outcome.governance.policy_manifest, effective: outcome.governance.effective },
+    provenance: { task: outcome.task, execution: outcome.execution, transport: outcome.transport },
+    exposure: { record_id: exposure.record_id, exposure: exposure.exposure },
+    quality: { native_receipt_ids: sortedQualityIds, result: qualitySummary?.result ?? "unrated" },
+    lineage: { task_instance_id: outcome.task.instance_id, attempt_id: outcome.execution.attempt_id, task_outcome: outcome.record_id, exposure: exposure.record_id, capability_evidence: capability.record_id, quality_receipts: sortedQualityIds },
+  };
+}
+
+function validateEvaluationBundle(accountingRecord, records, errors) {
+  const event = accountingRecord.pipeline_accounting;
+  if (event.event_type !== "denominator-decision" || event.stage !== "evaluation" || event.disposition !== "admitted" || isUnknown(event.evaluation_bundle)) return;
+  const bundle = event.evaluation_bundle;
+  const byRef = (ref) => records.find((record) => record.lifecycle_state === "active" && record.producer.component === ref.producer && record.record_kind === ref.record_kind && record.record_id === ref.record_id);
+  const outcome = byRef(bundle.task_outcome);
+  const exposure = byRef(bundle.exposure);
+  const capability = byRef(bundle.capability_evidence);
+  const qualities = bundle.quality_receipts.map(byRef).filter(Boolean);
+  if (canonical(bundle.task_outcome) !== canonical(event.related_record) || bundle.task_outcome.record_kind !== "task-outcome" || bundle.exposure.record_kind !== "inference-exposure" || bundle.capability_evidence.record_kind !== "capability-evidence" || bundle.quality_receipts.some((ref) => ref.record_kind !== "quality-receipt")) errors.push("evaluation bundle references the wrong evidence kinds or candidate");
+  if (!outcome || !exposure || !capability || qualities.length !== bundle.quality_receipts.length) {
+    errors.push("evaluation bundle is not fully loaded and trusted");
+    return;
+  }
+  if (!governanceEligibleAt(outcome, bundle.decision_at) || !candidateProvenanceComplete(outcome)) errors.push("evaluation candidate lacks complete provenance/governance at decision time");
+  if (canonical(outcome.task) !== canonical(exposure.task) || canonical(outcome.execution) !== canonical(exposure.execution) || canonical(outcome.task) !== canonical(capability.task) || canonical(outcome.execution) !== canonical(capability.execution) || qualities.some((record) => record.quality_receipt.task_id !== outcome.task.instance_id || record.quality_receipt.attempt_id !== outcome.execution.attempt_id)) errors.push("evaluation bundle evidence does not join one exact task attempt");
+  if (capability.capability.admission_state !== "admissible" || capability.capability.verifier.independence !== "independent") errors.push("evaluation bundle verifier evidence is not independently admissible");
+  const summary = summarizeImmutable(qualities, "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0];
+  if ((summary && summary.result === "conflicted") || qualities.some((record) => record.quality_receipt.reviewer.independence !== "independent")) errors.push("evaluation bundle quality evidence is conflicted or non-independent");
+  const sameLineage = records.filter((record) => record.lifecycle_state === "active" && record.record_kind === "task-outcome" && record.task.instance_id === outcome.task.instance_id && record.execution.attempt_id === outcome.execution.attempt_id);
+  if (sameLineage.length !== 1) errors.push("evaluation bundle does not prove a unique task-outcome lineage");
+  const payloads = evaluationBundlePayloads(outcome, exposure, capability, qualities, bundle.decision_at);
+  for (const [field, payload, version] of [
+    ["governance_snapshot_digest", payloads.governance, "evaluation-governance-jcs-v1"],
+    ["complete_provenance_digest", payloads.provenance, "evaluation-provenance-jcs-v1"],
+    ["exposure_coverage_digest", payloads.exposure, "evaluation-exposure-jcs-v1"],
+    ["quality_consensus_digest", payloads.quality, "evaluation-quality-jcs-v1"],
+    ["unique_lineage_digest", payloads.lineage, "evaluation-lineage-jcs-v1"],
+  ]) if (bundle[field].version !== version || bundle[field].digest !== digestCanonical(payload)) errors.push(`evaluation bundle ${field} does not bind its exact joined evidence`);
+}
+
 function validateDataset(records) {
   const errors = [];
   for (const [index, record] of records.entries()) {
@@ -855,6 +1116,9 @@ function validateDataset(records) {
     errors.push(...schemaErrors.map((error) => `record ${index}: ${error}`));
     if (schemaErrors.length === 0) errors.push(...validateSemantics(record).map((error) => `record ${index}: ${error}`));
   }
+  if (errors.length > 0) return errors;
+
+  for (const record of records.filter((candidate) => candidate.lifecycle_state === "active" && candidate.record_kind === "pipeline-accounting")) validateEvaluationBundle(record, records, errors);
   if (errors.length > 0) return errors;
 
   errors.push(...joinedIdentityErrors(records));
@@ -900,6 +1164,14 @@ function validateDataset(records) {
       else errors.push(...supersessionErrors(group, `${name} key ${key}`));
     }
   }
+
+  const qualityCorrectionGroups = new Map();
+  for (const record of records.filter((candidate) => candidate.lifecycle_state === "active" && candidate.record_kind === "quality-receipt")) {
+    const key = canonical(record.quality_receipt.correction_group_key);
+    if (!qualityCorrectionGroups.has(key)) qualityCorrectionGroups.set(key, []);
+    qualityCorrectionGroups.get(key).push(record);
+  }
+  for (const [key, group] of qualityCorrectionGroups) if (group.length > 1) errors.push(...supersessionErrors(group, `quality correction group ${key}`));
 
   const accountingRecords = records.filter((record) => record.lifecycle_state === "active" && record.record_kind === "pipeline-accounting");
   const accountingNaturalGroups = new Map();
@@ -962,9 +1234,18 @@ function validateDataset(records) {
         && candidateEvent.denominator.occurrence_month_utc === close.period_utc;
     });
     if (close.verification_scope === "partial-dataset-deferred") {
-      if (constituents.length > 0) errors.push("partial aggregate verification must remain deferred when the full period partition is not loaded");
       continue;
     }
+    const proofEvidence = trustedEvidence.get(close.partition_proof.evidence_id);
+    const proof = proofEvidence?.payload;
+    const entries = constituents.map((candidate) => ({ natural_key: denominatorNaturalKey(candidate.pipeline_accounting), event_id: candidate.pipeline_accounting.event_id })).sort((left, right) => compareUtf16CodeUnits(left.natural_key, right.natural_key) || compareUtf16CodeUnits(left.event_id, right.event_id));
+    if (!validateTrustedEvidence(close.partition_proof, "ledger-partition", errors, undefined, "aggregate partition proof")
+      || proof?.owner_component !== event.owner_component
+      || proof?.counter !== close.counter
+      || proof?.period_utc !== close.period_utc
+      || proof?.included_through !== close.included_through
+      || typeof proof?.high_water_event_id !== "string"
+      || canonical(proof?.decisions) !== canonical(entries)) errors.push("full-period aggregate is not certified by an authoritative ledger partition/high-water proof");
     const payload = aggregateDigestPayload(closeRecord, constituents);
     if (close.event_count !== constituents.length) errors.push("aggregate close event_count does not match the loaded full period partition");
     if (close.immutable_event_set_digest.version !== "pipeline-event-set-jcs-v1" || close.immutable_event_set_digest.digest !== digestCanonical(payload)) errors.push("aggregate close digest does not bind its loaded full period partition");
@@ -1020,10 +1301,9 @@ function validateDataset(records) {
 }
 
 function summarizeImmutable(records, section, resultFields, bindingFields) {
-  const naturalIdField = section === "quality_receipt" ? "receipt_id" : "rating_id";
   const correctionGroups = new Map();
   for (const record of records) {
-    const key = record[section][naturalIdField];
+    const key = section === "quality_receipt" ? canonical(record.quality_receipt.correction_group_key) : record[section].rating_id;
     if (!correctionGroups.has(key)) correctionGroups.set(key, []);
     correctionGroups.get(key).push(record);
   }
@@ -1039,7 +1319,7 @@ function summarizeImmutable(records, section, resultFields, bindingFields) {
     const declared = values.map((value) => Object.fromEntries(resultFields.map((field) => [field, value[field]])));
     return {
       result: new Set(declared.map(canonical)).size === 1 ? declared[0] : "conflicted",
-      ids: values.map((value) => value.receipt_id ?? value.rating_id).sort(),
+      ids: values.map((value) => value.native_receipt?.receipt_id ?? value.rating_id).sort(),
     };
   });
 }
@@ -1055,7 +1335,18 @@ function mutate(record, mutation) {
 }
 
 assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
+assertSupportedSchemaKeywords(schema);
+assert.throws(() => assertSupportedSchemaKeywords({ type: ["string", "null"] }), /unsupported schema type array/, "unsupported type arrays cannot silently diverge from Draft validation");
+assert.throws(() => assertSupportedSchemaKeywords({ type: "string", format: "email" }), /unsupported schema format/, "unsupported formats cannot silently become no-ops");
+assert.throws(() => assertSupportedSchemaKeywords({ type: "object", additionalProperties: { type: "string" } }), /schema-valued additionalProperties is unsupported/, "schema-valued additionalProperties cannot be ignored");
+assert.throws(() => assertSupportedSchemaKeywords({ $ref: "#/$defs/nonEmptyString", minLength: 2 }), /validation siblings beside \$ref are unsupported/, "$ref validation siblings cannot be skipped by the early-return engine");
+assert.throws(() => assertSupportedSchemaKeywords({ oneOf: [{ type: "string" }], minLength: 2 }), /validation siblings beside oneOf are unsupported/, "oneOf validation siblings cannot be skipped by the early-return engine");
+assert.ok(validateNode(schema.$defs.timestamp, "2026-02-30T00:00:00Z").some((error) => error.includes("invalid RFC 3339 UTC date-time")), "calendar-normalized impossible dates fail exact timestamp validation");
 for (const vector of jcsConformanceVectors) assert.equal(canonical(vector.input), vector.expected, `${vector.name} must match RFC 8785 canonical bytes`);
+for (const vector of rawFingerprintVectors) {
+  assert.equal(vector.trimmed_utf8, vector.input_text.trim(), `${vector.name} records the exact ECMAScript String.trim result`);
+  assert.equal(digest(vector.input_text.trim()), vector.expected_sha256, `${vector.name} must reproduce trim-utf8-sha256-v1`);
+}
 assert.deepEqual(["ä-policy", "z-policy", "Å-policy"].sort(compareUtf16CodeUnits), ["z-policy", "Å-policy", "ä-policy"], "policy ordering uses deterministic UTF-16 code units rather than locale collation");
 assert.throws(() => canonical({ bad: "\ud800" }), /lone high surrogate/, "JCS source documents fail closed on non-I-JSON Unicode");
 assert.deepEqual(schema.oneOf.map((entry) => entry.$ref), [
@@ -1073,11 +1364,20 @@ for (const requiredOwnerGroup of ["/tombstone/**", "/transport/hugin_request_sta
   assert.equal(typeof ownerMap[requiredOwnerGroup], "string", `machine ownership map must cover ${requiredOwnerGroup}`);
 }
 assert.equal(sourceDocuments.size, sourceDocumentList.length, "source document refs must be unique");
+assert.equal(validationContext.schema_version, "learning-task-validation-context/v1");
+assert.equal(validationContext.fixture_only, true, "checked-in trust anchors are fixture-only, never production authority");
+assert.equal(trustedEvidence.size, validationContext.trusted_evidence.length, "trusted validation evidence ids must be unique");
+for (const evidence of validationContext.trusted_evidence) {
+  assert.ok(["owner-authority", "hugin-task-attempt", "denominator-membership", "accounting-boundary", "ledger-partition"].includes(evidence.kind), `unknown trusted evidence kind ${evidence.kind}`);
+  assert.equal(evidence.payload_digest.digest, digestCanonical(evidence.payload), `trusted evidence ${evidence.evidence_id} payload digest must verify`);
+}
 for (const source of sourceDocumentList) {
   assert.match(source.source_ref, /^source-doc:[a-z0-9][a-z0-9._/-]*$/);
   assert.equal(typeof source.source_version, "string");
   assert.ok(sourceDocumentRequiredKeys[source.source_type], `source document ${source.source_ref} has an unknown type`);
 }
+assert.equal(sourceDocumentList.some((source) => canonical(source).toLowerCase().includes("mellum")), false, "fixture positives must not masquerade as current Mellum serving truth");
+assert.equal(sourceDocumentList.filter((source) => ["artifact-manifest", "effective-runtime-config", "effective-sampling-post-default-post-clamp"].includes(source.source_type)).every((source) => source.document.fixture_only === true && source.document.model_id === "fixture-model-v1"), true, "all admissible serving fixtures are explicitly synthetic");
 
 const positiveErrors = validateDataset(positive);
 assert.deepEqual(positiveErrors, [], `positive fixtures must validate:\n${positiveErrors.join("\n")}`);
@@ -1101,6 +1401,43 @@ assert.ok(validateDataset([wrongConfigRole]).some((error) => error.includes("ori
 const wrongPromptStage = structuredClone(positive[0]);
 wrongPromptStage.execution.prompt_identity.hugin_envelope = structuredClone(positive[0].execution.prompt_identity.gateway_canonical_envelope);
 assert.ok(validateDataset([wrongPromptStage]).some((error) => error.includes("Hugin envelope source document must identify stage hugin-envelope")), "prompt-stage source documents cannot move between adjacent prompt stages");
+const lifecycleFixture = positive[0];
+assert.ok(Date.parse(lifecycleFixture.execution.started_at) <= Date.parse(lifecycleFixture.transport.hugin_request_stamp.stamped_at)
+  && Date.parse(lifecycleFixture.transport.hugin_request_stamp.stamped_at) <= Date.parse(lifecycleFixture.transport.gateway_echo.admitted_at)
+  && Date.parse(lifecycleFixture.transport.gateway_echo.admitted_at) <= Date.parse(lifecycleFixture.execution.model_started_at), "joined lifecycle is attempt-start <= request-stamp <= gateway-admission <= model-start");
+assert.ok(Date.parse(lifecycleFixture.transport.hugin_request_stamp.preflight.response.advertised_at) < Date.parse(lifecycleFixture.execution.started_at), "a cached authenticated preflight may truthfully predate the attempt");
+const preAttemptStamp = structuredClone(lifecycleFixture);
+preAttemptStamp.transport.hugin_request_stamp.stamped_at = "2026-07-19T10:00:00.999Z";
+preAttemptStamp.transport.gateway_echo.echoed_request = structuredClone(preAttemptStamp.transport.hugin_request_stamp);
+preAttemptStamp.transport.gateway_echo.principal_binding_digest.digest = digestCanonical({ authenticated_principal_id: preAttemptStamp.transport.gateway_echo.authenticated_principal_id, request_stamp: preAttemptStamp.transport.hugin_request_stamp });
+assert.ok(validateDataset([preAttemptStamp]).some((error) => error.includes("request stamp precedes attempt start")), "a request stamp cannot be backdated before its Hugin execution attempt");
+const subMillisecondReversal = structuredClone(lifecycleFixture);
+subMillisecondReversal.execution.started_at = "2026-07-19T10:00:01.0002Z";
+subMillisecondReversal.transport.hugin_request_stamp.stamped_at = "2026-07-19T10:00:01.0001Z";
+assert.ok(validateDataset([subMillisecondReversal]).some((error) => error.includes("does not match") || error.includes("invalid RFC 3339")), "sub-millisecond reversed clocks fail closed because v1 permits only 0-3 fractional digits");
+const wrongRawBytes = structuredClone(lifecycleFixture);
+wrongRawBytes.task.raw_fingerprint.digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+wrongRawBytes.transport.hugin_request_stamp.raw_fingerprint = structuredClone(wrongRawBytes.task.raw_fingerprint);
+wrongRawBytes.transport.gateway_echo.echoed_request = structuredClone(wrongRawBytes.transport.hugin_request_stamp);
+wrongRawBytes.transport.gateway_echo.principal_binding_digest.digest = digestCanonical({ authenticated_principal_id: wrongRawBytes.transport.gateway_echo.authenticated_principal_id, request_stamp: wrongRawBytes.transport.hugin_request_stamp });
+assert.ok(validateDataset([wrongRawBytes]).some((error) => error.includes("exact pre-orchestration raw input source")), "raw fingerprint is recomputed from the typed exact user/logical input, not trusted as a label");
+const promptClaimOnly = structuredClone(lifecycleFixture);
+const promptRef = promptClaimOnly.execution.prompt_identity.hugin_envelope.source_ref;
+const savedPromptSource = sourceDocuments.get(promptRef);
+const labelOnlySource = { ...structuredClone(savedPromptSource), document: { schema_version: "prompt-stage/v2", stage: "hugin-envelope", fixture_only: true, encoding: "utf-8", input_source_refs: savedPromptSource.document.input_source_refs, task_binding: lifecycleFixture.task.instance_id } };
+sourceDocuments.set(promptRef, labelOnlySource);
+const labelOnlyDigest = digestCanonical(labelOnlySource.document);
+for (const claimValue of sourceDocumentClaims(promptClaimOnly)) if (claimValue.source_ref === promptRef) claimValue.digest = labelOnlyDigest;
+promptClaimOnly.transport.gateway_echo.echoed_request = structuredClone(promptClaimOnly.transport.hugin_request_stamp);
+promptClaimOnly.transport.gateway_echo.principal_binding_digest.digest = digestCanonical({ authenticated_principal_id: promptClaimOnly.transport.gateway_echo.authenticated_principal_id, request_stamp: promptClaimOnly.transport.hugin_request_stamp });
+assert.ok(validateDataset([promptClaimOnly]).some((error) => error.includes("typed prompt-stage shape") || error.includes("exact ordered UTF-8 bytes")), "prompt aliases and stage labels alone cannot establish prompt provenance");
+sourceDocuments.set(promptRef, savedPromptSource);
+const mismatchedConfigWrapper = structuredClone(lifecycleFixture);
+mismatchedConfigWrapper.execution.origin_config.prompt.id = "unbound-alias";
+mismatchedConfigWrapper.transport.hugin_request_stamp.origin_config = structuredClone(mismatchedConfigWrapper.execution.origin_config);
+mismatchedConfigWrapper.transport.gateway_echo.echoed_request = structuredClone(mismatchedConfigWrapper.transport.hugin_request_stamp);
+mismatchedConfigWrapper.transport.gateway_echo.principal_binding_digest.digest = digestCanonical({ authenticated_principal_id: mismatchedConfigWrapper.transport.gateway_echo.authenticated_principal_id, request_stamp: mismatchedConfigWrapper.transport.hugin_request_stamp });
+assert.ok(validateDataset([mismatchedConfigWrapper]).some((error) => error.includes("component/kind/id/version wrapper")), "config labels cannot drift from their typed source-document component/kind/id/version");
 assert.equal(governanceEligibleAt(positive[0], nonM5Fixture.evaluationClock.post_expiry_at), false, "read-time expiry is checked against an explicit fixture clock");
 const noExpiryPolicy = structuredClone(positive[0]);
 for (const policy of noExpiryPolicy.governance.policies) policy.retention.expires_at = { value: null, unknown_reason: "not-applicable" };
@@ -1139,6 +1476,12 @@ sourceDocuments.set(mixedExpiryManifestRef, savedMixedExpiryManifest);
 const legacyUnknownPrincipal = structuredClone(positive[5]);
 legacyUnknownPrincipal.task.source.principal = { value: null, unknown_reason: "legacy" };
 assert.deepEqual(validateDataset([legacyUnknownPrincipal]), [], "qualified legacy source principal is policy-unavailable and evaluation-ineligible, not fabricated");
+const crossAttemptNegativeExposure = structuredClone(positive[5]);
+crossAttemptNegativeExposure.exposure.task_attempt_id = "candidate-attempt-other";
+assert.ok(validateDataset([crossAttemptNegativeExposure]).some((error) => error.includes("immutable Hugin outcome/stamp/attempt")), "negative M5 coverage cannot be attached to another Hugin attempt");
+const shiftedRelevantTask = structuredClone(positive[5]);
+shiftedRelevantTask.exposure.coverage.relevant_task_at = "2026-07-19T12:00:02Z";
+assert.ok(validateDataset([shiftedRelevantTask]).some((error) => error.includes("immutable Hugin outcome/stamp/attempt")), "negative coverage relevant_task_at is fixed by the trusted attempt proof");
 assert.deepEqual(new Set(positive.map((record) => record.record_kind)), new Set(["task-outcome", "inference-exposure", "capability-evidence", "experiment-observation", "quality-receipt", "experiment-product-rating", "pipeline-accounting"]));
 assert.equal(positive.some((record) => record.task?.origin_component === "gille-inference"), true, "positive fixtures must cover direct gateway origin");
 const serviceSource = positive.find((record) => record.task?.source.principal?.scope === "service");
@@ -1148,9 +1491,42 @@ assert.equal(serviceSource.governance.policy_manifest.owner_attestations.some((a
 const mismatchedOwnerAuthority = structuredClone(serviceSource);
 mismatchedOwnerAuthority.task.source.content_owner.authority = "delegated-owner";
 assert.ok(validateDataset([mismatchedOwnerAuthority]).some((error) => error.includes("source content-owner authority must match its verified owner-attestation mode")), "declared content-owner authority must match the verified attestation mode");
+function replaceString(value, from, to) {
+  if (Array.isArray(value)) return value.map((item) => replaceString(item, from, to));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, replaceString(child, from, to)]));
+  return value === from ? to : value;
+}
+const forgedOwner = replaceString(structuredClone(positive[0]), "principal:owner", "principal:forged");
+const forgedAttestation = forgedOwner.governance.policy_manifest.owner_attestations[0];
+const forgedPayload = { content_owner: forgedAttestation.content_owner, authenticated_principal: forgedAttestation.authenticated_principal, authentication: forgedAttestation.authentication, delegation: forgedAttestation.delegation };
+forgedAttestation.authority_evidence.payload_digest.digest = digestCanonical(forgedPayload);
+const forgedManifestRef = "source-doc:governance/forged-owner";
+const oldForgedManifestRef = forgedOwner.governance.policy_manifest.digest.source_ref;
+forgedOwner.governance.policy_manifest.digest.source_ref = forgedManifestRef;
+forgedOwner.governance.policies.find((policy) => policy.subject_ref === oldForgedManifestRef).subject_ref = forgedManifestRef;
+forgedOwner.governance.effective.derived_from_subject_refs = forgedOwner.governance.effective.derived_from_subject_refs.map((ref) => ref === oldForgedManifestRef ? forgedManifestRef : ref).sort(compareUtf16CodeUnits);
+const forgedManifestDocument = { schema_version: "governance-policy-manifest/v1", contract: { contract_version: forgedOwner.contract_version, schema_revision: forgedOwner.schema_revision }, manifest: { manifest_id: forgedOwner.governance.policy_manifest.manifest_id, version: forgedOwner.governance.policy_manifest.version, approved_at: forgedOwner.governance.policy_manifest.approved_at, owner_attestations: forgedOwner.governance.policy_manifest.owner_attestations }, record_binding: { record_kind: forgedOwner.record_kind, producer: forgedOwner.producer.component, task: forgedOwner.task }, policies: [...forgedOwner.governance.policies].sort((a, b) => compareUtf16CodeUnits(a.subject_ref, b.subject_ref)) };
+sourceDocuments.set(forgedManifestRef, { source_ref: forgedManifestRef, source_type: "governance-policy-manifest", source_version: "governance-policy-manifest-v1", document: forgedManifestDocument });
+forgedOwner.governance.policy_manifest.digest.digest = digestCanonical(forgedManifestDocument);
+assert.ok(validateDataset([forgedOwner]).some((error) => error.includes("absent from the trusted validation context")), "forged owner strings and a recomputed producer manifest digest do not authenticate authority");
+sourceDocuments.delete(forgedManifestRef);
 const inconsistentSourceClaim = structuredClone(positive[0]);
 inconsistentSourceClaim.transport.hugin_request_stamp.hugin_envelope.digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 assert.ok(validateDataset([inconsistentSourceClaim]).some((error) => error.includes("inconsistent immutable source document claim")), "repeated source refs cannot overwrite inconsistent digest claims");
+const notApplicable = () => ({ value: null, unknown_reason: "not-applicable" });
+let dynamicEvidenceOrdinal = 0;
+function addTrustedFixtureEvidence(kind, issuer, payload) {
+  dynamicEvidenceOrdinal += 1;
+  const evidence = { evidence_id: `dynamic-fixture-evidence-${dynamicEvidenceOrdinal}`, kind, issuer, payload_digest: { algorithm: "sha256", version: "trusted-evidence-payload-jcs-v1", digest: digestCanonical(payload) }, payload };
+  trustedEvidence.set(evidence.evidence_id, evidence);
+  return { validation_context_id: validationContext.context_id, evidence_id: evidence.evidence_id, issuer, payload_digest: structuredClone(evidence.payload_digest) };
+}
+function boundaryEvidence(event, failureCode) {
+  const kind = failureCode === "synthetic-test" ? "synthetic-declaration" : "compatibility-window";
+  const boundary = { kind, declared_at: "2026-06-30T00:00:00Z", valid_from: "2026-07-01T00:00:00Z", valid_through: "2026-07-31T23:59:59.999Z" };
+  const payload = { owner_component: event.owner_component, task_link: event.task_link, failure_code: failureCode, kind, declared_at: boundary.declared_at, valid_from: boundary.valid_from, valid_through: boundary.valid_through };
+  return { ...boundary, proof: addTrustedFixtureEvidence("accounting-boundary", event.owner_component, payload) };
+}
 const accountingSeed = positive.find((record) => record.record_kind === "pipeline-accounting" && record.pipeline_accounting.event_type === "denominator-decision");
 const accountingPositiveCases = [];
 for (const failureCode of ["producer-error", "consumer-error", "schema-rejected", "join-mismatch", "late-over-24h", "policy-unavailable", "transport-auth-failed", "gateway-not-admitted", "transport-error"]) {
@@ -1164,7 +1540,7 @@ for (const failureCode of ["candidate-governance-denied", "candidate-erased-or-e
   record.pipeline_accounting.disposition = "excluded";
   record.pipeline_accounting.failure_code = failureCode;
   record.pipeline_accounting.related_record = { producer: "hugin", record_kind: "task-outcome", record_id: positive[0].record_id };
-  record.pipeline_accounting.denominator = { counter: "evaluation-candidate-denominator", occurrence_at: "2026-07-19T10:00:04Z", occurrence_month_utc: "2026-07", decision: "excluded" };
+  record.pipeline_accounting.denominator = { counter: "evaluation-candidate-denominator", occurrence_at: "2026-07-19T10:00:04Z", occurrence_month_utc: "2026-07", decision: "excluded", boundary_evidence: notApplicable() };
   accountingPositiveCases.push(record);
 }
 const captureAdmitted = structuredClone(accountingSeed);
@@ -1172,7 +1548,7 @@ captureAdmitted.pipeline_accounting.stage = "capture";
 captureAdmitted.pipeline_accounting.disposition = "admitted";
 captureAdmitted.pipeline_accounting.failure_code = "not-applicable";
 captureAdmitted.pipeline_accounting.related_record = { producer: "hugin", record_kind: "task-outcome", record_id: positive[0].record_id };
-captureAdmitted.pipeline_accounting.denominator = { counter: "hugin-capture-denominator", occurrence_at: "2026-07-19T10:00:01Z", occurrence_month_utc: "2026-07", decision: "admitted" };
+captureAdmitted.pipeline_accounting.denominator = { counter: "hugin-capture-denominator", occurrence_at: "2026-07-19T10:00:01Z", occurrence_month_utc: "2026-07", decision: "admitted", boundary_evidence: notApplicable() };
 accountingPositiveCases.push(captureAdmitted);
 const directFailure = structuredClone(accountingSeed);
 directFailure.producer.component = "gille-inference";
@@ -1180,7 +1556,7 @@ directFailure.pipeline_accounting.owner_component = "gille-inference";
 directFailure.pipeline_accounting.stage = "direct-exposure";
 directFailure.pipeline_accounting.failure_code = "transport-error";
 directFailure.pipeline_accounting.task_link.origin_component = "gille-inference";
-directFailure.pipeline_accounting.denominator = { counter: "direct-m5-exposure-denominator", occurrence_at: "2026-07-19T10:00:01Z", occurrence_month_utc: "2026-07", decision: "failed" };
+directFailure.pipeline_accounting.denominator = { counter: "direct-m5-exposure-denominator", occurrence_at: "2026-07-19T10:00:01Z", occurrence_month_utc: "2026-07", decision: "failed", boundary_evidence: notApplicable() };
 directFailure.extensions = { "gille-inference": {} };
 accountingPositiveCases.push(directFailure);
 for (const [stage, failureCode, counter, owner, origin] of [
@@ -1203,11 +1579,21 @@ for (const [stage, failureCode, counter, owner, origin] of [
     record.pipeline_accounting.task_link.request_id = { value: null, unknown_reason: "not-applicable" };
     record.pipeline_accounting.task_link.idempotency_key = { value: null, unknown_reason: "not-applicable" };
   }
-  record.pipeline_accounting.denominator = { counter, occurrence_at: "2026-07-19T10:00:01Z", occurrence_month_utc: "2026-07", decision: "excluded" };
+  record.pipeline_accounting.denominator = { counter, occurrence_at: "2026-07-19T10:00:01Z", occurrence_month_utc: "2026-07", decision: "excluded", boundary_evidence: notApplicable() };
+  if (["synthetic-test", "pre-v1-migration"].includes(failureCode)) record.pipeline_accounting.denominator.boundary_evidence = boundaryEvidence(record.pipeline_accounting, failureCode);
   record.extensions = { [owner]: {} };
   accountingPositiveCases.push(record);
 }
 for (const record of accountingPositiveCases) assert.deepEqual(validateDataset([record]), [], `pipeline accounting must represent ${record.pipeline_accounting.failure_code}`);
+const lateSyntheticDeclaration = structuredClone(accountingPositiveCases.find((record) => record.pipeline_accounting.failure_code === "synthetic-test"));
+lateSyntheticDeclaration.pipeline_accounting.denominator.boundary_evidence.declared_at = "2026-07-19T10:00:02Z";
+assert.ok(validateDataset([lateSyntheticDeclaration]).some((error) => error.includes("not declared by the owner before occurrence")), "synthetic-test exclusion cannot be declared after occurrence/dispatch");
+const outsideCompatibilityWindow = structuredClone(accountingPositiveCases.find((record) => record.pipeline_accounting.failure_code === "pre-v1-migration"));
+outsideCompatibilityWindow.pipeline_accounting.denominator.occurrence_at = "2026-08-01T00:00:00Z";
+outsideCompatibilityWindow.pipeline_accounting.denominator.occurrence_month_utc = "2026-08";
+outsideCompatibilityWindow.pipeline_accounting.observed_at = "2026-08-01T00:00:01Z";
+outsideCompatibilityWindow.recorded_at = "2026-08-01T00:00:02Z";
+assert.ok(validateDataset([outsideCompatibilityWindow]).some((error) => error.includes("inside its trusted window")), "pre-v1-migration exclusion requires occurrence inside the predeclared compatibility window");
 const notM5BoundaryDecision = accountingPositiveCases.find((record) => record.pipeline_accounting.failure_code === "not-m5-routed");
 assert.deepEqual(validateDataset([nonM5Fixture.record, notM5BoundaryDecision]), [], "not-m5-routed is a truthful join exclusion with no dispatched request identity");
 assert.ok(validateDataset([positive[0], notM5BoundaryDecision]).includes("not-m5-routed join exclusion does not match the authoritative macro route"), "not-m5-routed cannot contradict an M5 macro route");
@@ -1309,7 +1695,8 @@ aggregateClose.pipeline_accounting = {
   delivery_ordinal: { value: null, unknown_reason: "not-applicable" },
   retry: { value: null, unknown_reason: "not-applicable" },
   denominator: { value: null, unknown_reason: "not-applicable" },
-  aggregate_close: { counter: "hugin-m5-join-denominator", period_utc: "2026-06", included_through: "2026-07-01T00:00:00Z", event_count: 42, immutable_event_set_digest: { algorithm: "sha256", version: "pipeline-event-set-jcs-v1", digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, verification_scope: "partial-dataset-deferred", closed_at: "2026-07-01T00:00:01Z" },
+  evaluation_bundle: { value: null, unknown_reason: "not-applicable" },
+  aggregate_close: { counter: "hugin-m5-join-denominator", period_utc: "2026-06", included_through: "2026-07-01T00:00:00Z", event_count: 42, immutable_event_set_digest: { algorithm: "sha256", version: "pipeline-event-set-jcs-v1", digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, verification_scope: "partial-dataset-deferred", partition_proof: { value: null, unknown_reason: "not-applicable" }, closed_at: "2026-07-01T00:00:01Z" },
 };
 assert.deepEqual(validateDataset([aggregateClose]), [], "closed-period aggregates are immutable snapshots over event sets");
 const correctedDenominator = structuredClone(accountingSeed);
@@ -1345,10 +1732,31 @@ verifiedAggregateClose.pipeline_accounting.aggregate_close = {
   event_count: 1,
   immutable_event_set_digest: { algorithm: "sha256", version: "pipeline-event-set-jcs-v1", digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
   verification_scope: "full-period-partition",
+  partition_proof: { value: null, unknown_reason: "not-applicable" },
   closed_at: "2026-08-01T00:00:01Z",
 };
 verifiedAggregateClose.pipeline_accounting.aggregate_close.immutable_event_set_digest.digest = digestCanonical(aggregateDigestPayload(verifiedAggregateClose, [correctedDenominator]));
+function installPartitionProof(closeRecord, decisions) {
+  const close = closeRecord.pipeline_accounting.aggregate_close;
+  const entries = decisions.map((candidate) => ({ natural_key: denominatorNaturalKey(candidate.pipeline_accounting), event_id: candidate.pipeline_accounting.event_id })).sort((left, right) => compareUtf16CodeUnits(left.natural_key, right.natural_key) || compareUtf16CodeUnits(left.event_id, right.event_id));
+  close.partition_proof = addTrustedFixtureEvidence("ledger-partition", closeRecord.pipeline_accounting.owner_component, { partition_id: `fixture:${close.counter}:${close.period_utc}:${close.closed_at}`, owner_component: closeRecord.pipeline_accounting.owner_component, counter: close.counter, period_utc: close.period_utc, included_through: close.included_through, high_water_event_id: entries.at(-1)?.event_id ?? "certified-empty-at-boundary", decisions: entries });
+}
+installPartitionProof(verifiedAggregateClose, [correctedDenominator]);
 assert.deepEqual(validateDataset([accountingSeed, correctedDenominator, verifiedAggregateClose]), [], "full aggregate close hashes only the unique effective denominator leaf");
+assert.ok(validateDataset([verifiedAggregateClose]).some((error) => error.includes("authoritative ledger partition/high-water proof")), "an empty loaded set cannot satisfy a trusted proof that contains a denominator decision");
+const certifiedZeroAggregate = structuredClone(verifiedAggregateClose);
+certifiedZeroAggregate.record_id = "opaque:70707070-7070-4070-8070-707070707070";
+certifiedZeroAggregate.pipeline_accounting.event_id = "opaque:71717171-7171-4171-8171-717171717171";
+certifiedZeroAggregate.pipeline_accounting.aggregate_close.event_count = 0;
+certifiedZeroAggregate.pipeline_accounting.aggregate_close.immutable_event_set_digest.digest = digestCanonical(aggregateDigestPayload(certifiedZeroAggregate, []));
+installPartitionProof(certifiedZeroAggregate, []);
+assert.deepEqual(validateDataset([certifiedZeroAggregate]), [], "a trusted authoritative high-water proof can certify a legitimately zero-event month");
+const untrustedZeroAggregate = structuredClone(certifiedZeroAggregate);
+untrustedZeroAggregate.pipeline_accounting.aggregate_close.partition_proof.evidence_id = "producer-self-asserted-empty-partition";
+assert.ok(validateDataset([untrustedZeroAggregate]).some((error) => error.includes("authoritative ledger partition/high-water proof")), "a self-asserted empty partition cannot certify a zero-event month");
+const selfAssertedAggregate = structuredClone(verifiedAggregateClose);
+selfAssertedAggregate.pipeline_accounting.aggregate_close.partition_proof.evidence_id = "producer-self-asserted-partition";
+assert.ok(validateDataset([accountingSeed, correctedDenominator, selfAssertedAggregate]).some((error) => error.includes("authoritative ledger partition/high-water proof")), "a producer-authored full-period label is not an authoritative ledger partition proof");
 const wrongAggregateCount = structuredClone(verifiedAggregateClose);
 wrongAggregateCount.pipeline_accounting.aggregate_close.event_count = 2;
 assert.ok(validateDataset([accountingSeed, correctedDenominator, wrongAggregateCount]).includes("aggregate close event_count does not match the loaded full period partition"), "aggregate event count is mechanically verified");
@@ -1357,7 +1765,8 @@ wrongAggregateDigest.pipeline_accounting.aggregate_close.immutable_event_set_dig
 assert.ok(validateDataset([accountingSeed, correctedDenominator, wrongAggregateDigest]).includes("aggregate close digest does not bind its loaded full period partition"), "aggregate event-set digest is mechanically verified");
 const deferredWithConstituents = structuredClone(verifiedAggregateClose);
 deferredWithConstituents.pipeline_accounting.aggregate_close.verification_scope = "partial-dataset-deferred";
-assert.ok(validateDataset([accountingSeed, correctedDenominator, deferredWithConstituents]).includes("partial aggregate verification must remain deferred when the full period partition is not loaded"), "partial dataset loads cannot silently claim aggregate verification");
+deferredWithConstituents.pipeline_accounting.aggregate_close.partition_proof = notApplicable();
+assert.deepEqual(validateDataset([accountingSeed, correctedDenominator, deferredWithConstituents]), [], "partial dataset aggregate remains explicitly deferred and never certified");
 const correctedAggregateClose = structuredClone(verifiedAggregateClose);
 correctedAggregateClose.record_id = "opaque:48484848-4848-4848-8848-484848484848";
 correctedAggregateClose.recorded_at = "2026-08-01T00:00:03Z";
@@ -1375,6 +1784,7 @@ assert.ok(validateDataset([tooEarlyAggregateCutoff]).some((error) => error.inclu
 
 const preCorrectionClose = structuredClone(verifiedAggregateClose);
 preCorrectionClose.pipeline_accounting.aggregate_close.immutable_event_set_digest.digest = digestCanonical(aggregateDigestPayload(preCorrectionClose, [accountingSeed]));
+installPartitionProof(preCorrectionClose, [accountingSeed]);
 const postCloseDenominatorCorrection = structuredClone(correctedDenominator);
 postCloseDenominatorCorrection.recorded_at = "2026-08-01T00:00:05Z";
 const postCorrectionReclose = structuredClone(preCorrectionClose);
@@ -1386,6 +1796,7 @@ postCorrectionReclose.pipeline_accounting.aggregate_close.closed_at = "2026-08-0
 postCorrectionReclose.lineage.correction_targets = [{ producer: "hugin", record_kind: "pipeline-accounting", fact_domain: "pipeline-accounting", record_id: preCorrectionClose.record_id }];
 postCorrectionReclose.lineage.correction_ref = "mimir:correction/aggregate-close-as-of-001";
 postCorrectionReclose.pipeline_accounting.aggregate_close.immutable_event_set_digest.digest = digestCanonical(aggregateDigestPayload(postCorrectionReclose, [postCloseDenominatorCorrection]));
+installPartitionProof(postCorrectionReclose, [postCloseDenominatorCorrection]);
 assert.deepEqual(validateDataset([accountingSeed, preCorrectionClose, postCloseDenominatorCorrection, postCorrectionReclose]), [], "an old close keeps its as-of leaf while an explicit re-close incorporates a later denominator correction");
 
 const deliberateExecution = structuredClone(positive[0]);
@@ -1424,19 +1835,102 @@ for (const record of [joinedCapability, joinedExposure]) {
 }
 assert.equal(Object.hasOwn(joinedOutcome.transport, "record_delivery_attempt"), false, "mutable delivery attempts never enter immutable learning evidence");
 
+const joinedQuality = positive.find((record) => record.record_kind === "quality-receipt");
+function buildEvaluationBundle(outcome, exposure, capability, qualities, decisionAt) {
+  const payloads = evaluationBundlePayloads(outcome, exposure, capability, qualities, decisionAt);
+  const stamp = (version, payload) => ({ algorithm: "sha256", version, digest: digestCanonical(payload) });
+  return {
+    bundle_id: "opaque:60606060-6060-4060-8060-606060606060",
+    decision_at: decisionAt,
+    task_outcome: evidenceRef(outcome),
+    exposure: evidenceRef(exposure),
+    capability_evidence: evidenceRef(capability),
+    quality_receipts: qualities.map(evidenceRef),
+    governance_snapshot_digest: stamp("evaluation-governance-jcs-v1", payloads.governance),
+    complete_provenance_digest: stamp("evaluation-provenance-jcs-v1", payloads.provenance),
+    exposure_coverage_digest: stamp("evaluation-exposure-jcs-v1", payloads.exposure),
+    quality_consensus_digest: stamp("evaluation-quality-jcs-v1", payloads.quality),
+    unique_lineage_digest: stamp("evaluation-lineage-jcs-v1", payloads.lineage),
+  };
+}
+const evaluationAdmitted = structuredClone(accountingSeed);
+evaluationAdmitted.record_id = "opaque:61616161-6161-4161-8161-616161616161";
+evaluationAdmitted.recorded_at = "2026-07-19T10:02:02Z";
+evaluationAdmitted.pipeline_accounting.event_id = "opaque:62626262-6262-4262-8262-626262626262";
+evaluationAdmitted.pipeline_accounting.stage = "evaluation";
+evaluationAdmitted.pipeline_accounting.disposition = "admitted";
+evaluationAdmitted.pipeline_accounting.failure_code = "not-applicable";
+evaluationAdmitted.pipeline_accounting.observed_at = "2026-07-19T10:02:01.500Z";
+evaluationAdmitted.pipeline_accounting.related_record = evidenceRef(joinedOutcome);
+evaluationAdmitted.pipeline_accounting.denominator = { counter: "evaluation-candidate-denominator", occurrence_at: "2026-07-19T10:02:01Z", occurrence_month_utc: "2026-07", decision: "admitted", boundary_evidence: notApplicable() };
+evaluationAdmitted.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [joinedQuality], "2026-07-19T10:02:01Z");
+assert.deepEqual(validateDataset([joinedOutcome, joinedExposure, joinedCapability, joinedQuality, evaluationAdmitted]), [], "evaluation admission succeeds only with the complete joined candidate evidence bundle loaded");
+const unratedEvaluationAdmitted = structuredClone(evaluationAdmitted);
+unratedEvaluationAdmitted.record_id = "opaque:72727272-7272-4272-8272-727272727272";
+unratedEvaluationAdmitted.pipeline_accounting.event_id = "opaque:73737373-7373-4373-8373-737373737373";
+unratedEvaluationAdmitted.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [], "2026-07-19T10:02:01Z");
+assert.deepEqual(validateDataset([joinedOutcome, joinedExposure, joinedCapability, unratedEvaluationAdmitted]), [], "an independently verified candidate may be admitted with an empty quality cohort bound as unrated");
+const recordIdOnlyAdmission = structuredClone(evaluationAdmitted);
+recordIdOnlyAdmission.pipeline_accounting.evaluation_bundle = notApplicable();
+assert.ok(validateDataset([joinedOutcome, recordIdOnlyAdmission]).some((error) => error.includes("complete joined evidence bundle")), "candidate record identity alone cannot establish evaluation admission");
+const nonAdmittedOutcome = nonAdmittedFixture.record;
+const incompleteProvenanceAdmission = structuredClone(evaluationAdmitted);
+incompleteProvenanceAdmission.pipeline_accounting.related_record = evidenceRef(nonAdmittedOutcome);
+incompleteProvenanceAdmission.pipeline_accounting.evaluation_bundle.task_outcome = evidenceRef(nonAdmittedOutcome);
+assert.ok(validateDataset([nonAdmittedOutcome, joinedExposure, joinedCapability, joinedQuality, incompleteProvenanceAdmission]).some((error) => error.includes("lacks complete provenance/governance")), "an m5-not-admitted/provenance-incomplete candidate cannot enter evaluation even when a bundle-shaped body is present");
+
 const quality = positive.find((record) => record.record_kind === "quality-receipt");
+const nativeQualityV1 = sourceDocuments.get(quality.quality_receipt.native_receipt.artifact_digest.source_ref).document;
+assert.equal(Object.hasOwn(nativeQualityV1, "attemptId"), false, "current native Hugin quality receipt v1 does not claim an attempt field");
+assert.equal(Object.hasOwn(nativeQualityV1, "rubric"), false, "current native Hugin quality receipt v1 does not claim a rubric field");
+assert.equal(typeof nativeQualityV1.ratingReason, "string", "current native Hugin quality receipt v1 preserves reason text in its immutable artifact");
+function installQualityNativeArtifact(record, schemaVersion, reason, correctsReceiptId) {
+  const receipt = record.quality_receipt;
+  const oldRef = receipt.native_receipt.artifact_digest.source_ref;
+  const binding = normalizedNativeBinding(receipt.binding);
+  const common = {
+    taskId: receipt.task_id,
+    ...(schemaVersion === 2 ? { attemptId: receipt.attempt_id } : {}),
+    rating: receipt.rating,
+    ratingReason: reason,
+    verificationOutcome: receipt.disposition,
+    ...(Number.isInteger(receipt.retries_count) ? { retriesCount: receipt.retries_count } : {}),
+    ratedAt: receipt.rated_at,
+    reviewer: receipt.reviewer,
+    ...(schemaVersion === 2 ? { rubric: receipt.rubric } : {}),
+    bindingAttestation: receipt.binding_attestation,
+    binding,
+    ...(schemaVersion === 2 ? { correctsReceiptId } : {}),
+  };
+  const semantic = schemaVersion === 1
+    ? { taskId: common.taskId, reviewerPrincipal: common.reviewer.principal, reviewerIndependence: common.reviewer.independence, rating: common.rating, ratingReason: common.ratingReason, verificationOutcome: common.verificationOutcome, retriesCount: common.retriesCount, bindingAttestation: common.bindingAttestation, binding: common.binding }
+    : common;
+  const receiptId = schemaVersion === 1 ? huginReceiptId(semantic) : `qr-${digestCanonical(semantic).slice(0, 24)}`;
+  const document = { schemaVersion, receiptId, ...common };
+  const sourceRef = `source-doc:quality/${receiptId}`;
+  const sourceType = `quality-receipt-native-v${schemaVersion}`;
+  sourceDocuments.set(sourceRef, { source_ref: sourceRef, source_type: sourceType, source_version: schemaVersion === 1 ? "hugin-quality-receipt-v1" : "future-hugin-quality-receipt-v2", document });
+  receipt.native_receipt = { schema_version: schemaVersion, receipt_id: receiptId, artifact_digest: { algorithm: "sha256", canonicalization: "jcs-rfc8785-utf8-v1", source_ref: sourceRef, source_type: sourceType, source_version: schemaVersion === 1 ? "hugin-quality-receipt-v1" : "future-hugin-quality-receipt-v2", digest: digestCanonical(document) } };
+  receipt.rating_reason_sha256 = digest(reason);
+  receipt.correction_group_key.digest = digestCanonical({ task_id: receipt.task_id, attempt_id: receipt.attempt_id, reviewer: receipt.reviewer, rubric: receipt.rubric, binding: receipt.binding });
+  const policy = record.governance.policies.find((candidate) => candidate.subject_ref === oldRef);
+  if (policy) policy.subject_ref = sourceRef;
+  record.governance.effective.derived_from_subject_refs = record.governance.effective.derived_from_subject_refs.map((ref) => ref === oldRef ? sourceRef : ref).sort(compareUtf16CodeUnits);
+}
 function installCorrectionGovernance(record, sourceRef, correctionRef) {
   const oldSourceRef = record.governance.policy_manifest.digest.source_ref;
   record.governance.policy_manifest.manifest_id = "opaque:54545454-5454-4454-8454-545454545454";
   record.governance.policy_manifest.digest.source_ref = sourceRef;
   const manifestPolicy = record.governance.policies.find((policy) => policy.subject_ref === oldSourceRef);
   manifestPolicy.subject_ref = sourceRef;
-  const correctionPolicy = structuredClone(record.governance.policies[0]);
-  correctionPolicy.subject_ref = correctionRef;
-  correctionPolicy.subject_kind = "artifact";
-  record.governance.policies.push(correctionPolicy);
+  if (correctionRef) {
+    const correctionPolicy = structuredClone(record.governance.policies[0]);
+    correctionPolicy.subject_ref = correctionRef;
+    correctionPolicy.subject_kind = "artifact";
+    record.governance.policies.push(correctionPolicy);
+  }
   record.governance.effective.derived_from_subject_refs = record.governance.effective.derived_from_subject_refs.map((ref) => ref === oldSourceRef ? sourceRef : ref);
-  record.governance.effective.derived_from_subject_refs.push(correctionRef);
+  if (correctionRef) record.governance.effective.derived_from_subject_refs.push(correctionRef);
   record.governance.effective.derived_from_subject_refs.sort(compareUtf16CodeUnits);
   const manifest = record.governance.policy_manifest;
   const document = {
@@ -1459,6 +1953,7 @@ const correctedQuality = structuredClone(quality);
 correctedQuality.record_id = "opaque:55555555-5555-4555-8555-555555555556";
 correctedQuality.recorded_at = "2026-07-19T10:02:02Z";
 correctedQuality.quality_receipt.disposition = "minor_edit";
+installQualityNativeArtifact(correctedQuality, 2, "Fixture corrected review.", quality.quality_receipt.native_receipt.receipt_id);
 const qualityCorrectionRef = "mimir:correction/quality-receipt-001";
 correctedQuality.artifacts.items.push({ kind: "correction", owner: "principal:owner", ref: qualityCorrectionRef, content_hash: { value: null, unknown_reason: "not-observed" } });
 correctedQuality.lineage.correction_targets = [{ producer: "hugin", record_kind: "quality-receipt", fact_domain: "quality", record_id: quality.record_id }];
@@ -1466,29 +1961,53 @@ correctedQuality.lineage.correction_ref = qualityCorrectionRef;
 const correctedQualityManifestRef = "source-doc:governance/corrected-quality";
 installCorrectionGovernance(correctedQuality, correctedQualityManifestRef, qualityCorrectionRef);
 assert.deepEqual(validateDataset([quality, correctedQuality]), [], "a real fact correction preserves the original task attempt and forms one same-key supersession chain");
+assert.notEqual(correctedQuality.quality_receipt.native_receipt.receipt_id, quality.quality_receipt.native_receipt.receipt_id, "a correction mints a distinct future native receipt id instead of reusing content-derived v1 identity");
+assert.deepEqual(correctedQuality.quality_receipt.correction_group_key, quality.quality_receipt.correction_group_key, "the explicit correction group, not receipt id, links one reviewer's corrected verdict chain");
 assert.deepEqual(summarizeImmutable([quality, correctedQuality], "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0].result, { rating: "pass", disposition: "minor_edit" }, "derived summaries select the unique corrected leaf rather than reporting a false conflict");
 const crossKeyCorrection = structuredClone(correctedQuality);
-crossKeyCorrection.quality_receipt.receipt_id = "qr-565656565656565656565656";
+crossKeyCorrection.quality_receipt.attempt_id = "attempt-other";
+installQualityNativeArtifact(crossKeyCorrection, 2, "Fixture cross-key review.", quality.quality_receipt.native_receipt.receipt_id);
+installCorrectionGovernance(crossKeyCorrection, "source-doc:governance/cross-key-quality");
 assert.ok(validateDataset([quality, crossKeyCorrection]).includes("correction target belongs to another natural conflict key"), "corrections cannot move across natural conflict keys");
 const missingCorrectionTarget = structuredClone(correctedQuality);
 missingCorrectionTarget.lineage.correction_targets[0].record_id = "opaque:57575757-5757-4757-8757-575757575757";
 assert.ok(validateDataset([quality, missingCorrectionTarget]).includes("correction target is missing from the validated dataset"), "correction targets must exist in the validated dataset");
 const timeTravelCorrection = structuredClone(correctedQuality);
 timeTravelCorrection.recorded_at = "2026-07-19T10:02:00Z";
-assert.ok(validateDataset([quality, timeTravelCorrection]).some((error) => error.includes("correcting record cannot predate its predecessor")), "a correction cannot predate the record it supersedes");
+assert.ok(validateDataset([quality, timeTravelCorrection]).some((error) => error.includes("strictly later than its predecessor")), "a correction cannot tie or predate the record it supersedes");
+const sameTimeCorrection = structuredClone(correctedQuality);
+sameTimeCorrection.recorded_at = quality.recorded_at;
+assert.ok(validateDataset([quality, sameTimeCorrection]).some((error) => error.includes("strictly later than its predecessor")), "time-ordered correction chains require a strict clock advance");
 const selfCorrection = structuredClone(correctedQuality);
 selfCorrection.lineage.correction_targets[0].record_id = selfCorrection.record_id;
 assert.ok(validateDataset([selfCorrection]).some((error) => error.includes("correction cannot target itself") || error.includes("correction target is missing")), "a correction cannot target itself");
 const secondQuality = structuredClone(quality);
 secondQuality.record_id = "opaque:12121212-1212-4212-8212-121212121212";
-secondQuality.quality_receipt.receipt_id = "qr-121212121212121212121212";
 secondQuality.quality_receipt.reviewer.principal = "principal:reviewer-3";
 secondQuality.review.reviewer_principal_id = "principal:reviewer-3";
+installQualityNativeArtifact(secondQuality, 1, "Fixture independent review.");
+installCorrectionGovernance(secondQuality, "source-doc:governance/second-quality");
 assert.deepEqual(validateDataset([quality, secondQuality]), [], "multiple immutable quality receipts for one task/attempt are permitted");
+assert.notDeepEqual(quality.quality_receipt.correction_group_key, secondQuality.quality_receipt.correction_group_key, "independent reviewers retain separate receipt ids and correction groups");
 assert.deepEqual(summarizeImmutable([quality, secondQuality], "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0].result, { rating: "pass", disposition: "accepted_unchanged" }, "unanimous receipts summarize full rating/disposition without newest-wins");
 const conflictingQuality = structuredClone(secondQuality);
 conflictingQuality.quality_receipt.disposition = "minor_edit";
+installQualityNativeArtifact(conflictingQuality, 1, "Fixture conflicting independent review.");
+installCorrectionGovernance(conflictingQuality, "source-doc:governance/conflicting-quality");
+assert.deepEqual(validateDataset([quality, conflictingQuality]), [], "an independently issued disagreeing receipt remains valid evidence");
 assert.equal(summarizeImmutable([quality, conflictingQuality], "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0].result, "conflicted", "any rating/disposition disagreement summarizes as conflicted");
+const conflictedQualityAdmission = structuredClone(evaluationAdmitted);
+conflictedQualityAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [quality, conflictingQuality], "2026-07-19T10:02:01Z");
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, conflictingQuality, conflictedQualityAdmission]).some((error) => error.includes("quality evidence is conflicted or non-independent")), "a conflicting optional quality cohort cannot support evaluation admission");
+const selfReviewedQuality = structuredClone(quality);
+selfReviewedQuality.record_id = "opaque:74747474-7474-4474-8474-747474747474";
+selfReviewedQuality.quality_receipt.reviewer = { principal: "principal:self-reviewer", independence: "self" };
+selfReviewedQuality.review.reviewer_principal_id = "principal:self-reviewer";
+installQualityNativeArtifact(selfReviewedQuality, 1, "Fixture self review.");
+installCorrectionGovernance(selfReviewedQuality, "source-doc:governance/self-reviewed-quality");
+const selfReviewedAdmission = structuredClone(evaluationAdmitted);
+selfReviewedAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [selfReviewedQuality], "2026-07-19T10:02:01Z");
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, selfReviewedQuality, selfReviewedAdmission]).some((error) => error.includes("quality evidence is conflicted or non-independent")), "a non-independent optional quality receipt cannot support evaluation admission");
 sourceDocuments.delete(correctedQualityManifestRef);
 const experimentRating = positive.find((record) => record.record_kind === "experiment-product-rating");
 const secondRating = structuredClone(experimentRating);
@@ -1524,14 +2043,24 @@ assert.deepEqual(erasedErrors, [], `erased tombstone fixture must validate:\n${e
 assert.deepEqual(Object.keys(positiveErased).sort(), ["contract_version", "lifecycle_state", "producer", "record_id", "record_kind", "recorded_at", "schema_revision", "tombstone"].sort(), "tombstone must expose only its reduced envelope");
 function setMembershipReceipt(entry, counter, owner, membershipKey) {
   entry.counter = counter;
+  entry.period_utc = "2026-07";
   entry.membership_receipt.owner_component = owner;
-  entry.membership_receipt.membership_key = membershipKey;
-  entry.membership_receipt.membership_key_digest.digest = digestCanonical({ owner_component: owner, counter, period_utc: entry.period_utc, membership_key: membershipKey });
+  delete entry.membership_receipt.membership_key;
+  entry.membership_receipt.membership_key_digest = { algorithm: "sha256", version: "denominator-natural-key-jcs-v1", digest: digestCanonical({ owner_component: owner, counter, occurrence_month_utc: entry.period_utc, fixture_natural_key: membershipKey }) };
+  const payload = { owner_component: owner, counter, period_utc: entry.period_utc, denominator_natural_key_digest: entry.membership_receipt.membership_key_digest, superseded_record_id: positiveErased.tombstone.superseded_record_id, issued_at: "2026-07-19T10:00:01Z" };
+  entry.membership_receipt.membership_token = addTrustedFixtureEvidence("denominator-membership", owner, payload);
 }
 const joinedExposureTombstone = structuredClone(positiveErased);
 joinedExposureTombstone.tombstone.denominator_basis = "joined-exposure";
 setMembershipReceipt(joinedExposureTombstone.tombstone.counter_audit[0], "hugin-m5-join-denominator", "hugin", "membership:hugin-join:opaque-erased-001");
 assert.deepEqual(validateDataset([joinedExposureTombstone]), [], "gille-produced joined exposure may carry the Hugin-owned join membership receipt");
+assert.equal(joinedExposureTombstone.tombstone.counter_audit[0].membership_receipt.membership_token.issuer, "hugin", "cross-owner erasure cites a trusted Hugin-issued immutable membership token");
+const shiftedMembershipPeriod = structuredClone(joinedExposureTombstone);
+shiftedMembershipPeriod.tombstone.counter_audit[0].period_utc = "2026-08";
+assert.ok(validateDataset([shiftedMembershipPeriod]).some((error) => error.includes("membership token does not bind owner, natural key, occurrence month")), "erasure cannot shift a July denominator membership into August");
+const shiftedExposureBasis = structuredClone(positiveErased);
+shiftedExposureBasis.tombstone.denominator_basis = "joined-exposure";
+assert.ok(validateDataset([shiftedExposureBasis]).some((error) => error.includes("do not exactly match the declared denominator basis")), "erasure cannot switch direct and joined denominator basis without the owning counter token");
 const huginTaskM5Tombstone = structuredClone(positiveErased);
 huginTaskM5Tombstone.record_kind = "task-outcome";
 huginTaskM5Tombstone.producer = { component: "hugin", schema_version: "task-outcome-v1" };

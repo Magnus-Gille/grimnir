@@ -339,7 +339,7 @@
           "gateway_echo": {
             "value": null,
             "unknown_reason": "not-applicable"
-        }
+          }
         }
       }
     ],
@@ -397,7 +397,7 @@
           "source_ref": "source-doc:prompt/gateway-task-001",
           "source_type": "prompt-stage",
           "source_version": "prompt-stage-v1",
-          "digest": "61e26a1fc632f6f52e29c88f97cffd71502e6c52ee3264e0e4d57aa18ea5b7ea"
+          "digest": "fddff2461df95197b516540fffea742a230461bdd2efaebcc8ab07a8deac2c0a"
         }
       }
     ],
@@ -463,7 +463,7 @@
           "source_ref": "source-doc:prompt/hugin-task-001",
           "source_type": "prompt-stage",
           "source_version": "prompt-stage-v1",
-          "digest": "126778e84471631cfe3837563bccbef5c75bbd6a0e7af10c403eaf383bf7886c"
+          "digest": "9be437be615610b7326012e818d32d3963d08fd40a8cc13ef702645937009d3d"
         }
       }
     ],
@@ -918,9 +918,14 @@
     "mutations": [
       {
         "op": "set",
-        "path": "/quality_receipt/attempt_id",
-        "value": "attempt-missing"
-      }
+      "path": "/quality_receipt/attempt_id",
+      "value": "attempt-missing"
+    },
+    {
+      "op": "set",
+      "path": "/quality_receipt/correction_group_key/digest",
+      "value": "d61c74799df04ff42d0f826c6573c588b7c002f3f7be0a7a7db214e28ed4779a"
+    }
     ],
     "second_from_positive": 0,
     "second_record_mutations": [],
@@ -1144,8 +1149,8 @@
     "second_record_mutations": [
       {
         "op": "set",
-        "path": "/execution/serving/model/id",
-        "value": "other-model"
+      "path": "/execution/model_started_at",
+      "value": "2026-07-19T10:00:03.100Z"
       }
     ],
     "expected_error": "joined identity mismatch at execution"
@@ -1184,100 +1189,232 @@
   {
     "name": "gateway admission cannot precede Hugin attempt start",
     "from_positive": 0,
-    "mutations": [{ "op": "set", "path": "/transport/gateway_echo/admitted_at", "value": "2026-07-19T10:00:00.900Z" }],
-    "expected_error": "gateway admission clock is outside attempt-start/model-start interval"
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/transport/gateway_echo/admitted_at",
+        "value": "2026-07-19T10:00:00.900Z"
+      }
+    ],
+    "expected_error": "gateway admission clock is outside stamp/model-start interval"
   },
   {
     "name": "model start cannot precede gateway admission",
     "from_positive": 0,
-    "mutations": [{ "op": "set", "path": "/execution/model_started_at", "value": "2026-07-19T10:00:01.500Z" }],
-    "expected_error": "gateway admission clock is outside attempt-start/model-start interval"
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/execution/model_started_at",
+        "value": "2026-07-19T10:00:01.500Z"
+      }
+    ],
+    "expected_error": "gateway admission clock is outside stamp/model-start interval"
   },
   {
     "name": "non-admitted model clocks share missing reason",
     "from_positive_derived": 1,
-    "mutations": [{ "op": "set", "path": "/execution/model_started_at/unknown_reason", "value": "producer-error" }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/execution/model_started_at/unknown_reason",
+        "value": "producer-error"
+      }
+    ],
     "expected_error": "model clocks must be known together or share one qualified missing reason"
   },
   {
     "name": "observed exposure binds full authoritative raw fingerprint",
     "from_positive": 4,
-    "mutations": [{ "op": "set", "path": "/exposure/raw_fingerprint/digest", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/exposure/raw_fingerprint/digest",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
     "expected_error": "observed exposure raw fingerprint differs from authoritative task fingerprint"
   },
   {
     "name": "preflight advertisement must be fresh at stamp time",
     "from_positive": 0,
-    "mutations": [{ "op": "set", "path": "/transport/hugin_request_stamp/preflight/response/expires_at", "value": "2026-07-19T10:00:00.500Z" }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/transport/hugin_request_stamp/preflight/response/expires_at",
+        "value": "2026-07-19T10:00:00.500Z"
+      }
+    ],
     "expected_error": "preflight freshness window does not cover request stamp"
   },
   {
     "name": "partial preflight advertisement fails closed",
     "from_positive": 0,
-    "mutations": [{ "op": "delete-array-item", "path": "/transport/hugin_request_stamp/preflight/response/capabilities/features", "index": 3 }],
+    "mutations": [
+      {
+        "op": "delete-array-item",
+        "path": "/transport/hugin_request_stamp/preflight/response/capabilities/features",
+        "index": 3
+      }
+    ],
     "expected_error": "fewer than 4 items"
   },
   {
     "name": "service transport principal cannot manufacture owner authority",
     "from_positive": 8,
-    "mutations": [{ "op": "set", "path": "/governance/policy_manifest/owner_attestations/0/authenticated_principal", "value": "service:hugin-ingress" }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/governance/policy_manifest/owner_attestations/0/authenticated_principal",
+        "value": "service:hugin-ingress"
+      }
+    ],
     "expected_error": "authenticated owner attestation is invalid for principal:owner"
   },
   {
     "name": "gille producer cannot claim repository authority",
     "from_positive": 1,
-    "mutations": [{ "op": "set", "path": "/artifacts/repository", "value": { "base_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "head_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "diff_hash": { "value": null, "unknown_reason": "not-observed" }, "changed_files_ref": { "value": null, "unknown_reason": "not-observed" } } }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/artifacts/repository",
+        "value": {
+          "base_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "head_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "diff_hash": {
+            "value": null,
+            "unknown_reason": "not-observed"
+          },
+          "changed_files_ref": {
+            "value": null,
+            "unknown_reason": "not-observed"
+          }
+        }
+      }
+    ],
     "expected_error": "gille-inference records cannot assert repository bindings"
   },
   {
     "name": "cross-owner correction cannot supersede another producer",
     "from_positive": 1,
-    "mutations": [{ "op": "set", "path": "/lineage/correction_targets", "value": [{ "producer": "hugin", "record_kind": "inference-exposure", "fact_domain": "exposure", "record_id": "opaque:11111111-1111-4111-8111-111111111111" }] }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/lineage/correction_targets",
+        "value": [
+          {
+            "producer": "hugin",
+            "record_kind": "inference-exposure",
+            "fact_domain": "exposure",
+            "record_id": "opaque:11111111-1111-4111-8111-111111111111"
+          }
+        ]
+      }
+    ],
     "expected_error": "correction target must retain the same producer, record kind, and fact domain"
   },
   {
     "name": "denominator erasure cannot evade current occurrence month",
     "from_erased": true,
-    "mutations": [{ "op": "set", "path": "/tombstone/counter_audit", "value": [] }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/tombstone/counter_audit",
+        "value": []
+      }
+    ],
     "expected_error": "denominator-bearing tombstone requires an idempotent membership receipt"
   },
   {
     "name": "aggregate preservation must happen before effective removal",
     "from_erased": true,
-    "mutations": [{ "op": "set", "path": "/tombstone/counter_audit/0/membership_receipt/confirmed_at", "value": "2026-08-01T00:00:09.500Z" }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/tombstone/counter_audit/0/membership_receipt/confirmed_at",
+        "value": "2026-08-01T00:00:09.500Z"
+      }
+    ],
     "expected_error": "membership was not confirmed before effective removal"
   },
   {
     "name": "request retry telemetry is forbidden in immutable stamp",
     "from_positive": 0,
-    "mutations": [{ "op": "set", "path": "/transport/hugin_request_stamp/transport_attempt", "value": 2 }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/transport/hugin_request_stamp/transport_attempt",
+        "value": 2
+      }
+    ],
     "expected_error": "additional property transport_attempt"
   },
   {
     "name": "delivery retry telemetry is forbidden in immutable evidence",
     "from_positive": 0,
-    "mutations": [{ "op": "set", "path": "/transport/record_delivery_attempt", "value": 2 }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/transport/record_delivery_attempt",
+        "value": 2
+      }
+    ],
     "expected_error": "additional property record_delivery_attempt"
   },
   {
     "name": "pipeline counter owner is exact",
     "from_positive": 9,
-    "mutations": [{ "op": "set", "path": "/pipeline_accounting/owner_component", "value": "gille-inference" }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/pipeline_accounting/owner_component",
+        "value": "gille-inference"
+      }
+    ],
     "expected_error": "pipeline accounting producer must equal counter/event owner"
   },
   {
     "name": "successful emission binds record identity",
     "from_positive": 10,
-    "mutations": [{ "op": "set", "path": "/pipeline_accounting/related_record", "value": { "value": null, "unknown_reason": "producer-error" } }],
+    "mutations": [
+      {
+        "op": "set",
+        "path": "/pipeline_accounting/related_record",
+        "value": {
+          "value": null,
+          "unknown_reason": "producer-error"
+        }
+      }
+    ],
     "expected_error": "successful emission must bind its immutable record identity"
   },
   {
     "name": "capability admission requires an actual reproducible model run",
     "from_positive": 2,
     "mutations": [
-      { "op": "set", "path": "/execution/serving", "value": { "value": null, "unknown_reason": "not-observed" } },
-      { "op": "set", "path": "/execution/model_started_at", "value": { "value": null, "unknown_reason": "not-observed" } },
-      { "op": "set", "path": "/execution/model_ended_at", "value": { "value": null, "unknown_reason": "not-observed" } }
+      {
+        "op": "set",
+        "path": "/execution/serving",
+        "value": {
+          "value": null,
+          "unknown_reason": "not-observed"
+        }
+      },
+      {
+        "op": "set",
+        "path": "/execution/model_started_at",
+        "value": {
+          "value": null,
+          "unknown_reason": "not-observed"
+        }
+      },
+      {
+        "op": "set",
+        "path": "/execution/model_ended_at",
+        "value": {
+          "value": null,
+          "unknown_reason": "not-observed"
+        }
+      }
     ],
     "expected_error": "capability admission requires complete nested serving provenance from a model-running transport"
   },
@@ -1285,11 +1422,43 @@
     "name": "attempt start is bounded even when completion clocks are unknown",
     "from_positive": 2,
     "mutations": [
-      { "op": "set", "path": "/execution/started_at", "value": "2026-07-19T10:02:00Z" },
-      { "op": "set", "path": "/execution/ended_at", "value": { "value": null, "unknown_reason": "not-observed" } },
-      { "op": "set", "path": "/execution/model_started_at", "value": { "value": null, "unknown_reason": "not-observed" } },
-      { "op": "set", "path": "/execution/model_ended_at", "value": { "value": null, "unknown_reason": "not-observed" } },
-      { "op": "set", "path": "/execution/serving", "value": { "value": null, "unknown_reason": "not-observed" } }
+      {
+        "op": "set",
+        "path": "/execution/started_at",
+        "value": "2026-07-19T10:02:00Z"
+      },
+      {
+        "op": "set",
+        "path": "/execution/ended_at",
+        "value": {
+          "value": null,
+          "unknown_reason": "not-observed"
+        }
+      },
+      {
+        "op": "set",
+        "path": "/execution/model_started_at",
+        "value": {
+          "value": null,
+          "unknown_reason": "not-observed"
+        }
+      },
+      {
+        "op": "set",
+        "path": "/execution/model_ended_at",
+        "value": {
+          "value": null,
+          "unknown_reason": "not-observed"
+        }
+      },
+      {
+        "op": "set",
+        "path": "/execution/serving",
+        "value": {
+          "value": null,
+          "unknown_reason": "not-observed"
+        }
+      }
     ],
     "expected_error": "execution started_at exceeds recorded_at"
   }

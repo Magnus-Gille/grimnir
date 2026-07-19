@@ -51,9 +51,14 @@ Unknown fields do not erase known owner stamps and do not make a record evaluati
 
 ### Immutable review records and summaries
 
-`quality-receipt` preserves Hugin's native Quality Receipt identity and vocabulary: `qr-…`
-`receipt_id`, native schema version, task/attempt binding, rating, disposition, retries, reviewer,
-rubric, reason digest, and task/result/repository hashes. `experiment-product-rating` binds an
+`quality-receipt` is a future `learning-quality-normalized/v2` projection over an immutable native
+Hugin receipt artifact. The native v1 artifact is preserved exactly: content-derived `receiptId`,
+`schemaVersion: 1`, task id, rating, **text** `ratingReason`, verification outcome, optional
+`retriesCount`, rating clock, reviewer, binding attestation, and task/result/repository hashes.
+Native v1 does **not** contain attempt or rubric fields. The normalized projection adds explicit
+attempt/rubric facts and a reproducible reason digest; those fields are derived bridge facts, never
+misrepresented as native v1 fields. A missing or invalid native artifact fails closed.
+`experiment-product-rating` binds an
 `epr-…` rating to the immutable experiment-observation `record_id`, experiment/run, exact
 configuration fingerprint, reviewer, rubric, reason digest, and review time.
 
@@ -69,10 +74,14 @@ summary per exact binding and rubric version as follows:
    is `conflicted` and cannot support admission or promotion; and
 5. a new rubric/version is a separate cohort. Newest-wins and destructive re-rating are forbidden.
 
-A correction reuses the corrected receipt/rating natural key and explicitly targets its immediate
-predecessor. Consumers first collapse each valid correction chain to its unique unsuperseded leaf,
-then compare independent receipt/rating ids. Thus a correction does not create a permanent false
-conflict, while disagreement between independent reviewers still does.
+A quality correction uses a **new** future native v2 receipt id, explicitly names the predecessor
+native receipt, retains an exact `quality-correction-group-jcs-v1` key over
+task/attempt/reviewer/rubric/binding, and targets the predecessor contract record. It never reuses a
+content-derived v1 receipt id. Current Hugin v1 deliberately rejects a second verdict from the same
+reviewer for the same binding, so correction emission is a future v2 adoption dependency, not a
+current native capability. Consumers collapse each valid correction group to its unique
+unsuperseded leaf, then compare independent reviewer groups. Independent receipt ids remain separate
+and may conflict.
 
 The derived summary is a query result, not a scalar written back into the older record.
 
@@ -97,11 +106,15 @@ record MUST use `policy-unavailable`, permits no use, and is evaluation-ineligib
 principal, content owner, and authenticated gateway caller are three separate identities: service
 authentication proves who transported bytes, never who authorized their evaluation.
 
-`gille-inference` owns the closed task taxonomy id/version. Both origins hash the canonical raw
-task bytes using exactly `trim-utf8-sha256-v1`: apply JavaScript-compatible `String.trim()` to the
-raw UTF-8 text and SHA-256 the resulting UTF-8 bytes. There is no Unicode normalization, JSON
-rewriting, prompt rendering, or chat-template application. Multi-turn traffic emits one observed
-event per user turn using that turn's raw bytes.
+`gille-inference` owns the closed task taxonomy id/version. Every task binds a typed `raw-input`
+source document containing the exact accepted UTF-8 text. For Hugin this is the parsed logical
+prompt **before** injected context, system instructions, or Task wrapping; for direct traffic it is
+the accepted user turn **before** gateway orchestration. Both origins hash that text using exactly
+`trim-utf8-sha256-v1`: apply JavaScript-compatible `String.trim()` and SHA-256 the resulting UTF-8
+bytes. There is no Unicode normalization, JSON rewriting, prompt rendering, or chat-template
+application. Joined gateway exposure copies the stamped fingerprint. Multi-turn traffic emits one
+observed event per user turn using that turn's raw bytes. The shared executable
+`raw-fingerprint-vectors.json` fixture recomputes ASCII and non-normalized Unicode examples.
 
 ### Three prompt stages and configuration provenance
 
@@ -118,22 +131,27 @@ remain required. Joined consumers MUST NOT collapse any two stages even if their
 
 `execution.origin_config` binds the origin prompt, harness, and tool policy as versioned identities
 with config digests. `execution.effective_gateway_config` separately binds the gateway harness and
-tool policy after defaults and policy application. Effective serving uses `runtime_id:
-"llama-swap"` for the current M5 path and records provider/model plus:
+tool policy after defaults and policy application. Effective serving records runtime/provider/model
+plus:
 
 - an artifact-manifest digest;
 - an effective runtime-config digest; and
 - an effective sampling digest after defaults and clamps.
 
 Every reproducibility claim binds an immutable `source_ref`, closed `source_type`, source schema
-version, JCS RFC 8785 canonical JSON object, UTF-8, and SHA-256. The executable
-`source-documents.json` fixture contains typed source documents for all three prompt stages; origin
+version, JCS RFC 8785 canonical JSON object, UTF-8, and SHA-256. Every prompt-stage source contains
+its exact ordered UTF-8 text, byte length, byte SHA-256, task binding, and ordered immutable input
+source refs. The validator mechanically checks those inputs against raw input; prior prompt stage;
+origin/gateway config component, kind, id, and version; and artifact/runtime/sampling model
+identities. Labels such as `hugin-agent:v4`, `task:raw`, or a template alias alone are invalid.
+The executable `source-documents.json` fixture contains typed source documents for all three prompt stages; origin
 prompt/harness/tool policy; effective gateway harness/tool policy; capability policy; experiment
 and rubric configs; artifact manifest; effective runtime config; and final sampling after defaults
-and clamps. The representative Mellum sampling object records requested values, defaults, clamps,
-and the exact final `temperature`, `top_p`, `top_k`, `min_p`, `max_tokens`, and `n`. Labels, aliases,
-requested values alone, or a model name are not reproducible provenance. Mutation tests recompute
-the digest and fail when any source object changes. The dependency-free canonicalizer is restricted
+and clamps. All admissible examples are conspicuously `fixture_only` and use synthetic
+`fixture-model-v1` identities; they make no claim about current Mellum, `/v1/chat`, delegate, LM
+Studio, context-window, artifact, or sampling values. A deployed example is admissible only when
+captured exactly at its origin. Mutation tests recompute the digest and fail when any source object
+changes. The dependency-free canonicalizer is restricted
 to I-JSON values, rejects lone Unicode surrogates and non-finite/non-JSON values, uses ECMAScript
 number serialization and UTF-16 property ordering, and is checked against the RFC 8785 sample plus
 non-ASCII, numeric-boundary, exponent, and negative-zero vectors.
@@ -141,10 +159,12 @@ non-ASCII, numeric-boundary, exponent, and negative-zero vectors.
 Repository base/head commit ids are symmetric lowercase hexadecimal strings of 40–64 characters or
 a qualified unknown. A correction reference MUST name a correction artifact in the same record.
 Reviewer identity and review time are known together or unknown together. All clocks use RFC 3339
-UTC. `execution.started_at`/`ended_at` are the Hugin or direct task-attempt clocks, while
+UTC with zero to three fractional digits; higher precision fails closed so every comparison is exact
+at the declared millisecond precision. `execution.started_at`/`ended_at` are the Hugin or direct task-attempt clocks, while
 `model_started_at`/`model_ended_at` are runtime clocks or one shared qualified reason when no model
-ran. Admitted M5 ordering is source creation ≤ acceptance ≤ attempt start ≤ gateway admission ≤
-model start ≤ model end ≤ attempt end ≤ `recorded_at`. Direct and non-M5 paths use truthful attempt
+ran. Admitted M5 ordering is source creation ≤ acceptance ≤ attempt start ≤ **request stamp** ≤
+gateway admission ≤ model start ≤ model end ≤ attempt end ≤ `recorded_at`. A cached authenticated
+preflight may predate the attempt but must remain fresh at stamp time. Direct and non-M5 paths use truthful attempt
 and model clocks without inventing gateway admission. Exposure and review/rating clocks are bounded
 by source acceptance and their relevant attempt outcome or experiment observation; equality at a
 boundary is permitted.
@@ -176,8 +196,8 @@ the gateway echo therefore proves which advertisement authorized the send.
 An admitted joined inference uses this stamp-and-echo handshake:
 
 1. Hugin creates `transport.hugin_request_stamp` before dispatch. It contains task instance,
-   attempt, client, idempotency key, request id, the full Hugin-owned source tuple, task type, raw
-   fingerprint, Hugin envelope, origin config, macro decision, stamp time, exact accepted preflight,
+   attempt, client, idempotency key, request id, the full Hugin-owned source tuple, task type, typed
+   raw-input source and fingerprint, Hugin envelope, origin config, macro decision, stamp time, exact accepted preflight,
    and `contract_request`. The request names the exact contract major, pinned schema revision 1, and
    four required features; it MUST match the record, preflight request/response, and gateway echo.
 2. The gateway authenticates the actual caller independently. It MUST bind that principal to the
@@ -221,7 +241,10 @@ not invent a Hugin task. A Hugin-origin admitted gateway record cannot use unkno
   authoritative raw fingerprint equal to `task.raw_fingerprint` (and the Hugin stamp for joined
   traffic), lane, and ordered first/last-seen clocks.
 - `negative-coverage-query` is a later query result, with its own `lookup_id`, `coverage_epoch_id`,
-  query time, exact queried raw fingerprint, task attempt, relevant-task time, and bounded window.
+  query time, exact queried raw fingerprint, task attempt, relevant-task time, bounded window, and a
+  trusted Hugin-issued attempt proof. The proof binds an immutable Hugin task-outcome ref, request
+  stamp digest, task/attempt, relevant-task time, and raw fingerprint. A body-only attempt id or a
+  proof from another attempt fails.
 
 A negative result is valid only when coverage is complete and includes exactly these six lanes:
 `chat`, `mcp-ask`, `delegate`, `delegate-disagreement`, `delegate-shadow`, and `code-loop`. The
@@ -298,9 +321,12 @@ kind/producer; full task/source/content-owner binding; and exact typed policies 
 code-unit `subject_ref` order. There is exactly one owner attestation per distinct policy
 `content_owner`: either that owner authenticated directly, or an explicit unexpired delegation binds
 owner, delegate, scope, and approval clock. A source service principal alone cannot authorize
-evaluation. The producer verifies authentication or delegation evidence out of band, then carries
-the immutable verified attestation in the record; a service cannot make itself an owner by asserting
-an owner-shaped body field. `content_owner.authority` and the matching attestation mode MUST agree.
+evaluation. Each owner attestation carries an evidence ref into a separately trusted validation
+context. That context is authenticated out of band (production may use signatures/PKI); the fixture
+uses explicit trust anchors and exact payload digests. Recomputing the producer manifest or an
+attestation body digest is integrity, not authentication, and cannot add an issuer to the trusted
+context. A service therefore cannot make itself an owner by asserting an owner-shaped body field.
+`content_owner.authority` and the matching attestation mode MUST agree.
 
 For Hugin-origin work, Hugin is the enforcement owner and must supply the authenticated manifest.
 For direct traffic, `gille-inference` enforces owner/service scope before capture; it MUST NOT claim
@@ -339,11 +365,14 @@ emitted.
 The tombstone keeps only an opaque new id, producer/kind, recorded/effective clocks, opaque receipt
 and superseded id, completed protocol, an exact denominator basis, and counter-owner membership
 receipts. Before removing denominator-bearing evidence, every applicable counter owner MUST
-idempotently confirm the occurrence-month membership before `effective_at`. Each receipt binds the
-actual `owner_component`, counter, period, opaque membership key, its reproducible JCS digest,
-`inserted|already-present`, matching delta `1|0`, and confirmation clock. Repeated erasure work is
-therefore safe and cannot double increment. Closed-period-only logic is forbidden because it lets
-current-month erasure shrink a denominator.
+idempotently confirm the original occurrence-month membership before `effective_at`. At original
+denominator capture, the counter owner issues a privacy-safe trusted membership token binding owner,
+counter, exact denominator natural-key digest, occurrence month, superseded record id, and issue
+clock. The tombstone retains that token/digest—not a raw membership key—plus
+`inserted|already-present`, matching delta `1|0`, and confirmation clock. A cross-owner joined
+exposure therefore verifies a Hugin-issued token; saying `owner_component: hugin` in a gille body is
+not evidence. Repeated erasure is safe and cannot double increment. Closed-period-only logic and
+period/basis shifting are forbidden because either can shrink or move a denominator.
 
 The exact required counter set is derived from `denominator_basis`: non-M5 Hugin task = capture;
 M5-backed Hugin task = capture plus join; joined exposure = Hugin-owned join; direct exposure =
@@ -396,13 +425,19 @@ The schema's `x-grimnir-conflict-keys` extension is normative:
 | Negative exposure query | `(exposure.kind, exposure.lookup_id)` |
 | Capability evidence | `capability.evidence_id` |
 | Experiment observation | `(experiment.experiment_id, experiment.run_id)` |
-| Quality receipt | `quality_receipt.receipt_id` |
+| Quality receipt identity | `quality_receipt.native_receipt.receipt_id` |
 | Experiment product rating | `experiment_product_rating.rating_id` |
 | Pipeline accounting event | `pipeline_accounting.event_id` |
 
+The exposure schema encodes its two conditional keys as one pointer list
+`(exposure.kind, exposure.event_key, exposure.lookup_id)`: exactly one id is present in each closed
+projection, so this is equivalent to the two prose rows above rather than a three-field live key.
+Quality correction supersession is grouped separately by `quality_receipt.correction_group_key` so
+a correction can and must carry a new native receipt id.
+
 Identical replay is idempotent. Different canonical JSON at one natural key fails unless the newer
 record explicitly targets the existing same-producer, same-kind, same-domain, same-natural-key
-record. Valid correction lineage is one time-ordered, acyclic chain: no missing target, self-target,
+record. Valid correction lineage is one strictly time-advancing, acyclic chain: no missing target, self-target,
 cross-key target, fork, cycle, or multiple effective leaves. Consumers select the unique
 unsuperseded leaf, never the newest timestamp. Corrections and regrading append records; they do not
 falsify a new task attempt or experiment run. Effective erasure/expiry is the only removal exception.
@@ -435,6 +470,15 @@ The order is `occurrence_at ≤ observed_at ≤ recorded_at`. Capture and join a
 Hugin-origin; direct exposure is `gille-inference`-owned and direct-origin. Evaluation accounting is
 Hugin-owned but may link a Hugin task or an imported direct-gateway candidate.
 
+An **admitted** evaluation decision additionally carries a full joined evidence bundle, not merely
+the candidate record id. It binds the task outcome, governance at the explicit decision clock,
+complete task/execution/transport/prompt/config/serving provenance, observed or trusted negative
+exposure coverage, independently admissible capability verifier evidence, the optional quality
+cohort, and a unique task/attempt lineage. An empty quality cohort is explicitly `unrated`; when
+receipts exist they must all be independent and their summary must be non-conflicted. Each plane has a reproducible digest
+and every referenced record must be loaded from the trusted dataset. An `m5-not-admitted` outcome or
+unknown serving provenance fails even when the surrounding object has bundle-shaped fields.
+
 Closed failure codes include `producer-error`, `consumer-error`, `schema-rejected`, `join-mismatch`,
 `late-over-24h`, `policy-unavailable`, `transport-auth-failed`, `gateway-not-admitted`, `transport-error`, and
 `record-delivery-failed`. Candidate exclusions are separately closed as governance denied,
@@ -452,14 +496,23 @@ does not. Thus a failure remains countable when no valid learning record exists.
 stage are exact:
 Hugin capture, Hugin M5 join, direct-M5 exposure, and Hugin evaluation-candidate.
 
+`synthetic-test` and `pre-v1-migration` are not producer labels. A synthetic exclusion carries a
+trusted owner declaration made no later than occurrence/dispatch. A migration exclusion carries a
+trusted, predeclared compatibility window and the occurrence must fall inside it. Missing, late, or
+out-of-window evidence fails closed.
+
 Accounting governance permits operational metadata only (`raw_content_present: false`) under the
 versioned retention policy; expiry/erasure uses the same reduced tombstone protocol. Mutable
 aggregate counters are projections, not fields in events. A period uses a half-open UTC month;
 `included_through` reaches at least the next-month boundary and the initial close occurs within the
 declared 24-hour grace. `pipeline-event-set-jcs-v1` hashes JCS over schema version, owner, counter,
 period, boundary, event count, and the UTF-16-code-unit-sorted denominator natural-key/event-id
-pairs. A full-period partition verifies count and digest mechanically. A close loaded without its
-partition says `partial-dataset-deferred`; it is not silently verified. Each snapshot selects
+pairs. `full-period-partition` additionally requires a separately trusted authoritative ledger
+partition/high-water proof whose decision set exactly equals the loaded correction leaves. That set
+may be empty: an authenticated high-water proof distinguishes a legitimate zero-event month from
+missing data. A producer's `full-period` string, a recomputed body digest, a partial dataset, or an
+unproven empty load cannot certify completeness. A close without that proof says `partial-dataset-deferred`; it is
+accepted only as explicitly unverified, never silently certified. Each snapshot selects
 denominator correction leaves as of `closed_at`, so a later correction does not retroactively
 invalidate the old snapshot. Late evidence appends an explicit same-key close correction; that
 unique effective leaf is the current snapshot, never implicit newest-wins.
@@ -472,6 +525,8 @@ reinterpretation requires `v2` and a parallel migration. This schema and preflig
 a separately published schema/reader branch and cannot be treated as this schema with extra fields.
 Both sides pin the canonical schema, source documents, JCS vectors, and fixtures; two locally
 invented mocks do not prove compatibility.
+Changing the closed task-taxonomy enum requires a coordinated schema revision and producer/consumer
+rollout; changing the taxonomy document alone cannot reinterpret revision 1 records.
 
 The rollout is capability-negotiated and must follow this matrix:
 
@@ -492,9 +547,10 @@ shadow, dual, v1, fallback, rejection, and rollback populations.
 ## Conformance fixtures and required tests
 
 The canonical schema ships with dependency-free positive and adversarial fixtures under
-`tests/fixtures/learning-task-contract/`. CI uses the dependency-free semantic validator. An
-optional `jsonschema` Draft 2020-12 check is also supplied for environments that explicitly provide
-that dependency; repository CI does not download undeclared packages.
+`tests/fixtures/learning-task-contract/`. CI uses the dependency-free semantic validator. A
+Draft 2020-12 check is supplied for environments that explicitly provide that dependency. The
+dependency-free validator also rejects schema keywords it does not implement, preventing a future
+keyword from being silently ignored; Draft 2020-12 remains the authoritative schema semantics.
 
 Producer and consumer suites MUST prove:
 
@@ -506,8 +562,10 @@ Producer and consumer suites MUST prove:
 4. canonical raw hashes are computed; every prompt/model/config/sampling digest resolves to a typed
    immutable source document and passes RFC 8785 conformance/mutation vectors;
 5. policy-unavailable, exact owner/delegation attestations, typed complete policy, numeric expiry,
-   erasure, exact idempotent current-month membership preservation, and backup/store receipts fail closed;
-6. multiple immutable quality receipts/experiment ratings validate; correction chains select their
+   erasure, exact idempotent original occurrence-month membership preservation, and backup/store receipts fail closed;
+6. native v1 quality artifacts remain exact and fail closed when normalization fabricates
+   attempt/rubric/retries; future v2 corrections use a new native id and explicit correction group;
+   multiple independent receipts/experiment ratings validate; correction chains select their
    unique leaf; and independent conflicting summaries do not promote;
 7. capability admission cannot be driven by self, advisory, uncalibrated, failed, or inadmissible
    evidence; and
@@ -515,15 +573,33 @@ Producer and consumer suites MUST prove:
    repository/correction claims, conflict-key reuse, and active+tombstone coexistence fail; and
 9. every denominator/failure/exclusion, request retry, delivery retry, record emission, and period
    close is representable without fabricating a missing learning record; natural-key forks fail;
-   and full close count/digest recompute from the as-of event partition.
+   and full close count/digest recompute from a trusted as-of ledger partition/high-water proof; and
+10. admitted evaluation binds and loads the full governance/provenance/exposure/verifier/quality/
+    lineage bundle; an empty quality cohort binds `unrated`, a present cohort must be independent and
+    non-conflicted, and record-id-only or non-admitted candidates fail.
 
 ## Adoption and measurable meaning of continuous
 
-The contract describes the target seam, not current deployment. Existing Hugin task/repository,
-Quality Receipt, experiment, M5 exposure, capability, verifier, and guarded routing mechanisms are
-implemented but do not yet emit this complete projection. Organic judge/delegate evidence is
-shadow. Product rating, promotion, deployment, and rollback remain manual. Durable all-outcome
-candidate packaging, verified experiment import, and guarded route reload remain future.
+The contract describes the target seam, not current deployment. Existing task/repository,
+experiment, M5 exposure, capability, verifier, and guarded routing mechanisms do not yet emit this
+complete projection. Hugin's code-loop client does provide useful partial feasibility evidence:
+`tools/list` preflight plus `client_run_id` and `request_fingerprint` response binding. That is not
+the authenticated contract preflight/stamp/echo defined here. Likewise native Quality Receipt v1
+does not provide the normalized attempt/rubric or same-reviewer correction semantics. Organic
+judge/delegate evidence is shadow. Product rating, promotion, deployment, rollback, trusted
+validation-context distribution, cross-owner erasure tokens, and authoritative partition proofs
+remain implementation work.
+
+Phase 1 adoption is bounded by owning tickets; work outside these tickets requires an explicit
+contract/roadmap change rather than implicit scope expansion:
+
+- `gille-inference`: [#2 preflight/stamp validation/echo](https://github.com/Magnus-Gille/gille-inference/issues/2),
+  [#3 authoritative accounting and period closes](https://github.com/Magnus-Gille/gille-inference/issues/3), and
+  [#4 canonical exposure identity and holdout coverage](https://github.com/Magnus-Gille/gille-inference/issues/4).
+- Hugin: [#240 requester-side preflight-bound stamps and attempt evidence](https://github.com/Magnus-Gille/hugin/issues/240),
+  [#230 canonical M5 exposure identity](https://github.com/Magnus-Gille/hugin/issues/230),
+  [#231 concurrency-safe actionable Quality Receipts](https://github.com/Magnus-Gille/hugin/issues/231), and
+  [#232 durable append-only task/outcome registry](https://github.com/Magnus-Gille/hugin/issues/232).
 
 “Continuous” uses disjoint complete UTC calendar months with 24-hour close grace:
 
@@ -551,7 +627,8 @@ join coverage.
 
 An **eligible evaluation candidate** is a captured task/outcome with evaluation allowed, active
 retention, complete just-in-time exposure evidence, a reproducible independent verifier, and unique
-source lineage/raw fingerprint. Candidate exclusions are exactly `candidate-governance-denied`,
+source lineage/raw fingerprint. Admission occurs only when the full immutable joined evidence bundle
+described above is loaded and its five digests verify. Candidate exclusions are exactly `candidate-governance-denied`,
 `candidate-erased-or-expired`, `candidate-exposure-incomplete`,
 `candidate-provenance-incomplete`, `candidate-product-quality-conflicted`,
 `candidate-verifier-inadmissible`, and `candidate-duplicate-lineage`.

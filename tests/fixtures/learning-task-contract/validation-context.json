@@ -1,0 +1,78 @@
+{
+  "schema_version": "learning-task-validation-context/v1",
+  "context_id": "fixture:learning-task-contract-v1",
+  "fixture_only": true,
+  "trusted_evidence": [
+    {
+      "evidence_id": "fixture-evidence-001",
+      "kind": "owner-authority",
+      "issuer": "principal:owner",
+      "payload_digest": {
+        "algorithm": "sha256",
+        "version": "trusted-evidence-payload-jcs-v1",
+        "digest": "5163ef29f47380caef0601c3df6f467f5fc96a4c926c12cdd9aa0d3e3331c4f0"
+      },
+      "payload": {
+        "content_owner": "principal:owner",
+        "authenticated_principal": "principal:owner",
+        "authentication": "authenticated-owner",
+        "delegation": {
+          "value": null,
+          "unknown_reason": "not-applicable"
+        }
+      }
+    },
+    {
+      "evidence_id": "fixture-evidence-002",
+      "kind": "hugin-task-attempt",
+      "issuer": "hugin",
+      "payload_digest": {
+        "algorithm": "sha256",
+        "version": "trusted-evidence-payload-jcs-v1",
+        "digest": "0fdb10eda0da42fb4690e8d94ea2c1b0513c1790d27d2b49e1b66b4af3c73311"
+      },
+      "payload": {
+        "outcome_ref": {
+          "producer": "hugin",
+          "record_kind": "task-outcome",
+          "record_id": "opaque:d1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1"
+        },
+        "task_instance_id": "task-negative-001",
+        "attempt_id": "candidate-attempt-001",
+        "relevant_task_at": "2026-07-19T12:00:01Z",
+        "raw_fingerprint": {
+          "algorithm": "sha256",
+          "version": "trim-utf8-sha256-v1",
+          "digest": "b881fde015047ea1407096ce62b0385b243f0b93ea3ffa38bd92bcc0843d7deb"
+        },
+        "request_stamp_digest": {
+          "algorithm": "sha256",
+          "version": "request-stamp-jcs-v1",
+          "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      }
+    },
+    {
+      "evidence_id": "fixture-membership-direct-july",
+      "kind": "denominator-membership",
+      "issuer": "gille-inference",
+      "payload_digest": {
+        "algorithm": "sha256",
+        "version": "trusted-evidence-payload-jcs-v1",
+        "digest": "27b03127cc610c4b1278ed01c9c758cb50ead72811e798c1a7cfc2bb13c1fca3"
+      },
+      "payload": {
+        "owner_component": "gille-inference",
+        "counter": "direct-m5-exposure-denominator",
+        "period_utc": "2026-07",
+        "denominator_natural_key_digest": {
+          "algorithm": "sha256",
+          "version": "denominator-natural-key-jcs-v1",
+          "digest": "accee6ff97534ffa32e3b42f15059d2300080cf93496307acab3fd10980c9036"
+        },
+        "superseded_record_id": "opaque:22222222-2222-4222-8222-222222222222",
+        "issued_at": "2026-07-19T11:00:01Z"
+      }
+    }
+  ]
+}
