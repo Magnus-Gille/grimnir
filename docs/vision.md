@@ -34,9 +34,10 @@ A system that *learns what it can trust cheaper compute with* and routes accordi
 
 Here, “learns” currently means evidence-backed route/roster selection and controlled optimization of
 prompts, harnesses, and tool policy. It does **not** mean that the capability ledger trains model
-weights. [ADR-006](adr-006-learning-improvement-scope.md) keeps weight training outside v1 until a separate
-privacy, dataset, evaluation, deployment, and rollback program is approved. The cross-repository
-evidence seam is [LearningTaskContract v1](learning-task-contract.md).
+weights. [ADR-006](adr-006-learning-improvement-scope.md) proposes to keep weight training outside
+v1 until both component-owner reviews and, later, a separate privacy, dataset, evaluation,
+deployment, and rollback program are approved. The cross-repository evidence seam is
+[LearningTaskContract v1](learning-task-contract.md).
 
 ---
 

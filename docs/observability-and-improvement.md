@@ -18,8 +18,8 @@ planes and important gaps between them.
 
 | Plane | Owner | Authoritative facts | It does not own |
 |---|---|---|---|
-| Task and product | Hugin | Task/source identity, lifecycle and retries, repository/publication outcome, product Quality Receipt, corrections/successors, prompt/harness experiments and macro-routing | Effective M5 model/config, exposure, capability verdict, or micro-routing |
-| Inference and capability | `gille-inference` | Gateway exposure, effective served model/artifact/config, deterministic/calibrated verifier evidence, capability ledger, model roster and micro-routing | Hugin task/product truth, human corrections, or prompt/harness promotion |
+| Task and product | Hugin | Hugin-origin task/source identity, lifecycle and retries, repository/publication outcome, product Quality Receipt, corrections/successors, prompt/harness experiments and macro-routing | Direct M5 request identity, effective M5 model/config, exposure, capability verdict, or micro-routing |
+| Inference and capability | `gille-inference` | Direct gateway-origin identity, gateway exposure/render, effective served model/artifact/config, deterministic/calibrated verifier evidence, capability ledger, model roster and micro-routing | Hugin task/product truth, human corrections, or prompt/harness promotion |
 | Contract seam | Grimnir contract, produced by both | Field ownership, canonical raw-task join, version compatibility, governance and producer/consumer conformance | A new evidence database or authority to overwrite either producer |
 
 Munin is storage and discovery for some Hugin records; it is not a fourth scoring authority. Heimdall
@@ -51,7 +51,9 @@ operationally closed, even though substantial evidence capture and experiment ma
 
 ## Evidence maturity vocabulary
 
-All architecture, status, dashboards, and issue handoffs use these labels:
+These labels are the target cross-system vocabulary. Grimnir uses them now; component docs,
+dashboards, and status writers migrate through the implementation tickets and must map any older
+local terms explicitly until adoption:
 
 - **Implemented:** code emits or enforces the mechanism on its intended production path. This does
   not claim healthy live volume or complete coverage.
@@ -67,7 +69,7 @@ All architecture, status, dashboards, and issue handoffs use these labels:
 | Mechanism | State | Boundary |
 |---|---|---|
 | Hugin task/result and managed-repository evidence | Implemented | Captures execution facts; successful completion is not product quality. |
-| Hugin Quality Receipt v1 | Implemented mechanism; manual use | Separates product review from lifecycle; real review volume must be measured, not assumed. |
+| Hugin Quality Receipt v1 | Implemented mechanism; manual use; concurrency partial | Existing-feedback appends use CAS/retry. Two concurrent first writers can both observe no feedback, pass `current?.updated_at` as undefined, and perform unconditional Munin writes; one receipt can overwrite the other. Closing that first-create gap remains future work. |
 | Hugin daily candidate factory | Implemented | Content-blind, rolling candidate snapshot only; not a sealed holdout, durable registry, evaluation, or promotion path. |
 | Hugin controlled experiment ledger/evaluator | Implemented | One-axis matched evaluation and champion lineage; current reusable runner is narrow. |
 | M5 task exposure registry | Implemented | Content-blind coverage for declared gateway lanes; direct loopback calls and incomplete history remain explicit. |
@@ -85,13 +87,16 @@ The required fields and owner are normative in
 must bind:
 
 - one stable task/source instance and canonical task taxonomy version;
-- the raw task fingerprint, separately from the rendered model prompt fingerprint;
+- the raw task fingerprint, Hugin-rendered prompt fingerprint, and gateway-rendered prompt
+  fingerprint as three separately versioned identities;
 - exact execution attempt, input/output/repository references and hashes;
 - effective runtime, provider, model artifact/config and sampling identity;
-- prompt, harness, verifier/rubric, tool-policy and routing-policy versions;
+- prompt, harness, verifier/rubric, and tool-policy versions plus separate macro- and micro-routing
+  policy/decision identities;
 - execution, repository, publication, product, and capability outcomes without collapsing them;
 - failure/correction/successor and authenticated reviewer provenance; and
-- sensitivity, allowed uses, retention/erasure, and exposure coverage.
+- per-source/artifact governance, mechanically derived strictest effective policy, the reduced
+  content-removal tombstone used only after deleting the active projection, and exposure coverage.
 
 A missing field remains missing. An inference, successful exit, changed file, model self-report, or
 uncalibrated judge does not fill an owner-controlled product or capability verdict.
@@ -131,7 +136,7 @@ in v1.
 |---:|---|---|---|
 | 1 | Grimnir + both reviewers | Adopt v1 seam and immutable shared fixtures | Hugin and `gille-inference` owner reviews recorded; both consumer suites accept the same fixture. |
 | 2 | Hugin + `gille-inference` | Canonical raw-task/exposure identity and taxonomy parity | Real Hugin serialization is captured by M5 and found by Hugin lookup; rendered/raw mismatch test passes. |
-| 3 | Hugin | Concurrency-safe, actionable receipts and durable all-outcome registry | Parallel reviews are preserved; failures/no-ops/publication failures and late labels stay joinable. |
+| 3 | Hugin | Close receipt first-create concurrency; add actionable receipts and durable all-outcome registry | Parallel first receipts are preserved; failures/no-ops/publication failures and late labels stay joinable. |
 | 4 | Hugin | Independent candidate packager | A governed production candidate is rechecked, frozen, independently verified, and imported into a one-axis experiment. |
 | 5 | `gille-inference` | Versioned evidence identity and verified experiment import | Exact served-model/config evidence joins the task and only qualified evidence affects capability state. |
 | 6 | `gille-inference` | Reviewed routing-table lifecycle | Generate, diff, approve, deploy/reload, canary, and rollback are demonstrated without silent promotion. |

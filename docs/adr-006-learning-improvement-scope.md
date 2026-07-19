@@ -1,9 +1,11 @@
 # ADR-006: Improvement scope for the delegation loop
 
-- **Status:** accepted
+- **Status:** proposed; becomes accepted only after the review evidence below is recorded
 - **Date:** 2026-07-19
 - **Decision owner:** Grimnir system architecture
 - **Component reviewers required:** Hugin and `gille-inference`
+- **Hugin owner review:** pending
+- **`gille-inference` owner review:** pending
 
 ## Context
 

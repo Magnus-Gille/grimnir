@@ -1,0 +1,643 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grimnir.gille.ai/contracts/learning-task/v1/schema.json",
+  "title": "LearningTaskContract v1",
+  "description": "Content-governed join between Hugin task/product evidence and gille-inference serving/capability evidence.",
+  "oneOf": [
+    { "$ref": "#/$defs/taskOutcomeRecord" },
+    { "$ref": "#/$defs/inferenceExposureRecord" },
+    { "$ref": "#/$defs/capabilityEvidenceRecord" },
+    { "$ref": "#/$defs/experimentObservationRecord" }
+  ],
+  "x-grimnir-conflict-keys": {
+    "record": ["/producer/component", "/record_id"],
+    "task-outcome": ["/task/origin_component", "/task/instance_id", "/execution/attempt_id"],
+    "inference-exposure": ["/exposure/event_key"],
+    "capability-evidence": ["/capability/evidence_id"],
+    "experiment-observation": ["/experiment/experiment_id", "/experiment/run_id"]
+  },
+  "x-grimnir-conflict-key-applicability": "record applies to active records and tombstones; kind-specific keys apply only when lifecycle_state is active",
+  "x-grimnir-field-owners": {
+    "/contract_version,/schema_revision,/lifecycle_state,/record_kind": "grimnir",
+    "/record_id,/producer/**,/recorded_at": "producer.component",
+    "/tombstone/**": "producer.component, constrained to the metric counters owned by that producer",
+    "/task/origin_component,/task/instance_id,/task/source/**,/task/task_type/id,/task/raw_fingerprint": "task.origin_component",
+    "/task/task_type/taxonomy_id,/task/task_type/taxonomy_version": "gille-inference",
+    "/execution/attempt_id,/execution/started_at,/execution/ended_at,/execution/prompt_version,/execution/harness_version,/execution/tool_policy_version": "task.origin_component",
+    "/execution/prompt_identity/hugin_rendered,/execution/routing/macro": "hugin",
+    "/execution/prompt_identity/gateway_rendered,/execution/routing/micro": "gille-inference",
+    "/execution/serving/**": "gille-inference when a gateway ran; otherwise task.origin_component",
+    "/artifacts/items/**": "producer.component for the binding; items[].owner for referenced content",
+    "/artifacts/repository/**": "hugin",
+    "/outcomes/**": "hugin",
+    "/exposure/**": "gille-inference",
+    "/capability/**": "gille-inference",
+    "/experiment/**": "hugin",
+    "/governance/policies/*/subject_ref,/governance/policies/*/subject_kind": "producer.component",
+    "/governance/policies/*/content_owner,/governance/policies/*/sensitivity,/governance/policies/*/classification_version,/governance/policies/*/allowed_uses,/governance/policies/*/retention/**,/governance/policies/*/erasure/**": "governance.policies[].content_owner",
+    "/governance/effective/**": "producer.component, mechanically derived",
+    "/lineage/corrects_record_ids": "producer.component",
+    "/lineage/correction_ref,/lineage/successor_task_ids": "task.origin_component",
+    "/review/**": "hugin for task-outcome and experiment-observation; gille-inference for inference-exposure and capability-evidence",
+    "/extensions/{producer.component}/**": "producer.component"
+  },
+  "x-version-behavior": {
+    "major": "contract_version is exact; an unknown major fails closed",
+    "revision": "schema_revision may increase within v1 only for optional extensions or a new explicit task_type.taxonomy_version branch, with unchanged existing-v1 decisions",
+    "extensions": "unknown keys are allowed only below extensions and must not affect v1 decisions",
+    "migration": "expand consumer, switch producer, retire old reader after the declared compatibility window"
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "opaqueId": {
+      "type": "string",
+      "pattern": "^opaque:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "unknown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unknown_reason"],
+      "properties": {
+        "value": { "type": "null" },
+        "unknown_reason": {
+          "enum": ["not-applicable", "not-observed", "legacy", "producer-error", "redacted", "erased", "expired"]
+        },
+        "detail": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "version", "digest"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "version": { "$ref": "#/$defs/nonEmptyString" },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "maybeFingerprint": {
+      "oneOf": [
+        { "$ref": "#/$defs/fingerprint" },
+        { "$ref": "#/$defs/unknown" }
+      ]
+    },
+    "maybeString": {
+      "oneOf": [
+        { "$ref": "#/$defs/nonEmptyString" },
+        { "$ref": "#/$defs/unknown" }
+      ]
+    },
+    "maybeTimestamp": {
+      "oneOf": [
+        { "$ref": "#/$defs/timestamp" },
+        { "$ref": "#/$defs/unknown" }
+      ]
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "schema_version"],
+      "properties": {
+        "component": { "enum": ["hugin", "gille-inference"] },
+        "schema_version": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "system", "id", "created_at", "accepted_at"],
+      "properties": {
+        "component": { "enum": ["hugin", "gille-inference"] },
+        "system": { "$ref": "#/$defs/nonEmptyString" },
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "accepted_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "taskType": {
+      "description": "Closed per-version taxonomy owned by gille-inference. Add a new explicit branch for a new taxonomy version; never reinterpret an existing id/version.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "taxonomy_id", "taxonomy_version"],
+          "properties": {
+            "id": {
+              "enum": ["draft", "code-implement", "code-edit", "code-review", "unit-test-gen", "summarize", "extract", "classify", "data-transform", "regex", "sql", "reason-math", "reason-hard", "rewrite", "translate", "plan-decompose", "qa-factual", "triage", "memory-decision", "research-plan", "source-distill", "claim-verify", "gap-check", "synthesis", "conversation", "other"]
+            },
+            "taxonomy_id": { "const": "gille-inference/task-types" },
+            "taxonomy_version": { "const": "gille-inference-task-types-2026-07-19-v1" }
+          }
+        }
+      ]
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin_component", "instance_id", "source", "task_type", "raw_fingerprint"],
+      "properties": {
+        "origin_component": { "enum": ["hugin", "gille-inference"] },
+        "instance_id": { "$ref": "#/$defs/nonEmptyString" },
+        "source": { "$ref": "#/$defs/source" },
+        "task_type": { "$ref": "#/$defs/taskType" },
+        "raw_fingerprint": { "$ref": "#/$defs/fingerprint" }
+      }
+    },
+    "routingPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_id", "version", "decision_id"],
+      "properties": {
+        "policy_id": { "$ref": "#/$defs/nonEmptyString" },
+        "version": { "$ref": "#/$defs/nonEmptyString" },
+        "decision_id": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "maybeRoutingPolicy": {
+      "oneOf": [
+        { "$ref": "#/$defs/routingPolicy" },
+        { "$ref": "#/$defs/unknown" }
+      ]
+    },
+    "promptIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hugin_rendered", "gateway_rendered"],
+      "properties": {
+        "hugin_rendered": { "$ref": "#/$defs/maybeFingerprint" },
+        "gateway_rendered": { "$ref": "#/$defs/maybeFingerprint" }
+      }
+    },
+    "routingIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["macro", "micro"],
+      "properties": {
+        "macro": { "$ref": "#/$defs/maybeRoutingPolicy" },
+        "micro": { "$ref": "#/$defs/maybeRoutingPolicy" }
+      }
+    },
+    "modelIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "artifact_digest", "config_epoch"],
+      "properties": {
+        "id": { "$ref": "#/$defs/maybeString" },
+        "artifact_digest": { "$ref": "#/$defs/maybeFingerprint" },
+        "config_epoch": { "$ref": "#/$defs/maybeString" }
+      }
+    },
+    "servingIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_id", "provider_id", "model", "sampling_version"],
+      "properties": {
+        "runtime_id": { "$ref": "#/$defs/maybeString" },
+        "provider_id": { "$ref": "#/$defs/maybeString" },
+        "model": { "$ref": "#/$defs/modelIdentity" },
+        "sampling_version": { "$ref": "#/$defs/maybeString" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_id", "started_at", "ended_at", "prompt_identity", "routing", "serving", "prompt_version", "harness_version", "tool_policy_version"],
+      "properties": {
+        "attempt_id": { "$ref": "#/$defs/nonEmptyString" },
+        "started_at": { "$ref": "#/$defs/timestamp" },
+        "ended_at": { "$ref": "#/$defs/maybeTimestamp" },
+        "prompt_identity": { "$ref": "#/$defs/promptIdentity" },
+        "routing": { "$ref": "#/$defs/routingIdentity" },
+        "serving": { "$ref": "#/$defs/servingIdentity" },
+        "prompt_version": { "$ref": "#/$defs/maybeString" },
+        "harness_version": { "$ref": "#/$defs/maybeString" },
+        "tool_policy_version": { "$ref": "#/$defs/maybeString" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "owner", "ref", "content_hash"],
+      "properties": {
+        "kind": { "enum": ["input", "output", "repository", "publication", "correction"] },
+        "owner": { "$ref": "#/$defs/nonEmptyString" },
+        "ref": { "$ref": "#/$defs/nonEmptyString" },
+        "content_hash": { "$ref": "#/$defs/maybeFingerprint" }
+      }
+    },
+    "repositoryBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_commit", "head_commit", "diff_hash", "changed_files_ref"],
+      "properties": {
+        "base_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "head_commit": { "$ref": "#/$defs/maybeString" },
+        "diff_hash": { "$ref": "#/$defs/maybeFingerprint" },
+        "changed_files_ref": { "$ref": "#/$defs/maybeString" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items", "repository"],
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/$defs/artifact" }, "uniqueItems": true },
+        "repository": {
+          "oneOf": [
+            { "$ref": "#/$defs/repositoryBinding" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_id", "expires_at"],
+      "properties": {
+        "policy_id": { "$ref": "#/$defs/nonEmptyString" },
+        "expires_at": { "$ref": "#/$defs/maybeTimestamp" }
+      }
+    },
+    "erasure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "effective_at", "digest_disposition"],
+      "properties": {
+        "state": { "enum": ["active", "requested", "erased", "expired"] },
+        "effective_at": { "$ref": "#/$defs/maybeTimestamp" },
+        "digest_disposition": { "enum": ["retained", "removed"] }
+      }
+    },
+    "governancePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_ref", "subject_kind", "content_owner", "sensitivity", "classification_version", "allowed_uses", "retention", "erasure"],
+      "properties": {
+        "subject_ref": { "$ref": "#/$defs/nonEmptyString" },
+        "subject_kind": { "enum": ["source", "artifact", "raw-fingerprint", "hugin-rendered-prompt", "gateway-rendered-prompt"] },
+        "content_owner": { "$ref": "#/$defs/nonEmptyString" },
+        "sensitivity": { "enum": ["public", "internal", "private"] },
+        "classification_version": { "$ref": "#/$defs/nonEmptyString" },
+        "allowed_uses": {
+          "type": "array",
+          "items": { "enum": ["operations", "evaluation", "debug"] },
+          "uniqueItems": true
+        },
+        "retention": { "$ref": "#/$defs/retention" },
+        "erasure": { "$ref": "#/$defs/erasure" }
+      }
+    },
+    "effectiveGovernance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sensitivity", "allowed_uses", "expires_at", "erasure_state", "derived_from_subject_refs"],
+      "properties": {
+        "sensitivity": { "enum": ["public", "internal", "private"] },
+        "allowed_uses": {
+          "type": "array",
+          "items": { "enum": ["operations", "evaluation", "debug"] },
+          "uniqueItems": true
+        },
+        "expires_at": { "$ref": "#/$defs/maybeTimestamp" },
+        "erasure_state": { "enum": ["active", "requested", "erased", "expired"] },
+        "derived_from_subject_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policies", "effective"],
+      "properties": {
+        "policies": { "type": "array", "items": { "$ref": "#/$defs/governancePolicy" }, "minItems": 1 },
+        "effective": { "$ref": "#/$defs/effectiveGovernance" }
+      }
+    },
+    "taskOutcomes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution", "repository", "publication", "product_quality", "execution_failure_mode"],
+      "properties": {
+        "execution": { "enum": ["completed", "failed", "cancelled", "timeout", "infrastructure-error"] },
+        "repository": {
+          "oneOf": [
+            { "enum": ["not-managed", "checkout-failed", "not-finalized", "no-changes", "changes-present"] },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        },
+        "publication": {
+          "oneOf": [
+            { "enum": ["not-attempted", "succeeded", "failed"] },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        },
+        "product_quality": {
+          "oneOf": [
+            { "enum": ["pass", "partial", "redo", "wrong", "unrated"] },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        },
+        "execution_failure_mode": { "$ref": "#/$defs/maybeString" }
+      }
+    },
+    "exposure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_key", "state", "fingerprint_version", "lane", "first_seen_at", "last_seen_at", "coverage"],
+      "properties": {
+        "event_key": { "$ref": "#/$defs/nonEmptyString" },
+        "state": { "enum": ["seen", "unseen-covered", "incomplete", "error", "not-checked"] },
+        "fingerprint_version": { "const": "trim-utf8-sha256-v1" },
+        "lane": { "enum": ["chat", "mcp-ask", "delegate", "delegate-disagreement", "delegate-shadow", "code-loop"] },
+        "first_seen_at": { "$ref": "#/$defs/maybeTimestamp" },
+        "last_seen_at": { "$ref": "#/$defs/maybeTimestamp" },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["complete", "from", "through", "lanes"],
+          "properties": {
+            "complete": { "type": "boolean" },
+            "from": { "$ref": "#/$defs/timestamp" },
+            "through": { "$ref": "#/$defs/timestamp" },
+            "lanes": {
+              "type": "array",
+              "items": { "enum": ["chat", "mcp-ask", "delegate", "delegate-disagreement", "delegate-shadow", "code-loop"] },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "rubric_id", "rubric_version", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "version": { "$ref": "#/$defs/nonEmptyString" },
+        "rubric_id": { "$ref": "#/$defs/nonEmptyString" },
+        "rubric_version": { "$ref": "#/$defs/nonEmptyString" },
+        "kind": { "enum": ["deterministic", "human", "calibrated-judge", "advisory-judge"] }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "outcome", "failure_mode", "verifier", "policy_epoch", "routing_effect"],
+      "properties": {
+        "evidence_id": { "$ref": "#/$defs/nonEmptyString" },
+        "outcome": { "enum": ["pass", "partial", "fail", "error", "unverified"] },
+        "failure_mode": { "$ref": "#/$defs/maybeString" },
+        "verifier": { "$ref": "#/$defs/verifier" },
+        "policy_epoch": { "$ref": "#/$defs/nonEmptyString" },
+        "routing_effect": { "enum": ["none-shadow", "admit", "freeze", "reject"] }
+      }
+    },
+    "experiment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["experiment_id", "run_id", "sample_id", "arm", "holdout", "configuration_fingerprint", "verification_outcome", "product_outcome", "verifier"],
+      "properties": {
+        "experiment_id": { "$ref": "#/$defs/nonEmptyString" },
+        "run_id": { "$ref": "#/$defs/nonEmptyString" },
+        "sample_id": { "$ref": "#/$defs/nonEmptyString" },
+        "arm": { "enum": ["champion", "challenger"] },
+        "holdout": { "type": "boolean" },
+        "configuration_fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "verification_outcome": { "enum": ["pass", "fail", "unverified", "infra-error"] },
+        "product_outcome": { "enum": ["accepted-unchanged", "minor-edit", "major-rewrite", "discarded", "unrated"] },
+        "verifier": { "$ref": "#/$defs/verifier" }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["corrects_record_ids", "correction_ref", "successor_task_ids"],
+      "properties": {
+        "corrects_record_ids": { "type": "array", "items": { "$ref": "#/$defs/opaqueId" }, "uniqueItems": true },
+        "correction_ref": { "$ref": "#/$defs/maybeString" },
+        "successor_task_ids": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" }, "uniqueItems": true }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer_principal_id", "reviewed_at"],
+      "properties": {
+        "reviewer_principal_id": { "$ref": "#/$defs/maybeString" },
+        "reviewed_at": { "$ref": "#/$defs/maybeTimestamp" }
+      }
+    },
+    "counterAuditEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["counter", "period_utc", "disposition"],
+      "properties": {
+        "counter": {
+          "enum": ["hugin-capture-denominator", "hugin-m5-join-denominator", "direct-m5-exposure-denominator", "evaluation-candidate-denominator"]
+        },
+        "period_utc": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" },
+        "disposition": { "enum": ["preserved", "decremented"] }
+      }
+    },
+    "tombstone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["removal_reason", "effective_at", "receipt_id", "superseded_record_id", "counter_audit"],
+      "properties": {
+        "removal_reason": { "enum": ["erased", "expired"] },
+        "effective_at": { "$ref": "#/$defs/timestamp" },
+        "receipt_id": { "$ref": "#/$defs/opaqueId" },
+        "superseded_record_id": { "$ref": "#/$defs/opaqueId" },
+        "counter_audit": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/counterAuditEntry" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "tombstoneBaseRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "schema_revision", "lifecycle_state", "record_id", "record_kind", "producer", "recorded_at", "tombstone"],
+      "properties": {
+        "contract_version": { "const": "grimnir.learning-task/v1" },
+        "schema_revision": { "type": "integer", "minimum": 1 },
+        "lifecycle_state": { "const": "content-removed-tombstone" },
+        "record_id": { "$ref": "#/$defs/opaqueId" },
+        "record_kind": { "enum": ["task-outcome", "inference-exposure", "capability-evidence", "experiment-observation"] },
+        "producer": { "$ref": "#/$defs/producer" },
+        "recorded_at": { "$ref": "#/$defs/timestamp" },
+        "tombstone": { "$ref": "#/$defs/tombstone" }
+      }
+    },
+    "baseRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "schema_revision", "lifecycle_state", "record_id", "record_kind", "producer", "recorded_at", "task", "execution", "artifacts", "governance", "lineage", "review", "extensions"],
+      "properties": {
+        "contract_version": { "const": "grimnir.learning-task/v1" },
+        "schema_revision": { "type": "integer", "minimum": 1 },
+        "lifecycle_state": { "const": "active" },
+        "record_id": { "$ref": "#/$defs/opaqueId" },
+        "record_kind": { "enum": ["task-outcome", "inference-exposure", "capability-evidence", "experiment-observation"] },
+        "producer": { "$ref": "#/$defs/producer" },
+        "recorded_at": { "$ref": "#/$defs/timestamp" },
+        "task": { "$ref": "#/$defs/task" },
+        "execution": { "$ref": "#/$defs/execution" },
+        "artifacts": { "$ref": "#/$defs/artifacts" },
+        "outcomes": { "$ref": "#/$defs/taskOutcomes" },
+        "exposure": { "$ref": "#/$defs/exposure" },
+        "capability": { "$ref": "#/$defs/capability" },
+        "experiment": { "$ref": "#/$defs/experiment" },
+        "governance": { "$ref": "#/$defs/governance" },
+        "lineage": { "$ref": "#/$defs/lineage" },
+        "review": { "$ref": "#/$defs/review" },
+        "extensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "hugin": { "type": "object" },
+            "gille-inference": { "type": "object" }
+          }
+        }
+      }
+    },
+    "taskOutcomeRecord": {
+      "oneOf": [
+        { "$ref": "#/$defs/activeTaskOutcomeRecord" },
+        { "$ref": "#/$defs/taskOutcomeTombstone" }
+      ]
+    },
+    "activeTaskOutcomeRecord": {
+      "allOf": [
+        { "$ref": "#/$defs/baseRecord" },
+        {
+          "required": ["outcomes"],
+          "properties": {
+            "record_kind": { "const": "task-outcome" },
+            "producer": { "properties": { "component": { "const": "hugin" } } },
+            "task": { "properties": { "origin_component": { "const": "hugin" } } },
+            "exposure": false,
+            "capability": false,
+            "experiment": false
+          }
+        }
+      ]
+    },
+    "taskOutcomeTombstone": {
+      "allOf": [
+        { "$ref": "#/$defs/tombstoneBaseRecord" },
+        {
+          "properties": {
+            "record_kind": { "const": "task-outcome" },
+            "producer": { "properties": { "component": { "const": "hugin" } } }
+          }
+        }
+      ]
+    },
+    "inferenceExposureRecord": {
+      "oneOf": [
+        { "$ref": "#/$defs/activeInferenceExposureRecord" },
+        { "$ref": "#/$defs/inferenceExposureTombstone" }
+      ]
+    },
+    "activeInferenceExposureRecord": {
+      "allOf": [
+        { "$ref": "#/$defs/baseRecord" },
+        {
+          "required": ["exposure"],
+          "properties": {
+            "record_kind": { "const": "inference-exposure" },
+            "producer": { "properties": { "component": { "const": "gille-inference" } } },
+            "outcomes": false,
+            "capability": false,
+            "experiment": false
+          }
+        }
+      ]
+    },
+    "inferenceExposureTombstone": {
+      "allOf": [
+        { "$ref": "#/$defs/tombstoneBaseRecord" },
+        {
+          "properties": {
+            "record_kind": { "const": "inference-exposure" },
+            "producer": { "properties": { "component": { "const": "gille-inference" } } }
+          }
+        }
+      ]
+    },
+    "capabilityEvidenceRecord": {
+      "oneOf": [
+        { "$ref": "#/$defs/activeCapabilityEvidenceRecord" },
+        { "$ref": "#/$defs/capabilityEvidenceTombstone" }
+      ]
+    },
+    "activeCapabilityEvidenceRecord": {
+      "allOf": [
+        { "$ref": "#/$defs/baseRecord" },
+        {
+          "required": ["capability"],
+          "properties": {
+            "record_kind": { "const": "capability-evidence" },
+            "producer": { "properties": { "component": { "const": "gille-inference" } } },
+            "outcomes": false,
+            "exposure": false,
+            "experiment": false
+          }
+        }
+      ]
+    },
+    "capabilityEvidenceTombstone": {
+      "allOf": [
+        { "$ref": "#/$defs/tombstoneBaseRecord" },
+        {
+          "properties": {
+            "record_kind": { "const": "capability-evidence" },
+            "producer": { "properties": { "component": { "const": "gille-inference" } } }
+          }
+        }
+      ]
+    },
+    "experimentObservationRecord": {
+      "oneOf": [
+        { "$ref": "#/$defs/activeExperimentObservationRecord" },
+        { "$ref": "#/$defs/experimentObservationTombstone" }
+      ]
+    },
+    "activeExperimentObservationRecord": {
+      "allOf": [
+        { "$ref": "#/$defs/baseRecord" },
+        {
+          "required": ["experiment"],
+          "properties": {
+            "record_kind": { "const": "experiment-observation" },
+            "producer": { "properties": { "component": { "const": "hugin" } } },
+            "task": { "properties": { "origin_component": { "const": "hugin" } } },
+            "outcomes": false,
+            "exposure": false,
+            "capability": false
+          }
+        }
+      ]
+    },
+    "experimentObservationTombstone": {
+      "allOf": [
+        { "$ref": "#/$defs/tombstoneBaseRecord" },
+        {
+          "properties": {
+            "record_kind": { "const": "experiment-observation" },
+            "producer": { "properties": { "component": { "const": "hugin" } } }
+          }
+        }
+      ]
+    }
+  }
+}

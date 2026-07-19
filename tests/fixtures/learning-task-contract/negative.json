@@ -1,0 +1,203 @@
+[
+  {
+    "name": "unknown contract major",
+    "from_positive": 0,
+    "mutations": [{ "op": "set", "path": "/contract_version", "value": "grimnir.learning-task/v2" }],
+    "expected_error": "contract_version"
+  },
+  {
+    "name": "missing gateway-rendered prompt identity",
+    "from_positive": 2,
+    "mutations": [{ "op": "delete", "path": "/execution/prompt_identity/gateway_rendered" }],
+    "expected_error": "gateway_rendered"
+  },
+  {
+    "name": "legacy joint rendered prompt is rejected",
+    "from_positive": 2,
+    "mutations": [{ "op": "set", "path": "/execution/prompt_identity/rendered", "value": { "algorithm": "sha256", "version": "joint-v1", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } }],
+    "expected_error": "additional property rendered"
+  },
+  {
+    "name": "legacy joint routing policy is rejected",
+    "from_positive": 2,
+    "mutations": [{ "op": "set", "path": "/execution/routing/policy_version", "value": "joint-v1" }],
+    "expected_error": "additional property policy_version"
+  },
+  {
+    "name": "capability evidence cannot be produced by Hugin",
+    "from_positive": 2,
+    "mutations": [{ "op": "set", "path": "/producer/component", "value": "hugin" }],
+    "expected_error": "producer.component"
+  },
+  {
+    "name": "direct gateway origin must match its source component",
+    "from_positive": 1,
+    "mutations": [{ "op": "set", "path": "/task/source/component", "value": "hugin" }],
+    "expected_error": "task origin_component must equal task.source.component"
+  },
+  {
+    "name": "task type must use the advertised closed taxonomy",
+    "from_positive": 0,
+    "mutations": [{ "op": "set", "path": "/task/task_type/id", "value": "unregistered-task-kind" }],
+    "expected_error": "task_type.id"
+  },
+  {
+    "name": "governance must cover every referenced artifact",
+    "from_positive": 0,
+    "mutations": [{ "op": "delete-array-item", "path": "/governance/policies", "index": 4 }],
+    "expected_error": "missing governance policy for munin:tasks/task-001/result"
+  },
+  {
+    "name": "effective sensitivity cannot be weaker than a source policy",
+    "from_positive": 2,
+    "mutations": [{ "op": "set", "path": "/governance/effective/sensitivity", "value": "internal" }],
+    "expected_error": "effective sensitivity"
+  },
+  {
+    "name": "training export is closed in v1",
+    "from_positive": 0,
+    "mutations": [{ "op": "set", "path": "/governance/policies/0/allowed_uses/0", "value": "training-export" }],
+    "expected_error": "allowed_uses"
+  },
+  {
+    "name": "null requires a reason object",
+    "from_positive": 0,
+    "mutations": [{ "op": "set", "path": "/execution/serving/model/artifact_digest", "value": null }],
+    "expected_error": "artifact_digest"
+  },
+  {
+    "name": "invalid timestamp fails closed",
+    "from_positive": 0,
+    "mutations": [{ "op": "set", "path": "/recorded_at", "value": "2026-07-19 10:01" }],
+    "expected_error": "invalid RFC 3339 UTC date-time"
+  },
+  {
+    "name": "invalid content hash fails closed",
+    "from_positive": 0,
+    "mutations": [{ "op": "set", "path": "/task/raw_fingerprint/digest", "value": "not-a-sha256" }],
+    "expected_error": "does not match ^[a-f0-9]{64}$"
+  },
+  {
+    "name": "effective erasure requires the reduced tombstone",
+    "from_positive": 1,
+    "mutations": [
+      { "op": "set", "path": "/governance/policies/0/erasure/state", "value": "erased" },
+      { "op": "set", "path": "/governance/policies/0/erasure/effective_at", "value": "2026-07-20T00:00:00Z" },
+      { "op": "set", "path": "/governance/policies/0/erasure/digest_disposition", "value": "removed" },
+      { "op": "set", "path": "/governance/policies/1/erasure/state", "value": "erased" },
+      { "op": "set", "path": "/governance/policies/1/erasure/effective_at", "value": "2026-07-20T00:00:00Z" },
+      { "op": "set", "path": "/governance/policies/1/erasure/digest_disposition", "value": "removed" },
+      { "op": "set", "path": "/governance/policies/2/erasure/state", "value": "erased" },
+      { "op": "set", "path": "/governance/policies/2/erasure/effective_at", "value": "2026-07-20T00:00:00Z" },
+      { "op": "set", "path": "/governance/policies/2/erasure/digest_disposition", "value": "removed" },
+      { "op": "set", "path": "/governance/effective/erasure_state", "value": "erased" }
+    ],
+    "expected_error": "erased/expired content MUST use reduced tombstone projection"
+  },
+  {
+    "name": "tombstone cannot retain a task projection",
+    "from_erased": true,
+    "mutations": [{ "op": "set", "path": "/task", "value": { "task_type": "conversation" } }],
+    "expected_error": "additional property task"
+  },
+  {
+    "name": "tombstone cannot retain a structured legacy record id",
+    "from_erased": true,
+    "mutations": [{ "op": "set", "path": "/tombstone/superseded_record_id", "value": "gille:exposure:direct-001" }],
+    "expected_error": "superseded_record_id"
+  },
+  {
+    "name": "erased dataset cannot retain its superseded active projection",
+    "from_positive": 1,
+    "second_from_erased": true,
+    "second_record_mutations": [],
+    "expected_error": "tombstone supersedes content-bearing record still present"
+  },
+  {
+    "name": "tombstone counter must be producer owned",
+    "from_erased": true,
+    "mutations": [{ "op": "set", "path": "/tombstone/counter_audit/0/counter", "value": "hugin-capture-denominator" }],
+    "expected_error": "does not own counter hugin-capture-denominator"
+  },
+  {
+    "name": "tombstone cannot precede erasure",
+    "from_erased": true,
+    "mutations": [{ "op": "set", "path": "/recorded_at", "value": "2026-07-19T23:59:59Z" }],
+    "expected_error": "tombstone recorded_at precedes effective_at"
+  },
+  {
+    "name": "tombstone counter period is unique even if disposition differs",
+    "from_erased": true,
+    "mutations": [{ "op": "set", "path": "/tombstone/counter_audit", "value": [
+      { "counter": "direct-m5-exposure-denominator", "period_utc": "2026-07", "disposition": "preserved" },
+      { "counter": "direct-m5-exposure-denominator", "period_utc": "2026-07", "disposition": "decremented" }
+    ] }],
+    "expected_error": "duplicate counter audit key direct-m5-exposure-denominator|2026-07"
+  },
+  {
+    "name": "active extensions are producer namespaced",
+    "from_positive": 0,
+    "mutations": [{ "op": "set", "path": "/extensions/gille-inference", "value": { "foreign": true } }],
+    "expected_error": "extension namespace gille-inference is not owned by producer hugin"
+  },
+  {
+    "name": "unseen covered exposure requires complete coverage",
+    "from_positive": 1,
+    "mutations": [
+      { "op": "set", "path": "/exposure/state", "value": "unseen-covered" },
+      { "op": "set", "path": "/exposure/coverage/complete", "value": false }
+    ],
+    "expected_error": "unseen-covered exposure requires complete coverage"
+  },
+  {
+    "name": "joined raw identity mismatch fails",
+    "from_positive": 0,
+    "second_from_positive": 4,
+    "second_record_mutations": [{ "op": "set", "path": "/task/raw_fingerprint/digest", "value": "1212121212121212121212121212121212121212121212121212121212121212" }],
+    "expected_error": "joined identity mismatch at task.raw_fingerprint.digest"
+  },
+  {
+    "name": "joined prompt identity mismatch fails",
+    "from_positive": 0,
+    "second_from_positive": 4,
+    "second_record_mutations": [{ "op": "set", "path": "/execution/prompt_identity/gateway_rendered/digest", "value": "1313131313131313131313131313131313131313131313131313131313131313" }],
+    "expected_error": "joined identity mismatch at execution.prompt_identity.gateway_rendered.digest"
+  },
+  {
+    "name": "joined routing identity mismatch fails",
+    "from_positive": 0,
+    "second_from_positive": 4,
+    "second_record_mutations": [{ "op": "set", "path": "/execution/routing/micro/decision_id", "value": "different-micro-decision" }],
+    "expected_error": "joined identity mismatch at execution.routing.micro.decision_id"
+  },
+  {
+    "name": "joined serving identity mismatch fails",
+    "from_positive": 0,
+    "second_from_positive": 4,
+    "second_record_mutations": [{ "op": "set", "path": "/execution/serving/model/id", "value": "different-model" }],
+    "expected_error": "joined identity mismatch at execution.serving.model.id"
+  },
+  {
+    "name": "later semantic validation is not skipped after an earlier schema error",
+    "from_positive": 0,
+    "mutations": [{ "op": "set", "path": "/contract_version", "value": "grimnir.learning-task/v2" }],
+    "second_from_positive": 1,
+    "second_record_mutations": [{ "op": "set", "path": "/task/source/component", "value": "hugin" }],
+    "expected_error": "record 1: task origin_component must equal task.source.component"
+  },
+  {
+    "name": "conflicting record replay",
+    "from_positive": 0,
+    "second_record_mutations": [{ "op": "set", "path": "/outcomes/product_quality", "value": "pass" }],
+    "expected_error": "conflicting record key"
+  },
+  {
+    "name": "conflicting task-attempt key",
+    "from_positive": 0,
+    "second_record_mutations": [
+      { "op": "set", "path": "/record_id", "value": "opaque:88888888-8888-4888-8888-888888888888" },
+      { "op": "set", "path": "/recorded_at", "value": "2026-07-19T10:02:00Z" }
+    ],
+    "expected_error": "conflicting task-outcome key"
+  }
+]

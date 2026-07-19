@@ -22,7 +22,7 @@
 | **Live deployment state** | `generate-architecture.sh` output | Skuld, Heimdall |
 | **Project status / roadmap** | Munin `projects/*/status` | Skuld briefing, workbench |
 | **Cross-component data flow** | `docs/architecture.md` | generator (may diagram) |
-| **Learning-task seam, field/decision ownership & compatibility rules** | `docs/learning-task-contract.md` | Hugin and `gille-inference` producer/consumer schemas and fixtures |
+| **Learning-task seam, field/decision ownership & compatibility rules** | `docs/learning-task-contract.md` plus `docs/learning-task-contract-v1.schema.json` | Hugin and `gille-inference` producer/consumer schemas and fixtures |
 | **Self-improvement mechanism state & delivery sequence** | `docs/observability-and-improvement.md` | `docs/architecture.md`, component plans and Roadmap issues |
 | **Improvement scope (routing/configuration vs model weights)** | `docs/adr-006-learning-improvement-scope.md` | learning docs, Hugin and `gille-inference` |
 | **Hugin task/product facts** | Hugin's versioned task, result, receipt and experiment schemas | LearningTaskContract projection, Heimdall |
@@ -63,10 +63,11 @@
    active unit lines fail preflight; template files must use a different name or live outside those
    selected paths. Placeholder prose in comments is allowed.
 
-10. **The learning contract assigns authority; it does not centralize evidence.** Hugin owns task,
-    execution, product, correction, and prompt/harness-experiment facts. `gille-inference` owns M5
-    exposure, effective serving identity, capability evidence, and micro-routing facts. A copy in
-    Munin, Heimdall, or another repo remains derived and cannot fabricate the producer's verdict.
+10. **The learning contract assigns authority; it does not centralize evidence.** Hugin owns its
+    task/execution/product/correction and prompt/harness-experiment facts. `gille-inference` owns
+    direct gateway-origin identity plus M5 exposure, effective serving identity, capability
+    evidence, and micro-routing facts. A copy in Munin, Heimdall, or another repo remains derived
+    and cannot fabricate the producer's verdict.
 
 11. **Cross-repo contract changes are two-consumer changes.** A LearningTaskContract change is not
     complete until immutable synthetic fixtures pass in both Hugin and `gille-inference` and both

@@ -450,17 +450,20 @@ Offload the bulk of agentic sub-task tokens (classification, extraction, summari
 ### Learning evidence ownership
 
 The self-improvement architecture has separate evidence planes; it is not one generic trace table.
-Hugin owns task identity, execution/repository/publication/product outcomes, corrections, and
-prompt/harness experiments. `gille-inference` owns gateway exposure, exact served-model identity,
-capability evidence, the model roster, and M5 micro-routing. The versioned join and compatibility
-rules are defined by [LearningTaskContract v1](learning-task-contract.md); the current implemented,
+Hugin owns Hugin-origin task identity, execution/repository/publication/product outcomes,
+corrections, and prompt/harness experiments. `gille-inference` owns direct gateway-origin identity,
+gateway rendering/exposure, exact served-model identity, capability evidence, the model roster, and
+M5 micro-routing. Each source/artifact carries its own governance; joined records derive the
+strictest policy rather than claiming all enforcement passed through Hugin. The versioned join and
+compatibility rules are defined by [LearningTaskContract v1](learning-task-contract.md); the current implemented,
 shadow, manual, and future stages are tracked in
 [observability-and-improvement.md](observability-and-improvement.md).
 
 A completed task, published PR, uncalibrated judge, or model self-report cannot substitute for the
 other plane's verdict. Hugin's `promotion-ready` state is reviewed evidence only: the owning
 repository's human operator applies and rolls back the exact configuration. Model-weight training
-is outside v1 per [ADR-006](adr-006-learning-improvement-scope.md).
+is proposed outside v1, pending both component-owner reviews, in
+[ADR-006](adr-006-learning-improvement-scope.md).
 
 ---
 

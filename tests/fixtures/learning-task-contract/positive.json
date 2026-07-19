@@ -1,0 +1,314 @@
+[
+  {
+    "contract_version": "grimnir.learning-task/v1",
+    "schema_revision": 1,
+    "lifecycle_state": "active",
+    "record_id": "opaque:11111111-1111-4111-8111-111111111111",
+    "record_kind": "task-outcome",
+    "producer": { "component": "hugin", "schema_version": "task-result-v1" },
+    "recorded_at": "2026-07-19T10:01:00Z",
+    "task": {
+      "origin_component": "hugin",
+      "instance_id": "task-001",
+      "source": { "component": "hugin", "system": "broker", "id": "broker-001", "created_at": "2026-07-19T09:59:00Z", "accepted_at": "2026-07-19T10:00:00Z" },
+      "task_type": { "id": "summarize", "taxonomy_id": "gille-inference/task-types", "taxonomy_version": "gille-inference-task-types-2026-07-19-v1" },
+      "raw_fingerprint": { "algorithm": "sha256", "version": "trim-utf8-sha256-v1", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+    },
+    "execution": {
+      "attempt_id": "attempt-1",
+      "started_at": "2026-07-19T10:00:01Z",
+      "ended_at": "2026-07-19T10:00:59Z",
+      "prompt_identity": {
+        "hugin_rendered": { "algorithm": "sha256", "version": "hugin-task-envelope-v1", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+        "gateway_rendered": { "algorithm": "sha256", "version": "gateway-delegate-template-v2", "digest": "abababababababababababababababababababababababababababababababab" }
+      },
+      "routing": {
+        "macro": { "policy_id": "hugin-macro", "version": "macro-v1", "decision_id": "macro-decision-001" },
+        "micro": { "policy_id": "m5-routing", "version": "routing-table-2026-07-19", "decision_id": "micro-decision-001" }
+      },
+      "serving": {
+        "runtime_id": "llama-swap",
+        "provider_id": "m5",
+        "model": {
+          "id": "mellum",
+          "artifact_digest": { "algorithm": "sha256", "version": "model-file-sha256-v1", "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" },
+          "config_epoch": "m5-config-2026-07-19"
+        },
+        "sampling_version": "sampling-deterministic-v2"
+      },
+      "prompt_version": "hugin-agent-v4",
+      "harness_version": "homeserver-executor-v3",
+      "tool_policy_version": "bounded-delegate-v2"
+    },
+    "artifacts": {
+      "items": [
+        { "kind": "output", "owner": "hugin", "ref": "munin:tasks/task-001/result", "content_hash": { "algorithm": "sha256", "version": "utf8-sha256-v1", "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" } }
+      ],
+      "repository": { "value": null, "unknown_reason": "not-applicable", "detail": "non-repository task" }
+    },
+    "outcomes": {
+      "execution": "completed",
+      "repository": "not-managed",
+      "publication": "not-attempted",
+      "product_quality": "unrated",
+      "execution_failure_mode": { "value": null, "unknown_reason": "not-applicable" }
+    },
+    "governance": {
+      "policies": [
+        { "subject_ref": "source:hugin:broker-001", "subject_kind": "source", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:raw", "subject_kind": "raw-fingerprint", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:hugin-rendered", "subject_kind": "hugin-rendered-prompt", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:gateway-rendered", "subject_kind": "gateway-rendered-prompt", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "munin:tasks/task-001/result", "subject_kind": "artifact", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } }
+      ],
+      "effective": { "sensitivity": "internal", "allowed_uses": ["operations", "evaluation"], "expires_at": "2027-01-19T00:00:00Z", "erasure_state": "active", "derived_from_subject_refs": ["source:hugin:broker-001", "fingerprint:raw", "fingerprint:hugin-rendered", "fingerprint:gateway-rendered", "munin:tasks/task-001/result"] }
+    },
+    "lineage": { "corrects_record_ids": [], "correction_ref": { "value": null, "unknown_reason": "not-applicable" }, "successor_task_ids": [] },
+    "review": { "reviewer_principal_id": { "value": null, "unknown_reason": "not-observed" }, "reviewed_at": { "value": null, "unknown_reason": "not-observed" } },
+    "extensions": {}
+  },
+  {
+    "contract_version": "grimnir.learning-task/v1",
+    "schema_revision": 1,
+    "lifecycle_state": "active",
+    "record_id": "opaque:22222222-2222-4222-8222-222222222222",
+    "record_kind": "inference-exposure",
+    "producer": { "component": "gille-inference", "schema_version": "task-exposure-v1" },
+    "recorded_at": "2026-07-19T11:00:02Z",
+    "task": {
+      "origin_component": "gille-inference",
+      "instance_id": "gateway-task-001",
+      "source": { "component": "gille-inference", "system": "openai-chat", "id": "request-001", "created_at": "2026-07-19T11:00:00Z", "accepted_at": "2026-07-19T11:00:01Z" },
+      "task_type": { "id": "conversation", "taxonomy_id": "gille-inference/task-types", "taxonomy_version": "gille-inference-task-types-2026-07-19-v1" },
+      "raw_fingerprint": { "algorithm": "sha256", "version": "trim-utf8-sha256-v1", "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" }
+    },
+    "execution": {
+      "attempt_id": "gateway-attempt-001",
+      "started_at": "2026-07-19T11:00:01Z",
+      "ended_at": "2026-07-19T11:00:02Z",
+      "prompt_identity": {
+        "hugin_rendered": { "value": null, "unknown_reason": "not-applicable", "detail": "direct gateway traffic" },
+        "gateway_rendered": { "algorithm": "sha256", "version": "gateway-chat-template-v3", "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" }
+      },
+      "routing": {
+        "macro": { "value": null, "unknown_reason": "not-applicable", "detail": "direct gateway traffic" },
+        "micro": { "policy_id": "m5-routing", "version": "routing-table-2026-07-19", "decision_id": "micro-decision-001" }
+      },
+      "serving": {
+        "runtime_id": "llama-swap",
+        "provider_id": "m5",
+        "model": { "id": "qwen-local", "artifact_digest": { "algorithm": "sha256", "version": "model-file-sha256-v1", "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" }, "config_epoch": "m5-config-2026-07-19" },
+        "sampling_version": "sampling-greedy-v1"
+      },
+      "prompt_version": { "value": null, "unknown_reason": "not-applicable", "detail": "no Hugin agent prompt" },
+      "harness_version": "openai-chat-v1",
+      "tool_policy_version": "no-tools-v1"
+    },
+    "artifacts": { "items": [], "repository": { "value": null, "unknown_reason": "not-applicable" } },
+    "exposure": {
+      "event_key": "chat:request-001:user:0",
+      "state": "seen",
+      "fingerprint_version": "trim-utf8-sha256-v1",
+      "lane": "chat",
+      "first_seen_at": "2026-07-19T11:00:01Z",
+      "last_seen_at": "2026-07-19T11:00:01Z",
+      "coverage": { "complete": true, "from": "2026-07-19T00:00:00Z", "through": "2026-07-19T11:00:02Z", "lanes": ["chat", "mcp-ask", "delegate", "delegate-disagreement", "delegate-shadow", "code-loop"] }
+    },
+    "governance": {
+      "policies": [
+        { "subject_ref": "source:gille-inference:request-001", "subject_kind": "source", "content_owner": "owner", "sensitivity": "internal", "classification_version": "gateway-classification-v1", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:raw", "subject_kind": "raw-fingerprint", "content_owner": "owner", "sensitivity": "internal", "classification_version": "gateway-classification-v1", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:gateway-rendered", "subject_kind": "gateway-rendered-prompt", "content_owner": "owner", "sensitivity": "internal", "classification_version": "gateway-classification-v1", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } }
+      ],
+      "effective": { "sensitivity": "internal", "allowed_uses": ["operations", "evaluation"], "expires_at": "2027-01-19T00:00:00Z", "erasure_state": "active", "derived_from_subject_refs": ["source:gille-inference:request-001", "fingerprint:raw", "fingerprint:gateway-rendered"] }
+    },
+    "lineage": { "corrects_record_ids": [], "correction_ref": { "value": null, "unknown_reason": "not-applicable" }, "successor_task_ids": [] },
+    "review": { "reviewer_principal_id": { "value": null, "unknown_reason": "not-applicable" }, "reviewed_at": { "value": null, "unknown_reason": "not-applicable" } },
+    "extensions": {}
+  },
+  {
+    "contract_version": "grimnir.learning-task/v1",
+    "schema_revision": 1,
+    "lifecycle_state": "active",
+    "record_id": "opaque:33333333-3333-4333-8333-333333333333",
+    "record_kind": "capability-evidence",
+    "producer": { "component": "gille-inference", "schema_version": "capability-ledger-v1" },
+    "recorded_at": "2026-07-19T12:01:00Z",
+    "task": {
+      "origin_component": "hugin",
+      "instance_id": "task-001",
+      "source": { "component": "hugin", "system": "broker", "id": "broker-001", "created_at": "2026-07-19T09:59:00Z", "accepted_at": "2026-07-19T10:00:00Z" },
+      "task_type": { "id": "summarize", "taxonomy_id": "gille-inference/task-types", "taxonomy_version": "gille-inference-task-types-2026-07-19-v1" },
+      "raw_fingerprint": { "algorithm": "sha256", "version": "trim-utf8-sha256-v1", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+    },
+    "execution": {
+      "attempt_id": "attempt-1",
+      "started_at": "2026-07-19T10:00:01Z",
+      "ended_at": "2026-07-19T10:00:59Z",
+      "prompt_identity": {
+        "hugin_rendered": { "algorithm": "sha256", "version": "hugin-task-envelope-v1", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+        "gateway_rendered": { "algorithm": "sha256", "version": "gateway-delegate-template-v2", "digest": "abababababababababababababababababababababababababababababababab" }
+      },
+      "routing": {
+        "macro": { "policy_id": "hugin-macro", "version": "macro-v1", "decision_id": "macro-decision-001" },
+        "micro": { "policy_id": "m5-routing", "version": "routing-table-2026-07-19", "decision_id": "micro-decision-001" }
+      },
+      "serving": {
+        "runtime_id": "llama-swap",
+        "provider_id": "m5",
+        "model": { "id": "mellum", "artifact_digest": { "algorithm": "sha256", "version": "model-file-sha256-v1", "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" }, "config_epoch": "m5-config-2026-07-19" },
+        "sampling_version": "sampling-deterministic-v2"
+      },
+      "prompt_version": "hugin-agent-v4",
+      "harness_version": "homeserver-executor-v3",
+      "tool_policy_version": "bounded-delegate-v2"
+    },
+    "artifacts": { "items": [], "repository": { "value": null, "unknown_reason": "not-applicable" } },
+    "capability": {
+      "evidence_id": "evidence-001",
+      "outcome": "pass",
+      "failure_mode": { "value": null, "unknown_reason": "not-applicable" },
+      "verifier": { "id": "json-schema-check", "version": "verifier-v1", "rubric_id": "extract-fields", "rubric_version": "rubric-v2", "kind": "deterministic" },
+      "policy_epoch": "evidence-policy-2026-07-19",
+      "routing_effect": "admit"
+    },
+    "governance": {
+      "policies": [
+        { "subject_ref": "source:hugin:broker-001", "subject_kind": "source", "content_owner": "owner", "sensitivity": "private", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["evaluation"], "retention": { "policy_id": "private-eval-30d", "expires_at": "2026-08-18T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:raw", "subject_kind": "raw-fingerprint", "content_owner": "owner", "sensitivity": "private", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["evaluation"], "retention": { "policy_id": "private-eval-30d", "expires_at": "2026-08-18T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:hugin-rendered", "subject_kind": "hugin-rendered-prompt", "content_owner": "owner", "sensitivity": "private", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["evaluation"], "retention": { "policy_id": "private-eval-30d", "expires_at": "2026-08-18T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:gateway-rendered", "subject_kind": "gateway-rendered-prompt", "content_owner": "owner", "sensitivity": "private", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["evaluation"], "retention": { "policy_id": "private-eval-30d", "expires_at": "2026-08-18T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } }
+      ],
+      "effective": { "sensitivity": "private", "allowed_uses": ["evaluation"], "expires_at": "2026-08-18T00:00:00Z", "erasure_state": "active", "derived_from_subject_refs": ["source:hugin:broker-001", "fingerprint:raw", "fingerprint:hugin-rendered", "fingerprint:gateway-rendered"] }
+    },
+    "lineage": { "corrects_record_ids": [], "correction_ref": { "value": null, "unknown_reason": "not-applicable" }, "successor_task_ids": [] },
+    "review": { "reviewer_principal_id": { "value": null, "unknown_reason": "not-applicable" }, "reviewed_at": { "value": null, "unknown_reason": "not-applicable" } },
+    "extensions": {}
+  },
+  {
+    "contract_version": "grimnir.learning-task/v1",
+    "schema_revision": 1,
+    "lifecycle_state": "active",
+    "record_id": "opaque:44444444-4444-4444-8444-444444444444",
+    "record_kind": "experiment-observation",
+    "producer": { "component": "hugin", "schema_version": "experiment-observation-v1" },
+    "recorded_at": "2026-07-19T13:01:00Z",
+    "task": {
+      "origin_component": "hugin",
+      "instance_id": "task-003",
+      "source": { "component": "hugin", "system": "daily-candidate", "id": "candidate-003", "created_at": "2026-07-19T12:59:00Z", "accepted_at": "2026-07-19T13:00:00Z" },
+      "task_type": { "id": "code-edit", "taxonomy_id": "gille-inference/task-types", "taxonomy_version": "gille-inference-task-types-2026-07-19-v1" },
+      "raw_fingerprint": { "algorithm": "sha256", "version": "trim-utf8-sha256-v1", "digest": "4444444444444444444444444444444444444444444444444444444444444444" }
+    },
+    "execution": {
+      "attempt_id": "experiment-attempt-003",
+      "started_at": "2026-07-19T13:00:01Z",
+      "ended_at": "2026-07-19T13:00:59Z",
+      "prompt_identity": {
+        "hugin_rendered": { "algorithm": "sha256", "version": "hugin-experiment-envelope-v1", "digest": "5555555555555555555555555555555555555555555555555555555555555555" },
+        "gateway_rendered": { "algorithm": "sha256", "version": "gateway-code-loop-template-v3", "digest": "6666666666666666666666666666666666666666666666666666666666666666" }
+      },
+      "routing": {
+        "macro": { "policy_id": "hugin-experiment-route", "version": "experiment-route-v1", "decision_id": "macro-decision-003" },
+        "micro": { "policy_id": "m5-routing", "version": "routing-table-2026-07-19", "decision_id": "micro-decision-003" }
+      },
+      "serving": {
+        "runtime_id": "pi-harness",
+        "provider_id": "m5",
+        "model": { "id": "qwen-coder", "artifact_digest": { "algorithm": "sha256", "version": "model-file-sha256-v1", "digest": "7777777777777777777777777777777777777777777777777777777777777777" }, "config_epoch": "m5-config-2026-07-19" },
+        "sampling_version": "sampling-code-v3"
+      },
+      "prompt_version": "code-loop-prompt-v4",
+      "harness_version": "pi-harness-v6",
+      "tool_policy_version": "pi-bash-events-v3"
+    },
+    "artifacts": {
+      "items": [],
+      "repository": { "base_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "head_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "diff_hash": { "algorithm": "sha256", "version": "git-binary-diff-sha256-v1", "digest": "8888888888888888888888888888888888888888888888888888888888888888" }, "changed_files_ref": "git:task-003:changed-files" }
+    },
+    "experiment": {
+      "experiment_id": "exp-001",
+      "run_id": "run-001",
+      "sample_id": "sample-003",
+      "arm": "challenger",
+      "holdout": true,
+      "configuration_fingerprint": { "algorithm": "sha256", "version": "hugin-experiment-config-v1", "digest": "9999999999999999999999999999999999999999999999999999999999999999" },
+      "verification_outcome": "pass",
+      "product_outcome": "accepted-unchanged",
+      "verifier": { "id": "protected-check", "version": "check-v1", "rubric_id": "code-repair", "rubric_version": "rubric-v1", "kind": "deterministic" }
+    },
+    "governance": {
+      "policies": [
+        { "subject_ref": "source:hugin:candidate-003", "subject_kind": "source", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["evaluation"], "retention": { "policy_id": "eval-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:raw", "subject_kind": "raw-fingerprint", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["evaluation"], "retention": { "policy_id": "eval-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:hugin-rendered", "subject_kind": "hugin-rendered-prompt", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["evaluation"], "retention": { "policy_id": "eval-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:gateway-rendered", "subject_kind": "gateway-rendered-prompt", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["evaluation"], "retention": { "policy_id": "eval-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "git:task-003:changed-files", "subject_kind": "artifact", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["evaluation"], "retention": { "policy_id": "eval-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } }
+      ],
+      "effective": { "sensitivity": "internal", "allowed_uses": ["evaluation"], "expires_at": "2027-01-19T00:00:00Z", "erasure_state": "active", "derived_from_subject_refs": ["source:hugin:candidate-003", "fingerprint:raw", "fingerprint:hugin-rendered", "fingerprint:gateway-rendered", "git:task-003:changed-files"] }
+    },
+    "lineage": { "corrects_record_ids": [], "correction_ref": { "value": null, "unknown_reason": "not-applicable" }, "successor_task_ids": [] },
+    "review": { "reviewer_principal_id": "principal:owner", "reviewed_at": "2026-07-19T13:02:00Z" },
+    "extensions": {}
+  },
+  {
+    "contract_version": "grimnir.learning-task/v1",
+    "schema_revision": 1,
+    "lifecycle_state": "active",
+    "record_id": "opaque:55555555-5555-4555-8555-555555555555",
+    "record_kind": "inference-exposure",
+    "producer": { "component": "gille-inference", "schema_version": "task-exposure-v1" },
+    "recorded_at": "2026-07-19T10:01:01Z",
+    "task": {
+      "origin_component": "hugin",
+      "instance_id": "task-001",
+      "source": { "component": "hugin", "system": "broker", "id": "broker-001", "created_at": "2026-07-19T09:59:00Z", "accepted_at": "2026-07-19T10:00:00Z" },
+      "task_type": { "id": "summarize", "taxonomy_id": "gille-inference/task-types", "taxonomy_version": "gille-inference-task-types-2026-07-19-v1" },
+      "raw_fingerprint": { "algorithm": "sha256", "version": "trim-utf8-sha256-v1", "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+    },
+    "execution": {
+      "attempt_id": "attempt-1",
+      "started_at": "2026-07-19T10:00:01Z",
+      "ended_at": "2026-07-19T10:00:59Z",
+      "prompt_identity": {
+        "hugin_rendered": { "algorithm": "sha256", "version": "hugin-task-envelope-v1", "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+        "gateway_rendered": { "algorithm": "sha256", "version": "gateway-delegate-template-v2", "digest": "abababababababababababababababababababababababababababababababab" }
+      },
+      "routing": {
+        "macro": { "policy_id": "hugin-macro", "version": "macro-v1", "decision_id": "macro-decision-001" },
+        "micro": { "policy_id": "m5-routing", "version": "routing-table-2026-07-19", "decision_id": "micro-decision-001" }
+      },
+      "serving": {
+        "runtime_id": "llama-swap",
+        "provider_id": "m5",
+        "model": { "id": "mellum", "artifact_digest": { "algorithm": "sha256", "version": "model-file-sha256-v1", "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" }, "config_epoch": "m5-config-2026-07-19" },
+        "sampling_version": "sampling-deterministic-v2"
+      },
+      "prompt_version": "hugin-agent-v4",
+      "harness_version": "homeserver-executor-v3",
+      "tool_policy_version": "bounded-delegate-v2"
+    },
+    "artifacts": { "items": [], "repository": { "value": null, "unknown_reason": "not-applicable" } },
+    "exposure": {
+      "event_key": "delegate:task-001:attempt-1",
+      "state": "seen",
+      "fingerprint_version": "trim-utf8-sha256-v1",
+      "lane": "delegate",
+      "first_seen_at": "2026-07-19T10:00:01Z",
+      "last_seen_at": "2026-07-19T10:00:01Z",
+      "coverage": { "complete": true, "from": "2026-07-19T00:00:00Z", "through": "2026-07-19T10:01:01Z", "lanes": ["delegate"] }
+    },
+    "governance": {
+      "policies": [
+        { "subject_ref": "source:hugin:broker-001", "subject_kind": "source", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:raw", "subject_kind": "raw-fingerprint", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:hugin-rendered", "subject_kind": "hugin-rendered-prompt", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } },
+        { "subject_ref": "fingerprint:gateway-rendered", "subject_kind": "gateway-rendered-prompt", "content_owner": "owner", "sensitivity": "internal", "classification_version": "hugin-sensitivity-v2", "allowed_uses": ["operations", "evaluation"], "retention": { "policy_id": "operational-6m", "expires_at": "2027-01-19T00:00:00Z" }, "erasure": { "state": "active", "effective_at": { "value": null, "unknown_reason": "not-applicable" }, "digest_disposition": "retained" } }
+      ],
+      "effective": { "sensitivity": "internal", "allowed_uses": ["operations", "evaluation"], "expires_at": "2027-01-19T00:00:00Z", "erasure_state": "active", "derived_from_subject_refs": ["source:hugin:broker-001", "fingerprint:raw", "fingerprint:hugin-rendered", "fingerprint:gateway-rendered"] }
+    },
+    "lineage": { "corrects_record_ids": [], "correction_ref": { "value": null, "unknown_reason": "not-applicable" }, "successor_task_ids": [] },
+    "review": { "reviewer_principal_id": { "value": null, "unknown_reason": "not-applicable" }, "reviewed_at": { "value": null, "unknown_reason": "not-applicable" } },
+    "extensions": {}
+  }
+]
