@@ -32,7 +32,7 @@ What's here:
 - **[docs/conventions.md](docs/conventions.md)** — Naming, ports, service patterns, GitHub ownership
 - **[docs/vision.md](docs/vision.md)** — Where the project is heading
 - **[docs/learning-task-contract.md](docs/learning-task-contract.md)** — Versioned Hugin↔M5 learning-evidence seam, field ownership, compatibility, and measurable loop milestones
-- **[docs/learning-task-contract-v1.schema.json](docs/learning-task-contract-v1.schema.json)** — Canonical discriminated JSON Schema for the four v1 record kinds
+- **[docs/learning-task-contract-v1.schema.json](docs/learning-task-contract-v1.schema.json)** — Canonical discriminated JSON Schema for the six v1 record kinds
 - **[docs/observability-and-improvement.md](docs/observability-and-improvement.md)** — Current three-plane self-improvement architecture and ordered roadmap
 - **[docs/adr-006-learning-improvement-scope.md](docs/adr-006-learning-improvement-scope.md)** — Proposed, component-review-gated decision that v1 improves routing/rosters/prompts/harnesses, not model weights
 - **[docs/roadmap-now-decision-brief.md](docs/roadmap-now-decision-brief.md)** — Index of the adopted owner decisions for succession, data lifecycle, ROI/off-ramp, Skuld, and interactive-session trust

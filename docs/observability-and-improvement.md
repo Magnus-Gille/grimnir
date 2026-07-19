@@ -18,7 +18,7 @@ planes and important gaps between them.
 
 | Plane | Owner | Authoritative facts | It does not own |
 |---|---|---|---|
-| Task and product | Hugin | Hugin-origin task/source identity, lifecycle and retries, repository/publication outcome, product Quality Receipt, corrections/successors, prompt/harness experiments and macro-routing | Direct M5 request identity, effective M5 model/config, exposure, capability verdict, or micro-routing |
+| Task and product | Hugin | Hugin-origin task/source identity, lifecycle and retries, repository/publication outcome, immutable Quality Receipts and experiment product ratings, corrections/successors, prompt/harness experiments and macro-routing | Direct M5 request identity, effective M5 model/config, exposure, capability verdict, or micro-routing |
 | Inference and capability | `gille-inference` | Direct gateway-origin identity, gateway exposure/render, effective served model/artifact/config, deterministic/calibrated verifier evidence, capability ledger, model roster and micro-routing | Hugin task/product truth, human corrections, or prompt/harness promotion |
 | Contract seam | Grimnir contract, produced by both | Field ownership, canonical raw-task join, version compatibility, governance and producer/consumer conformance | A new evidence database or authority to overwrite either producer |
 
@@ -32,9 +32,11 @@ Hugin task + raw-task identity
        |
        +--> execution/repository/publication outcome
        |             |
-       |             +--> Quality Receipt / correction (manual today)
+       |             +--> immutable Quality Receipt / correction (manual today)
        |
-       +--> M5 gateway exposure + exact served-model identity
+       +--> authenticated request stamp <--> gateway echo
+                         |
+                         +--> M5 exposure + exact served-model identity
                          |
                          +--> capability evidence (verified or shadow)
 
@@ -69,12 +71,13 @@ local terms explicitly until adoption:
 | Mechanism | State | Boundary |
 |---|---|---|
 | Hugin task/result and managed-repository evidence | Implemented | Captures execution facts; successful completion is not product quality. |
-| Hugin Quality Receipt v1 | Implemented mechanism; manual use; concurrency partial | Existing-feedback appends use CAS/retry. Two concurrent first writers can both observe no feedback, pass `current?.updated_at` as undefined, and perform unconditional Munin writes; one receipt can overwrite the other. Closing that first-create gap remains future work. |
+| Hugin Quality Receipt v1 | Implemented mechanism; manual use; concurrency partial | Receipts are native immutable review facts, but the current task-embedded summary can still lose the first pair: two concurrent first writers can both observe no feedback, pass `current?.updated_at` as undefined, and perform unconditional Munin writes. The v1 seam exports each surviving receipt as its own record and never treats the mutable summary as evidence completeness. Closing first-create storage remains required. |
 | Hugin daily candidate factory | Implemented | Content-blind, rolling candidate snapshot only; not a sealed holdout, durable registry, evaluation, or promotion path. |
 | Hugin controlled experiment ledger/evaluator | Implemented | One-axis matched evaluation and champion lineage; current reusable runner is narrow. |
-| M5 task exposure registry | Implemented | Content-blind coverage for declared gateway lanes; direct loopback calls and incomplete history remain explicit. |
+| M5 task exposure registry | Implemented | Observed events exist for declared lanes. A contract negative-coverage query is a separate bounded assertion over exactly chat, mcp-ask, delegate, delegate-disagreement, delegate-shadow, and code-loop; direct loopback calls and incomplete history remain explicit. |
 | M5 capability ledger and deterministic verifiers | Implemented | Sole node/model/task capability truth; unverified evidence cannot be promoted by Hugin. |
-| M5 organic judge and delegate policy | Shadow | Must remain non-authoritative until representative human calibration and policy versioning pass. |
+| M5 organic judge and delegate policy | Shadow | Must remain non-authoritative until representative human calibration, independent evidence, and versioned admission policy pass. |
+| Hugin↔M5 authenticated stamp/echo | Future | Hugin currently sends one unstamped request and the gateway does not yet return the exact authenticated join echo required by v1. Capability-negotiated dual read/write precedes enforcement. |
 | Product rating, candidate approval, verifier approval, change deployment | Manual | Human-reviewed by design in v1. |
 | Durable all-outcome registry and candidate packager | Future | Required to connect ordinary failures/successes to experiments. |
 | Verified Hugin-experiment import and guarded route reload | Future | Required to turn reviewed evidence into operational micro-routing. |
@@ -87,16 +90,19 @@ The required fields and owner are normative in
 must bind:
 
 - one stable task/source instance and canonical task taxonomy version;
-- the raw task fingerprint, Hugin-rendered prompt fingerprint, and gateway-rendered prompt
-  fingerprint as three separately versioned identities;
+- the raw task fingerprint plus Hugin envelope, gateway canonical envelope, and runtime chat-template
+  render as distinct separately versioned identities;
 - exact execution attempt, input/output/repository references and hashes;
-- effective runtime, provider, model artifact/config and sampling identity;
-- prompt, harness, verifier/rubric, and tool-policy versions plus separate macro- and micro-routing
-  policy/decision identities;
-- execution, repository, publication, product, and capability outcomes without collapsing them;
+- effective llama-swap runtime, provider, model artifact manifest, effective runtime config, and
+  post-default/post-clamp sampling digests with reproducible canonicalization;
+- origin prompt/harness/tool config plus effective gateway harness/tool config and separate macro-
+  and micro-routing policy/decision identities;
+- execution, repository, publication, immutable late product review, and capability outcomes without
+  collapsing them;
 - failure/correction/successor and authenticated reviewer provenance; and
-- per-source/artifact governance, mechanically derived strictest effective policy, the reduced
-  content-removal tombstone used only after deleting the active projection, and exposure coverage.
+- an authenticated Hugin request stamp and gateway echo for joined traffic;
+- exact typed per-source/derivative governance or explicit policy-unavailable denial; and
+- the reduced content-removal tombstone only after all store readbacks and backup expiry complete.
 
 A missing field remains missing. An inference, successful exit, changed file, model self-report, or
 uncalibrated judge does not fill an owner-controlled product or capability verdict.
@@ -108,7 +114,16 @@ uncalibrated judge does not fill an owner-controlled product or capability verdi
 Use deterministic verifiers where a bounded task has a real oracle. Human product review provides
 the highest-value correction signal. Store a governed correction/successor reference, not merely a
 score. LLM judges are advisory until a representative, versioned human calibration set clears the
-predeclared reliability gate; policy changes append/regrade rather than rewrite history.
+predeclared reliability gate. Capability admission additionally requires an independent passing
+verifier and a versioned policy epoch; policy changes append/regrade rather than rewrite history.
+
+### Late reviews append; they do not patch observations
+
+Quality Receipts and experiment product ratings are separate immutable contract records. A reader
+groups them by exact binding and rubric version: Quality Receipts compare the full rating plus
+disposition tuple, experiment ratings compare product outcome, disagreement summarizes to
+`conflicted`, and no records means `unrated`. Newest-wins is not allowed. Neither a task outcome nor
+an experiment observation grows a mutable product scalar.
 
 ### One causal axis
 
@@ -123,6 +138,13 @@ A challenger that loses leaves the champion unchanged and records the dominant f
 hypothesis. That improves knowledge but not the production baseline. Documentation must not count a
 rejected challenger as a deployed improvement.
 
+Exposure freshness is narrower than contamination detection. Exact trimmed-byte hashes do not find
+Unicode-normalized equivalents, paraphrases, or semantic leakage. A registry restart starts a new
+coverage epoch; raw llama-swap loopback is outside the authenticated six-lane registry and makes the
+affected holdout window incomplete until routed through a declared lane. Monthly evaluation reports
+epoch restarts, incomplete duration, raw-loopback detections, `exposure-incomplete` exclusions, and
+candidate-starvation rate rather than claiming the holdout is contamination-proof.
+
 ### Promotion is reviewed and reversible
 
 `promotion-ready` is an evidence state. The owning repository's human operator applies the exact
@@ -135,12 +157,14 @@ in v1.
 | Order | Owning repo | Deliverable | Exit evidence |
 |---:|---|---|---|
 | 1 | Grimnir + both reviewers | Adopt v1 seam and immutable shared fixtures | Hugin and `gille-inference` owner reviews recorded; both consumer suites accept the same fixture. |
-| 2 | Hugin + `gille-inference` | Canonical raw-task/exposure identity and taxonomy parity | Real Hugin serialization is captured by M5 and found by Hugin lookup; rendered/raw mismatch test passes. |
-| 3 | Hugin | Close receipt first-create concurrency; add actionable receipts and durable all-outcome registry | Parallel first receipts are preserved; failures/no-ops/publication failures and late labels stay joinable. |
-| 4 | Hugin | Independent candidate packager | A governed production candidate is rechecked, frozen, independently verified, and imported into a one-axis experiment. |
-| 5 | `gille-inference` | Versioned evidence identity and verified experiment import | Exact served-model/config evidence joins the task and only qualified evidence affects capability state. |
-| 6 | `gille-inference` | Reviewed routing-table lifecycle | Generate, diff, approve, deploy/reload, canary, and rollback are demonstrated without silent promotion. |
-| 7 | Hugin | Read-only next-experiment proposals | Proposals cite evidence and require human approval; they do not mutate prompts/routes/config. |
+| 2 | Hugin + `gille-inference` | Capability-negotiated stamp/echo and canonical raw/exposure identity | Real authenticated Hugin stamp is exactly echoed; substitution and retry-identity tests fail closed; six-lane negative query is separate from observed events. |
+| 3 | Hugin + `gille-inference` | Three-stage prompt and reproducible effective-serving provenance | Captured Hugin, gateway, runtime, manifest, runtime-config, and sampling sources recompute to the exported digests. |
+| 4 | Both producers | Complete governance/erasure projections | Direct-owner policy lookup meets its SLO; unavailable policy denies; all stores and backup expiry produce readback receipts. |
+| 5 | Hugin | Close receipt first-create concurrency; append immutable review records and durable all-outcome registry | Parallel first receipts are preserved; failures/no-ops/publication failures and late labels stay joinable without mutating observations. |
+| 6 | Hugin | Independent candidate packager | A governed production candidate is rechecked, frozen, independently verified, and imported into a one-axis experiment. |
+| 7 | `gille-inference` | Versioned capability admission and verified experiment import | Only independent calibrated passing evidence affects capability state. |
+| 8 | `gille-inference` | Reviewed routing-table lifecycle | Generate, diff, approve, deploy/reload, canary, and rollback are demonstrated without silent promotion. |
+| 9 | Hugin | Read-only next-experiment proposals | Proposals cite evidence and require human approval; they do not mutate prompts/routes/config. |
 
 The measurable definitions of continuous capture, evaluation, learning, and baseline improvement
 live in the contract. Until their rolling gates pass, use the narrower current state—implemented

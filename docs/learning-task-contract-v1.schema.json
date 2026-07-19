@@ -7,14 +7,18 @@
     { "$ref": "#/$defs/taskOutcomeRecord" },
     { "$ref": "#/$defs/inferenceExposureRecord" },
     { "$ref": "#/$defs/capabilityEvidenceRecord" },
-    { "$ref": "#/$defs/experimentObservationRecord" }
+    { "$ref": "#/$defs/experimentObservationRecord" },
+    { "$ref": "#/$defs/qualityReceiptRecord" },
+    { "$ref": "#/$defs/experimentProductRatingRecord" }
   ],
   "x-grimnir-conflict-keys": {
     "record": ["/producer/component", "/record_id"],
     "task-outcome": ["/task/origin_component", "/task/instance_id", "/execution/attempt_id"],
-    "inference-exposure": ["/exposure/event_key"],
+    "inference-exposure": ["/exposure/kind", "/exposure/event_key", "/exposure/lookup_id"],
     "capability-evidence": ["/capability/evidence_id"],
-    "experiment-observation": ["/experiment/experiment_id", "/experiment/run_id"]
+    "experiment-observation": ["/experiment/experiment_id", "/experiment/run_id"],
+    "quality-receipt": ["/quality_receipt/receipt_id"],
+    "experiment-product-rating": ["/experiment_product_rating/rating_id"]
   },
   "x-grimnir-conflict-key-applicability": "record applies to active records and tombstones; kind-specific keys apply only when lifecycle_state is active",
   "x-grimnir-field-owners": {
@@ -23,22 +27,33 @@
     "/tombstone/**": "producer.component, constrained to the metric counters owned by that producer",
     "/task/origin_component,/task/instance_id,/task/source/**,/task/task_type/id,/task/raw_fingerprint": "task.origin_component",
     "/task/task_type/taxonomy_id,/task/task_type/taxonomy_version": "gille-inference",
-    "/execution/attempt_id,/execution/started_at,/execution/ended_at,/execution/prompt_version,/execution/harness_version,/execution/tool_policy_version": "task.origin_component",
-    "/execution/prompt_identity/hugin_rendered,/execution/routing/macro": "hugin",
-    "/execution/prompt_identity/gateway_rendered,/execution/routing/micro": "gille-inference",
+    "/execution/attempt_id,/execution/started_at,/execution/ended_at": "task.origin_component",
+    "/execution/prompt_identity/hugin_envelope,/execution/routing/macro": "hugin",
+    "/execution/prompt_identity/gateway_canonical_envelope,/execution/prompt_identity/runtime_chat_template_render,/execution/routing/micro": "gille-inference",
+    "/execution/origin_config/**": "task.origin_component",
+    "/execution/effective_gateway_config/**": "gille-inference",
     "/execution/serving/**": "gille-inference when a gateway ran; otherwise task.origin_component",
+    "/transport/hugin_request_stamp": "hugin",
+    "/transport/gateway_echo/echoed_request": "hugin, copied byte-for-byte by gille-inference",
+    "/transport/gateway_echo/gateway_request_id,/transport/gateway_echo/admission_id,/transport/gateway_echo/admitted_at,/transport/gateway_echo/authenticated_principal_id,/transport/gateway_echo/authentication,/transport/gateway_echo/principal_binding_digest,/transport/gateway_echo/capabilities": "gille-inference",
+    "/transport/state": "producer.component, mechanically constrained by origin and macro route",
+    "/transport/record_delivery_attempt": "producer.component",
     "/artifacts/items/**": "producer.component for the binding; items[].owner for referenced content",
     "/artifacts/repository/**": "hugin",
     "/outcomes/**": "hugin",
     "/exposure/**": "gille-inference",
     "/capability/**": "gille-inference",
     "/experiment/**": "hugin",
+    "/quality_receipt/**": "hugin, preserving native receipt and reviewer stamps",
+    "/experiment_product_rating/**": "hugin, preserving immutable reviewer stamps",
     "/governance/policies/*/subject_ref,/governance/policies/*/subject_kind": "producer.component",
+    "/governance/policy_manifest/**": "authenticated content owner; producer.component copies the attestation",
+    "/governance/unavailable_at,/governance/reason,/governance/allowed_uses,/governance/evaluation_eligible": "producer.component",
     "/governance/policies/*/content_owner,/governance/policies/*/sensitivity,/governance/policies/*/classification_version,/governance/policies/*/allowed_uses,/governance/policies/*/retention/**,/governance/policies/*/erasure/**": "governance.policies[].content_owner",
     "/governance/effective/**": "producer.component, mechanically derived",
     "/lineage/corrects_record_ids": "producer.component",
     "/lineage/correction_ref,/lineage/successor_task_ids": "task.origin_component",
-    "/review/**": "hugin for task-outcome and experiment-observation; gille-inference for inference-exposure and capability-evidence",
+    "/review/**": "hugin for task-outcome, experiment-observation, quality-receipt, and experiment-product-rating; gille-inference for inference-exposure and capability-evidence",
     "/extensions/{producer.component}/**": "producer.component"
   },
   "x-version-behavior": {
@@ -53,7 +68,11 @@
       "type": "string",
       "pattern": "^opaque:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
     },
-    "timestamp": { "type": "string", "format": "date-time" },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$"
+    },
     "unknown": {
       "type": "object",
       "additionalProperties": false,
@@ -61,8 +80,28 @@
       "properties": {
         "value": { "type": "null" },
         "unknown_reason": {
-          "enum": ["not-applicable", "not-observed", "legacy", "producer-error", "redacted", "erased", "expired"]
+          "enum": ["not-applicable", "not-observed", "legacy", "producer-error", "redacted", "erased", "expired", "not-admitted", "transport-auth-failed", "policy-unavailable"]
         },
+        "detail": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "notApplicable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unknown_reason"],
+      "properties": {
+        "value": { "type": "null" },
+        "unknown_reason": { "const": "not-applicable" },
+        "detail": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "missingGatewayEcho": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unknown_reason"],
+      "properties": {
+        "value": { "type": "null" },
+        "unknown_reason": { "enum": ["not-admitted", "transport-auth-failed", "producer-error"] },
         "detail": { "$ref": "#/$defs/nonEmptyString" }
       }
     },
@@ -74,6 +113,68 @@
         "algorithm": { "const": "sha256" },
         "version": { "$ref": "#/$defs/nonEmptyString" },
         "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "principalBindingDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "version", "digest"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "version": { "const": "gateway-principal-request-binding-jcs-v1" },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "rawTaskFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "version", "digest"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "version": { "const": "trim-utf8-sha256-v1" },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "reproducibleDigestBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "canonicalization", "source_type", "source_version", "digest"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "canonicalization": { "const": "jcs-rfc8785-utf8-v1" },
+        "source_type": {
+          "enum": ["artifact-manifest", "effective-runtime-config", "effective-sampling-post-default-post-clamp"]
+        },
+        "source_version": { "$ref": "#/$defs/nonEmptyString" },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "artifactManifestDigest": {
+      "allOf": [
+        { "$ref": "#/$defs/reproducibleDigestBase" },
+        { "properties": { "source_type": { "const": "artifact-manifest" } } }
+      ]
+    },
+    "runtimeConfigDigest": {
+      "allOf": [
+        { "$ref": "#/$defs/reproducibleDigestBase" },
+        { "properties": { "source_type": { "const": "effective-runtime-config" } } }
+      ]
+    },
+    "samplingConfigDigest": {
+      "allOf": [
+        { "$ref": "#/$defs/reproducibleDigestBase" },
+        { "properties": { "source_type": { "const": "effective-sampling-post-default-post-clamp" } } }
+      ]
+    },
+    "versionedConfigIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "config_digest"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "version": { "$ref": "#/$defs/nonEmptyString" },
+        "config_digest": { "$ref": "#/$defs/fingerprint" }
       }
     },
     "maybeFingerprint": {
@@ -103,16 +204,32 @@
         "schema_version": { "$ref": "#/$defs/nonEmptyString" }
       }
     },
+    "principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "authentication", "scope"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "authentication": { "enum": ["verified-signature", "gateway-owner-auth", "service-auth"] },
+        "scope": { "enum": ["owner", "service"] }
+      }
+    },
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["component", "system", "id", "created_at", "accepted_at"],
+      "required": ["component", "system", "id", "created_at", "accepted_at", "principal"],
       "properties": {
         "component": { "enum": ["hugin", "gille-inference"] },
         "system": { "$ref": "#/$defs/nonEmptyString" },
         "id": { "$ref": "#/$defs/nonEmptyString" },
         "created_at": { "$ref": "#/$defs/timestamp" },
-        "accepted_at": { "$ref": "#/$defs/timestamp" }
+        "accepted_at": { "$ref": "#/$defs/timestamp" },
+        "principal": {
+          "oneOf": [
+            { "$ref": "#/$defs/principal" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        }
       }
     },
     "taskType": {
@@ -141,7 +258,7 @@
         "instance_id": { "$ref": "#/$defs/nonEmptyString" },
         "source": { "$ref": "#/$defs/source" },
         "task_type": { "$ref": "#/$defs/taskType" },
-        "raw_fingerprint": { "$ref": "#/$defs/fingerprint" }
+        "raw_fingerprint": { "$ref": "#/$defs/rawTaskFingerprint" }
       }
     },
     "routingPolicy": {
@@ -154,6 +271,24 @@
         "decision_id": { "$ref": "#/$defs/nonEmptyString" }
       }
     },
+    "macroRoutingPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_id", "version", "decision_id", "target", "service"],
+      "properties": {
+        "policy_id": { "$ref": "#/$defs/nonEmptyString" },
+        "version": { "$ref": "#/$defs/nonEmptyString" },
+        "decision_id": { "$ref": "#/$defs/nonEmptyString" },
+        "target": { "enum": ["m5", "local", "cloud", "none"] },
+        "service": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "maybeMacroRoutingPolicy": {
+      "oneOf": [
+        { "$ref": "#/$defs/macroRoutingPolicy" },
+        { "$ref": "#/$defs/unknown" }
+      ]
+    },
     "maybeRoutingPolicy": {
       "oneOf": [
         { "$ref": "#/$defs/routingPolicy" },
@@ -163,10 +298,11 @@
     "promptIdentity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["hugin_rendered", "gateway_rendered"],
+      "required": ["hugin_envelope", "gateway_canonical_envelope", "runtime_chat_template_render"],
       "properties": {
-        "hugin_rendered": { "$ref": "#/$defs/maybeFingerprint" },
-        "gateway_rendered": { "$ref": "#/$defs/maybeFingerprint" }
+        "hugin_envelope": { "$ref": "#/$defs/maybeFingerprint" },
+        "gateway_canonical_envelope": { "$ref": "#/$defs/maybeFingerprint" },
+        "runtime_chat_template_render": { "$ref": "#/$defs/maybeFingerprint" }
       }
     },
     "routingIdentity": {
@@ -174,46 +310,202 @@
       "additionalProperties": false,
       "required": ["macro", "micro"],
       "properties": {
-        "macro": { "$ref": "#/$defs/maybeRoutingPolicy" },
+        "macro": { "$ref": "#/$defs/maybeMacroRoutingPolicy" },
         "micro": { "$ref": "#/$defs/maybeRoutingPolicy" }
       }
     },
     "modelIdentity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "artifact_digest", "config_epoch"],
+      "required": ["id", "artifact_manifest_digest", "effective_config_digest"],
       "properties": {
         "id": { "$ref": "#/$defs/maybeString" },
-        "artifact_digest": { "$ref": "#/$defs/maybeFingerprint" },
-        "config_epoch": { "$ref": "#/$defs/maybeString" }
+        "artifact_manifest_digest": {
+          "oneOf": [
+            { "$ref": "#/$defs/artifactManifestDigest" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        },
+        "effective_config_digest": {
+          "oneOf": [
+            { "$ref": "#/$defs/runtimeConfigDigest" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        }
       }
     },
     "servingIdentity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["runtime_id", "provider_id", "model", "sampling_version"],
+      "required": ["runtime_id", "provider_id", "model", "sampling_digest"],
       "properties": {
         "runtime_id": { "$ref": "#/$defs/maybeString" },
         "provider_id": { "$ref": "#/$defs/maybeString" },
         "model": { "$ref": "#/$defs/modelIdentity" },
-        "sampling_version": { "$ref": "#/$defs/maybeString" }
+        "sampling_digest": {
+          "oneOf": [
+            { "$ref": "#/$defs/samplingConfigDigest" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        }
+      }
+    },
+    "originConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt", "harness", "tool_policy"],
+      "properties": {
+        "prompt": { "$ref": "#/$defs/versionedConfigIdentity" },
+        "harness": { "$ref": "#/$defs/versionedConfigIdentity" },
+        "tool_policy": { "$ref": "#/$defs/versionedConfigIdentity" }
+      }
+    },
+    "effectiveGatewayConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness", "tool_policy"],
+      "properties": {
+        "harness": { "$ref": "#/$defs/versionedConfigIdentity" },
+        "tool_policy": { "$ref": "#/$defs/versionedConfigIdentity" }
       }
     },
     "execution": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["attempt_id", "started_at", "ended_at", "prompt_identity", "routing", "serving", "prompt_version", "harness_version", "tool_policy_version"],
+      "required": ["attempt_id", "started_at", "ended_at", "prompt_identity", "routing", "serving", "origin_config", "effective_gateway_config"],
       "properties": {
         "attempt_id": { "$ref": "#/$defs/nonEmptyString" },
         "started_at": { "$ref": "#/$defs/timestamp" },
         "ended_at": { "$ref": "#/$defs/maybeTimestamp" },
         "prompt_identity": { "$ref": "#/$defs/promptIdentity" },
         "routing": { "$ref": "#/$defs/routingIdentity" },
-        "serving": { "$ref": "#/$defs/servingIdentity" },
-        "prompt_version": { "$ref": "#/$defs/maybeString" },
-        "harness_version": { "$ref": "#/$defs/maybeString" },
-        "tool_policy_version": { "$ref": "#/$defs/maybeString" }
+        "serving": {
+          "oneOf": [
+            { "$ref": "#/$defs/servingIdentity" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        },
+        "origin_config": { "$ref": "#/$defs/originConfig" },
+        "effective_gateway_config": {
+          "oneOf": [
+            { "$ref": "#/$defs/effectiveGatewayConfig" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        }
       }
+    },
+    "retryIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transport_attempt", "model_execution_ordinal"],
+      "properties": {
+        "transport_attempt": { "type": "integer", "minimum": 1 },
+        "model_execution_ordinal": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "huginRequestStamp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_instance_id", "attempt_id", "client_id", "expected_transport_principal_id", "idempotency_key", "request_id", "contract_request", "source", "task_type", "raw_fingerprint", "hugin_envelope", "origin_config", "macro_decision", "retry"],
+      "properties": {
+        "task_instance_id": { "$ref": "#/$defs/nonEmptyString" },
+        "attempt_id": { "$ref": "#/$defs/nonEmptyString" },
+        "client_id": { "$ref": "#/$defs/nonEmptyString" },
+        "expected_transport_principal_id": { "$ref": "#/$defs/nonEmptyString" },
+        "idempotency_key": { "$ref": "#/$defs/opaqueId" },
+        "request_id": { "$ref": "#/$defs/opaqueId" },
+        "contract_request": { "$ref": "#/$defs/gatewayCapabilityAdvertisement" },
+        "source": { "$ref": "#/$defs/source" },
+        "task_type": { "$ref": "#/$defs/taskType" },
+        "raw_fingerprint": { "$ref": "#/$defs/rawTaskFingerprint" },
+        "hugin_envelope": { "$ref": "#/$defs/fingerprint" },
+        "origin_config": { "$ref": "#/$defs/originConfig" },
+        "macro_decision": { "$ref": "#/$defs/macroRoutingPolicy" },
+        "retry": { "$ref": "#/$defs/retryIdentity" }
+      }
+    },
+    "gatewayCapabilityAdvertisement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_version", "schema_revision", "features"],
+      "properties": {
+        "contract_version": { "const": "grimnir.learning-task/v1" },
+        "schema_revision": { "type": "integer", "minimum": 1 },
+        "features": {
+          "type": "array",
+          "items": { "enum": ["hugin-request-stamp-v1", "gateway-echo-v1", "three-stage-prompt-provenance-v1", "reproducible-serving-digests-v1"] },
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true
+        }
+      }
+    },
+    "gatewayEcho": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["echoed_request", "gateway_request_id", "admission_id", "admitted_at", "authenticated_principal_id", "authentication", "principal_binding_digest", "capabilities"],
+      "properties": {
+        "echoed_request": { "$ref": "#/$defs/huginRequestStamp" },
+        "gateway_request_id": { "$ref": "#/$defs/opaqueId" },
+        "admission_id": { "$ref": "#/$defs/opaqueId" },
+        "admitted_at": { "$ref": "#/$defs/timestamp" },
+        "authenticated_principal_id": { "$ref": "#/$defs/nonEmptyString" },
+        "authentication": { "enum": ["gateway-owner-auth", "service-auth"] },
+        "principal_binding_digest": { "$ref": "#/$defs/principalBindingDigest" },
+        "capabilities": { "$ref": "#/$defs/gatewayCapabilityAdvertisement" }
+      }
+    },
+    "nonM5Transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "hugin_request_stamp", "gateway_echo", "record_delivery_attempt"],
+      "properties": {
+        "state": { "const": "not-m5" },
+        "hugin_request_stamp": { "$ref": "#/$defs/notApplicable" },
+        "gateway_echo": { "$ref": "#/$defs/notApplicable" },
+        "record_delivery_attempt": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "directGatewayTransport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "hugin_request_stamp", "gateway_echo", "record_delivery_attempt"],
+      "properties": {
+        "state": { "const": "direct-gateway" },
+        "hugin_request_stamp": { "$ref": "#/$defs/notApplicable" },
+        "gateway_echo": { "$ref": "#/$defs/notApplicable" },
+        "record_delivery_attempt": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "m5NotAdmittedTransport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "hugin_request_stamp", "gateway_echo", "record_delivery_attempt"],
+      "properties": {
+        "state": { "const": "m5-not-admitted" },
+        "hugin_request_stamp": { "$ref": "#/$defs/huginRequestStamp" },
+        "gateway_echo": { "$ref": "#/$defs/missingGatewayEcho" },
+        "record_delivery_attempt": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "m5AdmittedTransport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "hugin_request_stamp", "gateway_echo", "record_delivery_attempt"],
+      "properties": {
+        "state": { "const": "m5-admitted" },
+        "hugin_request_stamp": { "$ref": "#/$defs/huginRequestStamp" },
+        "gateway_echo": { "$ref": "#/$defs/gatewayEcho" },
+        "record_delivery_attempt": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "transport": {
+      "oneOf": [
+        { "$ref": "#/$defs/nonM5Transport" },
+        { "$ref": "#/$defs/directGatewayTransport" },
+        { "$ref": "#/$defs/m5NotAdmittedTransport" },
+        { "$ref": "#/$defs/m5AdmittedTransport" }
+      ]
     },
     "artifact": {
       "type": "object",
@@ -231,8 +523,18 @@
       "additionalProperties": false,
       "required": ["base_commit", "head_commit", "diff_hash", "changed_files_ref"],
       "properties": {
-        "base_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
-        "head_commit": { "$ref": "#/$defs/maybeString" },
+        "base_commit": {
+          "oneOf": [
+            { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        },
+        "head_commit": {
+          "oneOf": [
+            { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        },
         "diff_hash": { "$ref": "#/$defs/maybeFingerprint" },
         "changed_files_ref": { "$ref": "#/$defs/maybeString" }
       }
@@ -276,7 +578,7 @@
       "required": ["subject_ref", "subject_kind", "content_owner", "sensitivity", "classification_version", "allowed_uses", "retention", "erasure"],
       "properties": {
         "subject_ref": { "$ref": "#/$defs/nonEmptyString" },
-        "subject_kind": { "enum": ["source", "artifact", "raw-fingerprint", "hugin-rendered-prompt", "gateway-rendered-prompt"] },
+        "subject_kind": { "enum": ["source", "artifact", "raw-fingerprint", "hugin-envelope", "gateway-canonical-envelope", "runtime-chat-template-render", "repository-diff-hash", "repository-file-list", "quality-binding", "rating-reason"] },
         "content_owner": { "$ref": "#/$defs/nonEmptyString" },
         "sensitivity": { "enum": ["public", "internal", "private"] },
         "classification_version": { "$ref": "#/$defs/nonEmptyString" },
@@ -292,7 +594,7 @@
     "effectiveGovernance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sensitivity", "allowed_uses", "expires_at", "erasure_state", "derived_from_subject_refs"],
+      "required": ["sensitivity", "allowed_uses", "expires_at", "erasure_state", "derived_from_subject_refs", "evaluation_eligible"],
       "properties": {
         "sensitivity": { "enum": ["public", "internal", "private"] },
         "allowed_uses": {
@@ -302,6 +604,7 @@
         },
         "expires_at": { "$ref": "#/$defs/maybeTimestamp" },
         "erasure_state": { "enum": ["active", "requested", "erased", "expired"] },
+        "evaluation_eligible": { "type": "boolean" },
         "derived_from_subject_refs": {
           "type": "array",
           "items": { "$ref": "#/$defs/nonEmptyString" },
@@ -310,19 +613,52 @@
         }
       }
     },
-    "governance": {
+    "policyManifest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["policies", "effective"],
+      "required": ["manifest_id", "version", "digest", "authenticated_principal", "approved_by", "approved_at"],
       "properties": {
+        "manifest_id": { "$ref": "#/$defs/opaqueId" },
+        "version": { "$ref": "#/$defs/nonEmptyString" },
+        "digest": { "$ref": "#/$defs/fingerprint" },
+        "authenticated_principal": { "$ref": "#/$defs/nonEmptyString" },
+        "approved_by": { "$ref": "#/$defs/nonEmptyString" },
+        "approved_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "completeGovernance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capture_state", "policy_manifest", "policies", "effective"],
+      "properties": {
+        "capture_state": { "const": "complete" },
+        "policy_manifest": { "$ref": "#/$defs/policyManifest" },
         "policies": { "type": "array", "items": { "$ref": "#/$defs/governancePolicy" }, "minItems": 1 },
         "effective": { "$ref": "#/$defs/effectiveGovernance" }
       }
     },
+    "unavailableGovernance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capture_state", "unavailable_at", "reason", "allowed_uses", "evaluation_eligible"],
+      "properties": {
+        "capture_state": { "const": "policy-unavailable" },
+        "unavailable_at": { "$ref": "#/$defs/timestamp" },
+        "reason": { "$ref": "#/$defs/nonEmptyString" },
+        "allowed_uses": { "const": [] },
+        "evaluation_eligible": { "const": false }
+      }
+    },
+    "governance": {
+      "oneOf": [
+        { "$ref": "#/$defs/completeGovernance" },
+        { "$ref": "#/$defs/unavailableGovernance" }
+      ]
+    },
     "taskOutcomes": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["execution", "repository", "publication", "product_quality", "execution_failure_mode"],
+      "required": ["execution", "repository", "publication", "execution_failure_mode"],
       "properties": {
         "execution": { "enum": ["completed", "failed", "cancelled", "timeout", "infrastructure-error"] },
         "repository": {
@@ -337,72 +673,95 @@
             { "$ref": "#/$defs/unknown" }
           ]
         },
-        "product_quality": {
-          "oneOf": [
-            { "enum": ["pass", "partial", "redo", "wrong", "unrated"] },
-            { "$ref": "#/$defs/unknown" }
-          ]
-        },
-        "execution_failure_mode": { "$ref": "#/$defs/maybeString" }
+        "execution_failure_mode": {
+          "enum": ["not-applicable", "executor-error", "timeout", "cancelled", "infrastructure", "repository-checkout", "publication", "delivery", "gateway-not-admitted", "transport-auth-failed"]
+        }
       }
     },
-    "exposure": {
+    "observedExposure": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["event_key", "state", "fingerprint_version", "lane", "first_seen_at", "last_seen_at", "coverage"],
+      "required": ["kind", "event_key", "fingerprint_version", "lane", "first_seen_at", "last_seen_at"],
       "properties": {
+        "kind": { "const": "observed-event" },
         "event_key": { "$ref": "#/$defs/nonEmptyString" },
-        "state": { "enum": ["seen", "unseen-covered", "incomplete", "error", "not-checked"] },
         "fingerprint_version": { "const": "trim-utf8-sha256-v1" },
         "lane": { "enum": ["chat", "mcp-ask", "delegate", "delegate-disagreement", "delegate-shadow", "code-loop"] },
-        "first_seen_at": { "$ref": "#/$defs/maybeTimestamp" },
-        "last_seen_at": { "$ref": "#/$defs/maybeTimestamp" },
+        "first_seen_at": { "$ref": "#/$defs/timestamp" },
+        "last_seen_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "negativeExposure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "lookup_id", "coverage_epoch_id", "queried_at", "fingerprint_version", "queried_fingerprint", "task_attempt_id", "coverage"],
+      "properties": {
+        "kind": { "const": "negative-coverage-query" },
+        "lookup_id": { "$ref": "#/$defs/opaqueId" },
+        "coverage_epoch_id": { "$ref": "#/$defs/opaqueId" },
+        "queried_at": { "$ref": "#/$defs/timestamp" },
+        "fingerprint_version": { "const": "trim-utf8-sha256-v1" },
+        "queried_fingerprint": { "$ref": "#/$defs/rawTaskFingerprint" },
+        "task_attempt_id": { "$ref": "#/$defs/nonEmptyString" },
         "coverage": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["complete", "from", "through", "lanes"],
+          "required": ["complete", "from", "through", "relevant_task_at", "lanes"],
           "properties": {
-            "complete": { "type": "boolean" },
+            "complete": { "const": true },
             "from": { "$ref": "#/$defs/timestamp" },
             "through": { "$ref": "#/$defs/timestamp" },
+            "relevant_task_at": { "$ref": "#/$defs/timestamp" },
             "lanes": {
               "type": "array",
               "items": { "enum": ["chat", "mcp-ask", "delegate", "delegate-disagreement", "delegate-shadow", "code-loop"] },
+              "minItems": 6,
+              "maxItems": 6,
               "uniqueItems": true
             }
           }
         }
       }
     },
+    "exposure": {
+      "oneOf": [
+        { "$ref": "#/$defs/observedExposure" },
+        { "$ref": "#/$defs/negativeExposure" }
+      ]
+    },
     "verifier": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "version", "rubric_id", "rubric_version", "kind"],
+      "required": ["id", "version", "rubric_id", "rubric_version", "kind", "independence", "calibration_evidence_id"],
       "properties": {
         "id": { "$ref": "#/$defs/nonEmptyString" },
         "version": { "$ref": "#/$defs/nonEmptyString" },
         "rubric_id": { "$ref": "#/$defs/nonEmptyString" },
         "rubric_version": { "$ref": "#/$defs/nonEmptyString" },
-        "kind": { "enum": ["deterministic", "human", "calibrated-judge", "advisory-judge"] }
+        "kind": { "enum": ["deterministic", "human", "calibrated-judge", "advisory-judge"] },
+        "independence": { "enum": ["independent", "self", "unknown"] },
+        "calibration_evidence_id": { "$ref": "#/$defs/maybeString" }
       }
     },
     "capability": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["evidence_id", "outcome", "failure_mode", "verifier", "policy_epoch", "routing_effect"],
+      "required": ["evidence_id", "outcome", "failure_mode", "verifier", "policy_epoch", "admission_state", "admission_basis", "routing_effect"],
       "properties": {
         "evidence_id": { "$ref": "#/$defs/nonEmptyString" },
         "outcome": { "enum": ["pass", "partial", "fail", "error", "unverified"] },
-        "failure_mode": { "$ref": "#/$defs/maybeString" },
+        "failure_mode": { "enum": ["not-applicable", "verifier-failed", "model-output-invalid", "model-capability", "infrastructure", "policy-inadmissible", "unverified"] },
         "verifier": { "$ref": "#/$defs/verifier" },
-        "policy_epoch": { "$ref": "#/$defs/nonEmptyString" },
+        "policy_epoch": { "$ref": "#/$defs/versionedConfigIdentity" },
+        "admission_state": { "enum": ["admissible", "inadmissible"] },
+        "admission_basis": { "enum": ["full-pass", "policy-qualified-partial", "none"] },
         "routing_effect": { "enum": ["none-shadow", "admit", "freeze", "reject"] }
       }
     },
     "experiment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["experiment_id", "run_id", "sample_id", "arm", "holdout", "configuration_fingerprint", "verification_outcome", "product_outcome", "verifier"],
+      "required": ["experiment_id", "run_id", "sample_id", "arm", "holdout", "configuration_fingerprint", "verification_outcome", "failure_mode", "verifier"],
       "properties": {
         "experiment_id": { "$ref": "#/$defs/nonEmptyString" },
         "run_id": { "$ref": "#/$defs/nonEmptyString" },
@@ -411,8 +770,93 @@
         "holdout": { "type": "boolean" },
         "configuration_fingerprint": { "$ref": "#/$defs/fingerprint" },
         "verification_outcome": { "enum": ["pass", "fail", "unverified", "infra-error"] },
-        "product_outcome": { "enum": ["accepted-unchanged", "minor-edit", "major-rewrite", "discarded", "unrated"] },
+        "failure_mode": { "enum": ["not-applicable", "verifier-failed", "infrastructure", "harness", "product-not-rated"] },
         "verifier": { "$ref": "#/$defs/verifier" }
+      }
+    },
+    "qualityRepositoryBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "base_branch", "base_commit", "head_commit", "diff_sha256"],
+      "properties": {
+        "state": { "enum": ["unknown", "not-managed", "checkout-failed", "not-finalized", "no-changes", "changes-present", "publication-failed"] },
+        "base_branch": { "$ref": "#/$defs/maybeString" },
+        "base_commit": {
+          "oneOf": [
+            { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        },
+        "head_commit": {
+          "oneOf": [
+            { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+            { "$ref": "#/$defs/unknown" }
+          ]
+        },
+        "diff_sha256": { "$ref": "#/$defs/maybeFingerprint" }
+      }
+    },
+    "qualityReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt_id", "native_schema_version", "task_id", "attempt_id", "rating", "rating_reason_sha256", "disposition", "retries_count", "rated_at", "reviewer", "rubric", "binding_attestation", "binding"],
+      "properties": {
+        "receipt_id": { "type": "string", "pattern": "^qr-[0-9a-f]{24}$" },
+        "native_schema_version": { "const": 1 },
+        "task_id": { "$ref": "#/$defs/nonEmptyString" },
+        "attempt_id": { "$ref": "#/$defs/nonEmptyString" },
+        "rating": { "enum": ["pass", "partial", "redo", "wrong"] },
+        "rating_reason_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "disposition": { "enum": ["accepted_unchanged", "minor_edit", "major_rewrite", "discarded", "escalated_to_claude"] },
+        "retries_count": { "type": "integer", "minimum": 0 },
+        "rated_at": { "$ref": "#/$defs/timestamp" },
+        "reviewer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["principal", "independence"],
+          "properties": {
+            "principal": { "$ref": "#/$defs/nonEmptyString" },
+            "independence": { "enum": ["independent", "self", "unknown"] }
+          }
+        },
+        "rubric": { "$ref": "#/$defs/versionedConfigIdentity" },
+        "binding_attestation": { "enum": ["server-bound", "reviewer-confirmed"] },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["task_document_sha256", "structured_result_sha256", "repository"],
+          "properties": {
+            "task_document_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "structured_result_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "repository": { "$ref": "#/$defs/qualityRepositoryBinding" }
+          }
+        }
+      }
+    },
+    "experimentProductRating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rating_id", "experiment_id", "run_id", "observation_record_id", "configuration_fingerprint", "product_outcome", "rating_reason_sha256", "human_review_seconds", "rated_at", "reviewer", "rubric"],
+      "properties": {
+        "rating_id": { "type": "string", "pattern": "^epr-[0-9a-f]{24}$" },
+        "experiment_id": { "$ref": "#/$defs/nonEmptyString" },
+        "run_id": { "$ref": "#/$defs/nonEmptyString" },
+        "observation_record_id": { "$ref": "#/$defs/opaqueId" },
+        "configuration_fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "product_outcome": { "enum": ["accepted-unchanged", "minor-edit", "major-rewrite", "discarded"] },
+        "rating_reason_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "human_review_seconds": { "type": "integer", "minimum": 0 },
+        "rated_at": { "$ref": "#/$defs/timestamp" },
+        "reviewer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["principal", "independence"],
+          "properties": {
+            "principal": { "$ref": "#/$defs/nonEmptyString" },
+            "independence": { "enum": ["independent", "self", "unknown"] }
+          }
+        },
+        "rubric": { "$ref": "#/$defs/versionedConfigIdentity" }
       }
     },
     "lineage": {
@@ -443,18 +887,76 @@
           "enum": ["hugin-capture-denominator", "hugin-m5-join-denominator", "direct-m5-exposure-denominator", "evaluation-candidate-denominator"]
         },
         "period_utc": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" },
-        "disposition": { "enum": ["preserved", "decremented"] }
+        "disposition": { "const": "preserved" }
+      }
+    },
+    "erasureStoreReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["store", "status", "readback_at", "receipt_id"],
+      "properties": {
+        "store": { "enum": ["hugin-task-store", "hugin-workspace-log-result", "munin", "gille-ledger", "gille-owner-log", "gille-exposure", "gille-code-loop"] },
+        "status": { "enum": ["deleted", "not-applicable"] },
+        "readback_at": { "$ref": "#/$defs/timestamp" },
+        "receipt_id": { "$ref": "#/$defs/opaqueId" }
+      }
+    },
+    "artifactStoreReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inventory_entry_id", "store_class", "status", "readback_at", "receipt_id"],
+      "properties": {
+        "inventory_entry_id": { "$ref": "#/$defs/opaqueId" },
+        "store_class": { "enum": ["mimir", "repository-workspace", "external-artifact-store"] },
+        "status": { "enum": ["deleted", "not-applicable"] },
+        "readback_at": { "$ref": "#/$defs/timestamp" },
+        "receipt_id": { "$ref": "#/$defs/opaqueId" }
+      }
+    },
+    "erasureProtocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "authorized_by", "requested_at", "artifact_inventory_id", "expected_artifact_store_receipts", "core_stores", "artifact_stores", "backup_expiry"],
+      "properties": {
+        "request_id": { "$ref": "#/$defs/opaqueId" },
+        "authorized_by": { "$ref": "#/$defs/nonEmptyString" },
+        "requested_at": { "$ref": "#/$defs/timestamp" },
+        "artifact_inventory_id": { "$ref": "#/$defs/opaqueId" },
+        "expected_artifact_store_receipts": { "type": "integer", "minimum": 0 },
+        "core_stores": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/erasureStoreReceipt" },
+          "minItems": 7,
+          "maxItems": 7,
+          "uniqueItems": true
+        },
+        "artifact_stores": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifactStoreReceipt" },
+          "uniqueItems": true
+        },
+        "backup_expiry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "deadline", "verified_at"],
+          "properties": {
+            "status": { "const": "confirmed" },
+            "deadline": { "$ref": "#/$defs/timestamp" },
+            "verified_at": { "$ref": "#/$defs/timestamp" }
+          }
+        }
       }
     },
     "tombstone": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["removal_reason", "effective_at", "receipt_id", "superseded_record_id", "counter_audit"],
+      "required": ["removal_reason", "effective_at", "receipt_id", "superseded_record_id", "erasure_protocol", "counter_audit"],
       "properties": {
         "removal_reason": { "enum": ["erased", "expired"] },
         "effective_at": { "$ref": "#/$defs/timestamp" },
         "receipt_id": { "$ref": "#/$defs/opaqueId" },
         "superseded_record_id": { "$ref": "#/$defs/opaqueId" },
+        "erasure_protocol": { "$ref": "#/$defs/erasureProtocol" },
         "counter_audit": {
           "type": "array",
           "items": { "$ref": "#/$defs/counterAuditEntry" },
@@ -471,7 +973,7 @@
         "schema_revision": { "type": "integer", "minimum": 1 },
         "lifecycle_state": { "const": "content-removed-tombstone" },
         "record_id": { "$ref": "#/$defs/opaqueId" },
-        "record_kind": { "enum": ["task-outcome", "inference-exposure", "capability-evidence", "experiment-observation"] },
+        "record_kind": { "enum": ["task-outcome", "inference-exposure", "capability-evidence", "experiment-observation", "quality-receipt", "experiment-product-rating"] },
         "producer": { "$ref": "#/$defs/producer" },
         "recorded_at": { "$ref": "#/$defs/timestamp" },
         "tombstone": { "$ref": "#/$defs/tombstone" }
@@ -480,22 +982,25 @@
     "baseRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["contract_version", "schema_revision", "lifecycle_state", "record_id", "record_kind", "producer", "recorded_at", "task", "execution", "artifacts", "governance", "lineage", "review", "extensions"],
+      "required": ["contract_version", "schema_revision", "lifecycle_state", "record_id", "record_kind", "producer", "recorded_at", "artifacts", "governance", "lineage", "review", "extensions"],
       "properties": {
         "contract_version": { "const": "grimnir.learning-task/v1" },
         "schema_revision": { "type": "integer", "minimum": 1 },
         "lifecycle_state": { "const": "active" },
         "record_id": { "$ref": "#/$defs/opaqueId" },
-        "record_kind": { "enum": ["task-outcome", "inference-exposure", "capability-evidence", "experiment-observation"] },
+        "record_kind": { "enum": ["task-outcome", "inference-exposure", "capability-evidence", "experiment-observation", "quality-receipt", "experiment-product-rating"] },
         "producer": { "$ref": "#/$defs/producer" },
         "recorded_at": { "$ref": "#/$defs/timestamp" },
         "task": { "$ref": "#/$defs/task" },
         "execution": { "$ref": "#/$defs/execution" },
+        "transport": { "$ref": "#/$defs/transport" },
         "artifacts": { "$ref": "#/$defs/artifacts" },
         "outcomes": { "$ref": "#/$defs/taskOutcomes" },
         "exposure": { "$ref": "#/$defs/exposure" },
         "capability": { "$ref": "#/$defs/capability" },
         "experiment": { "$ref": "#/$defs/experiment" },
+        "quality_receipt": { "$ref": "#/$defs/qualityReceipt" },
+        "experiment_product_rating": { "$ref": "#/$defs/experimentProductRating" },
         "governance": { "$ref": "#/$defs/governance" },
         "lineage": { "$ref": "#/$defs/lineage" },
         "review": { "$ref": "#/$defs/review" },
@@ -519,14 +1024,16 @@
       "allOf": [
         { "$ref": "#/$defs/baseRecord" },
         {
-          "required": ["outcomes"],
+          "required": ["task", "execution", "transport", "outcomes"],
           "properties": {
             "record_kind": { "const": "task-outcome" },
             "producer": { "properties": { "component": { "const": "hugin" } } },
             "task": { "properties": { "origin_component": { "const": "hugin" } } },
             "exposure": false,
             "capability": false,
-            "experiment": false
+            "experiment": false,
+            "quality_receipt": false,
+            "experiment_product_rating": false
           }
         }
       ]
@@ -549,16 +1056,45 @@
       ]
     },
     "activeInferenceExposureRecord": {
+      "oneOf": [
+        { "$ref": "#/$defs/activeObservedInferenceExposureRecord" },
+        { "$ref": "#/$defs/activeNegativeInferenceExposureRecord" }
+      ]
+    },
+    "activeObservedInferenceExposureRecord": {
       "allOf": [
         { "$ref": "#/$defs/baseRecord" },
         {
-          "required": ["exposure"],
+          "required": ["task", "execution", "transport", "exposure"],
           "properties": {
             "record_kind": { "const": "inference-exposure" },
             "producer": { "properties": { "component": { "const": "gille-inference" } } },
+            "exposure": { "properties": { "kind": { "const": "observed-event" } } },
             "outcomes": false,
             "capability": false,
-            "experiment": false
+            "experiment": false,
+            "quality_receipt": false,
+            "experiment_product_rating": false
+          }
+        }
+      ]
+    },
+    "activeNegativeInferenceExposureRecord": {
+      "allOf": [
+        { "$ref": "#/$defs/baseRecord" },
+        {
+          "required": ["task", "exposure"],
+          "properties": {
+            "record_kind": { "const": "inference-exposure" },
+            "producer": { "properties": { "component": { "const": "gille-inference" } } },
+            "exposure": { "properties": { "kind": { "const": "negative-coverage-query" } } },
+            "execution": false,
+            "transport": false,
+            "outcomes": false,
+            "capability": false,
+            "experiment": false,
+            "quality_receipt": false,
+            "experiment_product_rating": false
           }
         }
       ]
@@ -584,13 +1120,15 @@
       "allOf": [
         { "$ref": "#/$defs/baseRecord" },
         {
-          "required": ["capability"],
+          "required": ["task", "execution", "transport", "capability"],
           "properties": {
             "record_kind": { "const": "capability-evidence" },
             "producer": { "properties": { "component": { "const": "gille-inference" } } },
             "outcomes": false,
             "exposure": false,
-            "experiment": false
+            "experiment": false,
+            "quality_receipt": false,
+            "experiment_product_rating": false
           }
         }
       ]
@@ -616,14 +1154,16 @@
       "allOf": [
         { "$ref": "#/$defs/baseRecord" },
         {
-          "required": ["experiment"],
+          "required": ["task", "execution", "transport", "experiment"],
           "properties": {
             "record_kind": { "const": "experiment-observation" },
             "producer": { "properties": { "component": { "const": "hugin" } } },
             "task": { "properties": { "origin_component": { "const": "hugin" } } },
             "outcomes": false,
             "exposure": false,
-            "capability": false
+            "capability": false,
+            "quality_receipt": false,
+            "experiment_product_rating": false
           }
         }
       ]
@@ -634,6 +1174,80 @@
         {
           "properties": {
             "record_kind": { "const": "experiment-observation" },
+            "producer": { "properties": { "component": { "const": "hugin" } } }
+          }
+        }
+      ]
+    },
+    "qualityReceiptRecord": {
+      "oneOf": [
+        { "$ref": "#/$defs/activeQualityReceiptRecord" },
+        { "$ref": "#/$defs/qualityReceiptTombstone" }
+      ]
+    },
+    "activeQualityReceiptRecord": {
+      "allOf": [
+        { "$ref": "#/$defs/baseRecord" },
+        {
+          "required": ["task", "quality_receipt"],
+          "properties": {
+            "record_kind": { "const": "quality-receipt" },
+            "producer": { "properties": { "component": { "const": "hugin" } } },
+            "task": { "properties": { "origin_component": { "const": "hugin" } } },
+            "execution": false,
+            "transport": false,
+            "outcomes": false,
+            "exposure": false,
+            "capability": false,
+            "experiment": false,
+            "experiment_product_rating": false
+          }
+        }
+      ]
+    },
+    "qualityReceiptTombstone": {
+      "allOf": [
+        { "$ref": "#/$defs/tombstoneBaseRecord" },
+        {
+          "properties": {
+            "record_kind": { "const": "quality-receipt" },
+            "producer": { "properties": { "component": { "const": "hugin" } } }
+          }
+        }
+      ]
+    },
+    "experimentProductRatingRecord": {
+      "oneOf": [
+        { "$ref": "#/$defs/activeExperimentProductRatingRecord" },
+        { "$ref": "#/$defs/experimentProductRatingTombstone" }
+      ]
+    },
+    "activeExperimentProductRatingRecord": {
+      "allOf": [
+        { "$ref": "#/$defs/baseRecord" },
+        {
+          "required": ["task", "experiment_product_rating"],
+          "properties": {
+            "record_kind": { "const": "experiment-product-rating" },
+            "producer": { "properties": { "component": { "const": "hugin" } } },
+            "task": { "properties": { "origin_component": { "const": "hugin" } } },
+            "execution": false,
+            "transport": false,
+            "outcomes": false,
+            "exposure": false,
+            "capability": false,
+            "experiment": false,
+            "quality_receipt": false
+          }
+        }
+      ]
+    },
+    "experimentProductRatingTombstone": {
+      "allOf": [
+        { "$ref": "#/$defs/tombstoneBaseRecord" },
+        {
+          "properties": {
+            "record_kind": { "const": "experiment-product-rating" },
             "producer": { "properties": { "component": { "const": "hugin" } } }
           }
         }

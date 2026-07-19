@@ -1,0 +1,45 @@
+[
+  {
+    "name": "completed non-M5 Hugin attempt remains in capture denominator",
+    "from_positive": 0,
+    "evaluation_clock": {
+      "eligible_at": "2026-07-19T10:01:01Z",
+      "post_expiry_at": "2028-01-01T00:00:00Z"
+    },
+    "mutations": [
+      {"op":"set","path":"/record_id","value":"opaque:18181818-1818-4818-8818-181818181818"},
+      {"op":"set","path":"/execution/routing/macro/target","value":"local"},
+      {"op":"set","path":"/execution/routing/macro/service","value":"hugin-local"},
+      {"op":"set","path":"/execution/routing/micro","value":{"value":null,"unknown_reason":"not-applicable"}},
+      {"op":"set","path":"/execution/prompt_identity/gateway_canonical_envelope","value":{"value":null,"unknown_reason":"not-applicable"}},
+      {"op":"set","path":"/execution/effective_gateway_config","value":{"value":null,"unknown_reason":"not-applicable"}},
+      {"op":"set","path":"/execution/serving/runtime_id","value":"hugin-local"},
+      {"op":"set","path":"/execution/serving/provider_id","value":"hugin"},
+      {"op":"set","path":"/transport","value":{"state":"not-m5","hugin_request_stamp":{"value":null,"unknown_reason":"not-applicable"},"gateway_echo":{"value":null,"unknown_reason":"not-applicable"},"record_delivery_attempt":0}},
+      {"op":"delete-array-item","path":"/governance/policies","index":3},
+      {"op":"set","path":"/governance/effective/derived_from_subject_refs","value":["source:hugin:broker-001","fingerprint:raw","fingerprint:hugin-envelope","fingerprint:runtime-chat-template-render"]}
+    ]
+  },
+  {
+    "name": "M5 request rejected before admission remains a Hugin outcome and join failure",
+    "from_positive": 0,
+    "evaluation_clock": {
+      "eligible_at": "2026-07-19T10:01:01Z"
+    },
+    "mutations": [
+      {"op":"set","path":"/record_id","value":"opaque:19191919-1919-4919-8919-191919191919"},
+      {"op":"set","path":"/execution/prompt_identity/gateway_canonical_envelope","value":{"value":null,"unknown_reason":"not-admitted"}},
+      {"op":"set","path":"/execution/prompt_identity/runtime_chat_template_render","value":{"value":null,"unknown_reason":"not-admitted"}},
+      {"op":"set","path":"/execution/routing/micro","value":{"value":null,"unknown_reason":"not-admitted"}},
+      {"op":"set","path":"/execution/serving","value":{"value":null,"unknown_reason":"not-admitted"}},
+      {"op":"set","path":"/execution/effective_gateway_config","value":{"value":null,"unknown_reason":"not-admitted"}},
+      {"op":"set","path":"/transport/state","value":"m5-not-admitted"},
+      {"op":"set","path":"/transport/gateway_echo","value":{"value":null,"unknown_reason":"not-admitted","detail":"gateway rejected before model execution"}},
+      {"op":"set","path":"/outcomes/execution","value":"infrastructure-error"},
+      {"op":"set","path":"/outcomes/execution_failure_mode","value":"gateway-not-admitted"},
+      {"op":"delete-array-item","path":"/governance/policies","index":4},
+      {"op":"delete-array-item","path":"/governance/policies","index":3},
+      {"op":"set","path":"/governance/effective/derived_from_subject_refs","value":["source:hugin:broker-001","fingerprint:raw","fingerprint:hugin-envelope"]}
+    ]
+  }
+]

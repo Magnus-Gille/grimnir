@@ -1,392 +1,428 @@
 # LearningTaskContract v1
 
-> **Status:** proposed v1; it becomes effective only after recorded Hugin and `gille-inference`
-> owner reviews.
+> **Status:** proposed v1; effective only after recorded Hugin and `gille-inference` owner reviews.
 > **Contract id:** `grimnir.learning-task/v1`.
 > **Machine schema:** [`learning-task-contract-v1.schema.json`](learning-task-contract-v1.schema.json).
-> **Schema owner:** Grimnir. Field values remain owned by the producer named below.
-> **Review gate:** Hugin owner — pending; `gille-inference` owner — pending. Record both review links
-> before merging this contract or closing dependent implementation tickets.
+> **Review gate:** Hugin owner — pending; `gille-inference` owner — pending.
 
 ## Purpose and boundary
 
-This contract is the join between Hugin's task/product evidence and the M5 gateway's inference
-evidence. It makes one task traceable across both systems without creating a second copy of its
-prompt, answer, repository contents, or correction.
+This contract is the evidence seam between Hugin tasks and M5 gateway inference. It lets a consumer
+join task, execution, exposure, capability, experiment, and late human-review facts without making
+either repository the owner of the other's truth. It is an export projection, not a replacement for
+Hugin's task/result, Quality Receipt, or experiment stores, nor for `gille-inference` exposure,
+owner-log, code-loop, capability, and routing stores.
 
-The contract is **content-governed**, not a license to collect content. Cross-repository records
-carry stable identifiers, hashes, classifications, and owner-controlled references. A consumer may
-dereference content only when its principal, purpose, sensitivity ceiling, and retention policy
-allow it. Hashes are identifiers, not anonymization: sensitive input produces sensitive-derived
-metadata and keeps the same access class unless an owner explicitly proves a safer class.
-
-Version 1 is an envelope and ownership contract. It does not replace Hugin's task/result, Quality
-Receipt, or experiment schemas, and it does not replace `gille-inference`'s exposure, delegation,
-capability-ledger, or routing schemas. Producers project those records into this seam; neither side
-may infer a missing verdict owned by the other.
+The seam is content-governed. It carries opaque identifiers, exact hashes, classifications, and
+owner-controlled references. Hashes are content-derived metadata, not anonymization. A consumer
+MUST NOT dereference content unless the authenticated principal, allowed use, sensitivity ceiling,
+retention, and erasure state permit it.
 
 Normative terms **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are used as in RFC 2119.
 
 ## Record model
 
-The JSON Schema is normative for JSON types, closed enums, object shape, and per-kind required
-fields. A component may store a native representation only if its exported projection validates
-losslessly. The four discriminated record kinds and their active projections are:
+The JSON Schema is normative for types, object shape, closed enums, and per-kind fields. A native
+representation is conforming only when its projection validates losslessly. Active records use
+`lifecycle_state: "active"`; content removal uses the deliberately smaller
+`content-removed-tombstone` projection.
 
-| `record_kind` | Required active section | Required producer | Permitted active task origin |
+| `record_kind` | Active section | Producer | Origin |
 |---|---|---|---|
 | `task-outcome` | `outcomes` | Hugin | Hugin |
-| `inference-exposure` | `exposure` | `gille-inference` | Hugin or direct `gille-inference` request |
-| `capability-evidence` | `capability` | `gille-inference` | Hugin or direct `gille-inference` request |
+| `inference-exposure` | `exposure` | `gille-inference` | Hugin or direct gateway |
+| `capability-evidence` | `capability` | `gille-inference` | Hugin or direct gateway |
 | `experiment-observation` | `experiment` | Hugin | Hugin |
+| `quality-receipt` | `quality_receipt` | Hugin | Hugin |
+| `experiment-product-rating` | `experiment_product_rating` | Hugin | Hugin |
 
-An active record has `lifecycle_state: "active"` and contains the common fields required by
-`$defs.baseRecord`. A content-removal receipt has
-`lifecycle_state: "content-removed-tombstone"` and validates against the deliberately smaller
-`$defs.tombstoneBaseRecord`; it is not an active record with fields nulled out. Closed objects reject
-unknown top-level or nested fields. Additive active-record data is confined to the current
-producer's namespace under `extensions`; tombstones have no extension surface.
+Late product judgments are immutable record kinds. `task-outcome` MUST NOT acquire a
+`product_quality` scalar and `experiment-observation` MUST NOT acquire a `product_outcome` scalar.
+This prevents a review arriving later from rewriting an execution or experiment observation.
 
-Unknown is never an unqualified JSON `null`. A field that permits absence uses this exact shape:
+Unknown is never bare `null`. Where the schema permits absence, it uses:
 
 ```json
-{ "value": null, "unknown_reason": "not-applicable | not-observed | legacy | producer-error | redacted | erased | expired", "detail": "optional non-empty explanation" }
+{ "value": null, "unknown_reason": "not-applicable | not-observed | legacy | producer-error | redacted | erased | expired | not-admitted | policy-unavailable", "detail": "optional" }
 ```
 
-The schema says which fields permit that union. A required known value cannot use it. A producer
-MUST NOT manufacture a value to make a record look complete.
+Unknown fields do not erase known owner stamps and do not make a record evaluation-eligible.
 
-### Content-removal tombstone
+### Immutable review records and summaries
 
-Effective erasure or expiry is the explicit exception to content-record append-only storage. The
-producer MUST remove the superseded active projection and any content-keyed exposure rows, then MAY
-retain one replacement `content-removed-tombstone`. The active projection and its tombstone MUST
-NOT coexist in a conforming dataset.
+`quality-receipt` preserves Hugin's native Quality Receipt identity and vocabulary: `qr-…`
+`receipt_id`, native schema version, task/attempt binding, rating, disposition, retries, reviewer,
+rubric, reason digest, and task/result/repository hashes. `experiment-product-rating` binds an
+`epr-…` rating to the immutable experiment-observation `record_id`, experiment/run, exact
+configuration fingerprint, reviewer, rubric, reason digest, and review time.
 
-The tombstone contains only the contract/revision/lifecycle/kind, an opaque new `record_id`, the
-producer stamp and `recorded_at`, plus:
+Multiple receipts or ratings MAY target one binding. They are different evidence, not conflicting
+replays, provided their own record and native receipt/rating ids are unique. Consumers derive a
+summary per exact binding and rubric version as follows:
 
-| Tombstone field | Owner | Meaning |
+1. no applicable record is `unrated`;
+2. one Quality Receipt yields its full `(rating, disposition)` tuple; one experiment rating yields
+   its `product_outcome`;
+3. multiple records with the same full result yield that result plus every contributing immutable id;
+4. disagreement in either Quality Receipt rating or disposition (or in experiment product outcome)
+   is `conflicted` and cannot support admission or promotion; and
+5. a new rubric/version is a separate cohort. Newest-wins and destructive re-rating are forbidden.
+
+The derived summary is a query result, not a scalar written back into the older record.
+
+## Identity, provenance, and integrity
+
+### Task and source
+
+The origin owns `task.instance_id`, the full source tuple, and task-type assignment. The source tuple
+is `component`, `system`, `id`, `created_at`, `accepted_at`, and the source `principal`
+(`id`, authentication method, and owner/service scope). `task.origin_component` MUST equal
+`task.source.component`; creation precedes acceptance.
+
+A legacy source MAY use a qualified unknown principal rather than fabricate authentication. Such a
+record MUST use `policy-unavailable`, permits no use, and is evaluation-ineligible. Source principal
+and authenticated transport caller are separate identities: the former identifies who originated
+the task; the latter proves which service called the gateway.
+
+`gille-inference` owns the closed task taxonomy id/version. Both origins hash the canonical raw
+task bytes using exactly `trim-utf8-sha256-v1`: apply JavaScript-compatible `String.trim()` to the
+raw UTF-8 text and SHA-256 the resulting UTF-8 bytes. There is no Unicode normalization, JSON
+rewriting, prompt rendering, or chat-template application. Multi-turn traffic emits one observed
+event per user turn using that turn's raw bytes.
+
+### Three prompt stages and configuration provenance
+
+The three prompt identities are separate facts:
+
+| Field | Bytes identified | Owner |
 |---|---|---|
-| `tombstone.removal_reason`, `effective_at` | Record producer, acting on the content owner's policy | Erased/expired decision and its effective time; `recorded_at` cannot precede it. |
-| `tombstone.receipt_id` | Record producer | Opaque, non-content-derived erasure audit identity. |
-| `tombstone.superseded_record_id` | Original record producer | Opaque, non-content-derived id used only to prove the active record was removed. |
-| `tombstone.counter_audit[]` | Counter owner | Optional monthly aggregate-counter disposition; `(counter, period_utc)` is unique. Hugin owns Hugin capture/join/evaluation counters; `gille-inference` owns direct-M5 exposure. |
+| `execution.prompt_identity.hugin_envelope` | Hugin task envelope after Hugin context/system wrapping | Hugin |
+| `gateway_canonical_envelope` | Canonical gateway request after gateway orchestration | `gille-inference` |
+| `runtime_chat_template_render` | Exact bytes after the runtime chat template | Effective serving owner |
 
-`counter_audit` may be empty: a producer MUST NOT invent an adjustment for a counter it does not
-own. A preserved monthly denominator survives in the aggregate, not by retaining task type, source,
-model, prompt, route, artifact, classification, locator, governance detail, review, lineage, or an
-extension. Both `record_id` values are schema-constrained opaque UUIDv4 ids; no content-derived or
-structured legacy identifier may be copied into the tombstone.
+For direct gateway traffic, only the Hugin stage is `not-applicable`; gateway and runtime stages
+remain required. Joined consumers MUST NOT collapse any two stages even if their digests match.
 
-| Envelope field | Owner | Meaning |
+`execution.origin_config` binds the origin prompt, harness, and tool policy as versioned identities
+with config digests. `execution.effective_gateway_config` separately binds the gateway harness and
+tool policy after defaults and policy application. Effective serving uses `runtime_id:
+"llama-swap"` for the current M5 path and records provider/model plus:
+
+- an artifact-manifest digest;
+- an effective runtime-config digest; and
+- an effective sampling digest after defaults and clamps.
+
+These use JCS RFC 8785 canonical JSON, UTF-8, SHA-256, an explicit source type, and source schema
+version. Labels, aliases, requested values, or a model name alone are not reproducible provenance.
+Fixtures calculate their raw and prompt hashes from declared source strings; they are not decorative
+64-character constants.
+
+Repository base/head commit ids are symmetric lowercase hexadecimal strings of 40–64 characters or
+a qualified unknown. A correction reference MUST name a correction artifact in the same record.
+Reviewer identity and review time are known together or unknown together. All clocks use RFC 3339
+UTC; source creation ≤ acceptance ≤ execution start ≤ execution end ≤ `recorded_at`. Exposure,
+review, rating, policy, and erasure clocks have their analogous bounded ordering.
+
+## Executable Hugin ↔ M5 transport join
+
+The Hugin-owned macro decision includes an explicit `target` and `service`. That makes transport a
+closed state machine instead of inferring M5 use from whichever fields happen to exist:
+
+| `transport.state` | Macro/origin | Required evidence |
 |---|---|---|
-| `contract_version` | Grimnir | Version and compatibility semantics of this seam. |
-| `schema_revision` | Grimnir | Additive v1 schema revision; it never changes v1 semantics. |
-| `lifecycle_state`, `record_kind` | Grimnir | Closed lifecycle and projection vocabularies; the producer asserts the applicable values. |
-| `record_id` | Record producer | Immutable, opaque producer-scoped UUIDv4 identity prefixed `opaque:`; it embeds no task, source, model, route, or content classification. |
-| `producer.component`, `producer.schema_version` | Record producer | Component and native schema that supplied the facts. |
-| `recorded_at` | Record producer | Time the projection was created; it never replaces source/execution times. |
+| `not-m5` | Hugin macro target is not M5 | Hugin stamp and gateway echo are `not-applicable`; gateway envelope/micro/config are also `not-applicable`. |
+| `m5-not-admitted` | Hugin macro target is M5 | Hugin request stamp is known; echo is absent with `not-admitted`, `transport-auth-failed`, or `producer-error`; gateway/runtime/micro/serving facts carry that same missing-echo reason. |
+| `m5-admitted` | Hugin macro target is M5 | Known Hugin stamp and exact authenticated gateway echo. |
+| `direct-gateway` | Direct `gille-inference` origin | Hugin-only stamp, envelope, and macro fields are `not-applicable`; gateway execution facts are known. |
 
-### Task identity and type assignment — origin owned; taxonomy — `gille-inference` owned
+Thus a non-M5 attempt and an M5 admission/authentication failure remain valid Hugin task outcomes in
+the capture/join denominators. Neither fabricates a gateway observation or model execution.
 
-| Field | Owner | Required | Meaning |
-|---|---|---:|---|
-| `task.origin_component` | Origin component | yes | `hugin` for Hugin tasks or `gille-inference` for direct gateway/MCP/chat work. |
-| `task.instance_id` | Origin component | yes | Stable origin-scoped task/request identity; retries do not mint a new task. |
-| `task.source.component`, `system`, `id` | Origin component | yes | Source identity; component MUST equal `task.origin_component`. |
-| `task.source.created_at`, `accepted_at` | Origin component | yes | Source creation and acceptance clocks, not terminal update time. |
-| `task.task_type.id` | Origin component | yes | Origin's assignment from the advertised canonical vocabulary. |
-| `task.task_type.taxonomy_id` | `gille-inference` | yes | Canonical taxonomy name advertised to Hugin. |
-| `task.task_type.taxonomy_version` | `gille-inference` | yes | Immutable version/digest of that taxonomy. |
-| `task.raw_fingerprint` | Origin component | yes when active | `{algorithm, version, digest}` before any context/template rendering; it is absent from content-removal tombstones. |
+An admitted joined inference uses this stamp-and-echo handshake:
 
-Hugin MUST preserve its raw task separately from rendered prompts. Direct M5 traffic has a
-`gille-inference`-owned raw request identity and does not fabricate a Hugin task id. The raw
-fingerprint is the cross-client join/freshness key and MUST NOT contain context, a system prompt,
-chat template, tool description, or other harness-added bytes.
+1. Hugin creates `transport.hugin_request_stamp` before dispatch. It contains task instance,
+   attempt, client, idempotency key, request id, the full Hugin-owned source tuple, task type, raw
+   fingerprint, Hugin envelope, origin config, macro decision, retry identity, and
+   `contract_request`. The request names the exact contract major, schema revision, and four required
+   features; it MUST match the record and the gateway's returned capability set.
+2. The gateway authenticates the actual caller independently. It MUST bind that principal to the
+   request/idempotency/task stamp's `expected_transport_principal_id` and emit
+   `principal_binding_digest`; a body-supplied principal is not authentication. For the current path
+   this authenticated caller is the Hugin service principal, not necessarily the original source
+   principal. The binding digest is SHA-256 over JCS canonical JSON containing
+   `authenticated_principal_id`, `expected_transport_principal_id`, `client_id`, `idempotency_key`,
+   `request_id`, `task_instance_id`, `attempt_id`, and the complete `contract_request`, with version
+   `gateway-principal-request-binding-jcs-v1`.
+3. Before model execution, the gateway verifies supported contract major/revision and the four
+   advertised features, assigns gateway request/admission ids, and echoes the complete Hugin stamp.
+4. Hugin accepts gateway-owned render/route/serving facts only when the echo is byte-for-byte equal
+   to its stamp and the authenticated caller equals the expected transport service principal. The
+   original source principal remains unchanged in the echoed source tuple. A mismatch or
+   substitution is rejected and recorded as a join failure.
 
-### Execution and serving identity — split by fact owner
+Retry lifecycle is exact:
 
-| Field | Owner | Required | Meaning |
-|---|---|---:|---|
-| `execution.attempt_id`, `started_at`, `ended_at` | Origin component | yes | Stable attempt and its actual interval; recovery semantics are explicit. |
-| `execution.prompt_identity.hugin_rendered` | Hugin | required union | Hugin envelope algorithm/version/digest; `not-applicable` for direct gateway traffic. |
-| `execution.prompt_identity.gateway_rendered` | `gille-inference` | required union | Final gateway render algorithm/version/digest; `not-applicable` when no gateway ran. |
-| `execution.routing.macro` | Hugin | required union | Hugin macro policy id/version/decision id; `not-applicable` for direct gateway traffic. |
-| `execution.routing.micro` | `gille-inference` | required union | Gateway micro policy id/version/decision id; `not-applicable` when no gateway ran. |
-| `execution.serving.runtime_id`, `provider_id` | Effective serving owner | yes | Effective runtime/provider, not requested aliases. |
-| `execution.serving.model.id`, `artifact_digest`, `config_epoch` | `gille-inference` for gateway calls; Hugin otherwise | required unions | Canonical served model and immutable artifact/config identity. |
-| `execution.prompt_version` | Hugin for Hugin origin; `gille-inference` for direct origin | required union | Agent/system prompt version; `not-applicable` only when the lane has no such prompt. |
-| `execution.harness_version` | Hugin for Hugin origin; `gille-inference` for direct origin | yes | Harness identity and immutable configuration digest. |
-| `execution.tool_policy_version` | Hugin for Hugin origin; `gille-inference` for direct origin | yes | Effective tools/permissions policy version. |
-| `execution.serving.sampling_version` | `gille-inference` for gateway calls; Hugin otherwise | yes | Effective temperature/top-p/seed/reasoning/output-limit configuration digest. |
+| Event | Task/attempt/idempotency/request | Counters | Model run |
+|---|---|---|---|
+| Transient request transport retry | all reused | increment `transport_attempt` | at most the original run under gateway idempotency |
+| Deliberate new model execution | task reused; new attempt, idempotency key, and request id | increment `model_execution_ordinal` | yes |
+| Contract-record delivery retry | stamp, echo, task, attempt, and model ordinal reused | increment only `transport.record_delivery_attempt` | no |
 
-For a Hugin→gateway attempt, Hugin owns the attempt, Hugin render, and macro route; the gateway owns
-its final render, effective provider/model/config/sampling, and micro route. The two prompt and two
-routing identities are separate fields even when their bytes or policy version happen to match.
-Hugin MUST consume gateway-stamped facts rather than copying its request as observed truth.
+An idempotency key MUST NOT span different task/attempt/model-execution identities. A record delivery
+retry never buys another model run.
 
-### Artifact bindings — producer-bound; repository evidence Hugin owned
+Joined records compare exact task/execution plus transport state, Hugin stamp, and gateway echo.
+`record_delivery_attempt` is producer-owned delivery telemetry and MAY differ between Hugin and
+`gille-inference`; it is not part of shared join identity or model-run idempotency.
 
-| Field | Owner | Required | Meaning |
-|---|---|---:|---|
-| `artifacts.items[]` | Record producer | when applicable | `{kind, owner, ref, content_hash}` for input/output/publication/correction artifacts. |
-| `artifacts.repository.base_commit`, `head_commit` | Hugin | for managed-repo attempts | Exact before tree and task head. |
-| `artifacts.repository.diff_hash`, `changed_files_ref` | Hugin | when a diff exists | Canonical binary diff fingerprint and governed file-list reference. |
+Direct gateway records set both Hugin-only stamp/echo fields to qualified `not-applicable`; they do
+not invent a Hugin task. A Hugin-origin admitted gateway record cannot use unknown stamp or echo.
 
-The producer owns the seam binding between its record and these references/hashes; the referenced
-artifact's content owner does not change. A consumer validates the hash when dereferencing and records a
-contract error on mismatch; it does not silently refresh the hash.
+## Exposure facts
 
-### Outcomes — no cross-owner verdict fabrication
+`inference-exposure` has two mutually exclusive projections:
 
-| Field | Owner | Required | Meaning |
-|---|---|---:|---|
-| `outcomes.execution` | Hugin | yes | Lifecycle outcome such as completed, failed, cancelled, timeout, or infrastructure error. |
-| `outcomes.repository` | Hugin | for repo tasks | Structured repository result, including no-change and not-finalized states. |
-| `outcomes.publication` | Hugin | when applicable | Not attempted, succeeded, failed, or unknown with evidence. |
-| `outcomes.product_quality` | Hugin | after review | Quality Receipt rating/disposition; `unrated` is explicit. |
-| `capability.outcome`, `routing_effect` | `gille-inference` | for capability evidence | Verifier-backed pass/partial/fail/error/unverified plus admitted/frozen/rejected/shadow effect. |
-| `outcomes.execution_failure_mode` | Hugin | on execution/repository/publication failure | Versioned categorical operational or product failure reason. |
-| `capability.failure_mode` | `gille-inference` | on capability failure | Versioned categorical verifier/model capability failure reason. |
+- `observed-event` is an event actually recorded by one lane, with immutable `event_key`, exact raw
+  fingerprint version, lane, and ordered first/last-seen clocks.
+- `negative-coverage-query` is a later query result, with its own `lookup_id`, `coverage_epoch_id`,
+  query time, exact queried raw fingerprint, task attempt, relevant-task time, and bounded window.
 
-Execution success does not imply repository success; repository publication does not imply product
-quality; product acceptance does not by itself become a model capability verdict. Only
-`gille-inference` may apply evidence to the capability ledger, through its defined import/write
-contract and evidence policy.
+A negative result is valid only when coverage is complete and includes exactly these six lanes:
+`chat`, `mcp-ask`, `delegate`, `delegate-disagreement`, `delegate-shadow`, and `code-loop`. The
+relevant task time MUST fall inside the window, the window MUST end no later than the query, and the
+query MUST precede record creation. An observed event is never rewritten into a negative lookup.
 
-### Verifier, correction, and lineage — Hugin owned except capability grading
+This is exact-hash freshness evidence, not contamination proof. It cannot detect Unicode-normalized
+equivalents, paraphrases, translated prompts, or semantic contamination. Raw loopback traffic sent
+directly to llama-swap is outside the six authenticated lanes; it must be captured through a
+declared authenticated lane or coverage for the affected holdout window is incomplete and the
+candidate is excluded. A registry restart or lane-set change mints a new `coverage_epoch_id`; a
+negative query cannot bridge epochs to imply uninterrupted history.
 
-| Field | Owner | Required | Meaning |
-|---|---|---:|---|
-| `experiment.verifier` | Hugin | for experiment claims | Stable verifier/rubric identity, versions, and deterministic/human/judge kind. |
-| `capability.verifier` | `gille-inference` | for capability claims | Stable verifier/rubric identity, versions, and deterministic/human/judge kind. |
-| `review.reviewer_principal_id`, `reviewed_at` | Hugin for product/experiment review; `gille-inference` for capability review | for human review | Authenticated reviewer and receipt time, never free-form identity. |
-| `lineage.corrects_record_ids[]` | Record producer | when corrective | Same-plane records this result supersedes/corrects. |
-| `lineage.correction_ref` | Hugin | when content was corrected | Reference to an `artifacts.items[]` correction binding that carries the governed hash. |
-| `lineage.successor_task_ids[]` | Hugin | when follow-up exists | Tasks created to repair or extend this result. |
+Monthly reporting includes coverage-epoch restarts, incomplete-window duration, raw-loopback
+detections, eligible candidates, candidates excluded as `exposure-incomplete`, and the resulting
+candidate-starvation rate. These measurements bound what was observed; they MUST NOT be described as
+proof that semantic contamination did not occur.
 
-A judge-only result remains advisory until its declared calibration gate is met. Regrading MUST
-append/supersede under a new rubric or policy version; it MUST NOT destructively rewrite history.
+## Outcomes, experiments, and capability admission
 
-### Governance and exposure — per-source/artifact policy plus strict effective policy
+Hugin owns execution/repository/publication outcome and the closed operational failure mode.
+Experiment observations contain mechanical verification and failure only; late product rating is a
+separate immutable record.
 
-| Field | Owner | Required | Meaning |
-|---|---|---:|---|
-| `governance.policies[]` | Each referenced source/artifact's content owner; recorded by its producer | yes | One policy per source, content-derived fingerprint, artifact ref, and repository file-list ref. |
-| `policies[].sensitivity`, `classification_version` | Named content owner | yes | Subject-specific classification and its policy version, copied by the record producer. |
-| `policies[].allowed_uses[]` | Content owner | yes | Closed v1 set: operations, evaluation, debug. Empty denies all; training export is invalid in v1. |
-| `policies[].retention` | Content owner | yes | Subject-specific policy and expiry or qualified unknown. |
-| `policies[].erasure` | Content owner | yes | Active/requested/erased/expired plus effective time and digest disposition. |
-| `governance.effective` | Record producer, mechanically derived | yes | Strictest sensitivity/erasure, intersection of allowed uses, earliest known expiry, and every contributing subject ref. |
-| `exposure.state`, `coverage`, `first_seen_at`, `last_seen_at` | `gille-inference` | for exposure records | Seen/unseen-covered/incomplete/error/not-checked plus bounded coverage evidence. |
+Outcome/failure pairs are closed: completed task execution uses `not-applicable`; timeout and
+cancelled use their matching modes; failed execution uses an operational/repository/publication/
+delivery failure; and infrastructure error uses infrastructure, gateway non-admission, or transport
+authentication failure. Experiment `pass` uses `not-applicable`; every non-pass has a failure.
 
-Hugin enforces governance for Hugin-origin records. `gille-inference` enforces it for direct gateway,
-MCP, chat, and code-loop origins; direct traffic MUST NOT claim Hugin enforcement or invent a Hugin
-task. A joined Hugin→M5 record derives effective policy from both planes and uses the strictest
-sensitivity, earliest known expiry, most advanced erasure state, and allowed-use intersection.
+`gille-inference` alone owns capability evidence and admission. Evidence is `admissible` only when
+the verifier is independent and is deterministic, human, or a calibrated judge carrying a
+calibration evidence id. A `pass` uses admission basis `full-pass`; a `partial` can be admissible
+only when the versioned policy epoch explicitly yields `policy-qualified-partial`. All other
+partials are inadmissible. An advisory judge is always `none-shadow`. Inadmissible evidence uses
+basis `none` and cannot use routing effect `admit`. A later policy does not reinterpret old evidence.
+Capability pass/partial uses `not-applicable` failure; fail/error/unverified requires a non-NA mode,
+and `unverified` pairs specifically with `unverified`. Admissible evidence uses routing effect
+`admit`; all other routing effects are inadmissible.
 
-Raw/prompt fingerprints, output hashes, and diff hashes are content-derived metadata, not anonymous
-identifiers. Qualified `redacted`/`not-observed` values may express an active producer's legitimate
-lack of a field. Once erasure or expiry becomes effective, the full active projection and exposure
-rows keyed by its content MUST be removed and replaced, if an audit receipt is retained, by the
-reduced tombstone above. The tombstone cannot carry qualified-null placeholders as a way to retain
-task/model/routing shape. It also MUST NOT restore content from another learning copy. A candidate
-is excluded when use is denied, erasure/expiry applies, sensitivity exceeds the evaluator ceiling,
-or freshness coverage is incomplete.
+Product acceptance is not capability evidence. Hugin cannot promote a route by emitting a
+verdict-like task or rating record; `gille-inference` imports qualified evidence through its own
+ledger contract.
 
-## Normative field-ownership audit
+## Governance
 
-The schema's `x-grimnir-field-owners` map is normative. The grouped paths below cover every leaf in
-an active record or tombstone; a producer may copy another owner's stamp but cannot recompute or
-reinterpret it. “Origin” resolves to the one value in `task.origin_component`; “producer” resolves
-to `producer.component`, so each record has exactly one owner for each emitted leaf.
+Governance has exactly two states:
 
-| JSON path group | Sole fact owner |
+- `complete` requires an authenticated, owner-approved policy manifest; one exact typed policy for
+  every source, raw derivative, known prompt stage, artifact, repository diff/file list, quality
+  binding, and rating reason; and a mechanically derived effective policy.
+- `policy-unavailable` contains no policies, allows no use, and is never evaluation-eligible.
+
+The exact typed subject set prevents an unrelated policy from masking a missing derivative. Each
+policy preserves the direct content owner. The effective policy is the strictest sensitivity and
+erasure state, the intersection of allowed uses, earliest safe expiry, and the complete subject-ref
+set. `expires_at: not-applicable` means an explicit owner policy with no expiry; it is not unresolved
+and does not by itself block evaluation. An unresolved, legacy, redacted, or producer-error expiry
+requires the whole governance projection to be `policy-unavailable` and evaluation-ineligible. A
+known expiry must be later than record creation. Erased/expired active content MUST use a tombstone.
+
+`governance.effective.evaluation_eligible` means governance eligibility at emission time only. It
+does not make a full candidate eligible. Candidate selection re-evaluates expiry against an explicit
+decision timestamp and separately requires complete, reproducible task/execution/prompt/route/
+serving/verifier/exposure provenance. Unknown or non-admitted execution provenance therefore remains
+candidate-ineligible even when content policy allows evaluation.
+
+For Hugin-origin work, Hugin is the enforcement owner and must supply the authenticated manifest.
+For direct traffic, `gille-inference` enforces owner/service scope before capture; it MUST NOT claim
+Hugin enforcement. Direct-owner policy lookup has an operational SLO of 99% within 250 ms per
+complete UTC month. Timeout or lookup failure emits `policy-unavailable`, never guessed defaults.
+
+## Erasure and expiry protocol
+
+Effective removal deletes the content-bearing projection and all content-keyed copies before a
+replacement tombstone is valid. The active record and tombstone MUST NOT coexist in a conforming
+dataset. A completed tombstone records an authorized request and final readback receipts for these
+exact core stores:
+
+1. Hugin task store;
+2. Hugin workspace/log/result artifacts;
+3. Munin;
+4. `gille-inference` ledger;
+5. owner log;
+6. exposure registry; and
+7. code-loop store.
+
+Before deletion, the producer also creates an opaque artifact-inventory id and expected receipt
+count. `artifact_stores` then contains one final receipt with a unique opaque `inventory_entry_id`
+for every referenced Mimir,
+repository-workspace, or other external artifact store. The tombstone retains the opaque inventory
+identity/count and receipts, never the erased locator or content-derived inventory.
+
+Each store is `deleted` or `not-applicable`; `pending` is deliberately invalid. Backup expiry uses
+the exact order `requested_at ≤ deadline ≤ verified_at ≤ effective_at`; it is not merely a future
+promise. Until every applicable store and backup obligation is complete,
+the erasure request remains operationally pending outside the contract and no success tombstone is
+emitted.
+
+The tombstone keeps only an opaque new id, producer/kind, recorded/effective clocks, opaque receipt
+and superseded id, completed protocol, and optional producer-owned aggregate counter audit.
+Counters are preservation-only and only for closed periods. The preserved monthly denominator
+survives in the aggregate, not through retained task, source, model, prompt, route, artifact,
+classification, locator, review, lineage, or extension data. Tombstone uniqueness and active-record
+non-coexistence are scoped by producer plus superseded id.
+
+## Normative ownership
+
+The schema's `x-grimnir-field-owners` map is normative. Important decisions are:
+
+| Fact or decision | Sole owner |
 |---|---|
-| `contract_version`, `schema_revision`, `lifecycle_state`, `record_kind` | Grimnir owns vocabulary and semantics. |
-| `record_id`, `producer.*`, `recorded_at` | Record producer. |
-| `tombstone.removal_reason`, `effective_at`, `receipt_id`, `superseded_record_id`, `counter_audit.*` | Tombstone producer; it may name only its owned counters. |
-| `task.origin_component`, `instance_id`, `source.*`, `task_type.id`, `raw_fingerprint` | Task origin. |
-| `task.task_type.taxonomy_id`, `taxonomy_version` | `gille-inference`. |
-| `execution.attempt_id`, `started_at`, `ended_at`, `prompt_version`, `harness_version`, `tool_policy_version` | Task origin. |
-| `execution.prompt_identity.hugin_rendered`, `execution.routing.macro` | Hugin. |
-| `execution.prompt_identity.gateway_rendered`, `execution.routing.micro` | `gille-inference`. |
-| `execution.serving.runtime_id`, `provider_id`, `model.*`, `sampling_version` | `gille-inference` when a gateway ran; otherwise the task origin. |
-| `artifacts.items[].kind`, `owner`, `ref`, `content_hash` | Record producer owns the binding; `items[].owner` remains content authority. |
-| `artifacts.repository.*` | Hugin. |
-| `outcomes.*` | Hugin. |
-| `exposure.event_key`, `state`, `fingerprint_version`, `lane`, `first_seen_at`, `last_seen_at`, `coverage.complete`, `coverage.from`, `coverage.through`, `coverage.lanes[]` | `gille-inference`. |
-| `capability.evidence_id`, `outcome`, `failure_mode`, `verifier.*`, `policy_epoch`, `routing_effect` | `gille-inference`. |
-| `experiment.experiment_id`, `run_id`, `sample_id`, `arm`, `holdout`, `configuration_fingerprint`, `verification_outcome`, `product_outcome`, `verifier.*` | Hugin. |
-| `governance.policies[].subject_ref`, `subject_kind` | Record producer owns the binding. |
-| `governance.policies[].content_owner`, `sensitivity`, `classification_version`, `allowed_uses`, `retention.*`, `erasure.*` | Named `content_owner`; producer copies its policy. |
-| `governance.effective.*` | Record producer, by the specified mechanical derivation. |
-| `lineage.corrects_record_ids[]` | Record producer. |
-| `lineage.correction_ref`, `successor_task_ids[]` | Task origin. |
-| `review.*` | Hugin for task/product/experiment review; `gille-inference` for exposure/capability review. |
-| `extensions.<producer.component>.*` | Record producer. Other namespaces fail semantic validation. |
+| Contract vocabulary, schema revision, compatibility | Grimnir |
+| Hugin-origin task/source, Hugin envelope, origin config, macro decision, lifecycle/repo outcome | Hugin |
+| Direct request identity, gateway/runtime prompt stages, effective serving/config, exposure, micro route | `gille-inference` |
+| Task taxonomy | `gille-inference` |
+| Quality Receipt, experiment design/observation/product rating, correction/successor | Hugin |
+| Capability evidence, admission, routing-table generation | `gille-inference` |
+| Classification/use/retention/erasure | Direct subject content owner; producer enforces and copies |
+| Applying a reviewed prompt/harness/route/roster/config | Human operator of the owning repository |
 
-## Decision ownership
+Storage does not transfer authority. Extensions are accepted only beneath
+`extensions.<producer.component>` and cannot alter v1 decisions.
 
-| Decision | Sole owner | Consumer obligation |
-|---|---|---|
-| Hugin-origin identity, source, task-type assignment, macro runtime, lifecycle, repo/publication/product outcome, correction lineage | Hugin | `gille-inference` imports stamped facts or rejects them; it does not recreate them. |
-| Direct gateway/MCP/chat/code-loop task identity, source and request lifecycle | `gille-inference` | Hugin may consume a stamped direct-origin record; it does not fabricate a Hugin task id. |
-| Canonical task taxonomy vocabulary and version | `gille-inference` | Hugin consumes the advertised taxonomy, records its assignment, and uses the explicit fallback for unknown values. |
-| Raw-task canonical bytes supplied to the seam | Task origin (Hugin or `gille-inference`) | Consumer verifies the origin-stamped fingerprint/version and binds it to exposure. |
-| Effective gateway provider/model/artifact/config/sampling, exposure, micro-route, capability verdict | `gille-inference` | Hugin records returned stamps or marks them unavailable; it does not infer them. |
-| Prompt/harness/tool-policy experiment design and product gates | Hugin | Gateway supplies exact serving evidence for each arm. |
-| Capability-evidence admission and routing-table generation | `gille-inference` | Hugin cannot promote by writing a verdict-like task record. |
-| Content use, sensitivity, retention, correction, and erasure authority | Referenced subject's content owner; enforced by the record producer | Joined consumers derive the strictest effective policy and fail closed when any policy is missing. |
-| Cross-repo schema, compatibility rules, and status vocabulary | Grimnir | Hugin and `gille-inference` both review changes and implement conforming projections. |
-| Deployment of a reviewed prompt, harness, route, roster, or config | Owning repository's human operator | `promotion-ready` is evidence, not deployment authority. |
+## Conflict keys and append-only behavior
 
-## Producer/consumer conformance
+The schema's `x-grimnir-conflict-keys` extension is normative:
 
-The canonical schema ships with dependency-free positive and adversarial fixtures under
-`tests/fixtures/learning-task-contract/`. Each component repository MUST vendor or immutably pin
-the canonical fixture revision. The Hugin and `gille-inference` projections MUST include the same
-logical joined task plus a direct-gateway-origin case, with raw, Hugin-rendered, and gateway-rendered
-identities represented separately.
-
-Required contract tests:
-
-1. Hugin serializes its fixture; the `gille-inference` consumer accepts it without transformation.
-2. `gille-inference` serializes exposure and served-model evidence; Hugin accepts and joins it to
-   the original `task.instance_id` and `execution.attempt_id`.
-3. Both sides independently calculate the same raw-task digest. Hugin and gateway rendering each
-   have their own algorithm/version/digest; the synthetic wrapper fixture makes all three values
-   deliberately different.
-4. Any known raw, Hugin-rendered, gateway-rendered, macro-route, micro-route, or serving identity
-   mismatch across the joined task/attempt fails. A schema-qualified unknown may defer only the
-   field where the schema explicitly permits it; it cannot overwrite a known owner stamp.
-5. Unknown major version, unknown required enum, missing owner-required field, invalid timestamp,
-   hash mismatch, duplicate conflicting `record_id`, or incomplete negative exposure coverage fails
-   closed.
-6. Unknown top-level/nested fields fail. Additive v1 data is accepted only in
-   `extensions.<producer.component>` and may not alter v1 decisions.
-7. A correction propagates append-only. Erasure/expiry removes the active projection and propagates
-   only the reduced tombstone; a dataset retaining both fails.
-
-CI MUST pin the companion fixture revision or fetch an immutable released fixture; it MUST NOT test
-only two local mocks of the same assumption. A coordinated contract change is not complete until
-both producer and consumer suites pass. The v1 proposal is not effective until owners of both Hugin
-and `gille-inference` review it and their review links replace the pending markers at the top.
-
-### Idempotency, uniqueness, and conflict keys
-
-The schema's `x-grimnir-conflict-keys` extension is normative. The kind-specific keys apply only to
-active records; a tombstone has only its producer/record conflict key and its opaque
-`superseded_record_id` non-coexistence rule:
-
-| Scope | Immutable conflict key |
+| Scope | Key |
 |---|---|
 | Every record | `(producer.component, record_id)` |
 | Task outcome | `(task.origin_component, task.instance_id, execution.attempt_id)` |
-| Inference exposure | `exposure.event_key` |
+| Observed exposure | `(exposure.kind, exposure.event_key)` |
+| Negative exposure query | `(exposure.kind, exposure.lookup_id)` |
 | Capability evidence | `capability.evidence_id` |
 | Experiment observation | `(experiment.experiment_id, experiment.run_id)` |
+| Quality receipt | `quality_receipt.receipt_id` |
+| Experiment product rating | `experiment_product_rating.rating_id` |
 
-An identical replay at a key is idempotent. Different canonical JSON at the same key is a conflict
-and MUST fail without last-write-wins. Experiment sampling also deduplicates source lineage and raw
-fingerprint; retries and duplicate prompts do not become independent samples.
+Identical replay is idempotent. Different canonical JSON at the same key fails; there is no
+last-write-wins. Corrections and regrading append new records/lineage. Effective erasure/expiry is
+the only removal exception.
 
-## Evolution rules
+## Compatibility and rollout
 
-- `contract_version` is the exact major identifier. An unknown major fails closed. A semantic
-  change, field reuse, weakened privacy rule, or enum reinterpretation requires `v2` and a parallel
-  migration period.
-- `schema_revision` may increase within v1 for optional data under `extensions` or a new explicit
-  `task_type.taxonomy_version` branch, with one owner, unchanged existing-v1 decisions, and fixtures
-  before use. Required fields and every existing versioned enum branch remain unchanged.
-- Required fields and enum meanings never change in place. The task taxonomy is closed per version;
-  a new vocabulary adds a new `gille-inference`-owned version branch and never reinterprets an old
-  id/version. Other enum changes require v2; decision-driving consumers fail closed.
-- Corrections, judge-policy changes, and regrading are append-only and use lineage rather than
-  destructive edits. Effective erasure/expiry is the explicit exception: delete the superseded
-  content-bearing projection and keyed exposure rows, then retain at most the reduced replacement
-  tombstone and aggregate counter audit. Retaining both is invalid.
-- A producer advertises major/revision it emits; a consumer advertises the major/revisions it accepts.
-  Deployment order is expand consumer → switch producer → retire old reader after the documented
-  compatibility window.
-- Raw, Hugin-rendered, and gateway-rendered prompt fingerprints have separate algorithm/version
-  fields. Macro and micro routing have separate policy/version/decision fields. No field may
-  silently fall back to, copy, or stand in for another.
+An unknown contract major fails closed. Semantic change, field reuse, privacy weakening, or enum
+reinterpretation requires `v2` and a parallel migration. `schema_revision` may add optional
+producer-namespaced data without changing existing decisions. Both sides pin the canonical schema
+and fixtures; two locally invented mocks do not prove compatibility.
 
-## Adoption state and roadmap
+The rollout is capability-negotiated and must follow this matrix:
 
-These labels are the v1 migration target, not a claim that every component document/dashboard
-already uses them. Grimnir uses them here; Hugin and `gille-inference` adopt them through their
-implementation tickets. Until then, component-local labels MUST be mapped explicitly before a
-cross-system status claim. The labels describe mechanisms, not live deployment health:
+| Phase | Hugin write | Gateway read | Gateway write | Hugin read | Minimum duration and gate | Rollback |
+|---|---|---|---|---|---|---|
+| 0 baseline | legacy only | legacy | legacy | legacy | Record seven baseline days of request, admission, mismatch, latency, and delivery-retry rates | no change |
+| 1 expand readers | legacy | legacy + v1 shadow parse | legacy + shadow v1 echo | legacy + v1 shadow parse | ≥7 complete days; ≥99.9% parse, zero principal substitution accepted, p95 admission overhead <10 ms | disable shadow parse/echo |
+| 2 dual write | legacy + v1 stamp when capability advertised | dual read, v1 verify | legacy + v1 echo | dual read/compare | ≥7 complete days and ≥100 real eligible attempts, whichever is later; ≥99.5% exact joins, zero conflict-key mismatch | stop v1 emission, retain dual readers |
+| 3 v1 preferred | v1, legacy fallback only for unadvertised peer | dual read | v1 | v1 + legacy fallback | ≥14 complete days; ≥99.9% valid joins, zero auth substitution, <0.1% schema reject, no model-run increase from delivery retry | restore phase 2 writes |
+| 4 retire legacy | v1 only | v1 only | v1 only | v1 only | both owner approvals plus 30 complete green days and no legacy traffic for 14 days | redeploy last dual-reader release; do not reinterpret stored v1 |
 
-| Stage | Meaning | Current v1 position |
-|---|---|---|
-| **Implemented** | Code emits/enforces the evidence in production paths. | Hugin task/result/repository evidence, Quality Receipt mechanism, controlled experiment ledger and daily candidate factory; M5 exposure registry, capability ledger, deterministic verifiers and guarded routing-table generation. Existing schemas are not yet full v1 projections. Quality Receipt first-create concurrency remains partial as described in [observability-and-improvement.md](observability-and-improvement.md). |
-| **Shadow** | Runs and records evidence but cannot change normal routing. | M5 organic harvest/judge and delegate-policy evidence. It remains non-authoritative until representative human calibration passes. |
-| **Manual** | A human performs the decision/action. | Product rating, candidate approval, independent-verifier acceptance, challenger deployment, champion pointer advancement, and rollback. |
-| **Future** | Specified but not yet an operational path. | Durable all-outcome learning registry, candidate-to-experiment packager, Hugin→M5 verified-evidence import, automated guarded routing reload, and read-only experiment proposals. Model-weight training is outside v1. |
+Capability advertisement is checked before v1 send and includes contract major, schema revision, and
+`hugin-request-stamp-v1`, `gateway-echo-v1`, `three-stage-prompt-provenance-v1`, and
+`reproducible-serving-digests-v1`. Absence before phase 4 selects the declared legacy path; partial
+advertisement fails closed and cannot silently strip fields. Dashboards separately report legacy,
+shadow, dual, v1, fallback, rejection, and rollback populations.
 
-Implementation order is deliberately integrity-first:
+## Conformance fixtures and required tests
 
-1. Land compatible v1 identity/taxonomy projections and the cross-repo fixture tests.
-2. Close the Quality Receipt concurrent-first-create gap, then capture corrections/successors.
-3. Store all eligible outcomes durably, including failures, no-ops, and publication failures.
-4. Package reviewed candidates with just-in-time exposure checks into one-axis experiments.
-5. Import verified experiment evidence into the capability ledger and regenerate routing through a
-   reviewed deployment/rollback path.
-6. Only then add read-only experiment proposals; no automatic mutation is implied.
+The canonical schema ships with dependency-free positive and adversarial fixtures under
+`tests/fixtures/learning-task-contract/`. CI uses the dependency-free semantic validator. An
+optional `jsonschema` Draft 2020-12 check is also supplied for environments that explicitly provide
+that dependency; repository CI does not download undeclared packages.
 
-## Measurable meaning of “continuous”
+Producer and consumer suites MUST prove:
 
-Grimnir MUST qualify the claim. A timer or growing ledger alone is not a continuous improvement
-loop. Measurements use **disjoint complete UTC calendar months**, with a 24-hour close grace after
-month end. A late record remains `late-over-24h`; it cannot retroactively turn a published red month
-green.
+1. the same Hugin task/attempt has exact `task`, `execution`, and `transport` projections;
+2. stamp/echo and authenticated-principal substitution checks fail closed;
+3. direct and joined observed events plus a separate six-lane negative query validate;
+4. canonical raw/prompt fixture hashes are computed, and effective model/config/sampling digests
+   use the declared canonicalization;
+5. policy-unavailable, typed complete policy, expiry, erasure, and backup/store receipts fail closed;
+6. multiple immutable quality receipts/experiment ratings validate and conflicting summaries do
+   not promote;
+7. capability admission cannot be driven by self, advisory, uncalibrated, failed, or inadmissible
+   evidence; and
+8. unknown fields, bad clocks/hashes/commit ids, cross-plane identity mismatch, conflict-key reuse,
+   and active+tombstone coexistence fail.
 
-### Denominators and exclusions
+## Adoption and measurable meaning of continuous
+
+The contract describes the target seam, not current deployment. Existing Hugin task/repository,
+Quality Receipt, experiment, M5 exposure, capability, verifier, and guarded routing mechanisms are
+implemented but do not yet emit this complete projection. Organic judge/delegate evidence is
+shadow. Product rating, promotion, deployment, and rollback remain manual. Durable all-outcome
+candidate packaging, verified experiment import, and guarded route reload remain future.
+
+“Continuous” uses disjoint complete UTC calendar months with 24-hour close grace:
 
 An **eligible Hugin attempt** is every production Hugin `execution.attempt_id` whose `started_at`
-falls inside the month. Retries are separate attempts. Failed, timed-out, cancelled after start,
-private, no-op, publication-failed, erased, and product-unrated attempts remain in the capture
-denominator; erased data contributes a minimal tombstone. The only capture exclusions are:
+falls in the month. Failed, timed-out, cancelled-after-start, private, no-op, publication-failed,
+erased, and unrated attempts remain in the capture denominator. Retries that deliberately start a
+new model execution are separate attempts. The only exclusions are `synthetic-test`, declared before
+dispatch, and `pre-v1-migration`, started inside the documented compatibility window. Rejection
+before Hugin acceptance/execution is not an attempt.
 
-- `synthetic-test` — declared test/smoke traffic before dispatch; and
-- `pre-v1-migration` — started under the documented compatibility window before v1 emission.
+An **eligible M5-backed join** is an eligible Hugin attempt whose Hugin-owned macro decision selected
+M5 before execution. Gateway non-admission, authentication failure, missing echo, and schema failure
+remain denominator failures. Whether the gateway produced a convenient record cannot redefine the
+denominator.
 
-A request rejected before Hugin acceptance/execution is not an attempt. No other exclusion may be
-added without a contract revision and both component-owner reviews.
+An **eligible direct-owner request** is every authenticated, non-synthetic direct chat, MCP ask,
+delegate, delegate-disagreement, delegate-shadow, or code-loop user turn accepted by
+`gille-inference` in the month. Policy lookup failure, denial, model failure, and missing exposure
+remain in this capture denominator; only a request rejected before authentication/acceptance and
+documented `pre-v1-migration` traffic are excluded. This denominator never inflates Hugin capture or
+join coverage.
 
-An **eligible M5-backed join** is an eligible Hugin attempt whose recorded macro route selected M5
-before execution. Eligibility is fixed by that Hugin-owned decision, not by whether the gateway
-later admitted the request or emitted evidence. Connection or admission failure is therefore a
-`gateway-not-admitted` join failure, not a denominator exclusion. Direct M5 traffic is measured by
-`gille-inference` exposure coverage separately; it never inflates Hugin join coverage.
+An **eligible evaluation candidate** is a captured task/outcome with evaluation allowed, active
+retention, complete just-in-time exposure evidence, a reproducible independent verifier, and unique
+source lineage/raw fingerprint. Candidate exclusions are exactly `governance-denied`,
+`erased-or-expired`, `exposure-incomplete`, `unreproducible`, and `duplicate-lineage`.
 
-An **eligible evaluation candidate** is a captured task/outcome with evaluation allowed by effective
-governance, active retention, complete just-in-time exposure evidence, a reproducible independent
-verifier, and unique source lineage/raw fingerprint. Candidate exclusions use exactly:
-`governance-denied`, `erased-or-expired`, `exposure-incomplete`, `unreproducible`, or
-`duplicate-lineage`. Retries and repeated prompts may supply operational evidence but count once as
-an independent evaluation sample.
+Every missing, late, or rejected capture/join has one persisted code. `not-m5-routed` and the five
+candidate exclusions explain boundaries. `gateway-not-admitted`, `transport-auth-failed`,
+`policy-unavailable`, `producer-error`, `consumer-error`, `schema-rejected`, `join-mismatch`, and
+`late-over-24h` are failures and cannot become exclusions. Unclassified omissions fail the metric.
 
-Every missing/late/rejected join has one persisted omission code. `not-m5-routed` and the candidate
-exclusions above explain denominator boundaries; `gateway-not-admitted`, `producer-error`,
-`consumer-error`, `schema-rejected`, `join-mismatch`, and `late-over-24h` are failures and MUST NOT
-be converted into exclusions. Unclassified omissions fail the metric.
+| Claim | Owner and gate |
+|---|---|
+| Continuous Hugin capture | Hugin: at least 95% of eligible attempts emit a valid outcome within 24 hours; every remainder has one failure code. |
+| Continuous M5 join | Grimnir validator: at least 95% of Hugin attempts macro-routed to M5 join within 24 hours, with zero unresolved identity/conflict mismatch. |
+| Continuous direct-M5 capture | `gille-inference`: at least 95% of eligible direct-owner requests emit a valid observed-event exposure within 24 hours; every remainder has one failure code. Report this separately from Hugin join coverage. |
+| Continuous evaluation | Hugin: when at least ten unique eligible candidates exist, one frozen batch completes independent verification and a distinct one-axis experiment reaches reviewed disposition. |
+| Continuous learning | Grimnir review: the preceding gates pass for three months with different experiments and durable accepted or rejected knowledge. |
+| Continuously improving baseline | Owning operator: across those months, at least one reviewed change is deployed, clears declared product/non-regression gates, and has a tested rollback. |
 
-### Owners, sources, clocks, and gates
-
-| Claim | Measurement owner | Authoritative source and clock | Gate per disjoint month |
-|---|---|---|---|
-| **Continuous Hugin capture** | Hugin | Hugin accepted task/attempt registry; denominator by `execution.started_at`, completion by terminal checkpoint, delivery by contract `recorded_at` | At least 95% of eligible attempts emit a schema-valid task-outcome within 24 hours of terminal state; every remainder has a failure code. |
-| **Continuous M5 cross-plane join** | Grimnir cross-repo validator | Hugin task-outcome plus `gille-inference` exposure/serving records; join by origin task, attempt, and raw fingerprint; month from Hugin `started_at` | At least 95% of eligible M5-backed joins resolve within 24 hours; zero unresolved conflict-key or identity mismatch. Report direct-M5 exposure coverage separately. |
-| **Continuous evaluation** | Hugin | Durable candidate registry and experiment ledger; candidate month from source `created_at`, disposition month from authenticated `reviewed_at` | When at least ten unique eligible candidates exist, one production-derived frozen batch completes independent verification and one distinct one-axis `experiment_id` reaches reviewed disposition. Below ten is `insufficient-volume`, never pass. |
-| **Continuous learning** | Grimnir monthly system review | Three consecutive complete monthly reports plus immutable Hugin experiment and M5 capability references | Capture, join, and evaluation gates pass in all three months; each month uses a different `experiment_id`, and each disposition changes durable knowledge via a rejected next hypothesis or accepted reviewed reference. |
-| **Continuously improving baseline** | Owning repository operator, attested by Grimnir review | Exact applied repo/config reference, champion lineage, observation window, product/non-regression result, and tested rollback | Across the same latest three complete months, at least one accepted change is deployed and clears its predeclared observation gates. If every challenger loses, the system learned but the baseline did not improve. |
-
-The same experiment, run, task lineage, or duplicate raw fingerprint cannot satisfy more than one
-monthly gate. These are initial service-level objectives, not automatic-promotion promises; human
-review remains mandatory throughout v1.
+Gateway non-admission, producer/consumer error, schema rejection, join mismatch, and records later
+than 24 hours are failures, not exclusions. Governance denial, effective erasure/expiry, incomplete
+exposure, unreproducible evidence, and duplicate lineage exclude an evaluation candidate but not an
+eligible capture attempt. If every challenger loses, the system learned; the baseline did not
+improve.
