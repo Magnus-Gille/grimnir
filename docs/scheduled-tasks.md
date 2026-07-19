@@ -13,6 +13,20 @@ Typical installations use recurring tasks for:
 | Brokkr | OS and dependency maintenance | report patches, reboot requirements, storage health, and stale packages |
 | Optional producer | briefings | synthesize operator-selected sources into a scheduled report |
 
+## Grimnir unit prerequisites
+
+The committed `grimnir-security-scan` unit reads root-owned source checkouts from
+`/srv/grimnir/source/<repo>`. This tree is intentionally separate from `/srv/grimnir/<service>`
+rsync targets because deployment removes Git metadata while the secret scanner enumerates tracked
+files. Update these checkouts through a separately authorized maintenance path; the `grimnir` runtime
+account needs read access only.
+
+Both committed Grimnir jobs load the Munin API key from the root-owned, mode-`0600` file
+`/etc/grimnir/credentials/munin-api-key` through systemd `LoadCredential=`. The scripts receive the
+ephemeral `%d/munin-api-key` path through `--munin-token-file`; the key is never placed in an
+`Environment=` directive. A missing, empty, or multi-line credential fails the job before any Munin
+write.
+
 ## Adding a task
 
 1. Put the script and install-ready service/timer units in the owning repository.

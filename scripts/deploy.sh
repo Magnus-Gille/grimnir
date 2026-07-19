@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Grimnir deploy script — deploys services to Pi hosts via SSH.
-# Usage: ./scripts/deploy.sh [service[=/abs/path/to/worktree] ...]
+# Usage: DEPLOY_USER=operator ./scripts/deploy.sh [service[=/abs/path/to/worktree] ...]
 # No args = deploy all services. Pass one or more names to deploy selectively.
 # Use name=/path to deploy from a specific local worktree instead of $HOME/repos/<repo>.
 #
@@ -36,6 +36,23 @@ if [[ "$(REGISTRY_PATH="$REGISTRY" QUERY=is-example node --input-type=commonjs "
   exit 1
 fi
 
+# The SSH/sudo deploy operator is deliberately distinct from the fixed,
+# non-login `grimnir` runtime account used by the control-plane units.
+if [[ -z "${DEPLOY_USER:-}" ]]; then
+  echo "ERROR: DEPLOY_USER must be set to a dedicated SSH deploy operator." >&2
+  echo "Example: DEPLOY_USER=operator make deploy ARGS=\"munin-memory\"" >&2
+  exit 1
+fi
+if [[ "$DEPLOY_USER" == "grimnir" ]]; then
+  echo "ERROR: DEPLOY_USER must not be the grimnir runtime account." >&2
+  echo "Use a separate SSH deploy operator with narrowly scoped sudo rights." >&2
+  exit 1
+fi
+if [[ ! "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+  echo "ERROR: DEPLOY_USER must be a safe POSIX account name" >&2
+  exit 1
+fi
+
 SERVICES=()
 while IFS= read -r line; do
   [[ -n "$line" ]] && SERVICES+=("$line")
@@ -56,13 +73,7 @@ pass=0
 fail=0
 skip=0
 results=()
-DEPLOY_USER="${DEPLOY_USER:-grimnir}"
 LOCAL_REPOS_ROOT="${LOCAL_REPOS_ROOT:-$HOME/repos}"
-
-if [[ ! "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
-  echo "ERROR: DEPLOY_USER must be a safe POSIX account name" >&2
-  exit 1
-fi
 
 service_field() {
   local record=$1 field=$2

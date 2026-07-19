@@ -6,7 +6,7 @@
 # and concatenates both into docs/full-architecture.md.
 #
 # Usage:
-#   ./scripts/generate-architecture.sh [--munin-token TOKEN]
+#   ./scripts/generate-architecture.sh [--munin-token TOKEN | --munin-token-file FILE]
 #
 # Idempotent, safe to run repeatedly. Completes in <60s.
 # NEVER includes secret values — env var names only.
@@ -42,20 +42,29 @@ source "$SCRIPT_DIR/lib/systemd-status.sh"
 # shellcheck source=scripts/lib/munin-rpc.sh
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/munin-rpc.sh"
+# shellcheck source=scripts/lib/credentials.sh
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/credentials.sh"
 
 read -ra COMPONENTS <<< "$(REGISTRY_PATH="$REGISTRY" QUERY=components node --input-type=commonjs "$REGISTRY_JS")"
 
 # ─── CLI args ───────────────────────────────────────────────
 MUNIN_TOKEN=""
+MUNIN_TOKEN_FILE="${MUNIN_TOKEN_FILE:-}"
 VALIDATE_MODE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --munin-token) MUNIN_TOKEN="$2"; shift 2 ;;
+    --munin-token-file) MUNIN_TOKEN_FILE="$2"; shift 2 ;;
     --validate) VALIDATE_MODE=true; shift ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
+
+if [[ -z "$MUNIN_TOKEN" && -n "$MUNIN_TOKEN_FILE" ]]; then
+  MUNIN_TOKEN="$(read_credential_file "$MUNIN_TOKEN_FILE" munin-api-key)" || exit 1
+fi
 
 unit_rows_from_json() {
   local units_json=$1

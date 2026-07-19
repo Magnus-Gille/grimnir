@@ -66,7 +66,7 @@ cp services.json services.local.json
 # Set public_example to false and replace example hostnames, component choices,
 # unit selections, and paths other than Grimnir's fixed control-plane path.
 make test
-make deploy ARGS="munin-memory"
+DEPLOY_USER=operator make deploy ARGS="munin-memory"
 ```
 
 `services.local.json`, `.env` files, operational status, generated deployment snapshots, and logs are
@@ -75,10 +75,22 @@ can instead set `REGISTRY_PATH` explicitly. Deployment fails closed unless the s
 contains the exact JSON boolean `"public_example": false`.
 
 The Grimnir control plane has one explicit fixed deployment contract: its system units run as the
-`grimnir` system account from `/srv/grimnir/control-plane`. The registry validator rejects another
-deploy path for the `grimnir` component because these committed units are installed without
-rendering. `DEPLOY_USER` controls the SSH login used by the deployer; it does not change the runtime
-account in those units.
+non-login `grimnir` system account from `/srv/grimnir/control-plane`. The registry validator rejects
+another deploy path for the `grimnir` component because these committed units are installed without
+rendering. `DEPLOY_USER` is required and names a separate SSH operator with only the sudo rights
+needed to install and control the declared units. The deployer rejects `DEPLOY_USER=grimnir`; a
+runtime-service compromise must not inherit SSH or host-management authority.
+
+The committed Grimnir scan and validation units also require two explicit local prerequisites:
+
+- root-owned, read-only source checkouts under `/srv/grimnir/source/<repo>` for the security scanner;
+  these are separate from rsync deployment targets, which intentionally contain no `.git` metadata;
+- a one-line Munin API key at `/etc/grimnir/credentials/munin-api-key`, owned by root and mode `0600`.
+
+The units deliver that key with systemd `LoadCredential=` and put only the ephemeral credential path
+in `ExecStart=`. They do not put the secret in `Environment=` or the unit command line. Change the
+unit and its regression test together if a deployment uses another protected source root or
+credential provider.
 
 ## Repository map
 

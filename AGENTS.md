@@ -73,7 +73,7 @@ changes here; `CLAUDE.md` is only a Claude Code import adapter.
 
 | Script | Purpose | Run with |
 |--------|---------|----------|
-| `scripts/deploy.sh` | Deploy services to Pi hosts (all or selective) | `make deploy` or `make deploy ARGS="munin-memory"` |
+| `scripts/deploy.sh` | Deploy services to Linux hosts (all or selective) | `DEPLOY_USER=operator make deploy ARGS="munin-memory"` |
 | `scripts/generate-architecture.sh` | Generate deployment snapshot + full-architecture.md | `make docs` (Pi only) |
 | `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets | `make security` |
 

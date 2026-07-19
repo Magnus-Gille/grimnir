@@ -50,10 +50,14 @@ its public interface and operational ownership remain clear.
 controlled git pull as declared per component. Unit files in component repositories must be ready to
 install; the central deployer does not render private values into tracked files.
 
+`DEPLOY_USER` is mandatory and must name a dedicated SSH deploy operator, never the fixed `grimnir`
+runtime account. Give that operator only the remote write and sudo permissions required by the
+declared deployment workflow. Keep runtime service identities non-login and unprivileged.
+
 For an alternate source worktree, pass `name=/absolute/path`, for example:
 
 ```bash
-make deploy ARGS="munin-memory=/tmp/munin-memory-change"
+DEPLOY_USER=operator make deploy ARGS="munin-memory=/tmp/munin-memory-change"
 ```
 
 The committed example registry will reject this command until a private registry is configured.

@@ -41,13 +41,18 @@ This map prevents configuration from silently diverging across repositories and 
    one-shot timer must declare `timer_semantics: "one-shot"`.
 8. **Unit files are install-ready artifacts.** Deployment does not render component-specific
    templates. Active unit lines with unresolved placeholders fail preflight.
-9. **The control-plane unit contract is fixed.** Grimnir's own system units run as `grimnir` from
-   `/srv/grimnir/control-plane`; registry validation rejects another Grimnir deploy path. The
-   deployer's `DEPLOY_USER` selects the SSH login only and does not rewrite systemd `User=`.
-10. **Learning facts retain their owners.** The cross-repository contract defines joins and
+9. **Runtime and deployment identities are separate.** Grimnir's own system units run as the
+   non-login `grimnir` account from `/srv/grimnir/control-plane`; registry validation rejects another
+   Grimnir deploy path. `DEPLOY_USER` is mandatory, selects a separate SSH operator, and never
+   rewrites systemd `User=`.
+10. **Scheduled secrets use systemd credentials.** The committed scan and validation units load the
+    Munin key from root-owned `/etc/grimnir/credentials/munin-api-key`; secrets do not belong in
+    `Environment=`. The scanner reads separate source checkouts from `/srv/grimnir/source` because
+    rsync deployment targets intentionally contain no Git metadata.
+11. **Learning facts retain their owners.** The cross-repository contract defines joins and
     compatibility; it does not let one producer overwrite the other's task, product, exposure, or
     capability verdicts. Storage and dashboards do not acquire decision authority.
-11. **Maturity labels are evidence claims.** Implemented, shadow, manual, and future behavior must
+12. **Maturity labels are evidence claims.** Implemented, shadow, manual, and future behavior must
     remain distinct. A configured timer, growing ledger, or rejected challenger is not a closed
     self-improvement loop.
 

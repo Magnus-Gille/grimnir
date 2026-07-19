@@ -261,11 +261,16 @@ git-pull deployment. This keeps the operating model inspectable, but it is not a
 Before first use:
 
 1. create and review `services.local.json`;
-2. configure service authentication and least-privilege identities;
-3. decide which endpoints, if any, cross the private network boundary;
-4. configure encrypted backups and perform a restore test;
-5. run the repository and component test/security suites;
-6. deploy one component at a time and verify health from both the host and intended client path.
+2. create a dedicated SSH deploy operator and keep the `grimnir` runtime account non-login;
+3. configure service authentication and least-privilege identities;
+4. if installing the Grimnir timers, provision root-owned source checkouts under
+   `/srv/grimnir/source` and the Munin credential at
+   `/etc/grimnir/credentials/munin-api-key`;
+5. decide which endpoints, if any, cross the private network boundary;
+6. configure encrypted backups and perform a restore test;
+7. run the repository and component test/security suites;
+8. deploy one component at a time with an explicit `DEPLOY_USER` and verify health from both the host
+   and intended client path.
 
 ## Data lifecycle
 

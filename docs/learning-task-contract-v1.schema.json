@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/grimnir/contracts/learning-task/v1/schema.json",
+  "$id": "urn:grimnir:contract:learning-task:v1",
   "title": "LearningTaskContract v1",
   "description": "Content-governed join between Hugin task/product evidence and gille-inference serving/capability evidence.",
   "oneOf": [

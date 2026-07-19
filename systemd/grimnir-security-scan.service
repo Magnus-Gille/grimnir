@@ -7,7 +7,9 @@ Wants=network-online.target
 Type=oneshot
 User=grimnir
 WorkingDirectory=/srv/grimnir/control-plane
-ExecStart=/usr/bin/bash scripts/security-scan.sh
+Environment=REPOS_DIR=/srv/grimnir/source
+LoadCredential=munin-api-key:/etc/grimnir/credentials/munin-api-key
+ExecStart=/usr/bin/bash scripts/security-scan.sh --munin-token-file %d/munin-api-key
 
 # Timeout — full scan across 7 repos can take a few minutes
 TimeoutStartSec=300
@@ -15,6 +17,7 @@ TimeoutStartSec=300
 # Sandboxing — needs read access to all repos, write to Munin via HTTP
 ProtectSystem=strict
 ReadOnlyPaths=/srv/grimnir
+ReadOnlyPaths=/srv/grimnir/source
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectHome=read-only

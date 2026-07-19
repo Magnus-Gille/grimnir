@@ -7,7 +7,8 @@ Wants=network-online.target
 Type=oneshot
 User=grimnir
 WorkingDirectory=/srv/grimnir/control-plane
-ExecStart=/usr/bin/bash scripts/generate-architecture.sh --validate
+LoadCredential=munin-api-key:/etc/grimnir/credentials/munin-api-key
+ExecStart=/usr/bin/bash scripts/generate-architecture.sh --munin-token-file %d/munin-api-key --validate
 
 # Timeout — cross-host SSH checks can be slow
 TimeoutStartSec=120

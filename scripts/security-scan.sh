@@ -2,7 +2,8 @@
 # security-scan.sh — Scan Grimnir service repos for dependency vulnerabilities and secrets
 #
 # Usage:
-#   ./scripts/security-scan.sh [--munin-token TOKEN] [--dry-run] [--verbose] [--repo <name>]
+#   ./scripts/security-scan.sh [--munin-token TOKEN | --munin-token-file FILE]
+#     [--dry-run] [--verbose] [--repo <name>]
 #
 # Checks:
 #   Phase 1: npm audit --json for each repo with package-lock.json
@@ -29,6 +30,9 @@ source "$SCRIPT_DIR/lib/notify.sh"
 # shellcheck source=scripts/lib/munin-rpc.sh
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/munin-rpc.sh"
+# shellcheck source=scripts/lib/credentials.sh
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/credentials.sh"
 TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 SCAN_DATE="$(date -u '+%Y-%m-%d')"
 HOSTNAME_VAL="$(hostname)"
@@ -50,6 +54,7 @@ fi
 
 # ─── CLI args ────────────────────────────────────────────────
 MUNIN_TOKEN=""
+MUNIN_TOKEN_FILE="${MUNIN_TOKEN_FILE:-}"
 DRY_RUN=false
 VERBOSE=false
 FILTER_REPO=""
@@ -57,12 +62,17 @@ FILTER_REPO=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --munin-token) MUNIN_TOKEN="$2"; shift 2 ;;
+    --munin-token-file) MUNIN_TOKEN_FILE="$2"; shift 2 ;;
     --dry-run)     DRY_RUN=true; shift ;;
     --verbose)     VERBOSE=true; shift ;;
     --repo)        FILTER_REPO="$2"; shift 2 ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
+
+if [[ -z "$MUNIN_TOKEN" && -n "$MUNIN_TOKEN_FILE" ]]; then
+  MUNIN_TOKEN="$(read_credential_file "$MUNIN_TOKEN_FILE" munin-api-key)" || exit 1
+fi
 
 log_verbose() {
   if [[ "$VERBOSE" == "true" ]]; then

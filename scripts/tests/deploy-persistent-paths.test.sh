@@ -125,6 +125,7 @@ REMOTE_MARKER_STATE="$TMP_DIR/remote-marker.state"
 BUILD_CAPTURE="$TMP_DIR/build.calls"
 PRIOR_SHA=1111111111111111111111111111111111111111
 export SSH_CAPTURE RSYNC_CAPTURE ORDER_CAPTURE REMOTE_MARKER_STATE BUILD_CAPTURE
+export DEPLOY_USER=deployop
 
 assert_shell_quote_round_trip "POSIX quote round-trips plain text" "alpha"
 assert_shell_quote_round_trip "POSIX quote round-trips apostrophes and shell syntax" \
@@ -526,6 +527,40 @@ ExecStart=/bin/true
 EOF
 commit_fixture_repo "$TMP_DIR/repos/alpha"
 
+# The SSH deploy operator is a separate, explicitly selected identity. The
+# fixed `grimnir` runtime account must never acquire deploy-time SSH/sudo power.
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+rc=0
+env -u DEPLOY_USER REGISTRY_PATH="$TMP_DIR/safe.json" \
+  LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
+  bash "$DEPLOY" alpha >"$TMP_DIR/missing-deploy-user.out" 2>&1 || rc=$?
+if [[ "$rc" == 1 ]] && grep -Fq "DEPLOY_USER must be set" "$TMP_DIR/missing-deploy-user.out"; then
+  pass "missing deploy operator is rejected"
+else
+  fail "missing deploy operator must be rejected explicitly"
+fi
+if [[ -e "$SSH_CAPTURE" || -e "$RSYNC_CAPTURE" ]]; then
+  fail "missing deploy operator must be rejected before remote mutation"
+else
+  pass "missing deploy operator invokes neither ssh nor rsync"
+fi
+
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+rc=0
+DEPLOY_USER=grimnir REGISTRY_PATH="$TMP_DIR/safe.json" \
+  LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
+  bash "$DEPLOY" alpha >"$TMP_DIR/runtime-deploy-user.out" 2>&1 || rc=$?
+if [[ "$rc" == 1 ]] && grep -Fq "runtime account" "$TMP_DIR/runtime-deploy-user.out"; then
+  pass "runtime account cannot be the deploy operator"
+else
+  fail "runtime account must be rejected as deploy operator"
+fi
+if [[ -e "$SSH_CAPTURE" || -e "$RSYNC_CAPTURE" ]]; then
+  fail "runtime deploy identity must be rejected before remote mutation"
+else
+  pass "runtime deploy identity invokes neither ssh nor rsync"
+fi
+
 rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
 printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
 if REGISTRY_PATH="$TMP_DIR/safe.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
@@ -559,7 +594,7 @@ if grep -Fxq -- '--exclude=.env' "$RSYNC_CAPTURE"; then
 else
   fail "global .env policy preserves in-target service credentials"
 fi
-if grep -Fxq -- "grimnir@h1:'/srv/alpha/'" "$RSYNC_CAPTURE"; then
+if grep -Fxq -- "deployop@h1:'/srv/alpha/'" "$RSYNC_CAPTURE"; then
   pass "rsync remote path uses POSIX shell quoting"
 else
   fail "rsync remote path uses POSIX shell quoting"

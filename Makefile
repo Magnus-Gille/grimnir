@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-notify test-registry-smoke test-public-registry-safety test-deploy-persistent-paths test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-notify test-registry-smoke test-public-registry-safety test-publication-config test-deploy-persistent-paths test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -9,7 +9,7 @@ security: ## Run security scan across all Grimnir repos
 security-dry: ## Run security scan (dry run, no Munin writes)
 	@./scripts/security-scan.sh --dry-run
 
-deploy: ## Deploy all services to Pi (or: make deploy ARGS="munin-memory hugin")
+deploy: ## Deploy with explicit DEPLOY_USER (for example ARGS="munin-memory hugin")
 	@./scripts/deploy.sh $(ARGS)
 
 test-security-skip: ## Regression test: assert security-scan skips test/eval fixtures (issue #22)
@@ -33,6 +33,9 @@ test-registry-smoke: ## Schema/consistency smoke check for services.json (issue 
 test-public-registry-safety: ## Public example registry is usable for docs but cannot deploy
 	@bash scripts/tests/public-registry-safety.test.sh
 
+test-publication-config: ## Pin safe deploy identities, systemd credentials, and public schema identity
+	@bash scripts/tests/publication-config.test.sh
+
 test-deploy-persistent-paths: ## Fail closed before rsync can delete an in-target runtime path
 	@bash scripts/tests/deploy-persistent-paths.test.sh
 
@@ -48,7 +51,7 @@ test-registry-checkout: ## Unit tests for the registry-checkout integrity helper
 test-systemd-status: ## Scope-aware local/remote systemd status checks (issue #63)
 	@bash scripts/tests/systemd-status.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-notify test-registry-smoke test-public-registry-safety test-deploy-persistent-paths test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-notify test-registry-smoke test-public-registry-safety test-publication-config test-deploy-persistent-paths test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
