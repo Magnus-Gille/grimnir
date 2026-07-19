@@ -85,6 +85,10 @@ account in those units.
 - [`docs/architecture.md`](docs/architecture.md) — layers, trust boundaries, and data flows
 - [`docs/authority.md`](docs/authority.md) — which artifact owns each kind of configuration
 - [`docs/tenant-contract.md`](docs/tenant-contract.md) — minimum contract for an agent or harness
+- [`docs/learning-task-contract.md`](docs/learning-task-contract.md) — versioned Hugin↔inference learning-evidence seam
+- [`docs/learning-task-contract-v1.schema.json`](docs/learning-task-contract-v1.schema.json) — canonical schema for the seven v1 evidence/accounting record kinds
+- [`docs/observability-and-improvement.md`](docs/observability-and-improvement.md) — three-plane improvement architecture and roadmap
+- [`docs/adr-006-learning-improvement-scope.md`](docs/adr-006-learning-improvement-scope.md) — reviewed boundary between configuration learning and model training
 - [`docs/threat-model.md`](docs/threat-model.md) — assets, threats, and required controls
 - [`docs/data-lifecycle.md`](docs/data-lifecycle.md) — retention, correction, deletion, and backup expiry
 - [`docs/failure-recovery.md`](docs/failure-recovery.md) — reversible autonomous mutation convention

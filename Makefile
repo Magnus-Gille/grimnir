@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-notify test-registry-smoke test-public-registry-safety test-deploy-persistent-paths test-failure-recovery-doc test-registry-checkout test-systemd-status test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-notify test-registry-smoke test-public-registry-safety test-deploy-persistent-paths test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -39,13 +39,16 @@ test-deploy-persistent-paths: ## Fail closed before rsync can delete an in-targe
 test-failure-recovery-doc: ## Regression test: assert docs/failure-recovery.md defines the undo convention (issue #46)
 	@bash tests/scripts/test-failure-recovery-doc.sh
 
+test-learning-task-contract-doc: ## Regression test: assert the learning seam and improvement-scope contract (issue #86)
+	@bash tests/scripts/test-learning-task-contract-doc.sh
+
 test-registry-checkout: ## Unit tests for the registry-checkout integrity helpers (issue #47)
 	@bash scripts/tests/registry-checkout.test.sh
 
 test-systemd-status: ## Scope-aware local/remote systemd status checks (issue #63)
 	@bash scripts/tests/systemd-status.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-notify test-registry-smoke test-public-registry-safety test-deploy-persistent-paths test-failure-recovery-doc test-registry-checkout test-systemd-status ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-notify test-registry-smoke test-public-registry-safety test-deploy-persistent-paths test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md

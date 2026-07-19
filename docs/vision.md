@@ -23,6 +23,15 @@ Inference should be routed by measured capability, sensitivity, cost, latency, a
 than a permanent assumption that one model is best. Local inference is valuable where its observed
 quality and privacy properties fit the task; remote inference remains a replaceable option.
 
+Here, “learns” means evidence-backed route and roster selection plus controlled optimization of
+prompts, harnesses, and tool policy. It does **not** mean that the capability ledger trains model
+weights. [ADR-006](adr-006-learning-improvement-scope.md) keeps weight training outside v1 pending
+separate owner, privacy, dataset, evaluation, deployment, and rollback gates. The versioned
+cross-repository evidence seam is [LearningTaskContract v1](learning-task-contract.md), and
+[observability-and-improvement.md](observability-and-improvement.md) distinguishes implemented,
+shadow, manual, and future stages. “Continuous” is a measured end-to-end claim, not a synonym for a
+timer or a growing ledger.
+
 ## Design rules
 
 - Build the memory, policy, measurement, and recovery seams that compound for the operator.

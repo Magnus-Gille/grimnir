@@ -123,6 +123,31 @@ timeouts, and capability discovery.
 It is optional: Hugin may target another compatible provider. Local inference improves control over
 data and availability, but it does not by itself make the rest of a deployment secure.
 
+#### Learning evidence ownership
+
+The learning architecture has three separate evidence planes. Hugin owns Hugin-origin task identity,
+execution, repository/publication outcomes, immutable product review, corrections, prompt/harness
+experiments, and macro-routing. `gille-inference` owns direct gateway-origin identity, gateway
+rendering and exposure, exact served-model/configuration evidence, capability verdicts, the model
+roster, and micro-routing. The content owner remains distinct from both services' transport
+identities.
+
+[LearningTaskContract v1](learning-task-contract.md) owns the versioned seam between those planes:
+canonical raw-task identity, field ownership, compatibility, governance, immutable pipeline
+accounting, and producer/consumer conformance. The LearningTaskContract target requires both components
+to emit natural-keyed immutable accounting so failed or retried attempts remain countable even when
+no valid joined learning record exists. Owner authority, negative-attempt binding, boundary
+exclusions, and cross-owner erasure membership require a separately trusted validation context;
+producer body hashes are not authentication. Governance is derived per source and artifact, using
+the strictest joined policy.
+
+A completed task, published change, uncalibrated judge, or model self-report cannot substitute for
+another plane's verdict. The complete accounting and trust target is not yet implemented end to end.
+`promotion-ready` is reviewed evidence only: the owning repository's human operator applies the
+exact reversible configuration change. Model-weight training remains outside v1 under
+[ADR-006](adr-006-learning-improvement-scope.md). Current maturity and the ordered delivery plan live
+in [observability-and-improvement.md](observability-and-improvement.md).
+
 ### Heimdall: observability
 
 Heimdall collects service health, task status, maintenance signals, and operator alerts. It is an
@@ -221,7 +246,7 @@ A real installation copies it to ignored `services.local.json` or supplies an ex
 
 - enabled components;
 - hostnames and ports;
-- deployment and persistent-data paths;
+- deployment and persistent-data paths, except Grimnir's fixed control-plane path;
 - service manager units;
 - inference-node capabilities.
 
@@ -247,6 +272,13 @@ Before first use:
 Memory, files, job state, monitoring data, and backups have different retention needs. A deployment
 must document where each is stored, how a user can correct or erase it, and when deleted content
 expires from backups. [`data-lifecycle.md`](data-lifecycle.md) supplies the reference checklist.
+
+## Learning-loop milestone
+
+The next system milestone is one governed real task travelling through exact identity, product
+review, an independently verified one-axis experiment, reviewed application, and post-change
+evidence. Hugin and `gille-inference` must adopt the same immutable v1 fixtures and fail closed on
+unsupported or stale contract preflight before that loop can be described as continuous.
 
 ## Maturity and extension points
 

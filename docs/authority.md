@@ -14,6 +14,11 @@ This map prevents configuration from silently diverging across repositories and 
 | Repository names and component roles | `docs/conventions.md` | README and architecture |
 | Cross-component design and data flow | `docs/architecture.md` | component documentation |
 | Agent-to-substrate obligations | `docs/tenant-contract.md` | agent and harness adapters |
+| Learning-task seam, field ownership, and compatibility | `docs/learning-task-contract.md` plus `docs/learning-task-contract-v1.schema.json` | Hugin and `gille-inference` producer/consumer schemas and fixtures |
+| Improvement maturity and delivery sequence | `docs/observability-and-improvement.md` | architecture summaries and component plans |
+| Improvement scope: routing/configuration versus model weights | `docs/adr-006-learning-improvement-scope.md` | learning docs, Hugin, and `gille-inference` |
+| Hugin task and product facts | Hugin's versioned task, result, receipt, and experiment schemas | LearningTaskContract projection and Heimdall |
+| Inference exposure, served-model, capability, and micro-routing facts | `gille-inference` versioned schemas and ledger | LearningTaskContract projection, Hugin, and Heimdall |
 | Component behavior | code and tests in the owning repository | architecture summaries |
 | Live health and versions | ignored generated deployment snapshot | operators only |
 | Public project maturity | `PROJECT_STATUS.md` | README |
@@ -39,6 +44,12 @@ This map prevents configuration from silently diverging across repositories and 
 9. **The control-plane unit contract is fixed.** Grimnir's own system units run as `grimnir` from
    `/srv/grimnir/control-plane`; registry validation rejects another Grimnir deploy path. The
    deployer's `DEPLOY_USER` selects the SSH login only and does not rewrite systemd `User=`.
+10. **Learning facts retain their owners.** The cross-repository contract defines joins and
+    compatibility; it does not let one producer overwrite the other's task, product, exposure, or
+    capability verdicts. Storage and dashboards do not acquire decision authority.
+11. **Maturity labels are evidence claims.** Implemented, shadow, manual, and future behavior must
+    remain distinct. A configured timer, growing ledger, or rejected challenger is not a closed
+    self-improvement loop.
 
 ## Generated snapshots
 
