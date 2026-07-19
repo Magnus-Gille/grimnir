@@ -31,6 +31,9 @@ What's here:
 - **[docs/architecture.md](docs/architecture.md)** — Full system architecture (topology, components, security, data flow)
 - **[docs/conventions.md](docs/conventions.md)** — Naming, ports, service patterns, GitHub ownership
 - **[docs/vision.md](docs/vision.md)** — Where the project is heading
+- **[docs/learning-task-contract.md](docs/learning-task-contract.md)** — Versioned Hugin↔M5 learning-evidence seam, field ownership, compatibility, and measurable loop milestones
+- **[docs/observability-and-improvement.md](docs/observability-and-improvement.md)** — Current three-plane self-improvement architecture and ordered roadmap
+- **[docs/adr-006-learning-improvement-scope.md](docs/adr-006-learning-improvement-scope.md)** — Decision that v1 improves routing/rosters/prompts/harnesses, not model weights
 - **[docs/roadmap-now-decision-brief.md](docs/roadmap-now-decision-brief.md)** — Index of the adopted owner decisions for succession, data lifecycle, ROI/off-ramp, Skuld, and interactive-session trust
 - **[docs/succession-checklist.md](docs/succession-checklist.md)** — Non-secret emergency export-and-shutdown procedure
 - **[docs/data-lifecycle.md](docs/data-lifecycle.md)** — Practical store, retention, correction, and erasure map

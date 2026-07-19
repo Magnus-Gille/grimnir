@@ -48,6 +48,10 @@ changes here; `CLAUDE.md` is only a Claude Code import adapter.
   or hugin workspace, and the validate check that alarms on drift (issue #47)
 - `docs/observability-and-improvement.md` — How components capture traces, score outputs, and feed the
   self-improving loop
+- `docs/learning-task-contract.md` — Normative Hugin↔M5 learning-evidence seam: field and decision
+  owners, privacy/evolution rules, cross-repo fixtures, and measurable definitions of continuous
+- `docs/adr-006-learning-improvement-scope.md` — Why v1 improves routes, rosters, prompts, harnesses, and tool
+  policy while model-weight training remains a separately gated future program
 - `docs/tenant-contract.md` — The minimal agent↔substrate contract any agent must satisfy to act
   through the substrate (Munin access, gateway routing, safety gating, audit emission) plus a cheap
   validation plan

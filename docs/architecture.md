@@ -1,7 +1,7 @@
 # The Grimnir System — Architecture Guide
 
 > Internal reference document for the Grimnir personal AI infrastructure.
-> Last updated: 2026-07-13.
+> Last updated: 2026-07-19.
 
 ---
 
@@ -136,7 +136,7 @@ graph TB
 | Pi 2 | NAS | Storage & backup | Mimir, Samba, Time Machine |
 | M5 | `m5` (tailnet `100.76.72.59`) | Local LLM inference (1–5 users) | Home-server gateway, llama-swap |
 
-Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication. The BosGame M5 is the dedicated local-inference node — see *Home-server (M5) — Local Inference* below and the gateway API contract in the `home-server-inference-evaluation` repo.
+Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication. The BosGame M5 is the dedicated local-inference node — see *Home-server (M5) — Local Inference* below and the gateway API contract in the `gille-inference` repo.
 
 ### Network model
 
@@ -431,7 +431,7 @@ Tags: ["pending", "runtime:claude", "type:code"]
 
 ## Home-server (M5) — Local Inference
 
-The BosGame M5 is a dedicated local-inference node, **live** at `inference.gille.ai` (public, Cloudflare) and on the tailnet (`m5`, port 8080). It runs the **home-server gateway** (`home-server-inference-evaluation` repo) — an authenticated, OpenAI-compatible front door to locally-served models (llama-swap on `:8091` loopback), plus a deterministic micro-orchestrator and a capability ledger. It is registered as the `m5` MCP server (`ask` / `list_models`) and is the target of Hugin's local-runtime offload.
+The BosGame M5 is a dedicated local-inference node, **live** at `inference.gille.ai` (public, Cloudflare) and on the tailnet (`m5`, port 8080). It runs the **home-server gateway** (`gille-inference` repo) — an authenticated, OpenAI-compatible front door to locally-served models (llama-swap on `:8091` loopback), plus a deterministic micro-orchestrator and a capability ledger. It is registered as the `m5` MCP server (`ask` / `list_models`) and is the target of Hugin's local-runtime offload.
 
 ### Routing ownership (ADR-004)
 
@@ -441,11 +441,26 @@ The BosGame M5 is a dedicated local-inference node, **live** at `inference.gille
 
 ### Gateway surface
 
-`GET /healthz` · `GET /models` · `GET /ledger` · `POST /v1/chat/completions` · `POST /delegate` (owner) · `POST /admin/models/{load,unload,download}` (owner). Full request/response schemas, auth tiers, and the OpenAI-shaped error envelope live in **`docs/gateway-api-contract.md`** in the `home-server-inference-evaluation` repo.
+`GET /healthz` · `GET /models` · `GET /ledger` · `POST /v1/chat/completions` · `POST /delegate` (owner) · `POST /admin/models/{load,unload,download}` (owner). Full request/response schemas, auth tiers, and the OpenAI-shaped error envelope live in **`docs/gateway-api-contract.md`** in the `gille-inference` repo.
 
 ### Why a dedicated node
 
-Offload the bulk of agentic sub-task tokens (classification, extraction, summarize, rewrite, short reasoning) to local models, keeping a frontier orchestrator for planning and escalation. Economics, model roster, and per-task viability are tracked in the home-server evaluation project, whose **offloadability trend** (which task types local models can be trusted with) now publishes nightly to a Heimdall panel — the data-grounded feedback loop that drives routing decisions.
+Offload the bulk of agentic sub-task tokens (classification, extraction, summarize, rewrite, short reasoning) to local models, keeping a frontier orchestrator for planning and escalation. Economics, model roster, and per-task viability are tracked in `gille-inference`, whose **offloadability trend** (which task types local models can be trusted with) now publishes nightly to a Heimdall panel — the data-grounded feedback loop that drives routing decisions.
+
+### Learning evidence ownership
+
+The self-improvement architecture has separate evidence planes; it is not one generic trace table.
+Hugin owns task identity, execution/repository/publication/product outcomes, corrections, and
+prompt/harness experiments. `gille-inference` owns gateway exposure, exact served-model identity,
+capability evidence, the model roster, and M5 micro-routing. The versioned join and compatibility
+rules are defined by [LearningTaskContract v1](learning-task-contract.md); the current implemented,
+shadow, manual, and future stages are tracked in
+[observability-and-improvement.md](observability-and-improvement.md).
+
+A completed task, published PR, uncalibrated judge, or model self-report cannot substitute for the
+other plane's verdict. Hugin's `promotion-ready` state is reviewed evidence only: the owning
+repository's human operator applies and rolls back the exact configuration. Model-weight training
+is outside v1 per [ADR-006](adr-006-learning-improvement-scope.md).
 
 ---
 
@@ -755,6 +770,16 @@ Architecture decisions are stress-tested through a structured debate process:
 
 ## What's Next
 
+### Close the production-task learning loop
+
+Adopt LearningTaskContract v1 in Hugin and `gille-inference`, prove the same raw-task identity with
+cross-repository fixtures, retain failures and late product labels durably, and package one governed
+production candidate into a one-axis experiment. Only independently verified evidence may enter the
+M5 capability ledger; any route/prompt/harness change remains reviewed and reversible. The ordered
+roadmap and measurable meanings of “continuous” are in
+[observability-and-improvement.md](observability-and-improvement.md) and
+[learning-task-contract.md](learning-task-contract.md).
+
 ### Heimdall completeness
 Deploy drift UI needs wiring (collector exists).
 
@@ -766,7 +791,7 @@ Task completion notifications are delivered via **Telegram** (Ratatoskr's `POST 
 
 ### The north star
 
-**Tell Grimnir to do X and go to sleep.** Wake up to a summary of what happened, what succeeded, what needs attention. The pieces are in place — memory, files, task execution, monitoring, briefings. What remains is tightening the feedback loop.
+**Tell Grimnir to do X and go to sleep.** Wake up to a summary of what happened, what succeeded, what needs attention. The pieces are in place — memory, files, task execution, monitoring, briefings. The next system milestone is not merely collecting more traces: it is one governed real task travelling through exact identity, product review, independent experiment, reviewed application, and post-change evidence.
 
 ---
 
