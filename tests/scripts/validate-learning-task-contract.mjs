@@ -127,7 +127,7 @@ function validateNode(node, value, at = "$") {
         seen.add(key);
       });
     }
-    if (node.items) value.forEach((item, index) => errors.push(...validateNode(node.items, item, `${at}[${index}]`)));
+    if (node.items !== undefined) value.forEach((item, index) => errors.push(...validateNode(node.items, item, `${at}[${index}]`)));
   }
   if (value !== null && typeof value === "object" && !Array.isArray(value)) {
     for (const required of node.required ?? []) {
@@ -155,14 +155,33 @@ function assertSupportedSchemaKeywords(node, at = "$") {
   for (const key of Object.keys(node)) {
     assert.ok(supportedSchemaKeywords.has(key) || key.startsWith("x-"), `unsupported JSON Schema keyword ${key} at ${at}; Draft 2020-12 CI must remain authoritative`);
   }
-  assert.ok(!Array.isArray(node.type), `unsupported schema type array at ${at}; custom validation must not diverge from Draft 2020-12`);
+  const plainMap = (value) => value && typeof value === "object" && !Array.isArray(value);
+  const isSchemaNode = (value) => typeof value === "boolean" || plainMap(value);
+  for (const key of ["$ref", "$schema", "$id", "title", "description"]) if (node[key] !== undefined) assert.equal(typeof node[key], "string", `${key} must be a string at ${at}`);
+  if (node.type !== undefined) assert.ok(typeof node.type === "string" && ["object", "array", "string", "integer", "boolean", "null"].includes(node.type), `unsupported schema type or type array at ${at}; custom validation must not diverge from Draft 2020-12`);
+  if (node.enum !== undefined) assert.ok(Array.isArray(node.enum) && node.enum.length > 0, `enum must be a non-empty array at ${at}`);
+  for (const key of ["minLength", "minItems", "maxItems"]) if (node[key] !== undefined) assert.ok(Number.isInteger(node[key]) && node[key] >= 0, `${key} must be a non-negative integer at ${at}`);
+  if (node.minimum !== undefined) assert.ok(typeof node.minimum === "number" && Number.isFinite(node.minimum), `minimum must be a finite number at ${at}`);
+  if (node.pattern !== undefined) {
+    assert.equal(typeof node.pattern, "string", `pattern must be a string at ${at}`);
+    assert.doesNotThrow(() => new RegExp(node.pattern), `pattern must compile at ${at}`);
+  }
+  if (node.uniqueItems !== undefined) assert.equal(typeof node.uniqueItems, "boolean", `uniqueItems must be boolean at ${at}`);
+  if (node.required !== undefined) assert.ok(Array.isArray(node.required) && node.required.every((value) => typeof value === "string") && new Set(node.required).size === node.required.length, `required must be an array of unique strings at ${at}`);
+  for (const key of ["properties", "$defs"]) if (node[key] !== undefined) assert.ok(plainMap(node[key]) && Object.values(node[key]).every(isSchemaNode), `${key} must be a plain map of supported schema objects/booleans at ${at}`);
   if (node.format !== undefined) assert.equal(node.format, "date-time", `unsupported schema format ${node.format} at ${at}`);
   if (node.additionalProperties !== undefined) assert.equal(typeof node.additionalProperties, "boolean", `schema-valued additionalProperties is unsupported at ${at}`);
   const executableSiblingKeys = (excluded) => Object.keys(node).filter((key) => !excluded.has(key) && !["title", "description", "$schema", "$id", "$defs"].includes(key) && !key.startsWith("x-"));
   if (node.$ref) assert.deepEqual(executableSiblingKeys(new Set(["$ref"])), [], `validation siblings beside $ref are unsupported at ${at}`);
   if (node.oneOf) assert.deepEqual(executableSiblingKeys(new Set(["oneOf"])), [], `validation siblings beside oneOf are unsupported at ${at}`);
-  for (const key of ["allOf", "oneOf"]) for (const [index, child] of (node[key] ?? []).entries()) assertSupportedSchemaKeywords(child, `${at}.${key}[${index}]`);
-  if (node.items && typeof node.items === "object") assertSupportedSchemaKeywords(node.items, `${at}.items`);
+  for (const key of ["allOf", "oneOf"]) if (node[key] !== undefined) {
+    assert.ok(Array.isArray(node[key]) && node[key].length > 0 && node[key].every(isSchemaNode), `${key} must be a non-empty array of supported schema objects/booleans at ${at}`);
+    for (const [index, child] of node[key].entries()) assertSupportedSchemaKeywords(child, `${at}.${key}[${index}]`);
+  }
+  if (node.items !== undefined) {
+    assert.ok(isSchemaNode(node.items), `items must be a supported schema object/boolean at ${at}`);
+    assertSupportedSchemaKeywords(node.items, `${at}.items`);
+  }
   for (const [key, child] of Object.entries(node.properties ?? {})) assertSupportedSchemaKeywords(child, `${at}.properties.${key}`);
   for (const [key, child] of Object.entries(node.$defs ?? {})) assertSupportedSchemaKeywords(child, `${at}.$defs.${key}`);
 }
@@ -603,6 +622,8 @@ function validateTransport(record, errors) {
   if (canonical(request.macro_decision) !== canonical(record.execution.routing.macro)) errors.push("transport stamp does not bind macro decision");
   if (request.contract_request.contract_version !== record.contract_version || request.contract_request.schema_revision !== record.schema_revision) errors.push("Hugin contract request does not match record version/revision");
   if (Date.parse(request.stamped_at) < Date.parse(record.execution.started_at)) errors.push("Hugin request stamp precedes attempt start");
+  if (Date.parse(request.stamped_at) > Date.parse(record.recorded_at)
+    || (!isUnknown(record.execution.ended_at) && Date.parse(request.stamped_at) > Date.parse(record.execution.ended_at))) errors.push("Hugin request stamp follows attempt end or record creation");
   const preflight = request.preflight;
   if (canonical(preflight.request.requested_capabilities) !== canonical(request.contract_request)
     || canonical(preflight.response.capabilities) !== canonical(request.contract_request)) errors.push("preflight advertisement/request does not bind exact requested revision and features");
@@ -774,7 +795,7 @@ function validatePipelineAccounting(record) {
           const boundary = event.denominator.boundary_evidence;
           const expectedKind = event.failure_code === "synthetic-test" ? "synthetic-declaration" : "compatibility-window";
           const payload = { owner_component: event.owner_component, task_link: event.task_link, failure_code: event.failure_code, kind: boundary.kind, declared_at: boundary.declared_at, valid_from: boundary.valid_from, valid_through: boundary.valid_through };
-          if (boundary.kind !== expectedKind || !validateTrustedEvidence(boundary.proof, "accounting-boundary", errors, payload, `${event.failure_code} boundary`)
+          if (boundary.kind !== expectedKind || boundary.proof.issuer !== event.owner_component || !validateTrustedEvidence(boundary.proof, "accounting-boundary", errors, payload, `${event.failure_code} boundary`)
             || Date.parse(boundary.declared_at) > Date.parse(event.denominator.occurrence_at)
             || Date.parse(boundary.valid_from) > Date.parse(event.denominator.occurrence_at)
             || Date.parse(event.denominator.occurrence_at) > Date.parse(boundary.valid_through)) errors.push(`${event.failure_code} evidence was not declared by the owner before occurrence inside its trusted window`);
@@ -1135,6 +1156,16 @@ function validateEvaluationBundle(accountingRecord, records, errors) {
   const summaries = summarizeImmutable(qualities, "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"]);
   const summary = summaries[0];
   if (summaries.length > 1 || (summary && summary.result === "conflicted") || qualities.some((record) => record.quality_receipt.reviewer.independence !== "independent")) errors.push("evaluation bundle quality evidence must be one independent non-conflicted binding/rubric cohort");
+  const availableQualityLeaves = effectiveLeaves(availableRecords.filter((record) => record.record_kind === "quality-receipt" && record.quality_receipt.task_id === outcome.task.instance_id && record.quality_receipt.attempt_id === outcome.execution.attempt_id));
+  const qualityCohortKey = (record) => canonical({ binding: record.quality_receipt.binding, rubric: record.quality_receipt.rubric });
+  if (qualities.length === 0) {
+    if (availableQualityLeaves.length !== 0) errors.push("evaluation bundle cannot claim unrated while an effective quality receipt exists at decision time");
+  } else {
+    const selectedCohort = qualityCohortKey(qualities[0]);
+    const availableCohortRefs = availableQualityLeaves.filter((record) => qualityCohortKey(record) === selectedCohort).map((record) => canonical(evidenceRef(record))).sort(compareUtf16CodeUnits);
+    const bundledCohortRefs = qualities.map((record) => canonical(evidenceRef(record))).sort(compareUtf16CodeUnits);
+    if (qualities.some((record) => qualityCohortKey(record) !== selectedCohort) || canonical(bundledCohortRefs) !== canonical(availableCohortRefs)) errors.push("evaluation bundle must include every effective quality leaf available in its exact binding/rubric cohort at decision time");
+  }
   const sameLineageLeaves = effectiveLeaves(availableRecords.filter((record) => record.record_kind === "task-outcome" && record.task.instance_id === outcome.task.instance_id && record.execution.attempt_id === outcome.execution.attempt_id));
   if (sameLineageLeaves.length !== 1 || sameLineageLeaves[0]?.record_id !== outcome.record_id) errors.push("evaluation bundle does not prove one effective task-outcome lineage leaf at decision time");
   const payloads = evaluationBundlePayloads(outcome, exposure, capability, qualities, bundle.decision_at);
@@ -1277,7 +1308,8 @@ function validateDataset(records) {
     const proofEvidence = trustedEvidence.get(close.partition_proof.evidence_id);
     const proof = proofEvidence?.payload;
     const entries = constituents.map((candidate) => ({ natural_key: denominatorNaturalKey(candidate.pipeline_accounting), event_id: candidate.pipeline_accounting.event_id })).sort((left, right) => compareUtf16CodeUnits(left.natural_key, right.natural_key) || compareUtf16CodeUnits(left.event_id, right.event_id));
-    if (!validateTrustedEvidence(close.partition_proof, "ledger-partition", errors, undefined, "aggregate partition proof")
+    if (close.partition_proof.issuer !== event.owner_component
+      || !validateTrustedEvidence(close.partition_proof, "ledger-partition", errors, undefined, "aggregate partition proof")
       || proof?.owner_component !== event.owner_component
       || proof?.counter !== close.counter
       || proof?.period_utc !== close.period_utc
@@ -1374,9 +1406,16 @@ function mutate(record, mutation) {
 
 assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
 assertSupportedSchemaKeywords(schema);
-assert.throws(() => assertSupportedSchemaKeywords({ type: ["string", "null"] }), /unsupported schema type array/, "unsupported type arrays cannot silently diverge from Draft validation");
+assert.throws(() => assertSupportedSchemaKeywords({ type: ["string", "null"] }), /unsupported schema type/, "unsupported type arrays cannot silently diverge from Draft validation");
+assert.throws(() => assertSupportedSchemaKeywords({ type: "number" }), /unsupported schema type/, "types the engine cannot execute fail meta-validation");
 assert.throws(() => assertSupportedSchemaKeywords({ type: "string", format: "email" }), /unsupported schema format/, "unsupported formats cannot silently become no-ops");
 assert.throws(() => assertSupportedSchemaKeywords({ type: "object", additionalProperties: { type: "string" } }), /schema-valued additionalProperties is unsupported/, "schema-valued additionalProperties cannot be ignored");
+assert.throws(() => assertSupportedSchemaKeywords({ type: "array", items: [] }), /items must be a supported schema object\/boolean/, "invalid array-shaped items cannot silently bypass item validation");
+assert.ok(validateNode({ type: "array", items: false }, ["forbidden"]).some((error) => error.includes("field is forbidden")), "boolean false item schemas execute rather than being skipped");
+assert.throws(() => assertSupportedSchemaKeywords({ type: "object", properties: [] }), /properties must be a plain map/, "array-shaped properties cannot silently bypass property validation");
+assert.throws(() => assertSupportedSchemaKeywords({ type: "object", required: "name" }), /required must be an array of unique strings/, "scalar required declarations fail meta-validation");
+assert.throws(() => assertSupportedSchemaKeywords({ enum: { value: "x" } }), /enum must be a non-empty array/, "non-array enums fail meta-validation");
+assert.throws(() => assertSupportedSchemaKeywords({ type: "string", pattern: 42 }), /pattern must be a string/, "non-string regex constraints fail meta-validation");
 assert.throws(() => assertSupportedSchemaKeywords({ $ref: "#/$defs/nonEmptyString", minLength: 2 }), /validation siblings beside \$ref are unsupported/, "$ref validation siblings cannot be skipped by the early-return engine");
 assert.throws(() => assertSupportedSchemaKeywords({ oneOf: [{ type: "string" }], minLength: 2 }), /validation siblings beside oneOf are unsupported/, "oneOf validation siblings cannot be skipped by the early-return engine");
 assert.ok(validateNode(schema.$defs.timestamp, "2026-02-30T00:00:00Z").some((error) => error.includes("invalid RFC 3339 UTC date-time")), "calendar-normalized impossible dates fail exact timestamp validation");
@@ -1449,6 +1488,9 @@ preAttemptStamp.transport.hugin_request_stamp.stamped_at = "2026-07-19T10:00:00.
 preAttemptStamp.transport.gateway_echo.echoed_request = structuredClone(preAttemptStamp.transport.hugin_request_stamp);
 preAttemptStamp.transport.gateway_echo.principal_binding_digest.digest = digestCanonical({ authenticated_principal_id: preAttemptStamp.transport.gateway_echo.authenticated_principal_id, request_stamp: preAttemptStamp.transport.hugin_request_stamp });
 assert.ok(validateDataset([preAttemptStamp]).some((error) => error.includes("request stamp precedes attempt start")), "a request stamp cannot be backdated before its Hugin execution attempt");
+const postRecordNonAdmissionStamp = structuredClone(nonAdmittedFixture.record);
+postRecordNonAdmissionStamp.transport.hugin_request_stamp.stamped_at = "2026-07-19T10:01:01Z";
+assert.ok(validateDataset([postRecordNonAdmissionStamp]).some((error) => error.includes("request stamp follows attempt end or record creation")), "an M5 non-admission stamp cannot be fabricated after attempt completion or record creation");
 const subMillisecondReversal = structuredClone(lifecycleFixture);
 subMillisecondReversal.execution.started_at = "2026-07-19T10:00:01.0002Z";
 subMillisecondReversal.transport.hugin_request_stamp.stamped_at = "2026-07-19T10:00:01.0001Z";
@@ -1645,6 +1687,11 @@ for (const record of accountingPositiveCases) assert.deepEqual(validateDataset([
 const lateSyntheticDeclaration = structuredClone(accountingPositiveCases.find((record) => record.pipeline_accounting.failure_code === "synthetic-test"));
 lateSyntheticDeclaration.pipeline_accounting.denominator.boundary_evidence.declared_at = "2026-07-19T10:00:02Z";
 assert.ok(validateDataset([lateSyntheticDeclaration]).some((error) => error.includes("not declared by the owner before occurrence")), "synthetic-test exclusion cannot be declared after occurrence/dispatch");
+const wrongIssuerBoundary = structuredClone(accountingPositiveCases.find((record) => record.pipeline_accounting.failure_code === "synthetic-test"));
+const wrongBoundary = wrongIssuerBoundary.pipeline_accounting.denominator.boundary_evidence;
+const wrongBoundaryPayload = { owner_component: wrongIssuerBoundary.pipeline_accounting.owner_component, task_link: wrongIssuerBoundary.pipeline_accounting.task_link, failure_code: wrongIssuerBoundary.pipeline_accounting.failure_code, kind: wrongBoundary.kind, declared_at: wrongBoundary.declared_at, valid_from: wrongBoundary.valid_from, valid_through: wrongBoundary.valid_through };
+wrongBoundary.proof = addTrustedFixtureEvidence("accounting-boundary", "service:attacker", wrongBoundaryPayload);
+assert.ok(validateDataset([wrongIssuerBoundary]).some((error) => error.includes("not declared by the owner before occurrence")), "boundary payload owner text cannot substitute for proof issued by the accounting owner");
 const outsideCompatibilityWindow = structuredClone(accountingPositiveCases.find((record) => record.pipeline_accounting.failure_code === "pre-v1-migration"));
 outsideCompatibilityWindow.pipeline_accounting.denominator.occurrence_at = "2026-08-01T00:00:00Z";
 outsideCompatibilityWindow.pipeline_accounting.denominator.occurrence_month_utc = "2026-08";
@@ -1814,6 +1861,10 @@ assert.ok(validateDataset([untrustedZeroAggregate]).some((error) => error.includ
 const selfAssertedAggregate = structuredClone(verifiedAggregateClose);
 selfAssertedAggregate.pipeline_accounting.aggregate_close.partition_proof.evidence_id = "producer-self-asserted-partition";
 assert.ok(validateDataset([accountingSeed, correctedDenominator, selfAssertedAggregate]).some((error) => error.includes("authoritative ledger partition/high-water proof")), "a producer-authored full-period label is not an authoritative ledger partition proof");
+const wrongIssuerAggregate = structuredClone(verifiedAggregateClose);
+const trustedPartitionPayload = structuredClone(trustedEvidence.get(verifiedAggregateClose.pipeline_accounting.aggregate_close.partition_proof.evidence_id).payload);
+wrongIssuerAggregate.pipeline_accounting.aggregate_close.partition_proof = addTrustedFixtureEvidence("ledger-partition", "service:attacker", trustedPartitionPayload);
+assert.ok(validateDataset([accountingSeed, correctedDenominator, wrongIssuerAggregate]).some((error) => error.includes("authoritative ledger partition/high-water proof")), "trusted partition content must still be issued by the counter owner");
 const wrongAggregateCount = structuredClone(verifiedAggregateClose);
 wrongAggregateCount.pipeline_accounting.aggregate_close.event_count = 2;
 assert.ok(validateDataset([accountingSeed, correctedDenominator, wrongAggregateCount]).includes("aggregate close event_count does not match the loaded full period partition"), "aggregate event count is mechanically verified");
@@ -2055,6 +2106,12 @@ assert.deepEqual(validateDataset([quality, correctedQuality]), [], "a real fact 
 assert.notEqual(correctedQuality.quality_receipt.native_receipt.receipt_id, quality.quality_receipt.native_receipt.receipt_id, "a correction mints a distinct future native receipt id instead of reusing content-derived v1 identity");
 assert.deepEqual(correctedQuality.quality_receipt.correction_group_key, quality.quality_receipt.correction_group_key, "the explicit correction group, not receipt id, links one reviewer's corrected verdict chain");
 assert.deepEqual(summarizeImmutable([quality, correctedQuality], "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0].result, { rating: "pass", disposition: "minor_edit" }, "derived summaries select the unique corrected leaf rather than reporting a false conflict");
+const correctedQualityAdmission = structuredClone(evaluationAdmitted);
+correctedQualityAdmission.recorded_at = "2026-07-19T10:02:04Z";
+correctedQualityAdmission.pipeline_accounting.observed_at = "2026-07-19T10:02:03.500Z";
+correctedQualityAdmission.pipeline_accounting.denominator.occurrence_at = "2026-07-19T10:02:03Z";
+correctedQualityAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [correctedQuality], "2026-07-19T10:02:03Z");
+assert.deepEqual(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, correctedQuality, correctedQualityAdmission]), [], "quality corrections collapse to the effective leaf before complete-cohort evaluation");
 const crossKeyCorrection = structuredClone(correctedQuality);
 crossKeyCorrection.quality_receipt.attempt_id = "attempt-other";
 installQualityNativeArtifact(crossKeyCorrection, 2, "Fixture cross-key review.", quality.quality_receipt.native_receipt.receipt_id);
@@ -2081,12 +2138,23 @@ installCorrectionGovernance(secondQuality, "source-doc:governance/second-quality
 assert.deepEqual(validateDataset([quality, secondQuality]), [], "multiple immutable quality receipts for one task/attempt are permitted");
 assert.notDeepEqual(quality.quality_receipt.correction_group_key, secondQuality.quality_receipt.correction_group_key, "independent reviewers retain separate receipt ids and correction groups");
 assert.deepEqual(summarizeImmutable([quality, secondQuality], "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0].result, { rating: "pass", disposition: "accepted_unchanged" }, "unanimous receipts summarize full rating/disposition without newest-wins");
+const completeQualityCohortAdmission = structuredClone(evaluationAdmitted);
+completeQualityCohortAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [quality, secondQuality], "2026-07-19T10:02:01Z");
+assert.deepEqual(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, secondQuality, completeQualityCohortAdmission]), [], "evaluation accepts every available effective receipt in one exact non-conflicted cohort");
+const postDecisionQuality = structuredClone(secondQuality);
+postDecisionQuality.recorded_at = "2026-07-19T10:02:02Z";
+assert.deepEqual(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, postDecisionQuality, evaluationAdmitted]), [], "an independent receipt recorded after decision does not rewrite the historical quality cohort");
 const conflictingQuality = structuredClone(secondQuality);
 conflictingQuality.quality_receipt.disposition = "minor_edit";
 installQualityNativeArtifact(conflictingQuality, 1, "Fixture conflicting independent review.");
 installCorrectionGovernance(conflictingQuality, "source-doc:governance/conflicting-quality");
 assert.deepEqual(validateDataset([quality, conflictingQuality]), [], "an independently issued disagreeing receipt remains valid evidence");
 assert.equal(summarizeImmutable([quality, conflictingQuality], "quality_receipt", ["rating", "disposition"], ["task_id", "attempt_id", "binding"])[0].result, "conflicted", "any rating/disposition disagreement summarizes as conflicted");
+const cherryPickedQualityAdmission = structuredClone(evaluationAdmitted);
+cherryPickedQualityAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [quality], "2026-07-19T10:02:01Z");
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, conflictingQuality, cherryPickedQualityAdmission]).some((error) => error.includes("every effective quality leaf")), "evaluation cannot cherry-pick the favorable receipt from a conflicting complete cohort");
+const falselyUnratedAdmission = structuredClone(unratedEvaluationAdmitted);
+assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, conflictingQuality, falselyUnratedAdmission]).some((error) => error.includes("cannot claim unrated")), "evaluation cannot claim unrated when any effective receipt already exists for the task attempt");
 const conflictedQualityAdmission = structuredClone(evaluationAdmitted);
 conflictedQualityAdmission.pipeline_accounting.evaluation_bundle = buildEvaluationBundle(joinedOutcome, joinedExposure, joinedCapability, [quality, conflictingQuality], "2026-07-19T10:02:01Z");
 assert.ok(validateDataset([joinedOutcome, joinedExposure, joinedCapability, quality, conflictingQuality, conflictedQualityAdmission]).some((error) => error.includes("one independent non-conflicted binding/rubric cohort")), "a conflicting optional quality cohort cannot support evaluation admission");

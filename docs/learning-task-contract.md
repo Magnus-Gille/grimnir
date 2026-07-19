@@ -168,6 +168,8 @@ preflight may predate the attempt but must remain fresh at stamp time. Direct an
 and model clocks without inventing gateway admission. Exposure and review/rating clocks are bounded
 by source acceptance and their relevant attempt outcome or experiment observation; equality at a
 boundary is permitted.
+Every dispatched M5 request stamp, including a non-admitted attempt, is also bounded above by the
+known attempt end and record creation; the missing gateway echo never permits a post-hoc stamp.
 
 ## Executable Hugin ↔ M5 transport join
 
@@ -492,6 +494,11 @@ Every bundle ref selects the unique effective same-natural-key correction leaf a
 clock. Corrections recorded later do not rewrite the historical decision. Task-outcome lineage is
 likewise collapsed as of decision, so a valid predecessor plus correction is one lineage rather than
 a permanent duplicate.
+Quality evidence is complete per exact native binding/rubric cohort: the first bundled receipt
+selects the cohort and the bundle must contain every effective correction leaf available in that
+cohort at decision time. Other cohorts remain separate. An empty list truthfully means `unrated`
+only when no effective receipt for the task/attempt exists at decision time; it cannot hide an
+unfavorable or conflicting receipt.
 
 Closed failure codes include `producer-error`, `consumer-error`, `schema-rejected`, `join-mismatch`,
 `late-over-24h`, `policy-unavailable`, `transport-auth-failed`, `gateway-not-admitted`, `transport-error`, and
@@ -513,7 +520,8 @@ Hugin capture, Hugin M5 join, direct-M5 exposure, and Hugin evaluation-candidate
 `synthetic-test` and `pre-v1-migration` are not producer labels. A synthetic exclusion carries a
 trusted owner declaration made no later than occurrence/dispatch. A migration exclusion carries a
 trusted, predeclared compatibility window and the occurrence must fall inside it. Missing, late, or
-out-of-window evidence fails closed.
+out-of-window evidence fails closed. The trusted proof issuer must equal the accounting event's
+`owner_component`; repeating that owner inside an attacker-issued payload is insufficient.
 
 Accounting governance permits operational metadata only (`raw_content_present: false`) under the
 versioned retention policy; expiry/erasure uses the same reduced tombstone protocol. Mutable
@@ -524,7 +532,8 @@ period, boundary, event count, and the UTF-16-code-unit-sorted denominator natur
 pairs. `full-period-partition` additionally requires a separately trusted authoritative ledger
 partition/high-water proof whose decision set exactly equals the loaded correction leaves. That set
 may be empty: an authenticated high-water proof distinguishes a legitimate zero-event month from
-missing data. A producer's `full-period` string, a recomputed body digest, a partial dataset, or an
+missing data. The proof issuer must equal the counter-owning event `owner_component`. A producer's
+`full-period` string, a recomputed body digest, a partial dataset, or an
 unproven empty load cannot certify completeness. A close without that proof says `partial-dataset-deferred`; it is
 accepted only as explicitly unverified, never silently certified. Each snapshot selects
 denominator correction leaves as of `closed_at`, so a later correction does not retroactively
@@ -562,9 +571,14 @@ shadow, dual, v1, fallback, rejection, and rollback populations.
 
 The canonical schema ships with dependency-free positive and adversarial fixtures under
 `tests/fixtures/learning-task-contract/`. CI uses the dependency-free semantic validator. A
-Draft 2020-12 check is supplied for environments that explicitly provide that dependency. The
+Draft 2020-12 check is supplied for environments that explicitly provide that dependency. It is
+authoritative for structural JSON Schema semantics. The required semantic validator separately
+enforces cross-record invariants and exact contract formats, including rejecting impossible calendar
+dates such as February 30; passing only the structural check is insufficient. The
 dependency-free validator also rejects schema keywords it does not implement, preventing a future
-keyword from being silently ignored; Draft 2020-12 remains the authoritative schema semantics.
+keyword from being silently ignored. It likewise rejects malformed shapes for every supported
+keyword (`items`, `properties`, `$defs`, combinators, required/enums, and scalar constraints) rather
+than ignoring or crashing on them; Draft 2020-12 remains the authoritative schema semantics.
 
 Producer and consumer suites MUST prove:
 
