@@ -32,6 +32,13 @@ Your data, your documents, and a tamper-evident record of what was done with the
 
 A system that *learns what it can trust cheaper compute with* and routes accordingly — data-grounded, not assumed. No external harness has this; it is Grimnir's most original idea, and a first-class pillar — not a side-experiment.
 
+Here, “learns” currently means evidence-backed route/roster selection and controlled optimization of
+prompts, harnesses, and tool policy. It does **not** mean that the capability ledger trains model
+weights. [ADR-006](adr-006-learning-improvement-scope.md) proposes to keep weight training outside
+v1 until both component-owner reviews and, later, a separate privacy, dataset, evaluation,
+deployment, and rollback program are approved. The cross-repository evidence seam is
+[LearningTaskContract v1](learning-task-contract.md).
+
 ---
 
 ## The decision rule
@@ -72,7 +79,7 @@ Auth at every layer. Secrets scanned before storage. Sensitive documents get sum
 ### Self-knowing by design *(Pillar 1, as a build principle)*
 > **Every component should emit evidence of its own competence, and decisions should be made from that evidence rather than from assumption.**
 
-The ledger does this for model routing. The same shape applies to runtime selection, to which tasks are safe to auto-run, and to which of our own services are earning their keep. Instrument first; let the data say what to keep, cut, or route. `docs/observability-and-improvement.md` is the operational home of this principle.
+The ledger does this for model routing. The same shape applies to runtime selection, to which tasks are safe to auto-run, and to which of our own services are earning their keep. Instrument first; let the data say what to keep, cut, or route. `docs/observability-and-improvement.md` is the operational home of this principle, while `docs/learning-task-contract.md` owns the Hugin↔M5 evidence seam. “Continuous” is a measured end-to-end claim there, not a synonym for a timer or a growing ledger.
 
 ### Cut bloat continuously
 Capability that isn't earning its place — empty repos, duplicate services, stale experiments — is removed, not preserved out of sentiment. A smaller, sharper system is the goal, not a larger one. (Standing cut list: merge `hugin-orchestrator` into `hugin`; archive `hugin-munin`; delete `meta-agent` and `agentic-eval`; converge or retire `agent-council`.)

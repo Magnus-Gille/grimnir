@@ -1,318 +1,207 @@
 # Grimnir — Observability and the Self-Improving Loop
 
-> Architectural guidance for building components that get better over time.
-> Last updated: 2026-04-02.
-
----
+> Architectural status and roadmap for evidence-driven task delegation.
+> Last updated: 2026-07-19.
 
 ## Purpose
 
-This document defines how Grimnir components should capture execution data, evaluate their own output, and feed that signal back into improving future performance. It is guidance for implementation — individual services own their specifics, but the patterns, schemas, and interfaces described here are the common contract.
+Grimnir's self-improvement goal is to learn, from governed evidence, which model, route, prompt,
+harness, and tool policy produces useful outcomes for a bounded task. The normative cross-repository
+join is [LearningTaskContract v1](learning-task-contract.md); the meaning of “improve models” is
+settled by [ADR-006](adr-006-learning-improvement-scope.md).
 
-This is the engineering answer to the fourth founding principle: *"Every component should have a measurable signal it can optimize toward."*
+This document replaces the older assumption that all components already participated in one generic
+`trace → score → reflection → few-shot/routing` pipeline. The implemented system has three evidence
+planes and important gaps between them.
 
----
+## The three evidence planes
 
-## The Loop
+| Plane | Owner | Authoritative facts | It does not own |
+|---|---|---|---|
+| Task and product | Hugin | Hugin-origin task/source identity, lifecycle and retries, repository/publication outcome, immutable Quality Receipts and experiment product ratings, corrections/successors, prompt/harness experiments and macro-routing | Direct M5 request identity, effective M5 model/config, exposure, capability verdict, or micro-routing |
+| Inference and capability | `gille-inference` | Direct gateway-origin identity, gateway exposure/render, effective served model/artifact/config, deterministic/calibrated verifier evidence, capability ledger, model roster and micro-routing | Hugin task/product truth, human corrections, or prompt/harness promotion |
+| Contract seam | Grimnir contract, produced by both | Field ownership, canonical raw-task join, version compatibility, governance and producer/consumer conformance | A new evidence database or authority to overwrite either producer |
 
-Every Grimnir component participates in the same improvement cycle:
+Munin is storage and discovery for some Hugin records; it is not a fourth scoring authority. Heimdall
+may visualize these planes; it does not create their verdicts.
 
+## The actual loop
+
+```text
+Hugin task + raw-task identity
+       |
+       +--> execution/repository/publication outcome
+       |             |
+       |             +--> immutable Quality Receipt / correction (manual today)
+       |
+       +--> authenticated request stamp <--> gateway echo
+                         |
+                         +--> M5 exposure + exact served-model identity
+                         |
+                         +--> capability evidence (verified or shadow)
+
+joined, governed candidate
+       --> independent verifier + frozen sample
+       --> one-axis champion/challenger experiment
+       --> reviewed reject or promotion-ready decision
+       --> owning repo applies exact change and records rollback
+       --> subsequent production evidence checks the result
 ```
-Execute → Trace → Score → Reflect → Improve
-```
 
-1. **Execute** — The component does its job (generates a briefing, runs a task, routes a message).
-2. **Trace** — Structured execution data is captured: what happened, how long it took, what it cost, whether it succeeded.
-3. **Score** — The output is evaluated against quality criteria, producing a numeric score and optional failure-mode label.
-4. **Reflect** — Periodically, an LLM reads accumulated traces and scores to identify patterns and synthesize insights.
-5. **Improve** — Prompts, examples, routing weights, or configuration are updated based on what the reflection found.
+The middle join and candidate-to-experiment path are future work. Therefore the loop is not yet
+operationally closed, even though substantial evidence capture and experiment machinery exists.
 
-Steps 1-2 happen on every invocation. Step 3 can be immediate (heuristic checks) or batched (LLM-as-judge). Steps 4-5 happen on a cadence (weekly) or when failure thresholds are crossed.
+## Evidence maturity vocabulary
 
-The loop is not theoretical. Each step has a concrete implementation path described below.
+These labels are the target cross-system vocabulary. Grimnir uses them now; component docs,
+dashboards, and status writers migrate through the implementation tickets and must map any older
+local terms explicitly until adoption:
 
----
+- **Implemented:** code emits or enforces the mechanism on its intended production path. This does
+  not claim healthy live volume or complete coverage.
+- **Shadow:** production traffic may produce evidence, but the result cannot change normal routing
+  or the champion. Shadow outcomes are not verified savings.
+- **Manual:** a human must make or apply the decision. Manual is a deliberate safety boundary, not
+  an implementation defect.
+- **Future:** the contract or roadmap specifies the capability, but no complete operational path
+  exists. Documentation must not describe it in present tense.
 
-## Trace Capture
+### Current mechanism map
 
-### What to capture
-
-Every component that calls an LLM or executes a non-trivial operation should emit a **trace record**. The trace is the atomic unit of the improvement loop — without it, nothing downstream works.
-
-**Required fields:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `trace_id` | TEXT | Unique identifier (UUID v4) |
-| `agent` | TEXT | Component name matching `services.json` (e.g., `skuld`, `hugin`, `ratatoskr`) |
-| `task_type` | TEXT | What kind of work (e.g., `briefing`, `code-task`, `triage`, `health-check`) |
-| `started_at` | INTEGER | Unix timestamp ms |
-| `ended_at` | INTEGER | Unix timestamp ms |
-| `duration_ms` | INTEGER | Wall-clock time |
-| `success` | INTEGER | 1 = completed as intended, 0 = failed or degraded |
-
-**Recommended fields (when applicable):**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `model` | TEXT | Model that served the request (e.g., `claude-sonnet-4-6`, `qwen3.5:14b`) |
-| `input_tokens` | INTEGER | Prompt tokens consumed |
-| `output_tokens` | INTEGER | Completion tokens generated |
-| `cost_usd` | REAL | Estimated cost (null for local models) |
-| `finish_reason` | TEXT | `stop`, `tool_use`, `length`, `error` |
-| `tool_calls` | INTEGER | Number of tool invocations in the trace |
-| `parent_trace_id` | TEXT | For sub-tasks / pipeline phases |
-| `input_summary` | TEXT | Short description of input (not the full prompt — avoid storing secrets) |
-| `output_summary` | TEXT | Short description of output |
-
-**Evaluation fields (attached post-hoc or inline):**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `score` | REAL | 0.0-1.0, null if not yet evaluated |
-| `score_source` | TEXT | `heuristic`, `llm_judge`, `human` |
-| `failure_mode` | TEXT | Categorical label when `success=0` (see taxonomy below) |
-| `human_correction` | TEXT | The corrected output, when a human fixed the result |
-
-### Where to store traces
-
-Traces are written to **Munin** using the `traces/<agent>` namespace. This keeps them accessible from all environments (Desktop, Web, Mobile) and queryable via existing Munin search.
-
-For high-frequency components, a local JSONL file (`/var/log/grimnir/<agent>-traces.jsonl`) serves as the write-fast buffer. A daily job syncs notable entries to Munin.
-
-The choice is per-component:
-- **Low frequency** (Skuld: 1/day, Hugin: ~10/day): write directly to Munin.
-- **High frequency** (Ratatoskr during active use, future parallel Hugin): JSONL buffer → daily sync.
-
-### Schema alignment
-
-Field names follow the [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) where applicable. This is not about adopting the full OTel stack — it is about using field names that the ecosystem is converging on, so that future tooling (Langfuse, Phoenix, custom dashboards) can ingest the data without transformation.
-
----
-
-## Scoring and Evaluation
-
-A trace without a score is just a log. Scores are what turn execution data into improvement signal.
-
-### Three scoring tiers
-
-Components should implement scoring in this order — each tier adds capability, and the earlier tiers are prerequisites for the later ones.
-
-**Tier 1: Heuristic checks (free, instant, no LLM needed)**
-
-Deterministic validations that run inline after every execution:
-
-- Did the output parse as valid JSON/markdown/expected format?
-- Did all tool calls use valid tool names and argument schemas?
-- Did the task complete within its timeout?
-- For Skuld: does the briefing contain the required sections (calendar, projects, action items)?
-- For Ratatoskr: did the intent classifier produce a known category?
-- For Hugin: did the task produce a result entry in Munin?
-
-Heuristic checks produce `score_source: "heuristic"`. They catch structural failures immediately. A component with only Tier 1 scoring is still vastly better than no scoring.
-
-**Tier 2: LLM-as-judge (cheap via local models, batched)**
-
-An LLM evaluates the output against domain-specific criteria. Key design decisions:
-
-- **Binary pass/fail, not numeric scales.** A pass/fail judgment with a written critique is more actionable than a 3.7/5 score. The critique explains *why* it failed; the score just says it did.
-- **Domain-specific judge prompts.** A generic "is this helpful?" judge is nearly useless. Each component needs its own judge prompt calibrated to what "good" means for that component.
-- **Run locally.** Ollama on the Pi (Qwen 3.5 14B or similar) is sufficient for structured evaluation. The judge doesn't need to be smarter than the agent — it needs to check specific criteria.
-- **Calibrate against human labels.** Before trusting an LLM judge, label ~50 traces manually (Magnus reviews, marks pass/fail with reason). Run the judge on the same set. Iterate the judge prompt until agreement exceeds 85%. This calibration dataset also becomes the first regression test suite.
-
-Judge prompts live in the component's repo (e.g., `prompts/judge.md`) and are versioned alongside the code.
-
-**Tier 3: Human feedback capture**
-
-The highest-quality signal. Two sources:
-
-- **Explicit correction via Ratatoskr.** When Magnus corrects an agent's output in Telegram, the original output + correction are logged as a labeled example. The Ratatoskr interface should make this natural — a reply to a bad result is a correction, not just a message.
-- **Review during reflection.** During the weekly reflection step, flagged traces (low scores, uncertain judges) are surfaced for human review. Magnus labels them pass/fail with a note.
-
-Human corrections are gold. Even 10-20 labeled corrections meaningfully improve prompt calibration.
-
-### Failure mode taxonomy
-
-When a trace is scored as failed, label the failure mode. A consistent taxonomy across components enables cross-cutting analysis.
-
-| Failure mode | Description | Typical fix |
+| Mechanism | State | Boundary |
 |---|---|---|
-| `wrong_tool` | Called a tool that wasn't appropriate | Improve tool descriptions or routing logic |
-| `bad_args` | Correct tool, malformed arguments | Tighten argument schemas or add examples |
-| `hallucination` | Stated facts not supported by context | Add retrieval step or constrain generation |
-| `format_error` | Output didn't match expected structure | Add format examples or schema validation |
-| `incomplete` | Correct direction but missing required content | Expand prompt coverage or add checklist |
-| `off_topic` | Addressed something the user didn't ask for | Clarify intent extraction or add guardrails |
-| `timeout` | Ran out of time | Adjust timeout or decompose into subtasks |
-| `upstream_error` | External service (API, model) returned an error | Retry logic, fallback, or escalation |
-| `context_stale` | Used outdated information from memory/cache | Freshen retrieval or add recency checks |
+| Hugin task/result and managed-repository evidence | Implemented | Captures execution facts; successful completion is not product quality. |
+| Hugin Quality Receipt v1 | Implemented mechanism; manual use; concurrency partial | Native v1 has a content-derived receipt id, task/result/repository binding, text reason, and optional retries; it has no attempt/rubric and rejects a second verdict by the same reviewer/binding. The contract therefore preserves the exact v1 artifact and labels attempt/rubric as future normalized-v2 facts. Same-reviewer corrections require a new native-v2 capability. The current task-embedded summary can also still lose the first pair: two concurrent first writers can both observe no feedback, pass `current?.updated_at` as undefined, and perform unconditional Munin writes. |
+| Hugin daily candidate factory | Implemented | Content-blind, rolling candidate snapshot only; not a sealed holdout, durable registry, evaluation, or promotion path. |
+| Hugin controlled experiment ledger/evaluator | Implemented | One-axis matched evaluation and champion lineage; current reusable runner is narrow. |
+| M5 task exposure registry | Implemented | Observed events exist for declared lanes. A contract negative-coverage query is a separate bounded assertion over exactly chat, mcp-ask, delegate, delegate-disagreement, delegate-shadow, and code-loop; direct loopback calls and incomplete history remain explicit. |
+| M5 capability ledger and deterministic verifiers | Implemented | Sole node/model/task capability truth; unverified evidence cannot be promoted by Hugin. |
+| M5 organic judge and delegate policy | Shadow | Must remain non-authoritative until representative human calibration, independent evidence, and versioned admission policy pass. |
+| Hugin↔M5 authenticated preflight/stamp/echo | Future | Hugin currently sends one unstamped request and the gateway does not yet expose the authenticated versioned preflight or return the exact join echo required by v1. Preflight/read-only compatibility precedes any v1 send. |
+| Immutable pipeline accounting | Future | v1 requires natural-keyed append-only capture/join/direct-exposure/evaluation, trusted boundary declarations, retry, delivery-ordinal emission, and aggregate closes verified against an authoritative ledger partition/high-water proof. A partial/empty load never certifies completeness. |
+| Product rating, candidate approval, verifier approval, change deployment | Manual | Human-reviewed by design in v1. |
+| Durable all-outcome registry and candidate packager | Future | Required to connect ordinary failures/successes to experiments. |
+| Verified Hugin-experiment import and guarded route reload | Future | Required to turn reviewed evidence into operational micro-routing. |
+| Model-weight training | Future, outside v1 | Requires the separate gates in ADR-006. |
 
-Components may add their own labels. The taxonomy is a starting vocabulary, not a closed set.
+## What a trustworthy observation requires
 
----
+The required fields and owner are normative in
+[LearningTaskContract v1](learning-task-contract.md). In summary, a decision-driving observation
+must bind:
 
-## Reflection
+- one stable task/source instance, distinct transport principal/content owner, and canonical task taxonomy version;
+- the typed exact pre-orchestration raw input/fingerprint plus Hugin envelope, gateway canonical
+  envelope, and runtime chat-template render as distinct exact-byte identities;
+- exact execution attempt, input/output/repository references and hashes;
+- effective serving runtime, provider, model artifact manifest, effective runtime config, and
+  post-default/post-clamp sampling digests with reproducible canonicalization;
+- origin prompt/harness/tool config plus effective gateway harness/tool config and separate macro-
+  and micro-routing policy/decision identities;
+- execution, repository, publication, immutable late product review, and capability outcomes without
+  collapsing them;
+- failure/correction/successor and authenticated reviewer provenance; and
+- an authenticated fresh preflight, Hugin request stamp, gateway echo, and ordered attempt/admission/model clocks for joined traffic;
+- exact typed per-source/derivative governance or explicit policy-unavailable denial; and
+- immutable source-document refs and owner/delegation attestations verified through a separately
+  trusted validation context for every governed derivative;
+- append-only pipeline accounting when no valid learning record exists; and
+- a complete joined governance/provenance/exposure/verifier/quality/lineage bundle for evaluation
+  admission; and
+- the reduced content-removal tombstone only after all store readbacks, exact idempotent
+  occurrence-month denominator-membership tokens from each counter owner, and backup expiry complete.
 
-Reflection is the step that turns a pile of scored traces into actionable knowledge. It is an LLM reading accumulated execution data and synthesizing patterns — the same thing a senior engineer does when reviewing a week of production logs, but automated.
+A missing field remains missing. An inference, successful exit, changed file, model self-report, or
+uncalibrated judge does not fill an owner-controlled product or capability verdict.
 
-### How it works
+## Evaluation and improvement rules
 
-A scheduled job (systemd timer, weekly cadence) runs the following:
+### Deterministic and human evidence first
 
-1. **Gather** — Read traces from the past week, filtered to `score < 0.7` or `success = 0`. Also read any human corrections from the period.
-2. **Analyze** — Pass the traces to an LLM with a reflection prompt:
-   - What failure modes appeared more than once?
-   - What task types had the lowest scores?
-   - Were there any regressions (task types that used to succeed but started failing)?
-   - What patterns in the successful traces could be extracted as few-shot examples?
-3. **Synthesize** — The LLM produces a structured reflection:
-   - Top 3 failure patterns with root cause hypotheses
-   - Suggested prompt/config changes
-   - Candidate few-shot examples from high-scoring traces
-4. **Store** — Write the reflection to Munin at `projects/grimnir/reflections/<date>` and tag it with the components involved.
+Use deterministic verifiers where a bounded task has a real oracle. Human product review provides
+the highest-value correction signal. Store a governed correction/successor reference, not merely a
+score. LLM judges are advisory until a representative, versioned human calibration set clears the
+predeclared reliability gate. Capability admission additionally requires an independent passing
+verifier and a versioned policy epoch; policy changes append/regrade rather than rewrite history.
 
-### Reflection triggers
+### Late reviews append; they do not patch observations
 
-- **Time-based:** Weekly (default). Runs during the nightly maintenance window.
-- **Threshold-based:** If the rolling 24h failure rate for any component exceeds 30%, trigger an immediate reflection for that component. (Heimdall can detect this from trace data.)
+Quality Receipts and experiment product ratings are separate immutable contract records. A reader
+groups them by exact binding and rubric version: Quality Receipts compare the full rating plus
+disposition tuple, experiment ratings compare product outcome, disagreement summarizes to
+`conflicted`, and no records means `unrated`. Newest-wins is not allowed. Neither a task outcome nor
+an experiment observation grows a mutable product scalar.
 
-### What reflection is not
+### One causal axis
 
-Reflection does not automatically change prompts or configuration. It produces *recommendations*. In Phase 2 (self-maintaining), some low-risk recommendations may be auto-applied (e.g., adjusting a timeout value). In Phase 1, a human reviews the reflection and decides what to act on.
+An experiment changes one semantic axis: route/roster, prompt, harness, tool policy, or another
+predeclared configuration field. Every arm binds immutable configuration and corpus fingerprints.
+Matched pairs, independent verification, product coverage, and declared correctness/cost/latency/
+human-rescue guards determine the disposition.
 
----
+### Negative results are learning, not improvement
 
-## Improvement Mechanisms
+A challenger that loses leaves the champion unchanged and records the dominant failure plus next
+hypothesis. That improves knowledge but not the production baseline. Documentation must not count a
+rejected challenger as a deployed improvement.
 
-When the loop identifies something to improve, these are the concrete mechanisms.
+Exposure freshness is narrower than contamination detection. Exact trimmed-byte hashes do not find
+Unicode-normalized equivalents, paraphrases, or semantic leakage. A registry restart starts a new
+coverage epoch; raw llama-swap loopback is outside the authenticated six-lane registry and makes the
+affected holdout window incomplete until routed through a declared lane. Monthly evaluation reports
+epoch restarts, incomplete duration, raw-loopback detections, `exposure-incomplete` exclusions, and
+candidate-starvation rate rather than claiming the holdout is contamination-proof.
 
-### Prompt versioning
+### Promotion is reviewed and reversible
 
-Every agent prompt that goes through the improvement loop should be versioned:
+`promotion-ready` is an evidence state. The owning repository's human operator applies the exact
+reviewed prompt/harness/route/roster/config reference, advances the champion, observes the declared
+window, and retains a rollback. Neither Hugin nor `gille-inference` may silently deploy a candidate
+in v1.
 
-- Prompts live in the component's repo under `prompts/` (e.g., `prompts/briefing-v3.md`).
-- When a prompt is updated based on reflection findings, increment the version and note what changed in the commit message.
-- Traces record which prompt version produced them (add a `prompt_version` field if the prompt is under active optimization).
-- This enables direct measurement: "Did prompt v3 produce higher scores than v2 on the same task types?"
+## Roadmap to a closed loop
 
-### Few-shot example curation
+| Order | Owning repo | Deliverable | Exit evidence |
+|---:|---|---|---|
+| 1 | Grimnir + both reviewers | Adopt v1 seam and immutable shared fixtures | Hugin and `gille-inference` owner reviews recorded; both consumer suites accept the same fixture. |
+| 2 | Hugin + `gille-inference` | Authenticated preflight, stamp/echo, canonical raw/exposure identity, and immutable accounting | Preflight revision/features/freshness fail closed; real Hugin stamp is exactly echoed; request/delivery retries are accounting events; six-lane negative query is separate from observed events. |
+| 3 | Hugin + `gille-inference` | Three-stage prompt and reproducible effective-serving provenance | Captured Hugin, gateway, runtime, manifest, runtime-config, and sampling sources recompute to the exported digests. |
+| 4 | Both producers | Complete governance/erasure projections and validation-context distribution | Direct-owner authority is cryptographically/out-of-band verified; unavailable policy denies; counter owners issue denominator-membership tokens; all stores and backup expiry produce readback receipts. |
+| 5 | Hugin | Close receipt first-create concurrency; add native-v2 correction identity; append immutable review records and durable all-outcome registry | Parallel first receipts are preserved; a correction mints a new native id/group without pretending v1 supports it; failures/no-ops/publication failures and late labels stay joinable without mutating observations. |
+| 6 | Hugin | Independent candidate packager | A governed production candidate is rechecked, frozen, joined with the complete evidence bundle, independently verified, and imported into a one-axis experiment. |
+| 7 | `gille-inference` | Versioned capability admission and verified experiment import | Only independent calibrated passing evidence affects capability state. |
+| 8 | `gille-inference` | Reviewed routing-table lifecycle | Generate, diff, approve, deploy/reload, canary, and rollback are demonstrated without silent promotion. |
+| 9 | Hugin | Read-only next-experiment proposals | Proposals cite evidence and require human approval; they do not mutate prompts/routes/config. |
 
-The most practical automated improvement: when a trace scores highly (score >= 0.9, source = human or calibrated judge), its input/output pair becomes a candidate few-shot example.
+The measurable definitions of continuous capture, evaluation, learning, and baseline improvement
+live in the contract. Until their rolling gates pass, use the narrower current state—implemented
+capture plus manual/shadow evaluation—rather than “continuous self-improvement.”
 
-- Store curated examples in Munin at `prompts/<agent>/examples`.
-- The agent's prompt template pulls from this set at runtime.
-- Cap at 3-5 examples to avoid context bloat. Prefer diverse examples over many similar ones.
-- Periodically prune: if a new example covers the same case as an old one, keep the better-scored one.
+## Per-component signals outside the delegation loop
 
-This is a lightweight version of DSPy's BootstrapFewShot — mining your own execution history for good demonstrations. It works without any framework.
+Every component should still expose operational and product signals appropriate to its role, but
+those signals do not automatically enter the task-delegation learning contract.
 
-### Failure case regression tests
-
-Every failure that gets diagnosed and fixed should become a regression test:
-
-- The input that caused the failure + the expected (corrected) output are stored as a test case.
-- Before deploying a prompt change, run the current test suite against the new prompt.
-- Test suites grow organically from production failures. They don't need to be comprehensive upfront.
-
-Store regression test cases in the component's repo under `tests/eval/` or in Munin at `eval/<agent>/cases`.
-
-### Routing table updates (Hugin v2)
-
-For Hugin's multi-runtime routing, the improvement loop feeds the `qualityScores` table:
-
-- After each task completion, the trace's score is attributed to the model that executed it, categorized by task type.
-- The routing table (stored in Munin at `meta/routing-table`) maps `(task_type, model) → quality_score`.
-- The router uses these scores when selecting a runtime: higher-scoring models for a given task type are preferred (weighted against cost).
-- Scores are rolling averages with exponential decay — recent performance matters more than historical.
-
-This creates a closed loop: model selection → execution → scoring → updated model selection.
-
----
-
-## Per-Component Signals
-
-Each component should optimize toward specific signals. These are the starting points — they will be refined through experience.
-
-| Component | Primary signal | Secondary signals |
+| Component | Primary signal | Boundary |
 |---|---|---|
-| **Skuld** | Briefing quality score (section completeness, source coverage, factual recency) | Token efficiency, generation latency |
-| **Hugin** | Task completion rate by type | Duration vs timeout ratio, cost per successful task, retry rate |
-| **Ratatoskr** | First-response resolution rate (user didn't need to re-ask) | Intent classification accuracy, routing correctness |
-| **Heimdall** | Alert accuracy (true positive rate of health warnings) | Collection reliability, dashboard load time |
-| **Munin** | Search relevance (target entry in top-3 results) | Query latency, embedding quality, memory staleness rate |
-| **Mimir** | Retrieval success rate | Response latency, cache hit rate |
+| Skuld | Reviewed briefing usefulness and factual/source coverage | A briefing-specific evaluator, not M5 capability evidence by default. |
+| Ratatoskr | Correct routing and first-response resolution | Corrections may create Hugin product evidence only through an explicit task join. |
+| Heimdall | Alert accuracy and collection reliability | Observes health; does not grade task quality. |
+| Munin | Search relevance and storage correctness | Stores evidence; does not assign capability verdicts. |
+| Mimir | Retrieval success and integrity | Artifact owner; references remain governed. |
 
----
+## Safety principles
 
-## Infrastructure Requirements
-
-### What already exists
-
-- **Heimdall** computes task success rate (`getTaskSuccessRate()`) and collects service health metrics on a 5-minute cadence. It is the natural home for aggregate dashboards over trace data.
-- **Munin** provides searchable, cross-environment storage for trace records and reflections.
-- **systemd timers** handle all scheduled jobs (collection, validation, briefings).
-
-### What needs to be built
-
-These are the common components. They can live in the grimnir repo (scripts/libraries) or as extensions to existing services.
-
-1. **Trace writer library** — A small shared module that components import to emit traces in the standard schema. Handles Munin writes and optional JSONL buffering. Should be <100 LOC.
-
-2. **Heuristic evaluator framework** — A pattern for defining per-component check functions that run after execution and attach scores to traces. Each component defines its own checks; the framework provides the runner and score-attachment logic.
-
-3. **Reflection job** — A systemd timer + script that reads recent traces from Munin, runs the reflection prompt against a local or API model, and stores the output. Weekly cadence. One script, shared across all components.
-
-4. **Heimdall trace dashboard** — A new card (or extension of existing cards) that shows trace-derived metrics: scores over time, failure mode distribution, cost trends. Reads from Munin trace entries.
-
-### What is explicitly out of scope
-
-- **No new services.** The trace infrastructure is a library + a timer + dashboard extensions, not a new component.
-- **No external platforms.** Langfuse, Phoenix, and similar tools are acknowledged as potential future options if the home-grown approach hits limits, but they are not part of the initial design.
-- **No automated prompt deployment.** The loop produces recommendations and candidate improvements. A human reviews and deploys. This constraint relaxes in Phase 2+.
-
----
-
-## Implementation Sequence
-
-This ordering ensures each step is independently useful and builds on the previous one.
-
-| Step | What | Depends on | Delivers |
-|------|------|------------|----------|
-| 1 | Trace writer library (shared module, Munin + JSONL output) | Nothing | Standard trace emission for all components |
-| 2 | Instrument Skuld (first adopter — 1 trace per day, easy to validate) | Step 1 | Real execution data flowing into Munin |
-| 3 | Heuristic evaluators for Skuld (section checks, source count, date freshness) | Step 2 | Automated scoring on every briefing |
-| 4 | Instrument Hugin task completions | Step 1 | Task-level traces with duration, model, success |
-| 5 | Heimdall trace dashboard card | Steps 2-4 | Visible trends and failure rates |
-| 6 | LLM judge for Skuld (calibrated against 50 human labels) | Step 3 | Automated quality scoring beyond heuristics |
-| 7 | Reflection job (weekly, reads traces, writes insights) | Steps 2-4 | Pattern synthesis and improvement recommendations |
-| 8 | Few-shot example curation pipeline | Steps 6-7 | Automated prompt improvement from production data |
-| 9 | Hugin routing table fed by real quality scores | Steps 4, 6 | Data-driven model selection |
-| 10 | Ratatoskr correction capture | Step 1 | Human feedback as labeled training data |
-
-Steps 1-3 can be done in a single session. Steps 4-5 follow naturally. The rest unfolds over weeks as data accumulates.
-
----
-
-## Principles
-
-These are the design rules for the improvement loop. When in doubt, refer back here.
-
-1. **Traces are the primitive.** Everything else — scores, reflections, prompt updates, routing — is derived from traces. If it isn't traced, it can't improve.
-
-2. **Start with heuristics, graduate to judges.** A format check that runs on every invocation beats an LLM judge that never gets set up. Get Tier 1 scoring running before investing in Tier 2.
-
-3. **Binary pass/fail over numeric scales.** Forces clarity about what "good" means. A 3.7/5 score is unactionable. "Failed: missing calendar section" is actionable.
-
-4. **Calibrate judges against human labels.** An uncalibrated judge produces noise, not signal. Fifty human labels is the minimum viable calibration set.
-
-5. **Store the correction, not just the score.** When a human fixes an agent's output, the correction is worth more than the failure label. It is a training example.
-
-6. **Reflection is read-only by default.** The reflection job recommends; it does not deploy. Automated deployment of improvements is a Phase 2 capability that requires demonstrated reliability of the recommendation quality.
-
-7. **No new services.** The improvement loop is a property of the system, not a new component. It is implemented as a library, some timer jobs, and dashboard extensions.
-
-8. **Sovereignty applies to traces too.** Trace data stays on Magnus's hardware. It is never sent to third-party observability platforms. The same data-sovereignty principle that governs Munin governs the improvement loop.
-
----
-
-*This document is a companion to [vision.md](vision.md) and [architecture.md](architecture.md). It operationalizes the "autonomous improvement by design" principle into concrete patterns that components implement.*
+1. **One owner per fact and decision.** Storage location does not transfer authority.
+2. **Content is governed at every derivative.** Hashing is not anonymization; allowed use is
+   explicit and erasure propagates.
+3. **Freshness fails closed.** Negative exposure matters only inside complete declared coverage and
+   is rechecked immediately before freeze and execution.
+4. **Calibrate before policy.** Uncalibrated model judging remains shadow evidence.
+5. **Store correction lineage.** A product verdict without the corrective successor cannot support
+   the strongest forms of learning.
+6. **Independent verification beats model prose.** Self-reported success is never its own oracle.
+7. **Manual promotion in v1.** Automation may gather and propose; a human applies consequential
+   configuration changes.
+8. **No hidden model training.** Evaluation/routing data is not a training dataset; ADR-006 governs
+   any future exception.
