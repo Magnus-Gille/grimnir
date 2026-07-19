@@ -1,28 +1,27 @@
 {
+  "public_example": true,
   "components": [
     {
       "name": "munin-memory",
       "repo": "munin-memory",
-      "host": "huginmunin.local",
+      "host": "ai-core.internal",
       "port": 3030,
       "deploy": true,
       "scan": true,
-      "deploy_path": "/home/magnus/munin-memory",
-      "persistent_paths": ["/home/magnus/.munin-memory"],
+      "deploy_path": "/srv/grimnir/munin-memory",
+      "persistent_paths": ["/var/lib/grimnir/munin-memory"],
       "needs_build": true,
-      "systemd_units": [
-        { "name": "munin-memory", "type": "service" }
-      ]
+      "systemd_units": [{ "name": "munin-memory", "type": "service" }]
     },
     {
       "name": "hugin",
       "repo": "hugin",
-      "host": "huginmunin.local",
+      "host": "ai-core.internal",
       "port": 3032,
       "deploy": true,
       "scan": true,
-      "deploy_path": "/home/magnus/repos/hugin",
-      "persistent_paths": ["/home/magnus/workspace", "/home/magnus/.hugin"],
+      "deploy_path": "/srv/grimnir/hugin",
+      "persistent_paths": ["/var/lib/grimnir/hugin"],
       "needs_build": true,
       "systemd_units": [
         { "name": "hugin", "type": "service", "scope": "user" },
@@ -30,14 +29,26 @@
       ]
     },
     {
+      "name": "mimir",
+      "repo": "mimir",
+      "host": "storage.internal",
+      "port": 3031,
+      "deploy": true,
+      "scan": true,
+      "deploy_path": "/srv/grimnir/mimir",
+      "persistent_paths": ["/var/lib/grimnir/mimir"],
+      "needs_build": true,
+      "systemd_units": [{ "name": "mimir", "type": "service" }]
+    },
+    {
       "name": "heimdall",
       "repo": "heimdall",
-      "host": "huginmunin.local",
+      "host": "ai-core.internal",
       "port": 3033,
       "deploy": true,
       "scan": true,
-      "deploy_path": "/home/magnus/repos/heimdall",
-      "persistent_paths": ["/home/magnus/.heimdall"],
+      "deploy_path": "/srv/grimnir/heimdall",
+      "persistent_paths": ["/var/lib/grimnir/heimdall"],
       "needs_build": false,
       "systemd_units": [
         { "name": "heimdall", "type": "service" },
@@ -47,65 +58,25 @@
       ]
     },
     {
-      "name": "ratatoskr",
-      "repo": "ratatoskr",
-      "host": "huginmunin.local",
-      "port": 3034,
+      "name": "gille-inference",
+      "repo": "gille-inference",
+      "host": "inference.internal",
+      "port": 8080,
       "deploy": true,
       "scan": true,
-      "deploy_path": "/home/magnus/repos/ratatoskr",
-      "persistent_paths": [],
-      "needs_build": true,
-      "systemd_units": [
-        { "name": "ratatoskr", "type": "service" }
-      ]
-    },
-    {
-      "name": "skuld",
-      "repo": "skuld",
-      "host": "huginmunin.local",
-      "port": null,
-      "deploy": true,
-      "scan": true,
-      "deploy_path": "/home/magnus/repos/skuld",
-      "persistent_paths": [],
-      "needs_build": true,
-      "systemd_units": [
-        { "name": "skuld", "type": "timer", "scope": "user" }
-      ]
-    },
-    {
-      "name": "mimir",
-      "repo": "mimir",
-      "host": "nas.local",
-      "port": 3031,
-      "deploy": true,
-      "scan": true,
-      "deploy_path": "/home/magnus/mimir-server",
-      "persistent_paths": ["/home/magnus/mimir", "/var/lib/mimir"],
-      "needs_build": true,
-      "systemd_units": [
-        { "name": "mimir", "type": "service" }
-      ]
-    },
-    {
-      "name": "fortnox-mcp",
-      "repo": "fortnox-mcp",
-      "host": null,
-      "port": null,
-      "deploy": false,
-      "scan": true,
+      "deploy_path": "/srv/grimnir/gille-inference",
+      "persistent_paths": ["/var/lib/grimnir/gille-inference"],
       "needs_build": false,
-      "systemd_units": []
+      "systemd_units": [{ "name": "gille-inference", "type": "service" }]
     },
     {
       "name": "grimnir",
       "repo": "grimnir",
-      "host": "huginmunin.local",
+      "host": "ai-core.internal",
       "port": null,
       "deploy": true,
       "scan": false,
-      "deploy_path": "/home/magnus/repos/grimnir",
+      "deploy_path": "/srv/grimnir/control-plane",
       "needs_build": false,
       "deploy_mode": "git-pull",
       "systemd_units": [
@@ -114,113 +85,89 @@
       ]
     },
     {
-      "name": "verdandi",
-      "repo": "verdandi",
-      "host": "huginmunin.local",
-      "port": 3036,
-      "deploy": true,
-      "scan": true,
-      "deploy_path": "/home/magnus/repos/verdandi",
-      "persistent_paths": [
-        "/home/magnus/repos/verdandi/data",
-        "/home/magnus/.local/share/verdandi"
-      ],
-      "rsync_excludes": ["/data/"],
-      "needs_build": true,
-      "systemd_units": [
-        { "name": "verdandi", "type": "service", "scope": "user" }
-      ]
-    },
-    {
       "name": "brokkr",
       "repo": "brokkr",
-      "host": "huginmunin.local",
+      "host": "ai-core.internal",
       "port": null,
       "deploy": false,
       "scan": true,
-      "deploy_path": "/home/magnus/repos/brokkr",
+      "deploy_path": "/srv/grimnir/brokkr",
       "needs_build": false,
       "systemd_units": [
         { "name": "brokkr-maintenance-os", "type": "timer" },
         { "name": "brokkr-maintenance-deps", "type": "timer" }
       ]
+    },
+    {
+      "name": "ratatoskr",
+      "repo": "ratatoskr",
+      "host": "ai-core.internal",
+      "port": 3034,
+      "deploy": false,
+      "scan": false,
+      "deploy_path": "/srv/grimnir/ratatoskr",
+      "persistent_paths": [],
+      "needs_build": true,
+      "systemd_units": [{ "name": "ratatoskr", "type": "service" }]
+    },
+    {
+      "name": "skuld",
+      "repo": "skuld",
+      "host": "ai-core.internal",
+      "port": null,
+      "deploy": false,
+      "scan": false,
+      "deploy_path": "/srv/grimnir/skuld",
+      "persistent_paths": [],
+      "needs_build": true,
+      "systemd_units": [{ "name": "skuld", "type": "timer", "scope": "user" }]
+    },
+    {
+      "name": "verdandi",
+      "repo": "verdandi",
+      "host": "ai-core.internal",
+      "port": 3036,
+      "deploy": false,
+      "scan": false,
+      "deploy_path": "/srv/grimnir/verdandi",
+      "persistent_paths": ["/var/lib/grimnir/verdandi"],
+      "needs_build": true,
+      "systemd_units": [{ "name": "verdandi", "type": "service", "scope": "user" }]
     }
   ],
   "nodes": [
     {
-      "name": "huginmunin",
-      "hostname": "huginmunin.local",
-      "ssh_alias": null,
-      "hardware": "Raspberry Pi (aarch64), 8GB",
+      "name": "ai-core",
+      "hostname": "ai-core.internal",
+      "ssh_alias": "ai-core",
+      "hardware": "Always-on Linux host",
       "role": "service-host",
-      "status": "active",
-      "llm_servers": [
-        { "type": "ollama", "port": 11434, "protocol": "ollama" }
-      ],
+      "status": "example",
+      "llm_servers": [{ "type": "ollama", "port": 11434, "protocol": "ollama" }],
       "monitor": true,
-      "notes": "Primary service host — runs munin-memory, hugin, heimdall, ratatoskr, skuld, grimnir, verdandi. Also Ollama :11434 for tiny models (qwen3.5:2b, gemma4:e2b)."
+      "notes": "Runs the memory, dispatch, monitoring, and optional messaging services."
     },
     {
-      "name": "nas",
-      "hostname": "nas.local",
-      "ssh_alias": null,
-      "hardware": "NAS",
+      "name": "storage",
+      "hostname": "storage.internal",
+      "ssh_alias": "storage",
+      "hardware": "Storage-capable Linux host",
       "role": "storage",
-      "status": "active",
+      "status": "example",
       "llm_servers": [],
       "monitor": true,
-      "notes": "Runs mimir (authenticated file server) and Brokkr's hardware-health timer (brokkr-health, pushes to Heimdall). Not an inference node."
+      "notes": "Runs Mimir and holds user-controlled files."
     },
     {
-      "name": "m5",
-      "hostname": "100.76.72.59",
-      "ssh_alias": "m5",
-      "hardware": "BosGame M5 (BeyondMax) — AMD Strix Halo (Ryzen AI Max+ 395), 128GB unified memory",
+      "name": "inference",
+      "hostname": "inference.internal",
+      "ssh_alias": "inference",
+      "hardware": "Local inference host",
       "role": "inference",
-      "status": "active",
-      "llm_servers": [
-        { "type": "homeserver-gateway", "port": 8080, "protocol": "openai" }
-      ],
-      "monitor": false,
-      "notes": "Flagship local inference — LIVE. homeserver gateway :8080 fronts llama-swap :8091 (loopback); public via Cloudflare at inference.gille.ai. Tailnet 100.76.72.59 (MagicDNS/ssh alias `m5`). Under Brokkr apt patching + memory limits. See home-server-inference-evaluation docs/adr-004-m5-routing-ownership.md + docs/bosgame-m5-architecture.md."
-    },
-    {
-      "name": "orin",
-      "hostname": "100.127.176.78",
-      "ssh_alias": "orin",
-      "hardware": "NVIDIA Jetson Orin Nano, 8GB",
-      "role": "inference",
-      "status": "active",
-      "llm_servers": [
-        { "type": "ollama", "port": 11434, "protocol": "ollama" }
-      ],
-      "monitor": false,
-      "notes": "Hugin GPU cell (orinUrl). L4T R36.4.7 / JetPack 6. Only ~3B fits (qwen2.5-coder:3b; 4B OOMs). Tailnet 100.127.176.78 (MagicDNS `orin-nano`); LAN ~192.168.0.230, Ollama :11434. ssh_alias `orin` not yet defined on huginmunin — resolve via tailnet host."
-    },
-    {
-      "name": "laptop",
-      "hostname": null,
-      "ssh_alias": null,
-      "hardware": "MacBook Air M4, 32GB unified memory",
-      "role": "inference",
-      "status": "active",
-      "llm_servers": [
-        { "type": "lmstudio", "port": 1234, "protocol": "openai" },
-        { "type": "ollama", "port": 11434, "protocol": "ollama" }
-      ],
-      "monitor": false,
-      "notes": "Not always-on (medium compute, intermittent). Hugin laptopUrl (disabled by default). Local LM Studio :1234 + Ollama :11434."
-    },
-    {
-      "name": "skald",
-      "hostname": "skald.local",
-      "ssh_alias": "skald",
-      "hardware": "Raspberry Pi + e-paper display",
-      "role": "display",
-      "status": "active",
-      "llm_servers": [],
-      "monitor": false,
-      "notes": "E-paper display / skald-display MCP node — NOT an inference node. Back online 2026-06-16."
+      "status": "example",
+      "llm_servers": [{ "type": "openai-compatible", "port": 8080, "protocol": "openai" }],
+      "monitor": true,
+      "notes": "Optional local model gateway managed by gille-inference."
     }
   ]
 }

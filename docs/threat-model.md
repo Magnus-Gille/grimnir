@@ -1,92 +1,65 @@
-# Grimnir — Threat Model (v0.2)
+# Grimnir threat model
 
-> **Status:** v0.2 — owner-reviewed v0.1 refreshed 2026-07-13 against deployed controls and
-> explicit recovery/activation blocks. Every residual-**High** row in §5 remains tracked.
->
-> Companion to [`architecture.md`](architecture.md) (the *how*) and [`vision.md`](vision.md) (the
-> *why*). This is the *what-we-defend-against* — the artifact that was deferred as "Phase B" and is
-> named here for the first time.
+This is a reference threat model. Every installation must revise it for its users, data, network,
+providers, integrations, and physical controls.
 
----
+## Assets
 
-## 1. Scope & assumptions
-
-- **Single operator** (Magnus) — one fully-trusted human; no multi-user model today.
-- **Sovereignty:** data *at rest* lives on-prem (Pi 1, Pi 2 / NAS, M5). Deliberate exceptions:
-  cloud AI models may process prompts but are not treated as storage authority; Munin and Mimir
-  each ship an **encrypted** off-site backup leg (`rclone`-crypt); Cloudflare fronts public ingress.
-- **In scope:** confidentiality / integrity / availability of the two pillars (Sovereign Memory,
-  Self-Knowing Inference) and the accounting + client data they touch.
-- **Threat horizon:** opportunistic and injection-borne compromise, operator error, hardware loss —
-  **not** a targeted nation-state adversary.
-
-## 2. Assets (ranked)
-
-| Asset | Why it hurts if lost or leaked |
+| Asset | Main failure modes |
 |---|---|
-| Mimir files (client docs, Fortnox exports, personal) | Breach of *third-party* client / financial data — legal + reputational, not just personal |
-| Munin memory (SQLite, local embeddings) | Loss = erased context; leak = a searchable index of everything personal; a wrong "fact" silently poisons autonomous action |
-| Verdandi audit chain | The record of what was done; if forgeable or lost there is no accountability for autonomous action |
-| Secrets & tokens (per-service bearer, OAuth, keychain) | Compromise → substrate takeover / lateral movement |
-| noxctl / Fortnox credentials + data | Money movement + customer PII |
-| Capability ledger / `m5-routing` | Poisoning re-routes work to the wrong or unsafe model |
+| Mimir files | disclosure, destructive writes, unrecoverable loss |
+| Munin memory | disclosure, poisoned facts, loss of accumulated context |
+| Task and audit records | forged attribution, suppressed failures, missing reversal evidence |
+| Service and provider credentials | lateral movement, impersonation, unexpected cost |
+| Inference routing evidence | poisoned evaluations or unsafe model selection |
+| Host and backup configuration | fleet takeover or failed recovery |
 
-## 3. Trust boundaries
+## Trust boundaries
 
-- **Fully trusted:** the operator; admin-controlled host accounts and root contexts. Individual
-  service processes and dependencies are not automatically trusted once compromised.
-- **Semi-trusted (soft):** the Tailscale mesh — treated as an internal network, but any compromised
-  device on it can reach services bound to the tailnet/LAN or exposed through tunnels. The
-  per-service **bearer auth is the real control**, not the tailnet perimeter.
-- **Untrusted:** all *ingested content* (email, web, documents, Telegram messages / forwards / voice
-  transcripts), npm dependencies, the public internet.
-- **Key crossings:** untrusted content → agent (holding Munin + Mimir + execution) → outbound
-  network; Telegram → Ratatoskr → Hugin task; laptop / interactive session → Munin + Mimir.
+- **Humans:** an operator may be fully trusted for administration, but mistakes and compromised
+  accounts remain in scope.
+- **Services:** each process is trusted only for its documented role and credentials.
+- **Private networks:** useful exposure reduction, never an authorization mechanism by themselves.
+- **Ingested content:** email, web pages, documents, messages, model output, and retrieved memory are
+  untrusted instructions.
+- **Dependencies and providers:** package registries, model services, tunnels, notification channels,
+  and backup providers are separate trust domains.
+- **Physical hosts:** theft, disk failure, power loss, and operator lockout remain possible.
 
-## 4. Adversaries
+## Priority threats and controls
 
-- **Prompt-injection via ingested content** — the primary realistic threat: untrusted text steers an
-  agent that holds memory + files + execution.
-- **Compromised laptop or Telegram account** — inherits the operator's full trust.
-- **Malicious / compromised npm dependency** in a Node service.
-- **Tailnet-present attacker** (lost phone, compromised device on the mesh).
-- **Physical theft / loss** of a Pi or the NAS disk.
+| Threat | Typical path | Required control | Residual concern |
+|---|---|---|---|
+| Prompt-driven exfiltration | untrusted content → agent with files, memory, tools, and egress | classify content; separate read from action; gate tools and egress; use scoped credentials | scanners are not proof of benign intent |
+| Workspace escape or command injection | crafted task or path → shell/runtime | validated bounded roots; argument-safe execution; fail closed on workspace setup | intentionally powerful coding tasks remain high impact |
+| Broken authorization | shared keys, trusted proxy mistakes, unauthenticated mutation endpoints | distinct identities; explicit proxy allowlists; authorization on every mutation | operational key rotation and revocation |
+| Memory poisoning | false or malicious fact repeatedly retrieved | provenance, ownership, compare-and-swap, correction and expiry | subtle falsehoods are hard to detect automatically |
+| Supply-chain compromise | malicious dependency or build action | pinned lockfiles/actions, review, dependency scans, minimal runtime privileges | ecosystem scanners have incomplete coverage |
+| Secret disclosure | committed config, logs, traces, errors, process arguments | secret manager, redaction, current/history scans, bounded diagnostics | old forks, caches, and external logs |
+| Audit loss or forgery | action succeeds without durable attributable record | fail-loud audit emission, off-host anchors, reversal recipe | audit sinks can fail with the service host |
+| Data loss | disk/host failure or destructive automation | encrypted backups, separate failure domain, recurring restore tests | backup presence is not recoverability |
+| Physical theft | unencrypted storage or credentials on device | full-disk encryption, locked boot, revocable secrets | availability during recovery |
+| Monitoring blind spot | service host and monitor fail together | independent dead-man signal and bounded alert payload | external alert providers add a trust domain |
+| Lifecycle failure | personal or third-party data retained indefinitely | store map, retention enforcement, correction/deletion, backup expiry | immutable audit evidence requires minimization design |
 
-## 5. Key threats
+## Autonomous-action requirements
 
-| # | Threat | Vector | Current control | Residual | Tracked |
-|---|---|---|---|---|---|
-| T1 | Exfiltration via the **lethal trifecta** | Injection in ingested content → agent with memory+files+exec → egress | Hugin queue-path scanners plus permission profiles: default/read-only requests use `dontAsk`; only explicit `Capabilities: code` + `trusted-code` uses `bypassPermissions` | **H** — trusted-code remains deliberately powerful and content scanners are detective | hugin#149 shipped; continue review |
-| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | Operator posture requires Hugin handoff for consequential mutations after untrusted input, with a constrained fresh-session fallback | **H** — procedural, not enforced | grimnir#70 |
-| T3 | Command injection → fleet code-exec | Ratatoskr `/repo` path-traversal; LLM-produced repo context | Owner allowlist plus task-writer validation; live probes reject traversal and newline/field injection before task creation | **M** — an owner-authorized task can still execute within an allowed repo | ratatoskr#36 shipped |
-| T4 | Autonomous action unattributable / unlogged | Hugin mutates (commits/deploys/writes) without end-to-end tenant identity or Verdandi receipt | Signed submitter provenance now survives Hugin lifecycle transitions and is logged in Munin | **H** — Verdandi/per-tenant chain is still missing | hugin#148, verdandi#15 |
-| T5 | Audit-chain forgery or loss | Attacker owns Pi 1, or the only credible chain is lost | Recovery-gated Verdandi safeguards and verify/anchor code are merged | **H** — production is intentionally disabled pending image-first recovery; no recovered chain or routine export may be claimed | Verdandi recovery block |
-| T6 | Supply-chain compromise | Malicious transitive npm dep in a Node service | Weekly `security-scan.sh`, incomplete-scan failure, systemd sandbox, immutable CI action pins | **M** — audit databases and dependency provenance are not complete prevention | per-repo dependency triage |
-| T7 | Physical theft → plaintext data at rest | Stolen Pi / SD card / NAS disk | file perms `0600`; **SD cards likely NOT encrypted — verify** | **H** if unencrypted | brokkr#40 |
-| T8 | Silent total-host failure | Pi 1 dies; monitoring + alerting die with it | M5 dead-man timer and independent Telegram fallback are live and drilled | **M** — truly external Healthchecks path is merged but intentionally inactive until its protected URL is provisioned | Healthchecks activation block |
-| T9 | Backup loss / unrecoverable restore | Host/storage loss; Verdandi cannot be routinely exported or restored | Munin and Mimir encrypted off-site backups are live; Mimir passed an immutable full restore on 2026-07-10; Verdandi has no routine export/DR procedure | **H** | brokkr#39 |
-| T10 | Poisoned memory drives bad action | A false stored "fact" retrieved and acted on repeatedly | secret-scan on write; no correction / expiry path | **M** | munin-memory#192 |
-| T11 | Third-party data retained without enforceable lifecycle / erasure | Client/accounting/person data accumulates across Mimir, Munin, Fortnox exports, backups | Store map and provisional retention defaults now exist; enforcement is per-store/manual and complete erasure is not implemented | **H** | grimnir#66 |
+An unattended action is permitted only when all of the following are true:
 
-## 6. Explicitly accepted / out-of-scope (for now)
+1. the requesting principal is attributable;
+2. inputs and intended effect are bounded;
+3. the executor has only the required capability and egress;
+4. the outcome is independently observable;
+5. a reversal recipe or explicit irreversible mitigation exists;
+6. policy can revoke the authority without redeploying unrelated services.
 
-- **Nation-state / targeted APT** — out of scope.
-- **Multi-user isolation** — single operator; Munin's multi-principal (Sara) support is access-sharing,
-  not a security boundary.
-- **The operator as an insider threat** — trusted by definition.
-- *Everything in §5 is a **tracked gap**, not an accepted risk.*
+## Accepted scope limits
 
-## 7. Review cadence
+The reference design primarily targets a small, operator-controlled installation. Strong hostile
+multi-tenancy and targeted advanced adversaries require additional isolation and review. This scope
+limit does not make the priority threats above accepted risks.
 
-- Re-review **quarterly**, and on any change to: Hugin execution/permissions, Ratatoskr input
-  handling, the auth model, or Tailscale / Cloudflare exposure.
-- Each residual-**H** row must have an owning ticket and a target; close the row when its control
-  moves the risk to **M** or lower.
+## Review triggers
 
-## 8. Interactive-session posture
-
-The owner-approved handling rule for T2 is defined in
-[`interactive-session-posture.md`](interactive-session-posture.md): inspect untrusted content in a
-non-mutating context, route consequential mutations through Hugin, and use a narrowly restated fresh
-session only when Hugin cannot perform the action. This reduces routine exposure but does not lower
-T2 below **High** until the boundary is technically enforced and evidenced.
+Review this model at least quarterly and whenever a deployment changes authentication, user count,
+network exposure, execution tools, inference provider, backup provider, or autonomous authority.

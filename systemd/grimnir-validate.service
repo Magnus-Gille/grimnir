@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=magnus
-WorkingDirectory=/home/magnus/repos/grimnir
+User=grimnir
+WorkingDirectory=/srv/grimnir/control-plane
 ExecStart=/usr/bin/bash scripts/generate-architecture.sh --validate
 
 # Timeout — cross-host SSH checks can be slow
@@ -14,13 +14,13 @@ TimeoutStartSec=120
 
 # Sandboxing — read-only, needs network for SSH and Munin HTTP
 ProtectSystem=strict
-ReadOnlyPaths=/home/magnus/repos
+ReadOnlyPaths=/srv/grimnir
 # Exception (#33): let the validate run self-heal ONLY the deploy marker so
 # Heimdall's drift detector doesn't false-flag grimnir after a session pulls the
 # tree forward outside a deploy. The '-' prefix makes it optional, so a checkout
 # without a marker yet still starts cleanly. Overrides ReadOnlyPaths/ProtectHome
 # for this single file only.
-ReadWritePaths=-/home/magnus/repos/grimnir/.deployed-commit
+ReadWritePaths=-/srv/grimnir/control-plane/.deployed-commit
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectHome=read-only

@@ -548,7 +548,7 @@ if grep -Fxq -- '--exclude=.env' "$RSYNC_CAPTURE"; then
 else
   fail "global .env policy preserves in-target service credentials"
 fi
-if grep -Fxq -- "magnus@h1:'/srv/alpha/'" "$RSYNC_CAPTURE"; then
+if grep -Fxq -- "grimnir@h1:'/srv/alpha/'" "$RSYNC_CAPTURE"; then
   pass "rsync remote path uses POSIX shell quoting"
 else
   fail "rsync remote path uses POSIX shell quoting"

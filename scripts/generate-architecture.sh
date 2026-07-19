@@ -24,10 +24,16 @@ SNAPSHOT="$GRIMNIR_DIR/docs/snapshot.md"
 OUT="$GRIMNIR_DIR/docs/full-architecture.md"
 TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 HOSTNAME_VAL="$(hostname)"
-REPOS_DIR="$HOME/repos"
+REPOS_DIR="${REPOS_DIR:-$HOME/repos}"
 
 # Read component lists from the service registry (single source of truth)
-REGISTRY="$GRIMNIR_DIR/services.json"
+if [[ -n "${REGISTRY_PATH:-}" ]]; then
+  REGISTRY="$REGISTRY_PATH"
+elif [[ -f "$GRIMNIR_DIR/services.local.json" ]]; then
+  REGISTRY="$GRIMNIR_DIR/services.local.json"
+else
+  REGISTRY="$GRIMNIR_DIR/services.json"
+fi
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 
 # shellcheck source=scripts/lib/systemd-status.sh
@@ -90,12 +96,12 @@ health_status_local() {
 }
 
 health_status_remote() {
-  local host=$1 port=$2 user=${SYSTEMD_USER:-magnus}
+  local host=$1 port=$2 user=${SYSTEMD_USER:-grimnir}
   ssh -o ConnectTimeout=5 -o BatchMode=yes "${user}@${host}" "port='$port'; last=000; for target in localhost 127.0.0.1 \$(hostname -I 2>/dev/null || true); do [ -n \"\$target\" ] || continue; case \"\$target\" in *:*) continue ;; esac; for path in /health /api/health; do code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 \"http://\${target}:\${port}\${path}\" 2>/dev/null || true); if [ \"\$code\" = 200 ]; then echo 200; exit 0; fi; [ -n \"\$code\" ] && last=\"\$code\"; done; done; echo \"\$last\"" 2>/dev/null || echo '000'
 }
 
 remote_git_checkout_freshness() {
-  local host=$1 checkout=$2 branch=${3:-main} user=${SYSTEMD_USER:-magnus}
+  local host=$1 checkout=$2 branch=${3:-main} user=${SYSTEMD_USER:-grimnir}
   local q_checkout q_ref command output local_sha remote_sha
   q_checkout="$(posix_shell_quote "$checkout")"
   q_ref="$(posix_shell_quote "refs/heads/${branch}")"
@@ -116,17 +122,23 @@ remote_git_checkout_freshness() {
   esac
 }
 
+is_local_host() {
+  local candidate=${1:-} short fqdn
+  short="$(hostname -s 2>/dev/null || hostname)"
+  fqdn="$(hostname -f 2>/dev/null || hostname)"
+  [[ -n "$candidate" ]] && {
+    [[ "$candidate" == "$HOSTNAME_VAL" ]] ||
+    [[ "$candidate" == "$short" ]] ||
+    [[ "$candidate" == "$fqdn" ]] ||
+    [[ "${candidate%%.*}" == "$short" ]]
+  }
+}
+
 # ─── Validate mode ────────────────────────────────────────
 # Read-only comparison of registry vs live state.
-# Uses SSH for cross-host checks. Writes results to Munin.
-# Must run on huginmunin (needs SSH access to both Pis).
+# Uses SSH for cross-host checks. Writes results to Munin when configured.
 
 if [[ "$VALIDATE_MODE" == "true" ]]; then
-  if [[ "$HOSTNAME_VAL" != "huginmunin" ]]; then
-    echo "⚠ Validation must run on huginmunin (needs SSH to both Pis)."
-    exit 1
-  fi
-
   # Integrity check + alert helpers for the canonical registry checkout (#47).
   # shellcheck source=scripts/lib/registry-checkout.sh
   # shellcheck disable=SC1091
@@ -162,7 +174,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   while IFS='|' read -r v_name v_host v_port v_repo v_deploy_path v_deploy_mode v_units_json; do
     [[ -z "$v_name" ]] && continue
 
-    # Skip components with no host (laptop-only, e.g. fortnox-mcp)
+    # Skip components with no configured host.
     if [[ -z "$v_host" ]]; then
       RESULTS+="⏭  $v_name: skipped (no host — laptop-only component)\n"
       continue
@@ -173,7 +185,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     COMPONENT_WARN=false
 
     # Determine if host is local or remote
-    if [[ "$v_host" == "huginmunin.local" ]] || [[ "$v_host" == "huginmunin" ]]; then
+    if is_local_host "$v_host"; then
       IS_LOCAL=true
     else
       IS_LOCAL=false
@@ -227,7 +239,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     # Check deployment freshness. git-pull components are live git checkouts;
     # rsync components are stamped by deploy.sh because rsync excludes .git/.
     if [[ -n "$v_repo" ]]; then
-      repo_path="${v_deploy_path:-/home/magnus/repos/$v_repo}"
+      repo_path="${v_deploy_path:-/srv/grimnir/$v_repo}"
       if [[ "$IS_LOCAL" == "true" ]]; then
         if [[ "$v_deploy_mode" == "git-pull" ]]; then
           if ! git -C "$repo_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -284,7 +296,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
           esac
         else
           q_marker="$(posix_shell_quote "$repo_path/.deployed-commit")"
-          remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "if [ -L ${q_marker} ]; then echo marker-symlink; elif [ -f ${q_marker} ]; then printf 'stamped:%s' \"\$(tr -d '\\r\\n' < ${q_marker})\"; else echo marker-missing; fi" 2>/dev/null || echo 'ssh-failed')"
+          remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "${SYSTEMD_USER:-grimnir}@${v_host}" "if [ -L ${q_marker} ]; then echo marker-symlink; elif [ -f ${q_marker} ]; then printf 'stamped:%s' \"\$(tr -d '\\r\\n' < ${q_marker})\"; else echo marker-missing; fi" 2>/dev/null || echo 'ssh-failed')"
           if [[ "$remote_check" == "ssh-failed" ]]; then
             STATUS_LINE+=" deploy:ssh-failed"
             COMPONENT_OK=false
@@ -320,12 +332,12 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")
 
   # ─── Registry checkout integrity (#47) ───────────────────
-  # The canonical grimnir checkout on huginmunin is the source every registry
+  # The canonical Grimnir checkout is the source every registry
   # consumer reads services.json from. If a hugin task strands it on a feature
   # branch, or a deploy leaves the tree dirty, consumers silently read a
   # poisoned registry — the class of the #33 and #44 incidents. Make that
   # alert-worthy. Read-only; overridable via env for a relocated checkout.
-  REGISTRY_CHECKOUT="${GRIMNIR_REGISTRY_CHECKOUT:-$HOME/repos/grimnir}"
+  REGISTRY_CHECKOUT="${GRIMNIR_REGISTRY_CHECKOUT:-$GRIMNIR_DIR}"
   REGISTRY_DEFAULT_BRANCH="${GRIMNIR_DEFAULT_BRANCH:-main}"
   checkout_verdict="$(check_registry_checkout "$REGISTRY_CHECKOUT" "$REGISTRY_DEFAULT_BRANCH")"
   checkout_detail="$(registry_checkout_detail "$checkout_verdict" "$REGISTRY_DEFAULT_BRANCH")"
@@ -434,12 +446,6 @@ $(echo -e "$RESULTS")"
     exit 1
   fi
   exit 0
-fi
-
-# ─── Detect environment (normal mode) ────────────────────────
-if [[ "$HOSTNAME_VAL" != "huginmunin" ]]; then
-  echo "⚠ This script must run on huginmunin (needs systemd, repos, Munin)."
-  exit 1
 fi
 
 # ─── Verify curated source exists ─────────────────────────
@@ -567,7 +573,7 @@ HEALTH_RESULTS=""
 while IFS='|' read -r h_name h_host h_port _h_repo _h_deploy_path _h_deploy_mode _h_units_json; do
   [[ -n "$h_name" && -n "$h_port" ]] || continue
 
-  if [[ "$h_host" == "huginmunin.local" ]] || [[ "$h_host" == "huginmunin" ]]; then
+  if is_local_host "$h_host"; then
     status="$(health_status_local "$h_port")"
   else
     status="$(health_status_remote "$h_host" "$h_port")"

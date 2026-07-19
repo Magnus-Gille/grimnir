@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # registry-checkout.test.sh — unit tests for the registry-checkout integrity
-# helpers (issue #47: the canonical grimnir checkout on huginmunin is the source
+# helpers (issue #47: the canonical Grimnir checkout is the source
 # registry consumers read services.json from; if it drifts off the default
 # branch or goes dirty it silently poisons every consumer — this check makes
 # that state alert-worthy).

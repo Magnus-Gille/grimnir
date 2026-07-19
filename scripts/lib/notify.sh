@@ -1,12 +1,11 @@
 # shellcheck shell=bash
 # ─── Grimnir shared Telegram-notify helper ───────────────────────────────────
 #
-# notify_telegram "message"  → pushes a one-line alert to Magnus's Telegram.
+# notify_telegram "message"  → pushes a one-line operator alert.
 #
 # Preferred path: the Ratatoskr bot's /api/send endpoint, reached over the
-# tailnet with a Bearer key — works from ANY trusted tailnet host (the laptop
-# included), no SSH and no YubiKey required:
-#   POST http://huginmunin:3034/api/send  {chat_id:<number>, text:<string>}
+# private network with a Bearer key:
+#   POST http://ai-core.internal:3034/api/send  {chat_id:<number>, text:<string>}
 #   Authorization: Bearer <RATATOSKR_SEND_API_KEY>
 # Falls back to the direct Telegram Bot API if Ratatoskr is unreachable.
 #
@@ -26,7 +25,7 @@
 
 RATATOSKR_ENV="${RATATOSKR_ENV:-$HOME/repos/ratatoskr/.env}"
 NOTIFY_ENV="${NOTIFY_ENV:-$HOME/.config/grimnir/notify.env}"
-RATATOSKR_URL_DEFAULT="http://huginmunin:3034/api/send"
+RATATOSKR_URL_DEFAULT="http://ai-core.internal:3034/api/send"
 
 # JSON-escape an arbitrary string into a quoted JSON string literal.
 _notify_json_string() {

@@ -1,0 +1,8 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Intentional fake credential fixtures used to verify scanner path exclusions"
+paths = [
+  '''^tests/scripts/test-security-scan-skip\.sh$'''
+]

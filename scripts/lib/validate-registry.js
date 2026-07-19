@@ -2,7 +2,7 @@
 //
 // Usage:
 //   REGISTRY_PATH=/path/to/services.json node --input-type=commonjs scripts/lib/validate-registry.js
-//   REGISTRY_PATH defaults to services.json at the repo root.
+//   REGISTRY_PATH defaults to services.local.json when present, otherwise services.json.
 //
 // Exits 0 and prints a summary when the registry is well-formed and
 // internally consistent. Exits 1 and prints every violation found when not.
@@ -11,8 +11,10 @@
 var fs = require('fs');
 var path = require('path');
 
+var root = path.join(__dirname, '..', '..');
+var localRegistryPath = path.join(root, 'services.local.json');
 var registryPath = process.env.REGISTRY_PATH ||
-  path.join(__dirname, '..', '..', 'services.json');
+  (fs.existsSync(localRegistryPath) ? localRegistryPath : path.join(root, 'services.json'));
 
 var errors = [];
 

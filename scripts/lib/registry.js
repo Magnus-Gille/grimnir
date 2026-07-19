@@ -1,6 +1,7 @@
 // registry.js — Query the Grimnir service registry (services.json)
 //
 // Usage from bash:
+//   QUERY=<query> node --input-type=commonjs scripts/lib/registry.js
 //   REGISTRY_PATH=/path/to/services.json QUERY=<query> node --input-type=commonjs scripts/lib/registry.js
 //
 // Queries:
@@ -14,17 +15,17 @@
 //   all          — full JSON array of all components
 //   nodes        — infra/inference hosts (data.nodes): name|hostname|ssh_alias|role|status|llm|monitor per line
 //   nodes-json   — full JSON array of all nodes (data.nodes)
+//   is-example   — true when the selected registry is the committed public example
 
 var fs = require('fs');
 var path = require('path');
 
-var registryPath = process.env.REGISTRY_PATH;
+var root = path.join(__dirname, '..', '..');
+var localRegistryPath = path.join(root, 'services.local.json');
+var registryPath = process.env.REGISTRY_PATH ||
+  (fs.existsSync(localRegistryPath) ? localRegistryPath : path.join(root, 'services.json'));
 var query = process.env.QUERY;
 
-if (!registryPath) {
-  process.stderr.write('ERROR: REGISTRY_PATH env var not set\n');
-  process.exit(1);
-}
 if (!query) {
   process.stderr.write('ERROR: QUERY env var not set\n');
   process.exit(1);
@@ -62,7 +63,7 @@ switch (query) {
         unitType = c.systemd_units[0].type;
         unitScope = c.systemd_units[0].scope || 'system';
       }
-      var deployPath = c.deploy_path || ('/home/magnus/repos/' + c.repo);
+      var deployPath = c.deploy_path || ('/srv/grimnir/' + c.repo);
       var deployMode = c.deploy_mode || 'rsync';
       process.stdout.write(JSON.stringify({
         name: c.name,
@@ -148,6 +149,10 @@ switch (query) {
     process.stdout.write(JSON.stringify(Array.isArray(data.nodes) ? data.nodes : []) + '\n');
     break;
   }
+  case 'is-example': {
+    process.stdout.write(String(data.public_example === true) + '\n');
+    break;
+  }
   default: {
     // json:<field>=<value> — filter and return JSON
     var match = query.match(/^json:(\w+)=(.+)$/);
@@ -161,7 +166,7 @@ switch (query) {
       process.stdout.write(JSON.stringify(filtered) + '\n');
     } else {
       process.stderr.write('ERROR: Unknown query: ' + query + '\n');
-      process.stderr.write('Valid queries: deploy, scan, components, systemd, ports, validate, all, nodes, nodes-json, json:<field>=<value>\n');
+      process.stderr.write('Valid queries: deploy, scan, components, systemd, ports, validate, all, nodes, nodes-json, is-example, json:<field>=<value>\n');
       process.exit(1);
     }
   }

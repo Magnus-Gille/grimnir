@@ -37,7 +37,7 @@ systemctl_status_severity() {
 }
 
 systemctl_user() {
-  local user=${SYSTEMD_USER:-magnus}
+  local user=${SYSTEMD_USER:-grimnir}
   local uid runtime bus
 
   uid="$(id -u "$user" 2>/dev/null || true)"
@@ -54,7 +54,7 @@ systemctl_user() {
 }
 
 local_systemctl_status() {
-  local scope=$1 action=$2 unit=$3 user=${SYSTEMD_USER:-magnus}
+  local scope=$1 action=$2 unit=$3 user=${SYSTEMD_USER:-grimnir}
   local output
 
   if [[ "$scope" == "user" ]]; then
@@ -67,7 +67,7 @@ local_systemctl_status() {
 }
 
 remote_systemctl_status() {
-  local host=$1 scope=$2 action=$3 unit=$4 user=${SYSTEMD_USER:-magnus}
+  local host=$1 scope=$2 action=$3 unit=$4 user=${SYSTEMD_USER:-grimnir}
   local output command
 
   command=''

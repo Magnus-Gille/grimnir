@@ -1,68 +1,59 @@
-# Grimnir — Conventions
+# Grimnir conventions
 
-## Norse naming
+## Naming
 
-All components are named after figures from Norse mythology, reflecting their role:
+The core names are drawn from Norse mythology:
 
-| Name | Figure | Role in myth | Role in system |
-|------|--------|-------------|----------------|
-| **Grimnir** | Odin (masked) | The all-father | The system as a whole |
-| **Munin** | Odin's raven of memory | Flies out, returns with memories | Persistent memory server |
-| **Hugin** | Odin's raven of thought | Flies out, returns with knowledge | Task dispatcher |
-| **Mimir** | Wisest of the Aesir | Guardian of wisdom's well | File archive |
-| **Heimdall** | Watchman of the gods | Sees all from Bifröst | Monitoring dashboard |
-| **Skuld** | Norn of the future | Shapes what shall be | Daily intelligence briefing |
-| **Ratatoskr** | Squirrel on Yggdrasil | Carries messages between eagle and serpent | Telegram message router |
-| **Verdandi** | Norn of the present | Carves what is happening now | Tamper-evident audit log |
-| **noxctl** | — (not Norse) | — | Fortnox accounting CLI + MCP server |
+| Name | System role |
+|---|---|
+| Grimnir | System architecture and control-plane documentation |
+| Munin | Durable memory |
+| Hugin | Thought and work dispatch |
+| Mimir | File archive |
+| Heimdall | Monitoring and alerting |
+| Brokkr | Machines, storage, patching, and recovery |
 
-## Port assignments, hosts, and deploy paths
+Optional integrations follow the same theme: Ratatoskr carries messages, Skuld produces future-facing
+briefings, and Verdandi records current events. `gille-inference` keeps a descriptive package name so
+its purpose is immediately visible outside the mythology.
 
-> **Source of truth:** [`services.json`](../services.json) in the repo root.
-> All scripts (`deploy.sh`, `security-scan.sh`, `generate-architecture.sh`) read from it.
-> To add or change a service, edit `services.json` — no other files need updating.
+Repository names are lowercase and usually match the component. Munin's repository is
+`munin-memory` to distinguish it from the established Munin monitoring project.
 
-Remote install paths live in `services.json` as `deploy_path`. Most services live under `~/repos/<service-name>/`, but a few have intentional exceptions such as `munin-memory` (`~/munin-memory`) and `mimir` (`~/mimir-server`).
+## Configuration
 
-Deploy all services from the laptop with `make deploy` (from the grimnir repo), or selectively with `make deploy ARGS="munin-memory hugin"`. The centralized script deploys the local working tree via rsync, runs a local build when `needs_build: true`, installs production dependencies on the target host, and restarts primary service units. Declared unit files must be install-ready: the deployer installs the selected `systemd/{unit}` or root `{unit}` bytes without rendering component-specific templates. For worktree-based deploys, pass an explicit source override such as `make deploy ARGS="munin-memory=/tmp/munin-memory-awesome"`.
+- `services.json` is fictional public example data and documents the schema.
+- `services.local.json` is ignored and owns a local deployment when present.
+- `REGISTRY_PATH` explicitly selects another registry for automation and tests.
+- `.env` files and secret-manager references provide credentials; registry files do not.
 
-## GitHub ownership
-
-- **Magnus-Gille** — owns all repos
-- **grimnir-bot** — dedicated machine account for Pi. Added as collaborator on repos Hugin pushes to. Pi authenticates to GitHub exclusively via grimnir-bot SSH key.
-
-## Repo naming
-
-Repos are named after the component, lowercase. The GitHub org matches the operator:
-- `Magnus-Gille/munin-memory`
-- `Magnus-Gille/hugin`
-- `Magnus-Gille/heimdall`
-- `Magnus-Gille/mimir`
-- `Magnus-Gille/fortnox-mcp`
-- `Magnus-Gille/ratatoskr`
-- `grimnir-bot/skuld` (exception: created by Hugin task under bot account)
-
-## Systemd timers
-
-> Timer/service unit names and hosts are defined in [`services.json`](../services.json).
-> This table documents schedules and purposes (not in the registry).
-
-| Timer | Schedule | Purpose |
-|-------|----------|---------|
-| `heimdall-collect.timer` | Every 5 min | Metric collection across both Pis |
-| `heimdall-maintain.timer` | Daily 03:00 | Database maintenance and retention |
-| `skuld.timer` | Daily 06:00 | Morning intelligence briefing |
-| `grimnir-security-scan.timer` | Weekly Sun 03:00 | Dependency audit + secret scan across all repos |
-| `grimnir-validate.timer` | Daily 04:30 | Registry vs live state validation, results to Munin |
-| `brokkr-maintenance-os.timer` | Daily 07:00 | OS patch status (pending security, reboot-required, disk) across all Pis → Munin + Telegram (brokkr repo) |
-| `brokkr-maintenance-deps.timer` | Weekly Mon 02:10 | npm outdated across service repos → Munin (detect+report only) (brokkr repo) |
+All scripts use `scripts/lib/registry.js`. Hard-coded service inventories in consumers are bugs.
 
 ## Service patterns
 
-Every Grimnir service follows these patterns:
-- Node.js 20+, TypeScript strict mode
-- SQLite for any local state (via better-sqlite3)
-- systemd for process management (Restart=always)
-- `/health` endpoint for Heimdall monitoring
-- `.env` file on Pi for secrets (never in git, never overwritten by deploy)
-- Centralized deploy via `grimnir/scripts/deploy.sh` is preferred; per-repo deploy scripts remain for bootstrap or repo-specific extras
+The current components generally use:
+
+- Node.js with strict TypeScript where applicable;
+- SQLite for single-host state;
+- systemd for process and timer management;
+- a bounded health endpoint for monitoring;
+- explicit authentication and input limits at every consequential service boundary;
+- runtime data outside the application checkout;
+- reproducible installs from a committed lockfile.
+
+These are defaults, not compatibility guarantees. A component may choose another implementation when
+its public interface and operational ownership remain clear.
+
+## Deployment
+
+`scripts/deploy.sh` reads the selected registry, validates all records, and then uses rsync or a
+controlled git pull as declared per component. Unit files in component repositories must be ready to
+install; the central deployer does not render private values into tracked files.
+
+For an alternate source worktree, pass `name=/absolute/path`, for example:
+
+```bash
+make deploy ARGS="munin-memory=/tmp/munin-memory-change"
+```
+
+The committed example registry will reject this command until a private registry is configured.

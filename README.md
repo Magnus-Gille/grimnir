@@ -1,54 +1,134 @@
 # Grimnir
 
-Personal AI infrastructure that gives Claude persistent memory, file access, and autonomous task execution across every environment — from a phone on the bus to a terminal at the desk.
+Grimnir is a modular, self-hosted control plane for personal AI. It connects durable memory,
+user-controlled files, asynchronous work, local model inference, monitoring, and host operations
+without requiring one application to own the entire system.
 
-Runs on two Raspberry Pis, a MacBook, and a local M5 inference box. All data stays on your hardware.
+This repository is the architecture and operations layer. Service code lives in the component
+repositories.
 
-## Components
+> **Project status:** early-stage reference implementation. It is useful for studying and adapting,
+> but it is not a turnkey appliance. Interfaces and deployment conventions may still change.
 
-| Component | Role | Repo |
-|-----------|------|------|
-| **Munin** | Persistent memory (MCP server with FTS5 + vector search) | [munin-memory](https://github.com/Magnus-Gille/munin-memory) |
-| **Hugin** | Autonomous task dispatcher | [hugin](https://github.com/Magnus-Gille/hugin) |
-| **Mimir** | Authenticated file server | [mimir](https://github.com/Magnus-Gille/mimir) |
-| **Heimdall** | Monitoring dashboard | [heimdall](https://github.com/Magnus-Gille/heimdall) |
-| **Ratatoskr** | Telegram message router | [ratatoskr](https://github.com/Magnus-Gille/ratatoskr) |
-| **Skuld** | Daily intelligence briefing | [skuld](https://github.com/grimnir-bot/skuld) |
-| **Verdandi** | Tamper-evident audit log | [verdandi](https://github.com/Magnus-Gille/verdandi) |
-| **noxctl** | Fortnox accounting CLI + MCP | [fortnox-mcp](https://github.com/Magnus-Gille/fortnox-mcp) |
-| **Brokkr** | Platform / substrate — hardware park, OS, storage, network, backups | [brokkr](https://github.com/Magnus-Gille/brokkr) |
+## The ecosystem
 
-Brokkr is the **substrate layer** the others run on (peer to this repo, not a service): it owns the boxes, their OS, the NAS backup disk + Time Machine, and hardware-level health. The hardware inventory itself stays canonical in [`services.json`](services.json) (`nodes`).
+| Layer | Component | Responsibility |
+|---|---|---|
+| Control plane | **Grimnir** | Architecture, registry, deployment checks, and cross-service contracts |
+| Knowledge | **[Munin Memory](https://github.com/Magnus-Gille/munin-memory)** | Durable, searchable memory exposed through MCP |
+| Files | **[Mimir](https://github.com/Magnus-Gille/mimir)** | Authenticated access to user-controlled files |
+| Execution | **[Hugin](https://github.com/Magnus-Gille/hugin)** | Queues, gates, and dispatches asynchronous agent work |
+| Inference | **[gille-inference](https://github.com/Magnus-Gille/gille-inference)** | OpenAI-compatible gateway for locally served models |
+| Observability | **[Heimdall](https://github.com/Magnus-Gille/heimdall)** | Health, maintenance, and task visibility |
+| Substrate | **[Brokkr](https://github.com/Magnus-Gille/brokkr)** | Host configuration, storage, backups, patching, and recovery |
 
-All components are named after figures from Norse mythology. See [docs/conventions.md](docs/conventions.md) for the naming guide.
+The seven repositories above are enough to understand the public architecture. Three additional
+roles appear in some design documents and in the example registry:
 
-## This repo
+- **Ratatoskr** is an optional chat or notification adapter.
+- **Skuld** is an optional scheduled briefing producer.
+- **Verdandi** is an optional external audit-event sink.
 
-This is the system-level documentation and operations repository. No service code lives here — each component has its own repo.
+They are integrations, not hidden dependencies. Hugin can be called directly, notifications are
+optional, and the core reversal/audit contract is documented in
+[`docs/failure-recovery.md`](docs/failure-recovery.md).
 
-What's here:
+## How the pieces fit
 
-- **[docs/architecture.md](docs/architecture.md)** — Full system architecture (topology, components, security, data flow)
-- **[docs/conventions.md](docs/conventions.md)** — Naming, ports, service patterns, GitHub ownership
-- **[docs/vision.md](docs/vision.md)** — Where the project is heading
-- **[docs/roadmap-now-decision-brief.md](docs/roadmap-now-decision-brief.md)** — Index of the adopted owner decisions for succession, data lifecycle, ROI/off-ramp, Skuld, and interactive-session trust
-- **[docs/succession-checklist.md](docs/succession-checklist.md)** — Non-secret emergency export-and-shutdown procedure
-- **[docs/data-lifecycle.md](docs/data-lifecycle.md)** — Practical store, retention, correction, and erasure map
-- **[docs/interactive-session-posture.md](docs/interactive-session-posture.md)** — Hugin/fresh-session handoff after untrusted input
-- **[docs/agent-harness-bakeoff-2026-07-08.md](docs/agent-harness-bakeoff-2026-07-08.md)** — Evidence note on open-source, model-agnostic agent harnesses for moving Hugin/Grimnir beyond Claude-only execution
-- **[services.json](services.json)** — Single source of truth for the component inventory (`components`) and the infrastructure/inference-node inventory (`nodes` — hosts, hardware, role, LLM servers). Query via `scripts/lib/registry.js` (`QUERY=nodes`).
-- **[scripts/](scripts/)** — Deploy, security scan, and architecture generation scripts
+```mermaid
+flowchart LR
+  Client[Agent or client] -->|MCP| Munin[Munin Memory]
+  Client -->|authenticated HTTP| Mimir[Mimir]
+  Client -->|submit work| Hugin[Hugin]
+  Hugin -->|read/write context| Munin
+  Hugin -->|OpenAI-compatible API| Inference[gille-inference]
+  Heimdall[Heimdall] -->|health and task state| Hugin
+  Heimdall -->|health and storage state| Munin
+  Brokkr[Brokkr] -. operates hosts, storage, backups .-> Munin
+  Brokkr -.-> Mimir
+  Brokkr -.-> Hugin
+  Grimnir[Grimnir registry and contracts] -. configures .-> Brokkr
+```
 
-## Design principles
+The important boundary is between **agent services** and the **substrate**. Services use explicit
+contracts for memory, inference, mutations, and audit events. Brokkr owns the machines and recovery
+mechanisms. See [`docs/architecture.md`](docs/architecture.md) for the full model.
 
-- **Sovereignty** — All data lives on your hardware. Cloud AI services process but don't store.
-- **Simplicity** — Single-purpose Node.js services. SQLite for storage. systemd for process management. No Kubernetes, no heavy frameworks.
-- **Privacy** — Auth at every layer. Secrets scanned before storage. Sensitive documents summarized in memory, full text stays on the Pi.
+## What is public and what stays local
+
+The committed [`services.json`](services.json) is deliberately fictional example data. It documents
+the schema and a representative topology, and deployment code refuses to use it.
+
+For a real installation:
+
+```bash
+cp services.json services.local.json
+# Set public_example to false and replace every example hostname, path,
+# component choice, account, and unit.
+make test
+make deploy ARGS="munin-memory"
+```
+
+`services.local.json`, `.env` files, operational status, generated deployment snapshots, and logs are
+ignored. Do not publish them. The local registry is selected automatically when present; automation
+can instead set `REGISTRY_PATH` explicitly.
+
+## Repository map
+
+- [`docs/architecture.md`](docs/architecture.md) — layers, trust boundaries, and data flows
+- [`docs/authority.md`](docs/authority.md) — which artifact owns each kind of configuration
+- [`docs/tenant-contract.md`](docs/tenant-contract.md) — minimum contract for an agent or harness
+- [`docs/threat-model.md`](docs/threat-model.md) — assets, threats, and required controls
+- [`docs/data-lifecycle.md`](docs/data-lifecycle.md) — retention, correction, deletion, and backup expiry
+- [`docs/failure-recovery.md`](docs/failure-recovery.md) — reversible autonomous mutation convention
+- [`services.json`](services.json) — safe, non-deployable example registry
+- [`scripts/`](scripts/) — validation, deployment, documentation, and security checks
+
+## Development
+
+The system-level repository has no runtime dependencies. Run its regression suite with:
+
+```bash
+make test
+shellcheck scripts/*.sh scripts/lib/*.sh scripts/tests/*.sh
+```
+
+Run a dry security sweep across locally checked-out components with:
+
+```bash
+make security-dry
+```
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before proposing changes and [`SECURITY.md`](SECURITY.md)
+before reporting a vulnerability. Maintainers should complete
+[`PUBLICATION_CHECKLIST.md`](PUBLICATION_CHECKLIST.md) before changing visibility or announcing a
+release.
+
+## Related projects
+
+Grimnir overlaps with several excellent open-source projects, but its center of gravity is different:
+
+| Project family | Primary focus | Grimnir's emphasis |
+|---|---|---|
+| [OpenClaw](https://github.com/openclaw/openclaw) | Integrated personal assistant and channels | Loosely coupled services with explicit ownership boundaries |
+| [Letta](https://github.com/letta-ai/letta) | Stateful agents and memory | A whole self-hosted fleet: files, jobs, inference, monitoring, and recovery |
+| [Open WebUI](https://github.com/open-webui/open-webui) / [LibreChat](https://github.com/danny-avila/LibreChat) | User-facing model chat | Headless infrastructure that multiple clients and harnesses can use |
+| [OpenHands](https://github.com/All-Hands-AI/OpenHands) / [OpenCode](https://github.com/anomalyco/opencode) | Coding-agent execution | General task dispatch and durable cross-session context |
+| [LiteLLM](https://github.com/BerriAI/litellm) | Model-provider routing | Local model serving as one subsystem inside a broader control plane |
+
+Grimnir is intentionally small-service and operator-controlled: SQLite, systemd, JSON registries,
+and replaceable interfaces rather than a required cluster orchestrator.
+
+## Security and privacy
+
+Self-hosted does not mean isolated. Authoritative data can remain on hardware you control, but prompts
+or files leave that boundary whenever you configure a remote model, tunnel, backup provider, or
+notification service. Each deployment must choose and document its own trust boundaries.
+
+The example configuration is not production-ready. Use per-service authentication, least-privilege
+network exposure, encrypted backups, secret scanning, and tested recovery before storing sensitive
+data.
 
 ## License
 
-This is a personal infrastructure project. The documentation is public for reference; the architecture is specific to one operator.
-
----
-
-*Built by Magnus Gille, with Claude and Codex. Running on local hardware in Mariefred, Sweden.*
+[MIT](LICENSE)

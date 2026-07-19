@@ -34,7 +34,13 @@ SCAN_DATE="$(date -u '+%Y-%m-%d')"
 HOSTNAME_VAL="$(hostname)"
 
 # Read scannable components from the service registry (single source of truth)
-REGISTRY="${REGISTRY_PATH:-$GRIMNIR_DIR/services.json}"
+if [[ -n "${REGISTRY_PATH:-}" ]]; then
+  REGISTRY="$REGISTRY_PATH"
+elif [[ -f "$GRIMNIR_DIR/services.local.json" ]]; then
+  REGISTRY="$GRIMNIR_DIR/services.local.json"
+else
+  REGISTRY="$GRIMNIR_DIR/services.json"
+fi
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 COMPONENTS="$(REGISTRY_PATH="$REGISTRY" QUERY=scan node --input-type=commonjs "$REGISTRY_JS")"
 if [[ -z "$COMPONENTS" ]]; then

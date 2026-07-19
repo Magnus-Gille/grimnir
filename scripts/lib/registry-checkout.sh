@@ -1,8 +1,8 @@
 # shellcheck shell=bash
 # registry-checkout.sh — integrity check for the canonical grimnir checkout.
 #
-# The grimnir checkout on huginmunin (default: ~/repos/grimnir) is the canonical
-# checkout every registry consumer reads. It is now separated from Hugin task
+# The configured Grimnir checkout is the canonical checkout every registry
+# consumer reads. It is separated from Hugin task
 # workspaces and advances via git-pull deploys, but a stray local commit, dirty
 # tree, branch switch, or unreachable origin can still make its services.json
 # untrustworthy. These helpers keep every one of those states explicit.

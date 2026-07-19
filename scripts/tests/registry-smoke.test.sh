@@ -70,8 +70,8 @@ cat > "$TMP_DIR/valid.json" << 'EOF'
   "components": [
     {
       "name": "alpha", "repo": "alpha", "host": "h1.local", "port": 3030,
-      "deploy": true, "scan": true, "deploy_path": "/home/magnus/repos/alpha",
-      "needs_build": true, "persistent_paths": ["/home/magnus/.local/share/alpha"],
+      "deploy": true, "scan": true, "deploy_path": "/srv/grimnir/alpha",
+      "needs_build": true, "persistent_paths": ["/var/lib/grimnir/alpha"],
       "systemd_units": [{ "name": "alpha", "type": "service" }]
     },
     {
@@ -396,22 +396,21 @@ assert_eq "real services.json: Heimdall deploy refreshes boot-check timer compan
 assert_eq "real services.json: Heimdall deploy carries its health port" \
   "3033" "$(deploy_field "$REPO_REGISTRY" heimdall port)"
 
-assert_eq "real services.json: skuld timer deploys via user manager" \
-  "user" "$(deploy_field "$REPO_REGISTRY" skuld unit_scope)"
-
-component_persistent_paths() {  # $1 = registry path, $2 = component name
-  REGISTRY_PATH="$1" COMPONENT_NAME="$2" node --input-type=commonjs -e '
+component_field() {  # $1 = registry path, $2 = component name, $3 = field
+  REGISTRY_PATH="$1" COMPONENT_NAME="$2" COMPONENT_FIELD="$3" node --input-type=commonjs -e '
     var data = require(process.env.REGISTRY_PATH);
     var component = data.components.filter(function (c) { return c.name === process.env.COMPONENT_NAME; })[0];
-    process.stdout.write(JSON.stringify(component && component.persistent_paths || []));
+    if (!component) process.exit(1);
+    var value = component[process.env.COMPONENT_FIELD];
+    process.stdout.write(value !== null && typeof value === "object" ? JSON.stringify(value) : String(value));
   '
 }
-assert_eq "real services.json: Verdandi protects legacy data and declares canonical migration target" \
-  '["/home/magnus/repos/verdandi/data","/home/magnus/.local/share/verdandi"]' \
-  "$(component_persistent_paths "$REPO_REGISTRY" verdandi)"
-
-assert_eq "real services.json: Verdandi deploy carries legacy data exclusion" \
-  '["/data/"]' "$(deploy_field "$REPO_REGISTRY" verdandi rsync_excludes)"
+assert_eq "public services.json: Ratatoskr is not a required deployment" \
+  'false' "$(component_field "$REPO_REGISTRY" ratatoskr deploy)"
+assert_eq "public services.json: Skuld is not a required deployment" \
+  'false' "$(component_field "$REPO_REGISTRY" skuld deploy)"
+assert_eq "public services.json: Verdandi is not a required deployment" \
+  'false' "$(component_field "$REPO_REGISTRY" verdandi deploy)"
 
 cat > "$TMP_DIR/order.json" << 'EOF'
 {

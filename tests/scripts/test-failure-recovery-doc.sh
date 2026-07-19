@@ -3,9 +3,8 @@
 #
 # Regression test for issue #46: docs/failure-recovery.md must exist and
 # define the minimal failure-recovery convention referenced by
-# docs/vision.md's "Failure recovery" open question — every autonomous
-# mutation leaves a reversal recipe (git revert ref, pre-state snapshot, or
-# an explicit "irreversible" flag) plus a Verdandi audit event.
+# the public failure-recovery contract — every autonomous mutation leaves an
+# audit record plus exactly one explicit reversal recipe.
 #
 # This test asserts structural presence of the required concepts, not prose
 # wording — it's a contract check, not a style check.
@@ -49,18 +48,20 @@ echo "Running assertions against $DOC ..."
 
 assert_exists "docs/failure-recovery.md exists" "$DOC"
 
-# The three reversal recipe kinds named in issue #46.
+# The public reversal recipe kinds.
 assert_contains "documents a git-revert reversal recipe" "git revert"
 assert_contains "documents a pre-state snapshot reversal recipe" "pre-state snapshot|snapshot"
+assert_contains "documents a compensating-action reversal recipe" "compensating.action"
 assert_contains "documents an explicit irreversible flag" "irreversible"
 
-# Must tie every mutation to a Verdandi audit event.
-assert_contains "requires a Verdandi audit event per mutation" "verdandi"
+# Must tie every mutation to a deployment-selected audit sink without making
+# an optional repository a hidden dependency.
+assert_contains "requires an audit record per mutation" "audit record"
+assert_contains "keeps Verdandi optional" "verdandi.*optional|optional.*verdandi"
 
-# Must map the convention onto the three Phase-2 actors named in the issue.
-assert_contains "covers auto dependency bumps" "dep(endency)?[ -]bump"
-assert_contains "covers Hugin task-dispatched mutations" "hugin"
-assert_contains "covers doc-fix mutations" "doc(umentation)? fix"
+# Must explain central deployment recovery behavior.
+assert_contains "covers partial deployment state" "rsync is not transactional"
+assert_contains "invalidates acceptance before mutation" "removes the acceptance marker"
 
 echo ""
 if [[ "$FAIL" -eq 0 ]]; then

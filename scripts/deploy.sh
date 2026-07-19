@@ -6,11 +6,18 @@ set -euo pipefail
 # No args = deploy all services. Pass one or more names to deploy selectively.
 # Use name=/path to deploy from a specific local worktree instead of $HOME/repos/<repo>.
 #
-# Service list is read from services.json (the single source of truth).
+# Service list is read from the local registry when present. The committed
+# services.json is deliberately non-deployable example data.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
-REGISTRY="${REGISTRY_PATH:-$GRIMNIR_DIR/services.json}"
+if [[ -n "${REGISTRY_PATH:-}" ]]; then
+  REGISTRY="$REGISTRY_PATH"
+elif [[ -f "$GRIMNIR_DIR/services.local.json" ]]; then
+  REGISTRY="$GRIMNIR_DIR/services.local.json"
+else
+  REGISTRY="$GRIMNIR_DIR/services.json"
+fi
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 REGISTRY_VALIDATOR="$SCRIPT_DIR/lib/validate-registry.js"
 # shellcheck source=scripts/lib/deploy-safety.sh
@@ -20,6 +27,12 @@ source "$SCRIPT_DIR/lib/deploy-safety.sh"
 # network or filesystem mutation occurs before this gate passes.
 if ! REGISTRY_PATH="$REGISTRY" node --input-type=commonjs "$REGISTRY_VALIDATOR"; then
   echo "ERROR: Refusing deploy because registry validation failed" >&2
+  exit 1
+fi
+
+if [[ "$(REGISTRY_PATH="$REGISTRY" QUERY=is-example node --input-type=commonjs "$REGISTRY_JS")" == "true" ]]; then
+  echo "ERROR: Refusing deploy from the committed example registry." >&2
+  echo "Copy services.json to ignored services.local.json, replace every example value, and retry." >&2
   exit 1
 fi
 
@@ -43,7 +56,7 @@ pass=0
 fail=0
 skip=0
 results=()
-DEPLOY_USER="${DEPLOY_USER:-magnus}"
+DEPLOY_USER="${DEPLOY_USER:-grimnir}"
 LOCAL_REPOS_ROOT="${LOCAL_REPOS_ROOT:-$HOME/repos}"
 
 if [[ ! "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
@@ -299,8 +312,8 @@ deploy_service() {
   fi
 
   if [[ "$deploy_mode" == "git-pull" ]]; then
-    # git-pull mode (Option A, docs/role-separation.md): the checkout IS the
-    # deployment. Fast-forward it to origin/main — never force, never rsync —
+    # In git-pull mode the checkout is the deployment target. Fast-forward it
+    # to origin/main — never force, never rsync —
     # so checkout == HEAD == origin/main by construction. A dirty tree or
     # diverged branch fails loudly here and trips the registry-checkout alarm.
     echo "==> Updating ${remote}:${deploy_path} via git pull --ff-only..."

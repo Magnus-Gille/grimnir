@@ -46,20 +46,22 @@ git -C "$TMP_REPO" config user.name "Test"
 
 # Test file: *.test.ts at top level of tests/
 mkdir -p "$TMP_REPO/tests/nested"
-cat > "$TMP_REPO/tests/foo.test.ts" << 'EOF'
+fake_anthropic_key="sk""-ant-api03-FakeAnthropicTestKey1234567890ABCDEFGHIJKLMNOPQRST"
+cat > "$TMP_REPO/tests/foo.test.ts" << EOF
 // Intentional fake key for testing the sensitivity scanner
-const fakeKey = 'sk-ant-api03-FakeAnthropicTestKey1234567890ABCDEFGHIJKLMNOPQRST';
+const fakeKey = '$fake_anthropic_key';
 EOF
 
 # Test file: nested under tests/
-cat > "$TMP_REPO/tests/nested/bar.test.ts" << 'EOF'
-const fakeGHToken = 'ghp_FakeGitHubTokenABCDEFGHIJKLMNOPQRSTUVWX';
+fake_gh_token="ghp""_FakeGitHubTokenABCDEFGHIJKLMNOPQRSTUVWX"
+cat > "$TMP_REPO/tests/nested/bar.test.ts" << EOF
+const fakeGHToken = '$fake_gh_token';
 EOF
 
 # Evaluation fixture (should be skipped via eval/fixtures/* pattern)
 mkdir -p "$TMP_REPO/eval/fixtures"
-cat > "$TMP_REPO/eval/fixtures/pii.jsonl" << 'EOF'
-{"text":"CI echoed GH_TOKEN=ghp_FakeGitHubTokenABCDEFGHIJKLMNOPQRSTUVWX","spans":{}}
+cat > "$TMP_REPO/eval/fixtures/pii.jsonl" << EOF
+{"text":"CI echoed GH_TOKEN=$fake_gh_token","spans":{}}
 EOF
 
 # Non-fixture eval file — NOT a fixture, must be scanned (no secrets in it)

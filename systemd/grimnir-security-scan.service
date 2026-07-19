@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=magnus
-WorkingDirectory=/home/magnus/repos/grimnir
+User=grimnir
+WorkingDirectory=/srv/grimnir/control-plane
 ExecStart=/usr/bin/bash scripts/security-scan.sh
 
 # Timeout — full scan across 7 repos can take a few minutes
@@ -14,7 +14,7 @@ TimeoutStartSec=300
 
 # Sandboxing — needs read access to all repos, write to Munin via HTTP
 ProtectSystem=strict
-ReadOnlyPaths=/home/magnus/repos
+ReadOnlyPaths=/srv/grimnir
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectHome=read-only
