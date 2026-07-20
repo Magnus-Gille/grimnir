@@ -5,6 +5,11 @@
 > validation checks branch/cleanliness plus exact equality with live origin and
 > refuses to re-stamp an unproved checkout. The option analysis below is retained
 > as the decision history for issue #47.
+>
+> Issue #87 extends this single-checkout guard to the full multi-agent
+> worktree lifecycle (stale/dirty/orphaned worktrees across every owned repo,
+> plus a deploy-target role check) — see `docs/worktree-hygiene.md` for the
+> protocol and `scripts/worktree-hygiene-audit.sh` for the audit tool.
 
 ## The problem
 

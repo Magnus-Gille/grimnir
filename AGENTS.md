@@ -78,6 +78,9 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 - `docs/conventions.md` — Naming, GitHub ownership, service patterns
 - `docs/role-separation.md` — Why the canonical grimnir checkout must not double as a deploy target
   or hugin workspace, and the validate check that alarms on drift (issue #47)
+- `docs/worktree-hygiene.md` — Multi-agent worktree/deployment hygiene protocol: stale/dirty/orphaned
+  worktree detection, canonical-checkout and deploy-target role violations, non-destructive
+  remediation recipes, and how to run the audit (`scripts/worktree-hygiene-audit.sh`, issue #87)
 - `docs/observability-and-improvement.md` — How components capture traces, score outputs, and feed the
   self-improving loop
 - `docs/learning-task-contract.md` — Normative Hugin↔M5 learning-evidence seam: field and decision
@@ -122,6 +125,7 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 | `scripts/deploy.sh` | Deploy services to Pi hosts (all or selective) | `make deploy` or `make deploy ARGS="munin-memory"` |
 | `scripts/generate-architecture.sh` | Generate deployment snapshot + full-architecture.md | `make docs` (Pi only) |
 | `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets | `make security` |
+| `scripts/worktree-hygiene-audit.sh` | Read-only audit of stale/dirty/orphaned worktrees, canonical-checkout drift, and deploy-target role violations across owned repos | `scripts/worktree-hygiene-audit.sh` (also wired into `scripts/generate-architecture.sh --validate`); tests via `make test-worktree-hygiene` |
 
 > OS patching (`setup-host-patching.sh`) and maintenance reports (`maintenance-report.sh`) have moved
 > to the `brokkr` repo. Use `make patching` / `make maintenance-os` / `make maintenance-deps` from
