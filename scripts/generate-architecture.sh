@@ -362,6 +362,53 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     fi
   fi
 
+  # ─── Worktree hygiene audit (#87) ─────────────────────────
+  # Extends the canonical-checkout guard above (#47) to the full worktree
+  # lifecycle across every owned repo under $REPOS_DIR: stale worktrees
+  # (branch merged/gone but the tree remains), dirty worktrees holding
+  # uncommitted work, and orphaned/prunable worktree registrations. Read-only
+  # — see scripts/worktree-hygiene-audit.sh for the standalone CLI (with a
+  # deploy-target role check too) and docs/worktree-hygiene.md for the
+  # protocol and non-destructive remediation recipes.
+  # shellcheck source=scripts/lib/worktree-hygiene.sh
+  # shellcheck disable=SC1091
+  source "$SCRIPT_DIR/lib/worktree-hygiene.sh"
+
+  WT_PASS=0
+  WT_FAIL=0
+  shopt -s nullglob
+  for wt_repo_dir in "$REPOS_DIR"/*/; do
+    wt_repo_dir="${wt_repo_dir%/}"
+    [[ -d "$wt_repo_dir/.git" ]] || continue
+    wt_repo_name="$(basename "$wt_repo_dir")"
+
+    while IFS='|' read -r wt_path wt_role wt_verdict wt_branch; do
+      [[ -n "$wt_path" ]] || continue
+      if [[ "$wt_role" == "canonical" ]]; then
+        if [[ "$(registry_checkout_is_alert "$wt_verdict")" == "yes" ]]; then
+          RESULTS+="❌ worktree:$wt_repo_name (canonical): $(registry_checkout_detail "$wt_verdict" "$REGISTRY_DEFAULT_BRANCH") ($wt_path)\n"
+          WT_FAIL=$((WT_FAIL + 1))
+        else
+          WT_PASS=$((WT_PASS + 1))
+        fi
+      else
+        if [[ "$(worktree_verdict_is_issue "$wt_verdict")" == "yes" ]]; then
+          RESULTS+="❌ worktree:$wt_repo_name (linked, branch=${wt_branch:-<detached>}): $(worktree_verdict_detail "$wt_verdict") ($wt_path)\n"
+          WT_FAIL=$((WT_FAIL + 1))
+        else
+          WT_PASS=$((WT_PASS + 1))
+        fi
+      fi
+    done < <(audit_repo_worktrees "$wt_repo_dir" "$REGISTRY_DEFAULT_BRANCH")
+  done
+  shopt -u nullglob
+
+  PASS=$((PASS + WT_PASS))
+  FAIL=$((FAIL + WT_FAIL))
+  if [[ "$WT_FAIL" -eq 0 ]]; then
+    RESULTS+="✅ worktree-hygiene: $WT_PASS worktree(s) clean across $REPOS_DIR\n"
+  fi
+
   # Print results
   echo -e "$RESULTS"
   echo ""
