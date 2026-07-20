@@ -102,6 +102,9 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
   gaps, quick wins, cut list, and corrections log (the source of the 23-ticket fleet program)
 - `docs/threat-model.md` — Consolidated threat model (v0.1): assets, trust boundaries, adversaries,
   and a T1–T11 key-threats table mapped to owning tickets (from the 2026-07-06 blind-spot audit)
+- `docs/autonomous-improvement-design.md` — Design v0.1 for removing the human approval step from
+  the operating loop (owner decision 2026-07-20): reversibility axiom, mechanical promotion
+  predicates, verifier-anchored auto-calibration, watchdog/auto-revert, protected lanes, tier ladder
 - `docs/roadmap-now-decision-brief.md` — Index of the adopted "now" decisions: succession (#65),
   GDPR/data lifecycle (#66), system ROI/off-ramp (#67), Skuld revive-or-cut (#69), interactive-session
   trust posture (#70), and the #58 Verdandi blocker
