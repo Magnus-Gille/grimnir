@@ -48,6 +48,11 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
   the work at quality. No overkill token usage.
 - **Friction becomes tickets.** Papercuts, tool failures, and doc drift encountered during work
   are filed as issues in the owning repo (with `from:grimnir` attribution), not left to evaporate.
+- **Repository visibility changes are owner-only.** Public→private permanently destroys stars and
+  watchers and detaches forks; private→public is unrecallable exposure. No agent flips visibility
+  in either direction without explicit, per-repository owner approval in the current session —
+  containment included. (Learned 2026-07-19/20: an automated containment privatized the
+  long-public munin-memory and erased its community metadata.)
 
 ## Component repos
 
