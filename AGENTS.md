@@ -22,6 +22,38 @@ changes here; `CLAUDE.md` is only a Claude Code import adapter.
 - Do not place credentials, recovery material, private-envelope contents, or private locators in
   git.
 
+## House rules — cross-repo delegation
+
+Roadmap → tickets → implementation → review, with grimnir as the orchestrator:
+
+- **Grimnir owns the roadmap and writes the tickets.** Scoping, prioritization, milestones, and
+  the Grimnir Roadmap board are grimnir-session responsibilities.
+- **Tickets live in the owning repo.** A cross-repo need becomes a GitHub issue in the component's
+  own repository (with `from:grimnir` attribution) — never a direct edit from here.
+- **Implementation happens in the owning repo, by a subagent spawned by the grimnir session.**
+  One task = one subagent = one dedicated worktree in the owning repository.
+- **Spawn subagents into the owning repo** (working directory and instruction files of that repo)
+  so they load the component's own AGENTS.md/CLAUDE.md, conventions, and test setup — not
+  grimnir's.
+- **Subagents deliver completed work as PRs** in the owning repo. No direct pushes to default
+  branches.
+- **Grimnir is the PR review gate.** Prefer a Codex review (sol, high effort) when available;
+  otherwise spawn a dedicated review subagent with suitable context using Fable or Opus.
+  Merge only after review plus green CI.
+- **Always dogfood.** Use M5 for bounded work at every level — orchestrator and subagents alike —
+  while remaining responsible for quality: verify M5 output before it reaches a decision or an
+  artifact. Log every learning durably (Munin friction signals, evidence notes, or ticket
+  comments) so the improvement loop actually receives it.
+- **Conservative subagent sizing.** Spawn subagents with the smallest model/effort that completes
+  the work at quality. No overkill token usage.
+- **Friction becomes tickets.** Papercuts, tool failures, and doc drift encountered during work
+  are filed as issues in the owning repo (with `from:grimnir` attribution), not left to evaporate.
+- **Repository visibility changes are owner-only.** Public→private permanently destroys stars and
+  watchers and detaches forks; private→public is unrecallable exposure. No agent flips visibility
+  in either direction without explicit, per-repository owner approval in the current session —
+  containment included. (Learned 2026-07-19/20: an automated containment privatized the
+  long-public munin-memory and erased its community metadata.)
+
 ## Component repos
 
 > Component inventory (names, hosts, ports, systemd units) is defined in [`services.json`](services.json).
