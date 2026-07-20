@@ -172,6 +172,20 @@ preflight may predate the attempt but must remain fresh at stamp time. Direct an
 and model clocks without inventing gateway admission. Exposure and review/rating clocks are bounded
 by source acceptance and their relevant attempt outcome or experiment observation; equality at a
 boundary is permitted.
+
+**Cross-host clock skew tolerance (v1 clarification, 2026-07-20).** Timestamps in one record are
+stamped by two hosts: Hugin-host clocks (source creation/acceptance, attempt start/end, request
+stamp, `recorded_at`) and gateway-host clocks (preflight advertisement/expiry, gateway admission,
+model start/end). Orderings that compare clocks from *different* hosts carry a bounded skew
+tolerance of exactly **2000 ms**: a conforming implementation MUST accept an otherwise-valid
+cross-host ordering violated by at most the tolerance and MUST reject one violated by more.
+Same-host orderings remain exact with no tolerance. Every freshness/expiry upper bound is
+TIGHTENED by the tolerance (e.g. a stamp is fresh only while `stamped_at` <
+`expires_at` − 2000 ms), so the tolerance can never extend an advertisement's validity window.
+Rationale: the first live joint smokes (2026-07-20) proved zero-tolerance cross-host orderings
+require inter-host clock agreement tighter than one-way network latency, which NTP does not
+provide; both producer and gateway implementations must apply the same bound or the stricter side
+rejects handshakes the other accepts.
 Every dispatched M5 request stamp, including a non-admitted attempt, is also bounded above by the
 known attempt end and record creation; the missing gateway echo never permits a post-hoc stamp.
 

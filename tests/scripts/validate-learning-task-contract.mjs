@@ -6,6 +6,11 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
+// Contract v1 clarification (2026-07-20): bounded cross-host clock skew tolerance. Applied ONLY
+// to orderings comparing a Hugin-host clock with a gateway-host clock; same-host orderings stay
+// exact and freshness/expiry edges are tightened by the tolerance, never extended. See
+// docs/learning-task-contract.md, "Cross-host clock skew tolerance".
+const CLOCK_SKEW_TOLERANCE_MS = 2_000;
 const schema = JSON.parse(fs.readFileSync(path.join(root, "docs/learning-task-contract-v1.schema.json"), "utf8"));
 const positive = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/positive.json"), "utf8"));
 const positiveDerivedDefinitions = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/learning-task-contract/positive-derived.json"), "utf8"));
@@ -638,9 +643,11 @@ function validateTransport(record, errors) {
   if (canonical(preflight.request.requested_capabilities) !== canonical(request.contract_request)
     || canonical(preflight.response.capabilities) !== canonical(request.contract_request)) errors.push("preflight advertisement/request does not bind exact requested revision and features");
   if (preflight.response.authenticated_principal_id !== "service:gille-inference") errors.push("preflight response is not authenticated as gille-inference");
-  if (!(Date.parse(preflight.request.requested_at) <= Date.parse(preflight.response.advertised_at)
-    && Date.parse(preflight.response.advertised_at) <= Date.parse(request.stamped_at)
-    && Date.parse(request.stamped_at) < Date.parse(preflight.response.expires_at))) errors.push("preflight freshness window does not cover request stamp");
+  // Cross-host orderings (Hugin-host requested/stamped vs gateway-host advertised/expires) carry
+  // the contract's bounded skew tolerance; the expiry edge is tightened, never extended.
+  if (!(Date.parse(preflight.request.requested_at) - CLOCK_SKEW_TOLERANCE_MS <= Date.parse(preflight.response.advertised_at)
+    && Date.parse(preflight.response.advertised_at) <= Date.parse(request.stamped_at) + CLOCK_SKEW_TOLERANCE_MS
+    && Date.parse(request.stamped_at) < Date.parse(preflight.response.expires_at) - CLOCK_SKEW_TOLERANCE_MS)) errors.push("preflight freshness window does not cover request stamp");
   if (Date.parse(preflight.response.expires_at) - Date.parse(preflight.response.advertised_at) > 15 * 60 * 1000) errors.push("preflight advertisement cache TTL exceeds 15 minutes");
   if (state === "m5-not-admitted") {
     for (const [name, value] of [
@@ -667,7 +674,9 @@ function validateTransport(record, errors) {
   if (echo.authenticated_principal_id !== request.expected_transport_principal_id) errors.push("gateway authenticated principal does not match expected transport principal");
   const principalBindingSource = { authenticated_principal_id: echo.authenticated_principal_id, request_stamp: request };
   if (echo.principal_binding_digest.digest !== digestCanonical(principalBindingSource)) errors.push("gateway principal binding digest does not bind principal/request identity");
-  if (Date.parse(echo.admitted_at) < Date.parse(request.stamped_at)
+  // stamped_at is a Hugin-host clock and admitted_at a gateway-host clock (cross-host: tolerance);
+  // admitted_at and model_started_at are both gateway-host clocks (same-host: exact).
+  if (Date.parse(echo.admitted_at) < Date.parse(request.stamped_at) - CLOCK_SKEW_TOLERANCE_MS
     || isUnknown(record.execution.model_started_at)
     || Date.parse(echo.admitted_at) > Date.parse(record.execution.model_started_at)) errors.push("gateway admission clock is outside stamp/model-start interval");
 }
