@@ -213,6 +213,20 @@ partial response, endpoint/identity mismatch, or authentication failure selects 
 fails closed. A later request stamp embeds both the exact preflight request and accepted response;
 the gateway echo therefore proves which advertisement authorized the send.
 
+**Additive forward-compatibility (v1 clarification, 2026-07-20).** Every response and record carries
+an integer `schema_version`/`schema_revision` (currently **1**). A producer MAY add new OPTIONAL
+fields to a response or record WITHOUT incrementing that version, provided every previously-required
+field keeps its exact meaning and shape. A consumer MUST therefore ignore unknown fields it does not
+recognize (tolerant/passthrough parsing) and MUST NOT reject a response solely because it carries
+fields absent from the consumer's own schema; a consumer that strict-parses and rejects unknown keys
+is non-conforming. The version increments ONLY for a breaking change — removing a field, changing a
+field's type or meaning, or promoting an optional field to required — at which point consumers pinned
+to the old version fail closed by design. This rule governs the authenticated capability-negotiation
+and admin responses (`GET /v1/capabilities/learning-task`, `POST /admin/task-exposures/lookup`) as
+well as the record kinds, so the gateway can ship additive evidence (new coverage/identity fields)
+without lockstep client redeploys. It is stated explicitly because a strict-parsing consumer crashed
+on additive lookup fields on 2026-07-20 (Hugin #258).
+
 An admitted joined inference uses this stamp-and-echo handshake:
 
 1. Hugin creates `transport.hugin_request_stamp` before dispatch. It contains task instance,
