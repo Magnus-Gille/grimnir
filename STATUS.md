@@ -41,25 +41,36 @@ full stop = `systemctl --user disable --now gille-autonomy-tick.timer` on M5.
   Gate D 84/84 throughout. Final verdict: "No material findings… below the established
   single-host Tier-0 ship bar." Cross-model review is now proven load-bearing for this system.
 
-## In progress / next steps (priority order)
+## Post-close fixes (2026-07-21 late evening — all four close-report warnings resolved)
 
-1. **Watch the first scheduled ticks** (M5 05:30 UTC, Pi 05:00 CEST) — `systemctl --user status
-   gille-autonomy-tick` on M5; exit 3 = unresolved-revert attention state.
-2. Wire `AUTONOMY_NOTIFY_CMD` on M5 to Ratatoskr so adoptions/reverts/tier-changes push to Telegram.
-3. gi#57 — three LOW Sol follow-ups (revert-path only; cannot trigger before Tier 1 + a breach).
-4. hugin#272 — cadence fuel: candidate-pool assembler + gille outcome-export resolver (until then
-   the experiment tick observes/concludes but does not propose).
+- **Notify hook LIVE:** `AUTONOMY_NOTIFY_CMD` on M5 → Ratatoskr `POST /api/send` (Bearer key +
+  owner chat in gille `.env` mode 600; script `/home/magnus/bin/autonomy-notify.sh`, no secrets);
+  live-tested `{"ok":true}`. IaC adoption: gi#58.
+- **Cadence fuel merged+deployed** (h#272, PR #273): registry-backed candidate-pool assembler +
+  gille#8 evidence resolver — the 05:00 tick now genuinely proposes/packages/exports.
+- **Sampler wiring CORRECTION** (h#274, PR #275): #270's sampler had NO production caller (dead
+  config — review miss, caught by the #272 agent). Wired at the dispatch seam after all gates,
+  both lanes record denominators. Implemented headless by Codex (gpt-5.6-sol high) under the new
+  division of labor; 145 files / 2,255 tests. Pi tip `64d9076`. The 10% sampling is NOW real.
+- **Canonical checkouts reconciled:** hugin synced at deployed tip (local STATUS history
+  preserved); gille repointed from the pre-cutover private history to the live clean history
+  (old tip archived as `archive/pre-cutover-main`, tracking `canonical/main`).
+- **Worktrees 84 → 12** (forge-verified merged-PR removals only). Dirty keep flagged:
+  `/private/tmp/gille-5-wiring` (uncommitted leftovers from merged #5 work — needs a look).
+
+## Next steps (priority order)
+
+1. **Watch the first scheduled ticks** (M5 05:30 UTC, Pi 05:02 CEST) — `systemctl --user status
+   gille-autonomy-tick` on M5; exit 3 = unresolved-revert attention state; Telegram push now live.
+2. gi#57 — three LOW Sol follow-ups (revert-path only; cannot trigger before Tier 1 + a breach).
+3. gi#58 — adopt the notify hook into deploy-managed IaC.
+4. Inspect/disposition the dirty `/private/tmp/gille-5-wiring` worktree.
 5. Remaining epic tail: gi#11 (served-model refresh), gi#13 (ground-truth reviewer adoption),
    gi#14 (Verdandi audit events — blocked on verdandi#15), #79, #90, hugin#192 harness campaign.
-6. Worktree cleanup: ~85 registered worktrees across grimnir/gille/hugin from this + prior
-   sessions (many merged/stale). Use the NEW audit: `bash scripts/worktree-hygiene-audit.sh`
-   (read-only; per-item remediation). Not cleaned at close — not explicitly authorized.
 
 ## Blockers
 
-None for the loop itself. Non-blocking: hugin/gille canonical checkouts carry co-tenant dirty
-state (AGENTS/CLAUDE/STATUS mods) — left untouched per git-safety; all session work went through
-dedicated worktrees and PRs.
+None.
 
 ## Verification at close
 
