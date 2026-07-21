@@ -105,6 +105,8 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 - `docs/autonomous-improvement-design.md` — Design v0.1 for removing the human approval step from
   the operating loop (owner decision 2026-07-20): reversibility axiom, mechanical promotion
   predicates, verifier-anchored auto-calibration, watchdog/auto-revert, protected lanes, tier ladder
+- `docs/vision-review-fable-2026-07-09.md` and `docs/vision-review-sol-2026-07-09.md` — Independent
+  Fable + Sol vision/priority reviews from 2026-07-09 that preceded the roadmap-now decisions
 - `docs/roadmap-now-decision-brief.md` — Index of the adopted "now" decisions: succession (#65),
   GDPR/data lifecycle (#66), system ROI/off-ramp (#67), Skuld revive-or-cut (#69), interactive-session
   trust posture (#70), and the #58 Verdandi blocker
