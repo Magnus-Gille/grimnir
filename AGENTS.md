@@ -108,6 +108,10 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 - `docs/roadmap-now-decision-brief.md` — Index of the adopted "now" decisions: succession (#65),
   GDPR/data lifecycle (#66), system ROI/off-ramp (#67), Skuld revive-or-cut (#69), interactive-session
   trust posture (#70), and the #58 Verdandi blocker
+- `docs/verdandi-purpose-reset-2026-07-13.md` — 2026-07-13 purpose-reset evidence note feeding
+  verdandi#21 and draft PR verdandi#22; not authorization to restart Verdandi
+- `docs/verdandi-user-stories-and-product-fit-2026-07-13.md` — 2026-07-13 user-stories and
+  product-fit evidence note feeding verdandi#21 and draft PR verdandi#22; not authorization to restart Verdandi
 - `docs/succession-checklist.md` — Public, non-secret export-and-shutdown checklist for the emergency
   delegate; private-envelope contents stay out of git
 - `docs/data-lifecycle.md` — Store-by-store retention, correction, erasure, and backup-expiry map
