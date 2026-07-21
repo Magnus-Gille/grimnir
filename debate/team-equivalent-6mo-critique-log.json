@@ -1,0 +1,190 @@
+[
+  {
+    "id": "team-equivalent-6mo-C01",
+    "source": "codex-round-1",
+    "text": "The counterfactual is not well-posed. The draft oscillates between 'nobody would have built this' (asserting an invented 80% figure) and pricing full functional reproduction. Different readings change the answer by multiples.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true
+  },
+  {
+    "id": "team-equivalent-6mo-C02",
+    "source": "codex-round-1",
+    "text": "'TantRagnar' is another human, so the 'Magnus+AI authored only' heading is invalidated and any component estimate anchored to those counts is void.",
+    "classification": "invalid",
+    "impact": "rejected",
+    "severity": "critical",
+    "caught_by_self_review": false,
+    "note": "REFUTED. 'TantRagnar' is Magnus's own former git identity (a personal address under a previous surname): 59/63 commits carry Co-Authored-By: Claude, repos are github.com/Magnus-Gille/*, identity switches to 'Magnus Gille' in Feb 2026 with the global git config, and the owner confirmed it in-session. Codex inferred a third party from a surname in an email without verifying, then called it decisive. It retracted fully in round 2. Measured non-Magnus contamination: 6 of 2,634 commits (0.2%)."
+  },
+  {
+    "id": "team-equivalent-6mo-C03",
+    "source": "codex-round-1",
+    "text": "The commit counts were never author-filtered: repos with zero Magnus commits were excluded, but every commit inside surviving repos was counted regardless of author.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "note": "The underlying methodological point beneath the false C02. Real error; corrected via explicit identity-set classification. Aggregate impact turned out to be 0.2%."
+  },
+  {
+    "id": "team-equivalent-6mo-C04",
+    "source": "codex-round-1",
+    "text": "The '300-500k real code + docs' figure is a discretionary discount presented as a measurement, with no file-type rules or manifest.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "note": "Measured instead of guessed. Final-state standing artifact: 670,879 lines (526,233 src + 144,646 docs). The original guess was ~40% low."
+  },
+  {
+    "id": "team-equivalent-6mo-C05",
+    "source": "codex-round-1",
+    "text": "The 8-FTE headline does not reconcile with the 29-45 PM table: 37 PM / 6 months = 6.2 FTE, and 8 FTE would supply 48 PM, above the table's own upper bound.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": true,
+    "note": "The single change that actually moved the headline (8 -> 6). Conflated 'FTE of productive output' with 'heads you would hire'. Now stated with the utilization step shown."
+  },
+  {
+    "id": "team-equivalent-6mo-C06",
+    "source": "codex-round-1",
+    "text": "The 10-20x multiplier's denominator (Magnus's 0.3-0.5 FTE) is admitted to be unmeasured; the numeric claim should be removed.",
+    "classification": "valid",
+    "impact": "partially_changed",
+    "severity": "major",
+    "caught_by_self_review": true,
+    "note": "Diagnosis accepted, remedy rejected. Measured via commit-session clustering: 556h (512-608h) = ~0.5 FTE = 3.2 PM -> ~12x. Downgraded from 'measured' to 'hypothesis, likely conservative' after C13."
+  },
+  {
+    "id": "team-equivalent-6mo-C07",
+    "source": "codex-round-1",
+    "text": "There is no deliverable/deployment/acceptance ledger. Components are priced by what was built, not by what actually runs. Verdandi is dead (97k+ restarts) while other services are live with passing suites.",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "critical",
+    "caught_by_self_review": false,
+    "note": "THE open gap. Not closed in this debate. Both sides agree it is the highest-value next step and that it likely moves the estimate DOWN."
+  },
+  {
+    "id": "team-equivalent-6mo-C08",
+    "source": "codex-round-1",
+    "text": "The 'honesty caveats' are performative: each names a real risk and then changes nothing. The headline and the narrow range survive them untouched.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "note": "The sharpest meta-point in the debate. Became the standard the revision was held to: a caveat that does not move the number is decoration."
+  },
+  {
+    "id": "team-equivalent-6mo-C09",
+    "source": "codex-round-1",
+    "text": "The bottom-up PM table is activity-shaped judgment, not bottom-up estimation: no WBS, acceptance criteria, reference class, or independent estimator. Rejecting bad alternatives (LOC, COCOMO) is not evidence for the chosen numbers.",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": true,
+    "note": "Stands unresolved. The 37 PM numerator never moved during the debate; only its conversion to FTE was corrected."
+  },
+  {
+    "id": "team-equivalent-6mo-C10",
+    "source": "codex-round-1",
+    "text": "Do not publish 8-FTE or 10-20x as findings; they are at most pre-audit priors pending a frozen dataset, completion ledger, WBS, blind two-estimator calibration, and prospective time-tracking.",
+    "classification": "partially_valid",
+    "impact": "partially_changed",
+    "severity": "major",
+    "caught_by_self_review": true,
+    "note": "Codex softened in round 2 ('my round-1 wording was too categorical for the conversational stakes'). Cheap audit performed; full WBS rejected as disproportionate to a conversational question. Both sides converged on: quote the number, stamp it low-confidence, name the scenario."
+  },
+  {
+    "id": "team-equivalent-6mo-C11",
+    "source": "codex-round-2",
+    "text": "The LOC reverse cross-check is arithmetically wrong: at its own stated rates, 120-180k lines implies 60-180 person-months, not the 6-16 developer-months claimed. Off by an order of magnitude.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "critical",
+    "caught_by_self_review": false,
+    "note": "The best catch of the debate. Verified: 120k/100 = 1,200 dev-days = 60 PM; 180k/50 = 3,600 dev-days = 180 PM. This was Claude's flagship self-criticism (the argument offered AGAINST its own headline) and it was broken. Withdrawn entirely. Correcting it removes the strongest support for the low-end scenario."
+  },
+  {
+    "id": "team-equivalent-6mo-C12",
+    "source": "codex-round-2",
+    "text": "The audit did not move the 37-PM numerator. The 8-to-6 change was the arithmetic correction demanded in round 1, not empirical calibration. Claiming 'the audit did that, not the argument' is misleading.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "note": "Conceded outright. The audit validated the CORPUS (provenance, volume, authorship); it did not validate the EFFORT TABLE. Claude blurred the two and took credit for the reviewer's argument."
+  },
+  {
+    "id": "team-equivalent-6mo-C13",
+    "source": "codex-round-2",
+    "text": "'Active hours at keyboard' is an unsupported relabeling of commit-span time. In an agentic workflow, inter-commit gaps may be agent runtime, not human attention. The claimed 'roughly a wash' between over- and under-counting is asserted without evidence.",
+    "classification": "valid",
+    "impact": "partially_changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "note": "Accepted; 0.54 FTE downgraded from 'measured' to 'bounded activity estimate, factor-of-two uncertainty'. Claude's counter (the dominant bias - charging agent runtime to Magnus - makes the multiplier CONSERVATIVE, not merely uncertain) was not rebutted."
+  },
+  {
+    "id": "team-equivalent-6mo-C14",
+    "source": "codex-round-2",
+    "text": "Final-state LOC is temporally mismatched: 'current HEAD today' may include pre-window code and post-window changes, so it is not a six-month delta.",
+    "classification": "invalid",
+    "impact": "rejected",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "note": "REFUTED by measurement: all 44 repos in the corpus had their FIRST commit inside the window. There is no pre-window baseline to subtract; standing code is six-month output."
+  },
+  {
+    "id": "team-equivalent-6mo-C15",
+    "source": "codex-round-2",
+    "text": "Commit dedup does not imply tree dedup. Divergent duplicate checkouts (gille-inference/home-server-inference-evaluation, hugin/hugin-orchestrator) mean much of the standing artifact may be double-counted.",
+    "classification": "invalid",
+    "impact": "rejected",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "note": "REFUTED by measurement: blob-hashing every source/doc file across all 44 repos found 1,008 cross-repo duplicate lines (0.1%), not 'much'. hugin-orchestrator is a git WORKTREE (.git is a file) and was already excluded by construction. Real pair, already handled."
+  },
+  {
+    "id": "team-equivalent-6mo-C16",
+    "source": "codex-round-2",
+    "text": "The 'frozen evidence base' is not frozen: no per-repo HEAD SHAs, no identity set, no commands, no classification rules. And the Magnus commit total is internally inconsistent (2,477 in the corpus section vs 2,481 in the session analysis).",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "note": "Fixed. Wrote one canonical script (scripts/output-audit.py) emitting debate/team-equivalent-6mo-manifest.json with every repo's HEAD SHA, identity sets, and dedup rules. Reconciled total: 2,481 Magnus commits."
+  },
+  {
+    "id": "team-equivalent-6mo-C17",
+    "source": "codex-round-2",
+    "text": "The hire range discards its own endpoints: 4.8-7.5 productive FTE at 75-80% utilization is 6-10 heads, not 7-9.",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false
+  },
+  {
+    "id": "team-equivalent-6mo-C18",
+    "source": "codex-round-2",
+    "text": "The session sensitivity endpoints (416-755h) do not follow the stated algorithm; holding lead-in fixed and varying only the gap yields ~512-608h.",
+    "classification": "partially_valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "note": "Both computations are correct but measure different things: Claude co-varied gap AND lead-in (labeled as such); Codex varied only the gap. Codex's is the more honest single-parameter sensitivity - co-varying manufactures a wider band. Adopted 512-608h."
+  },
+  {
+    "id": "team-equivalent-6mo-C19",
+    "source": "codex-round-2",
+    "text": "Scenarios A/B/C are better separated but still not well-posed as estimands: each equivocates over what is supplied on day one, what may be substituted (OSS/SaaS), and what counts as done.",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "note": "Accepted as framing rather than calibrated intervals. Blocked on the same missing artifact as C07 (the acceptance ledger)."
+  }
+]

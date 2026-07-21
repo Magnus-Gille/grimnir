@@ -105,9 +105,15 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 - `docs/autonomous-improvement-design.md` — Design v0.1 for removing the human approval step from
   the operating loop (owner decision 2026-07-20): reversibility axiom, mechanical promotion
   predicates, verifier-anchored auto-calibration, watchdog/auto-revert, protected lanes, tier ladder
+- `docs/vision-review-fable-2026-07-09.md` and `docs/vision-review-sol-2026-07-09.md` — Independent
+  Fable + Sol vision/priority reviews from 2026-07-09 that preceded the roadmap-now decisions
 - `docs/roadmap-now-decision-brief.md` — Index of the adopted "now" decisions: succession (#65),
   GDPR/data lifecycle (#66), system ROI/off-ramp (#67), Skuld revive-or-cut (#69), interactive-session
   trust posture (#70), and the #58 Verdandi blocker
+- `docs/verdandi-purpose-reset-2026-07-13.md` — 2026-07-13 purpose-reset evidence note feeding
+  verdandi#21 and draft PR verdandi#22; not authorization to restart Verdandi
+- `docs/verdandi-user-stories-and-product-fit-2026-07-13.md` — 2026-07-13 user-stories and
+  product-fit evidence note feeding verdandi#21 and draft PR verdandi#22; not authorization to restart Verdandi
 - `docs/succession-checklist.md` — Public, non-secret export-and-shutdown checklist for the emergency
   delegate; private-envelope contents stay out of git
 - `docs/data-lifecycle.md` — Store-by-store retention, correction, erasure, and backup-expiry map
@@ -127,6 +133,7 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 |--------|---------|----------|
 | `scripts/deploy.sh` | Deploy services to Pi hosts (all or selective) | `make deploy` or `make deploy ARGS="munin-memory"` |
 | `scripts/generate-architecture.sh` | Generate deployment snapshot + full-architecture.md | `make docs` (Pi only) |
+| `scripts/output-audit.py` | Audit owner+AI repository output over a date window | `python3 scripts/output-audit.py` (reads an untracked local identities config; see `scripts/output-audit-identities.example.json`) |
 | `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets | `make security` |
 | `scripts/worktree-hygiene-audit.sh` | Read-only audit of stale/dirty/orphaned worktrees, canonical-checkout drift, and deploy-target role violations across owned repos | `scripts/worktree-hygiene-audit.sh` (also wired into `scripts/generate-architecture.sh --validate`); tests via `make test-worktree-hygiene` |
 
