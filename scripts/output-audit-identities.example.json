@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to ~/.config/grimnir/output-audit-identities.json and fill in real addresses. Never commit the filled-in file — it may contain private/historical identities.",
+  "owner": ["you@example.com", "you@your-domain.tld", "old-identity@example.com", "12345+You@users.noreply.github.com"],
+  "agent": ["your-bot@example.com", "noreply@anthropic.com"],
+  "ci": ["49699333+dependabot[bot]@users.noreply.github.com", "github-actions[bot]@users.noreply.github.com", "fluxcdbot@users.noreply.github.com"]
+}
