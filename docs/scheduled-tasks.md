@@ -53,7 +53,7 @@ All scheduled tasks run on Pi 1 (huginmunin) via systemd timers, except where no
 |-------|-------|
 | **Schedule** | Daily 06:00 UTC (+5 min jitter) |
 | **Unit** | `skuld.timer` / `skuld.service` |
-| **Repo** | `skuld` (grimnir-bot org) |
+| **Repo** | `skuld` (Magnus-Gille) |
 | **Purpose** | Synthesize calendar, project state, and Munin context into a morning briefing via Claude API |
 | **Output** | Munin: `briefings/daily/{date}` and `briefings/latest`; Heimdall renders `/briefing` |
 | **Why it exists** | Morning orientation — what's on today, what changed overnight, what needs attention |

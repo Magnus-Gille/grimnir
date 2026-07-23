@@ -537,8 +537,8 @@ repository_authority_rows="$(
 assert_eq "Heimdall checkout authority is canonical public repo" \
   "heimdall|Magnus-Gille/heimdall" \
   "$(printf '%s\n' "$repository_authority_rows" | grep '^heimdall|')"
-assert_eq "Skuld checkout retains its owner exception" \
-  "skuld|grimnir-bot/skuld" \
+assert_eq "Skuld checkout uses the default canonical owner" \
+  "skuld|Magnus-Gille/skuld" \
   "$(printf '%s\n' "$repository_authority_rows" | grep '^skuld|')"
 assert_eq "Gille Inference canonical checkout maps to public authority" \
   "gille-inference|Magnus-Gille/gille-inference" \

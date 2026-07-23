@@ -24,6 +24,7 @@ FAIL=0
 
 TEST_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPTS_DIR="$(dirname "$TEST_DIR")"
+RUNBOOK_DOC="$SCRIPTS_DIR/../docs/worktree-hygiene.md"
 
 # shellcheck source=scripts/lib/worktree-hygiene.sh
 # shellcheck disable=SC1091
@@ -457,6 +458,22 @@ set -e
 
 assert_eq "CLI exits 0 on a fully clean fixture root" "0" "$clean_rc"
 assert_contains "CLI reports 0 issues on the clean fixture" "$clean_output" "0 issues"
+
+# ── Canonical-origin reconciliation runbook ───────────────────────────────
+# The ancestry preflight must run against the checkout being reconciled, not
+# whatever repository happens to be the operator's current directory.
+echo "origin reconciliation runbook documentation tests"
+echo "================================================="
+step_three="$(sed -n '/^3\. Fetch the candidate tip/,/^4\. Only after/p' "$RUNBOOK_DOC")"
+assert_contains "runbook ancestry fetch scopes the checkout" "$step_three" \
+  "git -C /path/to/checkout fetch --no-tags"
+
+unscoped_step_three_git="$(
+  printf '%s\n' "$step_three" |
+    grep -E 'git (fetch|rev-parse|merge-base)' |
+    grep -v 'git -C /path/to/checkout' || true
+)"
+assert_eq "runbook ancestry commands never use the operator cwd" "" "$unscoped_step_three_git"
 
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
