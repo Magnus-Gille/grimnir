@@ -1,0 +1,9 @@
+{
+  "mixed_version": { "kind": "placement-intent", "schema_version": "v2" },
+  "stale_evidence": { "kind": "node-capability", "schema_version": "v1", "node_id": "fixture-old", "observed_at": "2026-07-23T08:00:00Z", "valid_until": "2026-07-23T09:00:00Z" },
+  "missing_hook": { "kind": "workload-requirement", "schema_version": "v1", "workload_id": "fixture-no-drain", "hooks": [{ "name": "preflight", "mode": "read_only" }] },
+  "replayed_result": { "attempt_id": "attempt-001", "idempotency_key": "idem-001", "hook_result": { "attempt_id": "attempt-other", "idempotency_key": "idem-001" } },
+  "incompatible_placement": { "node_architecture": "arm64", "workload_supported_architectures": ["x86_64"] },
+  "unexpected_drift": { "outcome": "promoted", "drift": "unexpected" },
+  "privacy_adversarial": { "node_id": "192.168.1.10", "wifi_ssid": "Home Secret WiFi", "private_path": "/Users/alice/.ssh/id_ed25519", "token": "password=do-not-publish" }
+}
