@@ -1,6 +1,6 @@
 # ADR-007: Node/Substrate authority and reconciliation
 
-- **Status:** proposed — schema implementation remains blocked on the required owner reviews
+- **Status:** accepted
 - **Date:** 2026-07-23
 - **Decision owner:** Grimnir system architecture
 - **Component reviewers required:** Brokkr and the first workload owners that consume the schema
@@ -182,11 +182,18 @@ operational ownership, not an exemption from audit.
 - Existing operational facts remain observed or manual until a producer emits versioned evidence;
   documentation is not a live inventory.
 
-## Review gate
+## Review record and schema gate
 
-This ADR is not accepted, and schemas derived from it are not stable, until the Brokkr owner and
-the owners of the first workload consumers review the boundary. Implementation tickets must cite
-this ADR and carry positive, mixed-version and adversarial fixtures before enabling live mutation.
+The boundary was accepted on 2026-07-23 after independent Brokkr-owner and first workload-owner
+(Mimir) reviews. The Brokkr review found and required three corrections before passing: planned
+versus unexpected drift, attempt-bound/idempotent hook results with compensation, and an explicit
+partial-substrate rollback path. The Mimir review passed the component-ownership, persistent-data,
+hook, private-overlay and workload-rollback boundary. Root review and bounded M5 classifications
+were additional evidence, not substitutes for those owner reviews.
+
+Implementation tickets must cite this ADR and carry positive, mixed-version and adversarial
+fixtures before enabling live mutation. Acceptance of this authority model does not itself freeze
+a schema version or authorize a production relocation.
 
 ## Non-goals
 

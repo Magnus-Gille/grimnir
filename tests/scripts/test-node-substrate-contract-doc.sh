@@ -22,6 +22,7 @@ assert_contains() {
 
 echo "Running Node/Substrate Contract documentation assertions..."
 assert_contains "$ADR" "ADR exists" '^# ADR-007:'
+assert_contains "$ADR" "records accepted status" '^\- \*\*Status:\*\* accepted$'
 assert_contains "$ADR" "assigns Grimnir desired-state authority" 'Grimnir.*desired'
 assert_contains "$ADR" "assigns Brokkr observed-state authority" 'Brokkr.*observed'
 assert_contains "$ADR" "keeps component hooks component-owned" 'Owning component.*hook|component owner.*hook'
