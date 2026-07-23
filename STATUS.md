@@ -15,7 +15,7 @@ or `systemctl --user disable --now gille-autonomy-tick.timer` on M5.
 
 ## Active draft PR (2026-07-23)
 
-- **#110 / issue #107 — host-specific systemd runtime rendering:** draft PR head
+- **#110 / issue #107 — host-specific systemd runtime rendering:** implementation commit
   `378f7a45560795e23f6824dad6290482c8f0ba0f` adds registry-owned runtime
   user/home/deploy target rendering, private environment-file preservation, fail-before-restart
   unit/path preflight, network-boundary health acceptance, markerless failure regression, and
