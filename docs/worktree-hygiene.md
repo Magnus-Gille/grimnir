@@ -123,14 +123,14 @@ anything.
    separate, explicit project.
 
    ```bash
-   git fetch --no-tags https://github.com/OWNER/REPOSITORY.git main
-   candidate=FETCH_HEAD
+   git -C /path/to/checkout fetch --no-tags https://github.com/OWNER/REPOSITORY.git main
+   candidate="$(git -C /path/to/checkout rev-parse FETCH_HEAD)"
 
-   if test "$(git rev-parse main)" = "$(git rev-parse "$candidate")"; then
+   if test "$(git -C /path/to/checkout rev-parse main)" = "$candidate"; then
      echo 'safe: identical histories'
-   elif git merge-base --is-ancestor main "$candidate"; then
+   elif git -C /path/to/checkout merge-base --is-ancestor main "$candidate"; then
      echo 'safe: candidate contains local main; local checkout is stale'
-   elif git merge-base --is-ancestor "$candidate" main; then
+   elif git -C /path/to/checkout merge-base --is-ancestor "$candidate" main; then
      echo 'STOP: candidate is behind local main; an ordinary push would advance it'
      exit 1
    else
