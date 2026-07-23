@@ -1,11 +1,11 @@
 # Grimnir System — Status
 
 **Last session:** 2026-07-23 (Codex) — ecosystem stabilization sweep
-**Deployed Grimnir revision:** `8a06a5d`
+**Deployed Grimnir revision:** `b371f2d`
 
 ## The headline
 
-Ten stability PRs across Grimnir, Gille Inference, Brokkr, Heimdall, and Mimir are merged,
+Eleven stability PRs across Grimnir, Gille Inference, Brokkr, Heimdall, and Mimir are merged,
 deployed, and live-verified. The sweep focused on explicit runtime identity, fail-closed
 deployment boundaries, preserved state, truthful health checks, and visible repository drift.
 Munin Memory implementation was explicitly excluded.
@@ -25,8 +25,11 @@ Munin Memory implementation was explicitly excluded.
 - Grimnir PR #111: desired runtime state is distinct from deployment applicability.
 - Grimnir PR #113: repository authority is machine-readable and canonical-origin drift is now
   reported read-only. The deployed audit reproduced current local mismatches without mutation.
-- High-value follow-ups filed: #114 binds deploy invocations to the expected source revision;
-  #115 safely reconciles origin-authority findings.
+- Grimnir PR #117: centralized and arbitrary owning-repository deploy commands now bind the
+  physical worktree and immutable expected revision before mutation. Its own production deploy
+  passed the new expected/actual source and `origin/main` gates.
+- Follow-ups: #115 safely reconciles origin-authority findings; gille-inference#69 and brokkr#24
+  adopt the same expected-revision requirement directly at their owning-repo entry points.
 
 ## Important incidents and learnings
 
@@ -42,8 +45,8 @@ Munin Memory implementation was explicitly excluded.
 
 ## Next steps (priority order)
 
-1. Implement high-priority deploy source binding in Grimnir #114.
-2. Inspect and reconcile repository origins reported by #115, preserving predecessor history.
+1. Adopt the source-binding contract directly in Gille Inference #69 and Brokkr #24.
+2. Inspect and reconcile repository origins reported by Grimnir #115, preserving predecessor history.
 3. Schedule the pending M5 kernel reboot and Raspberry Pi firmware updates when active work can
    tolerate interruption.
 4. Watch NAS storage (86% used, 261 GB free) and confirm Time Machine completion from the client.
@@ -56,8 +59,8 @@ agents and services were active.
 
 ## Verification at close
 
-- All ten PRs merged with green CI and independent root review; M5 was attempted on every lane.
-- Grimnir control Pi: checkout and deploy marker both `8a06a5d`; validation timer active.
+- All eleven PRs merged with green CI and independent root review; M5 was attempted on every lane.
+- Grimnir control Pi: checkout and deploy marker both `b371f2d`; validation timer active.
 - Gille/M5: exact accepted marker; system gateway and autonomy timer active; health green.
 - Heimdall: four runtime units/timers active; manual maintenance successful; database healthy.
 - Brokkr/NAS: maintenance timers active, push health 200, no failed units.
