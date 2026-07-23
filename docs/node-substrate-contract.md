@@ -9,7 +9,7 @@ implements Grimnir #102. It defines four public-safe records:
 - `lifecycle-result` — one attempt's bound decision evidence and recovery state.
 
 The canonical schema is [`node-substrate-contract-v1.schema.json`](node-substrate-contract-v1.schema.json).
-Fixtures and their hermetic semantic validation live under
+Fixtures, normative-schema validation, and semantic validation live under
 [`tests/fixtures/node-substrate-contract`](../tests/fixtures/node-substrate-contract) and
 [`tests/scripts/validate-node-substrate-contract.mjs`](../tests/scripts/validate-node-substrate-contract.mjs).
 
@@ -36,3 +36,7 @@ a verified substrate rollback before retry. Both conditions are represented as `
 
 The schema and fixtures are an interoperability boundary only. They do not define hook commands,
 network locations, credentials, host paths, or any mechanism that can execute a mutation.
+
+The neutral fixture-set manifest identifies a shared input that Brokkr, Hugin, and Mimir can
+consume. It does **not** claim that those repositories already implement a consumer; their
+adoption is downstream owner work.

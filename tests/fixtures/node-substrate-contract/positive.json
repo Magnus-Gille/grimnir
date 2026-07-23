@@ -3,7 +3,7 @@
     {
       "kind": "node-capability", "schema_version": "v1", "node_id": "fixture-m5", "observed_at": "2026-07-23T10:00:00Z", "valid_until": "2026-07-23T11:00:00Z",
       "evidence": { "evidence_id": "obs-m5-001", "producer": "brokkr", "observed_at": "2026-07-23T10:00:00Z", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-      "capability_status": "known", "architecture": "arm64", "resources": { "cpu_cores": 10, "memory_mib": 16384 }, "uptime_class": "always_on", "network_capabilities": ["wired", "tailnet"],
+      "capability_status": "known", "architecture": "arm64", "resources": { "cpu_cores": 10, "memory_mib": 16384 }, "uptime_class": "always_on", "network_capabilities": ["wired", "wifi", "tailnet"],
       "logical_storage": [{ "class": "local_ssd", "available_mib": 500000, "status": "known" }], "service_manager": "launchd", "deployment_mechanisms": ["guarded_deploy"], "health_reporting": "supported", "extensions": []
     },
     {
@@ -20,7 +20,7 @@
     },
     {
       "kind": "lifecycle-result", "schema_version": "v1", "result_id": "result-001", "attempt_id": "attempt-001", "plan_id": "plan-001", "plan_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "desired_revision": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "observation_evidence_id": "obs-m5-001", "action": "relocate", "deadline": "2026-07-23T10:30:00Z", "idempotency_key": "idem-001", "phase": "verify", "outcome": "promoted", "drift": "planned", "created_at": "2026-07-23T10:10:00Z",
-      "hook_results": [{ "result_id": "hook-verify-001", "hook": "verify", "attempt_id": "attempt-001", "plan_id": "plan-001", "desired_revision": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "observation_evidence_id": "obs-m5-001", "action": "relocate", "deadline": "2026-07-23T10:30:00Z", "idempotency_key": "idem-001", "outcome": "success" }], "substrate": { "outcome": "success", "rollback": "not_needed", "pre_state_evidence_id": "obs-m5-001" }, "extensions": []
+      "hook_results": [{ "result_id": "hook-verify-001", "hook": "verify", "attempt_id": "attempt-001", "plan_id": "plan-001", "plan_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "desired_revision": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "observation_evidence_id": "obs-m5-001", "action": "relocate", "deadline": "2026-07-23T10:30:00Z", "idempotency_key": "idem-001", "outcome": "success" }], "substrate": { "outcome": "success", "rollback": "not_needed", "pre_state_evidence_id": "obs-m5-001" }, "extensions": []
     }
   ]
 }
