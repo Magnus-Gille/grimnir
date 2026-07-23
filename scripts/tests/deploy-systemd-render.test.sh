@@ -45,15 +45,17 @@ printf '%s\n' 'PRIVATE_LISTENER=tailnet-only-value' > "$PRIVATE_ENV"
 printf '%s\n' 'exit 0' > "$DEPLOY_TARGET/server.sh"
 chmod +x "$DEPLOY_TARGET/server.sh"
 printf '%s\n' 'Environment=PRIVATE_LISTENER=legacy-private-value' > "$SYSTEM_ROOT/alpha.service"
+EXEC_SYMLINK="$TMP_DIR/system-sh"
+ln -s /bin/sh "$EXEC_SYMLINK"
 
-cat > "$DEPLOY_TARGET/systemd/alpha.service" << 'EOF'
+cat > "$DEPLOY_TARGET/systemd/alpha.service" << EOF
 [Unit]
 Description=Clean-install template
 [Service]
 User=<user>
 WorkingDirectory=<deploy-path>
 EnvironmentFile=<deploy-path>/.env
-ExecStart=/bin/sh <deploy-path>/server.sh
+ExecStart=$EXEC_SYMLINK <deploy-path>/server.sh
 ReadWritePaths=<home>/state
 EOF
 
@@ -93,6 +95,7 @@ assert_file_contains "private environment path is retained" "$rendered_unit" "En
 assert_file_contains "sandbox path is rendered" "$rendered_unit" "ReadWritePaths=$SANDBOX_PATH"
 assert_file_contains "previous installed unit is retained for rollback" \
   "$rendered_unit.grimnir-previous" "PRIVATE_LISTENER=legacy-private-value"
+pass "symlinked system executable is accepted after executable access validation"
 if grep -Fq 'tailnet-only-value' "$rendered_unit"; then
   fail "private environment values must not be copied into the unit"
 else

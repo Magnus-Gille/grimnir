@@ -214,14 +214,14 @@ function last(map, key) {
   return values.length ? values[values.length - 1] : null;
 }
 
-function requireExisting(file, candidate, kind) {
+function requireExisting(file, candidate, kind, allowSymlink = false) {
   if (!canonicalAbsolute(candidate)) {
     fail(file, kind + " is not a canonical absolute path: " + candidate);
     return false;
   }
   try {
     const info = fs.lstatSync(candidate);
-    if (info.isSymbolicLink()) {
+    if (info.isSymbolicLink() && !allowSymlink) {
       fail(file, kind + " must not be a symlink: " + candidate);
       return false;
     }
@@ -288,7 +288,7 @@ for (const entry of manifest) {
       continue;
     }
     const executable = tokens[0].replace(/^[+\-!:@]+/, "");
-    if (!requireExisting(entry.file, executable, "ExecStart executable")) continue;
+    if (!requireExisting(entry.file, executable, "ExecStart executable", true)) continue;
     try {
       fs.accessSync(executable, fs.constants.X_OK);
     } catch (_) {
