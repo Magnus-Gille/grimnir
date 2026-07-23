@@ -256,7 +256,7 @@ deploy_service() {
   local commit_full
   local dirty_state
   local q_deploy_path
-  local render_enabled=false health_boundary=host
+  local render_enabled=false health_boundary=host health_probe_host=
 
   if [[ "$systemd_runtime_json" != "null" && -n "$systemd_runtime_json" ]]; then
     render_enabled=true
@@ -264,6 +264,10 @@ deploy_service() {
   if [[ "$health_check_json" != "null" && -n "$health_check_json" ]]; then
     health_boundary=$(HEALTH_JSON="$health_check_json" node --input-type=commonjs -e \
       'process.stdout.write(JSON.parse(process.env.HEALTH_JSON).boundary)')
+    health_probe_host=$(HEALTH_JSON="$health_check_json" node --input-type=commonjs -e '
+      var host = JSON.parse(process.env.HEALTH_JSON).host;
+      if (typeof host === "string") process.stdout.write(host);
+    ')
   fi
 
   echo -e "\n${BOLD}=== ${name} (${host}) ===${NC}"
@@ -585,7 +589,7 @@ deploy_service() {
   local output
   if output=$(ssh -o ConnectTimeout=10 "$remote" "$cmd" 2>&1); then
     if [[ "$health_boundary" == "network" ]] && echo "$output" | grep -q "DEPLOY_READY"; then
-      if ! network_health_check "$remote_host" "$health_port" "$health_check_json"; then
+      if ! network_health_check "$health_probe_host" "$health_port" "$health_check_json"; then
         report_markerless_failure
         echo -e "${RED}FAILED${NC}"
         results+=("${RED}✗${NC} ${name}")

@@ -8,7 +8,7 @@
 | Fact type | Authoritative source | Derived by / consumers |
 |-----------|---------------------|------------------------|
 | **Port assignments** | `services.json` | `generate-architecture.sh`, `deploy.sh`, `security-scan.sh`, `docs/architecture.md` |
-| **Hostnames / hosts** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
+| **SSH and consumer-health hostnames** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
 | **Deploy paths, targets, systemd units & timer semantics** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
 | **Systemd unit structure / templates** | Owning component repo | `deploy.sh` installs install-ready units byte-for-byte or renders the bounded registry placeholders |
 | **Host systemd runtime identity, home, deploy target, private-environment paths and exact external sandbox dependencies** | `services.json` | `deploy.sh`, `render-systemd-units.sh` |

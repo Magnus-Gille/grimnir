@@ -67,7 +67,18 @@ cat > "$TMP_DIR/bin/getent" << 'EOF'
 [[ "$1" == "passwd" && "$2" == "alpha" ]]
 printf 'alpha:x:1000:1000:Alpha:%s:/bin/sh\n' "$RUNTIME_HOME"
 EOF
-chmod +x "$TMP_DIR/bin/getent"
+
+SYSTEMD_ANALYZE_CAPTURE="$TMP_DIR/systemd-analyze"
+export SYSTEMD_ANALYZE_CAPTURE
+cat > "$TMP_DIR/bin/systemd-analyze" << 'EOF'
+#!/usr/bin/env bash
+printf '%s|%s\n' "${SYSTEMD_UNIT_PATH:-}" "$*" >> "$SYSTEMD_ANALYZE_CAPTURE"
+if [[ "${SYSTEMD_ANALYZE_FAIL_SCOPE:-}" == "${1#--}" ]]; then
+  printf 'synthetic %s unit verification failure\n' "$1" >&2
+  exit 78
+fi
+EOF
+chmod +x "$TMP_DIR/bin/getent" "$TMP_DIR/bin/systemd-analyze"
 
 runtime_json=$(RUNTIME_HOME="$RUNTIME_HOME" DEPLOY_TARGET="$DEPLOY_TARGET" \
   PRIVATE_ENV="$PRIVATE_ENV" CROSS_COMPONENT_PATH="$CROSS_COMPONENT_PATH" node -e '
@@ -90,6 +101,11 @@ if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
 else
   fail "clean-install template must render and preflight"
 fi
+if grep -Eq -- '^[^|]+:\|--system verify ' "$SYSTEMD_ANALYZE_CAPTURE"; then
+  pass "system units are verified in system-manager scope before install"
+else
+  fail "system units must be verified in system-manager scope before install"
+fi
 
 rendered_unit="$SYSTEM_ROOT/alpha.service"
 assert_file_contains "runtime user is rendered" "$rendered_unit" "User=alpha"
@@ -105,6 +121,37 @@ if grep -Fq 'tailnet-only-value' "$rendered_unit"; then
   fail "private environment values must not be copied into the unit"
 else
   pass "private environment values stay outside the rendered unit"
+fi
+
+VERIFY_FAIL_ROOT="$TMP_DIR/verify-fail-systemd"
+mkdir -p "$VERIFY_FAIL_ROOT"
+printf '%s\n' 'OLD-VERIFIED-UNIT' > "$VERIFY_FAIL_ROOT/alpha.service"
+if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
+    SYSTEMD_ANALYZE_FAIL_SCOPE=system SYSTEMD_SYSTEM_ROOT="$VERIFY_FAIL_ROOT" \
+    bash "$RENDER_HELPER" "$DEPLOY_TARGET" "$runtime_json" "$units_json" "$persistent_json" \
+    >"$TMP_DIR/verify-fail.out" 2>&1; then
+  fail "systemd-analyze failure must fail the rendering phase"
+else
+  pass "systemd-analyze failure fails the rendering phase"
+fi
+if [[ "$(cat "$VERIFY_FAIL_ROOT/alpha.service")" == "OLD-VERIFIED-UNIT" &&
+      ! -e "$VERIFY_FAIL_ROOT/alpha.service.grimnir-previous" ]]; then
+  pass "systemd-analyze failure occurs before unit or rollback-snapshot mutation"
+else
+  fail "systemd-analyze failure must install nothing and create no rollback snapshot"
+fi
+
+user_units_json='[{"name":"alpha","type":"service","scope":"user"}]'
+mkdir -p "$RUNTIME_HOME/.config/systemd/user"
+if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
+    SYSTEMD_SYSTEM_ROOT="$TMP_DIR/user-scope-unused" \
+    bash "$RENDER_HELPER" "$DEPLOY_TARGET" "$runtime_json" "$user_units_json" "$persistent_json" \
+    >"$TMP_DIR/user-verify.out" 2>&1 &&
+    grep -Fq -- "--user verify " "$SYSTEMD_ANALYZE_CAPTURE"; then
+  pass "user units are verified in user-manager scope"
+else
+  sed 's/^/    /' "$TMP_DIR/user-verify.out" >&2
+  fail "user units must be verified in user-manager scope"
 fi
 
 bad_runtime_json=$(RUNTIME_HOME="$RUNTIME_HOME" DEPLOY_TARGET="$DEPLOY_TARGET" \
@@ -283,6 +330,12 @@ if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
 else
   pass "second unit install failure fails rendering phase"
 fi
+if grep -E -- '--system verify .*alpha\.service .*beta\.service' \
+    "$SYSTEMD_ANALYZE_CAPTURE" >/dev/null; then
+  pass "each scope is verified as one complete rendered unit set"
+else
+  fail "systemd-analyze must receive the complete rendered unit set for its scope"
+fi
 if [[ "$(cat "$MULTI_SYSTEM_ROOT/alpha.service")" == "OLD-alpha" &&
       "$(cat "$MULTI_SYSTEM_ROOT/beta.service")" == "OLD-beta" ]]; then
   pass "partial install failure restores the complete previous unit set"
@@ -325,7 +378,7 @@ fs.writeFileSync(process.argv[2], JSON.stringify({
       environment_files: [process.env.PRIVATE_ENV],
       sandbox_paths: [process.env.SANDBOX_PATH]
     },
-    health_check: { boundary: "network", paths: ["/health"] },
+    health_check: { boundary: "network", host: "health-h1", paths: ["/health"] },
     systemd_units: [{ name: "alpha", type: "service", scope: "system" }]
   }]
 }, null, 2));
@@ -353,8 +406,9 @@ elif [[ "$command" == *"npm ci --omit=dev"* ]]; then
 elif [[ "$*" == *"bash -s --"* ]]; then
   cat >/dev/null
   printf '%s\n' preflight >> "$ORDER_CAPTURE"
-  if [[ "${SSH_PREFLIGHT_FAIL:-false}" == "true" ]]; then
-    printf '%s\n' 'ERROR: runtime user does not exist: missing-user' >&2
+  printf '%s\n' verify >> "$ORDER_CAPTURE"
+  if [[ "${SSH_SYSTEMD_VERIFY_FAIL:-false}" == "true" ]]; then
+    printf '%s\n' 'ERROR: systemd-analyze verify failed for system units' >&2
     exit 1
   fi
   printf '%s\n' SYSTEMD_UNITS_PREPARED
@@ -383,31 +437,32 @@ EOF
 chmod +x "$TMP_DIR/bin/ssh" "$TMP_DIR/bin/rsync" "$TMP_DIR/bin/curl"
 
 rc=0
-SSH_PREFLIGHT_FAIL=true REGISTRY_PATH="$registry" LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
+SSH_SYSTEMD_VERIFY_FAIL=true REGISTRY_PATH="$registry" LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
   bash "$DEPLOY" alpha >"$TMP_DIR/deploy.out" 2>&1 || rc=$?
 if [[ "$rc" == 1 ]]; then
-  pass "render/preflight failure fails deployment"
+  pass "systemd verification failure fails deployment"
 else
-  fail "render/preflight failure must fail deployment"
+  fail "systemd verification failure must fail deployment"
 fi
 if [[ ! -e "$REMOTE_MARKER_STATE" ]]; then
-  pass "render/preflight failure leaves accepted marker absent"
+  pass "systemd verification failure leaves accepted marker absent"
 else
-  fail "render/preflight failure must leave accepted marker absent"
+  fail "systemd verification failure must leave accepted marker absent"
 fi
-if grep -Fxq preflight "$ORDER_CAPTURE" && ! grep -Fxq restart "$ORDER_CAPTURE"; then
-  pass "render/preflight failure occurs before restart"
+if grep -Fxq verify "$ORDER_CAPTURE" && ! grep -Fxq restart "$ORDER_CAPTURE"; then
+  pass "systemd verification failure occurs before restart"
 else
-  fail "render/preflight failure must prevent restart"
+  fail "systemd verification failure must prevent restart"
 fi
 if grep -Fq 'curl:' "$ORDER_CAPTURE"; then
-  fail "network health must not run after preflight failure"
+  fail "network health must not run after systemd verification failure"
 else
-  pass "network health is skipped after preflight failure"
+  pass "network health is skipped after systemd verification failure"
 fi
 
-# A valid rendered deployment must probe the registered host from the deploy
-# client (not loopback on the target) before repairing the accepted marker.
+# A valid rendered deployment must probe the explicit consumer-health host
+# from the deploy client, independently of the SSH endpoint, before repairing
+# the accepted marker.
 node - "$registry" <<'NODE'
 const fs = require("fs");
 const file = process.argv[2];
@@ -423,10 +478,16 @@ if REGISTRY_PATH="$registry" LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bi
 else
   fail "rendered deployment must pass network-boundary health"
 fi
-if grep -Fq 'curl:-fsS --max-time 3 http://h1:3030/health' "$ORDER_CAPTURE"; then
-  pass "health is verified from the deploy client against the registered host"
+if grep -Fq 'curl:-fsS --max-time 3 http://health-h1:3030/health' "$ORDER_CAPTURE"; then
+  pass "health is verified from the deploy client against the explicit health host"
 else
-  fail "network health must use the registered host and port"
+  fail "network health must use the explicit health host and registered port"
+fi
+if grep -Fq 'magnus@h1' "$SSH_CAPTURE" &&
+    ! grep -Fq 'magnus@health-h1' "$SSH_CAPTURE"; then
+  pass "health host is independent of the SSH deployment host"
+else
+  fail "SSH transport must continue using the component host"
 fi
 preflight_line=$(grep -n '^preflight$' "$ORDER_CAPTURE" | cut -d: -f1)
 restart_line=$(grep -n '^restart$' "$ORDER_CAPTURE" | cut -d: -f1)

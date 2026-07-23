@@ -61,6 +61,10 @@ var INVALID_RSYNC_EXCLUDE_CHARS = /[\x00-\x1f*?[\]{}\\]/;
 var VALID_HEALTH_BOUNDARIES = ['host', 'network'];
 var VALID_HEALTH_PATH = /^\/[A-Za-z0-9._~%+\/-]*$/;
 
+function isSafeHealthHostname(value) {
+  return typeof value === 'string' && VALID_HOST.test(value) && /[A-Za-z]/.test(value);
+}
+
 function isWithinPath(candidate, parent) {
   if (parent === '/') return path.posix.isAbsolute(candidate);
   return candidate === parent || candidate.indexOf(parent + '/') === 0;
@@ -259,6 +263,13 @@ data.components.forEach(function (c, i) {
     } else {
       if (VALID_HEALTH_BOUNDARIES.indexOf(c.health_check.boundary) === -1) {
         fail(label + '.health_check.boundary: must be one of ' + VALID_HEALTH_BOUNDARIES.join('/'));
+      }
+      if (c.health_check.boundary === 'network') {
+        if (!isSafeHealthHostname(c.health_check.host)) {
+          fail(label + '.health_check.host: network boundary requires an explicit safe hostname, not an IP locator');
+        }
+      } else if (c.health_check.host !== undefined) {
+        fail(label + '.health_check.host: is only valid for the network boundary');
       }
       if (!Array.isArray(c.health_check.paths) || c.health_check.paths.length === 0) {
         fail(label + '.health_check.paths: must be a non-empty array');

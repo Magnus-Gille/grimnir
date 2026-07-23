@@ -51,6 +51,7 @@
       },
       "health_check": {
         "boundary": "network",
+        "host": "huginmunin",
         "paths": ["/health", "/api/health"]
       },
       "systemd_units": [

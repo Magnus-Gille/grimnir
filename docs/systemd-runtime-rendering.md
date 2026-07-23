@@ -31,6 +31,7 @@ Any other active placeholder fails closed.
   },
   "health_check": {
     "boundary": "network",
+    "host": "service-host",
     "paths": ["/health"]
   }
 }
@@ -54,9 +55,10 @@ directives may reference paths within either tree.
 
 - `host` — probe from the target host. This retains the legacy behaviour and is appropriate only
   when loopback/host-local reachability is the real consumer boundary.
-- `network` — probe `http://<registered host>:<registered port><path>` from the deploy client after
-  restart and before acceptance. Use this when another node must reach the listener; a loopback-only
-  bind cannot pass this gate.
+- `network` — probe `http://<health_check.host>:<registered port><path>` from the deploy client
+  after restart and before acceptance. `host` is required for this boundary, is independent of the
+  component's SSH `host`, and must be a safe hostname rather than an IP locator. Use the stable
+  non-secret hostname seen by the real consumer; a loopback-only bind cannot pass this gate.
 
 ## Deployment and preflight order
 
@@ -65,16 +67,21 @@ For an opted-in rsync component, `scripts/deploy.sh` performs these phases:
 1. Validate the complete registry and the selected local unit templates.
 2. Invalidate `.deployed-commit`, then sync code and install dependencies.
 3. Stream the reviewed Grimnir renderer to the host. It renders every declared unit into a
-   temporary directory and preflights every service before installing any rendered unit.
+   temporary directory and runs the bounded path/identity preflight.
 4. Verify the runtime account exists and its passwd home matches the registry.
 5. Require `WorkingDirectory=` to equal the deploy target; verify `ExecStart` executables and
    absolute arguments; require declared environment files; and reject unregistered or missing
    sandbox paths.
-6. Snapshot every prior installed unit as `<unit>.grimnir-previous`, then install all rendered
+6. Run `systemd-analyze --system verify` and `systemd-analyze --user verify` as applicable, passing
+   each manager scope's complete rendered unit set together. The temporary render directory leads
+   the unit search path, so referenced rendered units are checked before any installed unit can
+   shadow them. Verification parses unit references but never reads or prints environment-file
+   contents.
+7. Snapshot every prior installed unit as `<unit>.grimnir-previous`, then install all rendered
    units. If any copy fails, restore every unit already replaced and return before daemon reload.
    Otherwise reload systemd, restart, and verify controller state.
-7. Run the declared host- or network-boundary health probe.
-8. Write `.deployed-commit` only after every gate succeeds.
+8. Run the declared host- or network-boundary health probe.
+9. Write `.deployed-commit` only after every gate succeeds.
 
 A render or preflight failure happens after marker invalidation but before restart. The target is
 therefore deliberately markerless, and the previously running process is not restarted. A later
@@ -115,8 +122,9 @@ deployment-blocked until the owning-repository change is green, reviewed, and me
 
 The deploy log reports the prior accepted commit before mutation.
 
-- If render/preflight fails, do not restart: the old process is still running. Correct the registry
-  or template and redeploy; the target remains markerless until acceptance.
+- If render, bounded preflight, or `systemd-analyze verify` fails, no unit or rollback snapshot is
+  installed and no restart occurs: the old process is still running. Correct the registry or
+  template and redeploy; the target remains markerless until acceptance.
 - If one unit copy fails during a multi-unit install, the renderer restores every unit it already
   replaced and exits before daemon reload. An explicit incomplete-rollback error means the
   destinations must be inspected manually before any reload.

@@ -375,6 +375,32 @@ if (errors.length) {
 }
 NODE
 
+# systemd-analyze loads every command-line unit plus referenced units. Verify
+# each manager scope as one complete rendered set, with the temporary render
+# directory taking precedence over installed units. The trailing empty search
+# path component retains the manager's standard unit paths for dependencies.
+system_units=()
+user_units=()
+while IFS='|' read -r unit_file unit_scope; do
+  [[ -n "$unit_file" ]] || continue
+  if [[ "$unit_scope" == "user" ]]; then
+    user_units+=("$render_dir/$unit_file")
+  else
+    system_units+=("$render_dir/$unit_file")
+  fi
+done < "$manifest"
+
+if [[ ${#system_units[@]} -gt 0 ]] &&
+    ! SYSTEMD_UNIT_PATH="$render_dir:" systemd-analyze --system verify "${system_units[@]}"; then
+  echo "ERROR: systemd-analyze verify failed for rendered system units" >&2
+  exit 1
+fi
+if [[ ${#user_units[@]} -gt 0 ]] &&
+    ! SYSTEMD_UNIT_PATH="$render_dir:" systemd-analyze --user verify "${user_units[@]}"; then
+  echo "ERROR: systemd-analyze verify failed for rendered user units" >&2
+  exit 1
+fi
+
 system_root="${SYSTEMD_SYSTEM_ROOT:-/etc/systemd/system}"
 install_plan="$render_dir/install-plan"
 installed_plan="$render_dir/installed-plan"

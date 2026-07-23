@@ -124,7 +124,8 @@ therefore deliberately markerless/unknown, never certified by the old SHA.
   begin. If transport fails after later mutation starts, treat live state as unknown and inspect it
   before choosing the captured rollback commit.
 - **Rendered systemd units:** opted-in components preserve the prior installed unit as
-  `<unit>.grimnir-previous`. Render/preflight failure occurs before restart and stays markerless.
+  `<unit>.grimnir-previous`. Render/path preflight and scope-correct `systemd-analyze verify`
+  failures occur before any unit snapshot or install, before restart, and stay markerless.
   A partial multi-unit copy failure restores every destination already replaced and returns before
   daemon reload; an incomplete restore is reported explicitly and requires inspection. If restart
   or boundary health later fails, restore the host-local snapshots and verify the same controller
