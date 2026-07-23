@@ -35,9 +35,9 @@ For owning-repository deploy commands outside the centrally deployable set, use 
 > exceptions for ecosystem repositories that are not deployed components.
 
 - **Magnus-Gille** — default owner
-- **grimnir-bot** — explicit owner exception for Skuld, and the dedicated
-  machine account for Pi. Added as collaborator on repos Hugin pushes to. Pi
-  authenticates to GitHub exclusively via grimnir-bot SSH key.
+- **grimnir-bot** — dedicated machine account for Pi. Added as collaborator
+  on repos Hugin pushes to. Pi authenticates to GitHub exclusively via its SSH
+  key; it is not repository authority for Skuld.
 
 ## Repo naming
 
@@ -49,7 +49,7 @@ matches the operator:
 - `Magnus-Gille/mimir`
 - `Magnus-Gille/fortnox-mcp`
 - `Magnus-Gille/ratatoskr`
-- `grimnir-bot/skuld` (exception: created by Hugin task under bot account)
+- `Magnus-Gille/skuld`
 
 Ecosystem repositories that are not deployed components are listed in
 `repository_authority.additional_repositories`; their canonical local

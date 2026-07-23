@@ -13,7 +13,7 @@ Runs on two Raspberry Pis, a MacBook, and a local M5 inference box. All data sta
 | **Mimir** | Authenticated file server | [mimir](https://github.com/Magnus-Gille/mimir) |
 | **Heimdall** | Monitoring dashboard | [heimdall](https://github.com/Magnus-Gille/heimdall) |
 | **Ratatoskr** | Telegram message router | [ratatoskr](https://github.com/Magnus-Gille/ratatoskr) |
-| **Skuld** | Daily intelligence briefing | [skuld](https://github.com/grimnir-bot/skuld) |
+| **Skuld** | Daily intelligence briefing | [skuld](https://github.com/Magnus-Gille/skuld) |
 | **Verdandi** | Tamper-evident audit log | [verdandi](https://github.com/Magnus-Gille/verdandi) |
 | **noxctl** | Fortnox accounting CLI + MCP | [fortnox-mcp](https://github.com/Magnus-Gille/fortnox-mcp) |
 | **Brokkr** | Platform / substrate — hardware park, OS, storage, network, backups | [brokkr](https://github.com/Magnus-Gille/brokkr) |

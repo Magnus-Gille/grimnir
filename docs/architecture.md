@@ -36,7 +36,7 @@ Three principles guide every decision:
 | **Hugin** | Task dispatcher | 3032 | Pi 1 | `hugin` |
 | **Heimdall** | Monitoring dashboard | 3033 | Pi 1 | `heimdall` |
 | **Ratatoskr** | Telegram router + concierge | 3034 | Pi 1 | `ratatoskr` |
-| **Skuld** | Daily intelligence briefing | — | Pi 1 | `skuld` (grimnir-bot) |
+| **Skuld** | Daily intelligence briefing | — | Pi 1 | `skuld` (Magnus-Gille) |
 | **Verdandi** | Tamper-evident audit log | 3036 | Pi 1 | `verdandi` |
 | **Mimir** | Authenticated file server | 3031 | Pi 2 (NAS) | `mimir` |
 | **noxctl** | Accounting CLI + MCP | — | Laptop (global) | `fortnox-mcp` |
@@ -573,7 +573,7 @@ Skuld is the oracle. Named after the Norn of the future, it generates a daily in
 - **AI:** @anthropic-ai/sdk (Claude API direct)
 - **Data sources:** Google Calendar (ICS), Munin (SQLite direct read), Fortnox (future via noxctl)
 - **Deployment:** Pi 1, co-located with Munin for low-latency SQLite reads
-- **Repo:** `grimnir-bot/skuld` (private, Magnus-Gille as admin collaborator)
+- **Repo:** `Magnus-Gille/skuld` (private)
 
 ### How it works
 
