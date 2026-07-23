@@ -106,8 +106,10 @@ change must not be deployed on its own: Heimdall's canonical templates currently
 `User=heimdall` and `/home/heimdall`, which no bounded placeholder renderer can safely reinterpret.
 A companion PR in the Heimdall repository must first replace those host literals with the supported
 placeholders. Merge and deploy that owning-repository template change before selectively deploying
-Heimdall through this contract. The companion PR link is pending; Grimnir PR #110 remains draft and
-deployment-blocked until it is recorded.
+Heimdall through this contract. The required companion is
+[Heimdall PR #14](https://github.com/Magnus-Gille/heimdall/pull/14), reviewed here at exact head
+`6748365d92192fa267ef69c48716c9e6f0940e57`. Grimnir PR #110 remains draft and
+deployment-blocked until the owning-repository change is green, reviewed, and merged first.
 
 ## Rollback
 
