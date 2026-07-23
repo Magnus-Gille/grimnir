@@ -169,6 +169,9 @@ failed mutation must be compensated and the prior baseline verified before anoth
 Partially applied network, storage or location realization likewise enters Brokkr-owned substrate
 rollback and must verify the recorded pre-state before workload compensation or retry.
 
+The operational interface and transport policy for the intentionally Wi-Fi NAS
+and dual-homed control Pi lives in [Network operating model](network-operating-model.md).
+
 ---
 
 ## Munin — Memory
