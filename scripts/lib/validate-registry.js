@@ -113,11 +113,18 @@ var VALID_TIMER_SEMANTICS = ['recurring', 'one-shot'];
 var VALID_RUNTIME_STATES = ['active', 'stopped', 'not-applicable'];
 var VALID_UNIT_NAME = /^[A-Za-z0-9_.@-]+$/;
 var VALID_COMPONENT_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
+var VALID_PLACEMENT_ID = /^[a-z][a-z0-9-]{2,62}$/;
 var VALID_HOST = /^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/;
 var VALID_ABSOLUTE_PATH = /^\/[A-Za-z0-9._@%+,=:\/-]+$/;
 var INVALID_RSYNC_EXCLUDE_CHARS = /[\x00-\x1f*?[\]{}\\]/;
 var VALID_HEALTH_BOUNDARIES = ['host', 'network'];
 var VALID_HEALTH_PATH = /^\/[A-Za-z0-9._~%+\/-]*$/;
+// Placement is an additive registry extension. Legacy registry consumers may
+// still validate inventories that predate node/workload IDs; once any node ID
+// is declared, the complete desired-placement graph is required.
+var placementEnabled = Array.isArray(data.nodes) && data.nodes.some(function (node) {
+  return isPlainObject(node) && node.node_id !== undefined;
+});
 
 function isSafeHealthHostname(value) {
   return typeof value === 'string' && VALID_HOST.test(value) && /[A-Za-z]/.test(value);
@@ -139,6 +146,7 @@ function isCanonicalAbsolutePath(value) {
 
 var seenNames = {};
 var seenPorts = {};
+var seenWorkloadIds = {};
 
 data.components.forEach(function (c, i) {
   var label = '(index ' + i + ')';
@@ -157,6 +165,22 @@ data.components.forEach(function (c, i) {
       fail(label + ': missing/invalid required field "' + field + '" (safe identifier)');
     }
   });
+
+  if (placementEnabled) {
+    if (typeof c.workload_id !== 'string' || !VALID_PLACEMENT_ID.test(c.workload_id)) {
+      fail(label + ': missing/invalid required field "workload_id" (stable public-safe id)');
+    } else if (seenWorkloadIds[c.workload_id]) {
+      fail('duplicate workload_id: "' + c.workload_id + '"');
+    } else {
+      seenWorkloadIds[c.workload_id] = true;
+    }
+    if (!isPlainObject(c.workload_contract) ||
+        Object.keys(c.workload_contract).length !== 2 ||
+        c.workload_contract.kind !== 'workload-requirement' ||
+        c.workload_contract.schema_version !== 'v1') {
+      fail(label + ': workload_contract must exactly reference workload-requirement v1');
+    }
+  }
 
   ['deploy', 'scan', 'needs_build'].forEach(function (field) {
     if (typeof c[field] !== 'boolean') {
@@ -392,6 +416,7 @@ if (data.nodes !== undefined) {
     fail('top-level "nodes" must be an array when present');
   } else {
     var seenNodeNames = {};
+    var seenNodeIds = {};
     data.nodes.forEach(function (n, i) {
       var label = '(nodes index ' + i + ')';
       if (!isPlainObject(n)) {
@@ -402,6 +427,13 @@ if (data.nodes !== undefined) {
       if (typeof n.name !== 'string' || !n.name) {
         fail(label + ': missing/invalid required field "name" (non-empty string)');
       }
+      if (placementEnabled && (typeof n.node_id !== 'string' || !VALID_PLACEMENT_ID.test(n.node_id))) {
+        fail(label + ': missing/invalid required field "node_id" (stable public-safe id)');
+      } else if (placementEnabled && seenNodeIds[n.node_id]) {
+        fail('duplicate node_id: "' + n.node_id + '"');
+      } else if (placementEnabled) {
+        seenNodeIds[n.node_id] = true;
+      }
       if (typeof n.hostname !== 'string' && n.hostname !== null) {
         fail(label + ': field "hostname" must be a string or null');
       }
@@ -409,6 +441,26 @@ if (data.nodes !== undefined) {
         fail('duplicate node name: "' + n.name + '"');
       } else if (n.name) {
         seenNodeNames[n.name] = true;
+      }
+    });
+    if (placementEnabled) data.components.forEach(function (component) {
+      if (!isPlainObject(component)) return;
+      var target = component.target_node_id;
+      if (component.host === null) {
+        if (target !== undefined && target !== null) {
+          fail(component.name + ': hostless component cannot declare target_node_id');
+        }
+        return;
+      }
+      if (typeof target !== 'string' || !VALID_PLACEMENT_ID.test(target)) {
+        fail(component.name + ': host requires a stable target_node_id');
+        return;
+      }
+      var node = data.nodes.filter(function (candidate) { return isPlainObject(candidate) && candidate.node_id === target; })[0];
+      if (!node) {
+        fail(component.name + ': target_node_id does not reference a registered node: ' + target);
+      } else if (node.hostname !== component.host) {
+        fail(component.name + ': target_node_id hostname must exactly match component host');
       }
     });
   }

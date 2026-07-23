@@ -12,6 +12,9 @@
   "components": [
     {
       "name": "munin-memory",
+      "workload_id": "workload-munin-memory",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" },
       "repo": "munin-memory",
       "host": "huginmunin.local",
       "port": 3030,
@@ -26,6 +29,9 @@
     },
     {
       "name": "hugin",
+      "workload_id": "workload-hugin",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" },
       "repo": "hugin",
       "host": "huginmunin.local",
       "port": 3032,
@@ -41,6 +47,9 @@
     },
     {
       "name": "heimdall",
+      "workload_id": "workload-heimdall",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" },
       "repo": "heimdall",
       "host": "huginmunin.local",
       "port": 3033,
@@ -73,6 +82,9 @@
     },
     {
       "name": "ratatoskr",
+      "workload_id": "workload-ratatoskr",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" },
       "repo": "ratatoskr",
       "host": "huginmunin.local",
       "port": 3034,
@@ -87,6 +99,9 @@
     },
     {
       "name": "skuld",
+      "workload_id": "workload-skuld",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" },
       "repo": "skuld",
       "host": "huginmunin.local",
       "port": null,
@@ -101,6 +116,9 @@
     },
     {
       "name": "mimir",
+      "workload_id": "workload-mimir",
+      "target_node_id": "node-nas",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" },
       "repo": "mimir",
       "host": "nas.local",
       "port": 3031,
@@ -115,6 +133,8 @@
     },
     {
       "name": "fortnox-mcp",
+      "workload_id": "workload-fortnox-mcp",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" },
       "repo": "fortnox-mcp",
       "host": null,
       "port": null,
@@ -126,6 +146,9 @@
     },
     {
       "name": "grimnir",
+      "workload_id": "workload-grimnir",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" },
       "repo": "grimnir",
       "host": "huginmunin.local",
       "port": null,
@@ -141,6 +164,9 @@
     },
     {
       "name": "verdandi",
+      "workload_id": "workload-verdandi",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" },
       "repo": "verdandi",
       "host": "huginmunin.local",
       "port": 3036,
@@ -160,6 +186,9 @@
     },
     {
       "name": "brokkr",
+      "workload_id": "workload-brokkr",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" },
       "repo": "brokkr",
       "host": "huginmunin.local",
       "port": null,
@@ -177,6 +206,7 @@
   "nodes": [
     {
       "name": "huginmunin",
+      "node_id": "node-huginmunin",
       "hostname": "huginmunin.local",
       "ssh_alias": null,
       "hardware": "Raspberry Pi (aarch64), 8GB",
@@ -190,6 +220,7 @@
     },
     {
       "name": "nas",
+      "node_id": "node-nas",
       "hostname": "nas.local",
       "ssh_alias": null,
       "hardware": "NAS",
@@ -201,6 +232,7 @@
     },
     {
       "name": "m5",
+      "node_id": "node-m5",
       "hostname": "100.76.72.59",
       "ssh_alias": "m5",
       "hardware": "BosGame M5 (BeyondMax) — AMD Strix Halo (Ryzen AI Max+ 395), 128GB unified memory",
@@ -214,6 +246,7 @@
     },
     {
       "name": "orin",
+      "node_id": "node-orin",
       "hostname": "100.127.176.78",
       "ssh_alias": "orin",
       "hardware": "NVIDIA Jetson Orin Nano, 8GB",
@@ -227,6 +260,7 @@
     },
     {
       "name": "laptop",
+      "node_id": "node-laptop",
       "hostname": null,
       "ssh_alias": null,
       "hardware": "MacBook Air M4, 32GB unified memory",
@@ -241,6 +275,7 @@
     },
     {
       "name": "skald",
+      "node_id": "node-skald",
       "hostname": "skald.local",
       "ssh_alias": "skald",
       "hardware": "Raspberry Pi + e-paper display",
