@@ -251,7 +251,9 @@ switches branches, or updates refs while auditing. If neither source can prove
 the branch, it reports an unresolved default branch rather than assuming
 `main`. Operators that need a deterministic compatibility fallback may supply
 `--default-branch <safe-branch>` (or `GRIMNIR_DEFAULT_BRANCH`); the output marks
-that choice as a fallback.
+that choice as a fallback. Remote resolution is bounded to eight seconds by
+default (`GRIMNIR_WORKTREE_REMOTE_TIMEOUT_SECONDS`, valid range 1–60): timeout
+is reported as unresolved and never allows the validation timer to hang.
 
 ## What the audit reports (and never does)
 

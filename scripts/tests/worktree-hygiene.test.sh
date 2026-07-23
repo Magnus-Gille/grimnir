@@ -25,6 +25,7 @@ FAIL=0
 TEST_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPTS_DIR="$(dirname "$TEST_DIR")"
 RUNBOOK_DOC="$SCRIPTS_DIR/../docs/worktree-hygiene.md"
+GENERATE_ARCHITECTURE_SCRIPT="$SCRIPTS_DIR/generate-architecture.sh"
 
 # shellcheck source=scripts/lib/worktree-hygiene.sh
 # shellcheck disable=SC1091
@@ -224,6 +225,20 @@ mk_repo "$TMP_DIR/default-unsafe-url" main
 git -C "$TMP_DIR/default-unsafe-url" remote add origin "ext::echo should-not-run"
 assert_eq "unsafe helper origin fails closed instead of executing or falling back" \
   "|unknown-unsafe-origin-url" "$(resolve_repo_default_branch "$TMP_DIR/default-unsafe-url" main)"
+
+set +e
+worktree_run_with_timeout 1 sh -c 'sleep 2'
+timeout_rc=$?
+set -e
+assert_eq "bounded remote helper normalizes a hanging command to timeout" "124" "$timeout_rc"
+assert_eq "invalid timeout configuration falls back to a safe bound" "8" \
+  "$(GRIMNIR_WORKTREE_REMOTE_TIMEOUT_SECONDS='bad' worktree_remote_timeout_seconds)"
+
+validate_worktree_block="$(sed -n '/# ─── Worktree hygiene audit/,/# Print results/p' "$GENERATE_ARCHITECTURE_SCRIPT")"
+assert_contains "validate mode uses the per-repository resolver" "$validate_worktree_block" \
+  "resolve_repo_default_branch \"\$wt_repo_dir\""
+assert_not_contains "validate mode does not reuse global main fallback for worktree audit" \
+  "$validate_worktree_block" "audit_repo_worktrees \"\$wt_repo_dir\" \"\$REGISTRY_DEFAULT_BRANCH\""
 
 # ── list_repo_worktrees ────────────────────────────────────────────────────
 mk_repo "$TMP_DIR/wt-repo" main
@@ -546,6 +561,7 @@ mkdir -p "$MAC_ROOT"
 mk_repo "$MAC_ROOT/heimdall" main
 git -C "$MAC_ROOT/heimdall" remote add origin \
   "https://github.com/Magnus-Gille/heimdall.git"
+set_local_origin_head "$MAC_ROOT/heimdall" main
 set +e
 mac_output="$(GRIMNIR_WORKTREE_AUDIT_ROOT="$MAC_ROOT" GRIMNIR_SERVICES_JSON="$HEIMDALL_AUTHORITY_JSON" \
   "$SCRIPTS_DIR/worktree-hygiene-audit.sh" 2>&1)"
@@ -559,6 +575,7 @@ mkdir -p "$CONTROL_ROOT"
 mk_repo "$CONTROL_ROOT/heimdall" main
 git -C "$CONTROL_ROOT/heimdall" remote add origin \
   "https://github.com/Magnus-Gille/heimdall.git"
+set_local_origin_head "$CONTROL_ROOT/heimdall" main
 set +e
 control_output="$(GRIMNIR_WORKTREE_AUDIT_ROOT="$CONTROL_ROOT" GRIMNIR_SERVICES_JSON="$HEIMDALL_AUTHORITY_JSON" \
   "$SCRIPTS_DIR/worktree-hygiene-audit.sh" 2>&1)"

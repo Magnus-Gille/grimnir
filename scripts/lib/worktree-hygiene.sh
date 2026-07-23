@@ -69,6 +69,8 @@
 #   "origin/HEAD", "remote-HEAD", "fallback", or an explicit
 #   "unknown-*" reason. A locally cached origin/HEAD is preferred; when it is
 #   absent, a read-only `git ls-remote --symref origin HEAD` lookup is used.
+#   The remote lookup has a bounded process timeout (default eight seconds),
+#   including SSH connect/keepalive and HTTP connect/low-speed limits.
 #   A fallback is used only when both sources are unavailable. Invalid or
 #   malicious branch data fails closed and is never passed on as a ref.
 #
@@ -392,8 +394,40 @@ worktree_safe_remote_url() {
   esac
 }
 
+worktree_remote_timeout_seconds() {
+  local seconds="${GRIMNIR_WORKTREE_REMOTE_TIMEOUT_SECONDS:-8}"
+  if [[ ! "$seconds" =~ ^[1-9][0-9]?$ ]] || [[ "$seconds" -gt 60 ]]; then
+    seconds=8
+  fi
+  printf '%s\n' "$seconds"
+}
+
+# Run a bounded command without assuming GNU coreutils. `timeout` is present
+# on the control host; macOS installations that lack it use Perl's alarm as a
+# safe fallback. If neither is available, refuse the network lookup rather
+# than silently allowing a validation timer to hang.
+worktree_run_with_timeout() {
+  local seconds="${1:-8}" rc=0
+  shift || true
+  if command -v timeout >/dev/null 2>&1; then
+    if timeout "$seconds" "$@"; then return 0; else rc=$?; fi
+  elif command -v gtimeout >/dev/null 2>&1; then
+    if gtimeout "$seconds" "$@"; then return 0; else rc=$?; fi
+  elif command -v perl >/dev/null 2>&1; then
+    if perl -e 'alarm shift @ARGV; exec @ARGV' "$seconds" "$@"; then return 0; else rc=$?; fi
+  else
+    return 124
+  fi
+  # GNU timeout returns 124. Perl normally reports SIGALRM as 142; normalize
+  # timeout-like exits so callers can fail closed with a stable verdict.
+  case "$rc" in
+    124|137|142|143) return 124 ;;
+    *) return "$rc" ;;
+  esac
+}
+
 resolve_repo_default_branch() {
-  local repo_path="${1:-}" fallback="${2:-}" ref="" branch="" remote_output="" remote_url=""
+  local repo_path="${1:-}" fallback="${2:-}" ref="" branch="" remote_output="" remote_url="" timeout_seconds="" remote_rc=0 ssh_command=""
   [[ -n "$repo_path" ]] || { echo "|unknown-no-repo"; return 0; }
   if ! git -C "$repo_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "|unknown-not-git"
@@ -425,7 +459,17 @@ resolve_repo_default_branch() {
   # resolving an audit label must never update refs or alter checkout state.
   remote_url="$(git -C "$repo_path" remote get-url origin 2>/dev/null || true)"
   if [[ -n "$remote_url" ]] && worktree_safe_remote_url "$remote_url"; then
-    remote_output="$(GIT_TERMINAL_PROMPT=0 git -c protocol.ext.allow=never -C "$repo_path" ls-remote --symref "$remote_url" HEAD 2>/dev/null || true)"
+    timeout_seconds="$(worktree_remote_timeout_seconds)"
+    ssh_command="ssh -o BatchMode=yes -o ConnectTimeout=${timeout_seconds} -o ConnectionAttempts=1 -o ServerAliveInterval=${timeout_seconds} -o ServerAliveCountMax=1"
+    if remote_output="$(worktree_run_with_timeout "$timeout_seconds" env GIT_TERMINAL_PROMPT=0 "GIT_SSH_COMMAND=$ssh_command" git -c protocol.ext.allow=never -c "http.connectTimeout=$timeout_seconds" -c http.lowSpeedLimit=1 -c "http.lowSpeedTime=$timeout_seconds" -C "$repo_path" ls-remote --symref "$remote_url" HEAD 2>/dev/null)"; then
+      remote_rc=0
+    else
+      remote_rc=$?
+    fi
+    if [[ "$remote_rc" -eq 124 ]]; then
+      echo "|unknown-remote-timeout"
+      return 0
+    fi
     branch="$(printf '%s\n' "$remote_output" | worktree_parse_remote_head 2>/dev/null || true)"
     if [[ -n "$branch" ]]; then
       printf '%s|remote-HEAD\n' "$branch"
