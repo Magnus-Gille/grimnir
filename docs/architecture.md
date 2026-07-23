@@ -146,6 +146,9 @@ Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum c
 - **Tailscale** provides encrypted Pi-to-Pi and laptop-to-Pi communication for rsync, SSH, and backups.
 - **Public endpoints:** `munin-memory.gille.ai`, `heimdall.gille.ai`, `mimir.gille.ai`
 
+The operational interface and transport policy for the intentionally Wi-Fi NAS
+and dual-homed control Pi lives in [Network operating model](network-operating-model.md).
+
 ---
 
 ## Munin — Memory
