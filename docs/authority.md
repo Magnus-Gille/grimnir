@@ -29,6 +29,10 @@
 | **Improvement scope (routing/configuration vs model weights)** | `docs/adr-006-learning-improvement-scope.md` | learning docs, Hugin and `gille-inference` |
 | **Hugin task/product facts** | Hugin's versioned task, result, receipt and experiment schemas | LearningTaskContract projection, Heimdall |
 | **M5 exposure, served-model, capability & micro-routing facts** | `gille-inference` versioned schemas and ledger | LearningTaskContract projection, Hugin, Heimdall |
+| **Desired node topology, workload placement and cross-component substrate policy** | `services.json` and [ADR-007](adr-007-node-substrate-contract.md) | Brokkr planning, workload contracts, Heimdall presentation |
+| **Observed node capability, location/network/storage realization and substrate reconciliation evidence** | Brokkr's versioned observation/evidence contract | Grimnir drift view, component preflight, Heimdall presentation |
+| **Workload requirements, drain/verify hooks, service-data migration and workload rollback** | Owning component repository's versioned contract | Brokkr lifecycle adapter, Grimnir planning, Heimdall presentation |
+| **Node/workload reconciliation lifecycle result** | Brokkr for substrate steps; owning component for workload hooks | Grimnir promotion decision, Heimdall presentation |
 | **Norse naming / mythology mapping** | `docs/conventions.md` | all docs |
 
 ## Rules
@@ -85,6 +89,19 @@
     declare neither units nor a health port. Independently, only `deploy: true` components have a
     meaningful `.deployed-commit` marker. A `deploy: false` platform peer such as Brokkr can still
     have active timers, but marker validation is skipped.
+
+13. **Desired, observed, required and lifecycle-result facts never overwrite each other.**
+    `services.json` says what topology and placement are intended; it does not prove a host can
+    currently realize them. Brokkr observations say what was evidenced on a node; they do not
+    rewrite intent. Component requirements and hooks define application behaviour; Brokkr does
+    not absorb them. A lifecycle result records one attempt and is neither desired state nor an
+    observation. See [ADR-007](adr-007-node-substrate-contract.md).
+
+14. **Decision-driving uncertainty fails closed.** Missing, stale, malformed or incompatible
+    observed evidence, a required Brokkr preflight, or a required workload hook is `unknown` or
+    `blocked`, never an inferred success. Heimdall can transport and present evidence but is not
+    a topology authority. Private network identity, Wi-Fi details, credentials and live locators
+    remain in owner-only overlays; public shared schemas use safe examples.
 
 ## Validation
 

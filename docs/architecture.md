@@ -1,7 +1,7 @@
 # The Grimnir System — Architecture Guide
 
 > Internal reference document for the Grimnir personal AI infrastructure.
-> Last updated: 2026-07-19.
+> Last updated: 2026-07-23.
 
 ---
 
@@ -145,6 +145,23 @@ Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum c
 - **Cloudflare Tunnels** provide HTTPS ingress from the internet, with edge-layer authentication (CF Access).
 - **Tailscale** provides encrypted Pi-to-Pi and laptop-to-Pi communication for rsync, SSH, and backups.
 - **Public endpoints:** `munin-memory.gille.ai`, `heimdall.gille.ai`, `mimir.gille.ai`
+
+### Node/substrate reconciliation boundary (ADR-007)
+
+Relocating a physical node and relocating a workload are separate operations. Grimnir owns desired
+topology and placement in `services.json`; Brokkr owns fresh observed node capability, substrate
+preflight/realization evidence and rollback; each component owns its requirements, drain/verify
+hooks, data migration and workload rollback. Heimdall transports and presents that evidence but
+does not determine topology.
+
+The contract keeps four fact classes separate: **desired** placement, **observed** capability,
+**required** workload constraints and an attempted **lifecycle result**. Missing, stale or
+incompatible decision-driving evidence, unavailable Brokkr, or a missing workload hook blocks
+preflight and mutation rather than being inferred healthy. A physical move may pause for an
+operator to move or reconnect equipment; a workload move starts with an explicit desired-placement
+change and cannot silently authorize a physical move. See
+[ADR-007](adr-007-node-substrate-contract.md) for the state machine, conflict rules and promotion
+requirements.
 
 ---
 

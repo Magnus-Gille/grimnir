@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -45,6 +45,9 @@ test-failure-recovery-doc: ## Regression test: assert docs/failure-recovery.md d
 test-learning-task-contract-doc: ## Regression test: assert the learning seam and improvement-scope contract (issue #86)
 	@bash tests/scripts/test-learning-task-contract-doc.sh
 
+test-node-substrate-contract-doc: ## Regression test: assert the Node/Substrate authority boundary (issue #101)
+	@bash tests/scripts/test-node-substrate-contract-doc.sh
+
 test-registry-checkout: ## Unit tests for the registry-checkout integrity helpers (issue #47)
 	@bash scripts/tests/registry-checkout.test.sh
 
@@ -57,7 +60,7 @@ test-runtime-state: ## Desired runtime and deployment-state validation (issue #1
 test-worktree-hygiene: ## Unit + fixture tests for the worktree/deploy hygiene audit (issue #87)
 	@bash scripts/tests/worktree-hygiene.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
