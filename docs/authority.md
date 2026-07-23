@@ -109,6 +109,11 @@
     timed-out or partial mutation must restore and verify its declared baseline before another
     attempt; old evidence cannot be replayed to promote a new plan.
 
+16. **Substrate partial failure is Brokkr-owned rollback.** A failed, timed-out or partially
+    applied network, storage or location action restores and verifies its recorded substrate
+    pre-state before workload compensation or retry. Incomplete substrate rollback is terminally
+    blocked; a later attempt cannot relabel it as fresh work.
+
 ## Validation
 
 The generator should warn on discrepancies it can detect:

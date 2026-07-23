@@ -45,10 +45,14 @@ stateDiagram-v2
     observe --> preflight: read-only requirements and hook declarations are satisfiable
     preflight --> blocked: network/storage/rollback or required-hook declaration fails
     preflight --> operator_gate: physical move or protected action needs operator
-    operator_gate --> execute: fresh preflight confirms completed prerequisite
-    preflight --> execute: no operator action required
-    execute --> compensate: mutating hook fails, times out, or completes partially
-    execute --> verify: substrate action and component-owned hooks complete
+    operator_gate --> drain: fresh preflight confirms completed prerequisite
+    preflight --> drain: no operator action required
+    drain --> compensate: mutating workload hook fails, times out, or completes partially
+    drain --> realize: workload drain completes
+    realize --> substrate_rollback: substrate action fails, times out, or completes partially
+    realize --> verify: substrate action completes
+    substrate_rollback --> blocked: substrate pre-state verification fails
+    substrate_rollback --> compensate: substrate pre-state restored; restore workload baseline
     compensate --> blocked: compensation or baseline verification fails
     compensate --> observe: compensation restores the verified baseline
     verify --> promoted: all fresh evidence and hooks pass
@@ -154,6 +158,12 @@ blocked until the next fresh preflight; an operator acknowledgement alone is not
 Brokkr owns rollback of substrate steps it performed: location/network/storage realization and
 its recorded pre-state. The workload owner owns rollback of service data, deployment and semantic
 state. A mixed move has both recipes; neither owner may claim the other recipe succeeded.
+
+A failed, timed-out or partially applied substrate action enters `substrate_rollback`; Brokkr must
+restore and verify its recorded substrate pre-state before any retry. If the workload was already
+drained, successful substrate rollback then proceeds through the component-owned compensation path
+to restore and verify workload availability. Incomplete substrate rollback is terminally blocked
+under the declared disaster-recovery path and cannot be retried as a fresh realization.
 
 Promotion requires a fresh observation, successful Brokkr preflight/reconciliation evidence and
 every required component-owned verification hook, all bound to the exact lifecycle attempt and

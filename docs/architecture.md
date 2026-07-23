@@ -166,6 +166,8 @@ requirements.
 Read-only preflight hooks and mutating lifecycle hooks are distinct. Every mutating invocation and
 result is bound to one plan and lifecycle attempt with a deadline and idempotency key; partial or
 failed mutation must be compensated and the prior baseline verified before another attempt.
+Partially applied network, storage or location realization likewise enters Brokkr-owned substrate
+rollback and must verify the recorded pre-state before workload compensation or retry.
 
 ---
 

@@ -29,6 +29,7 @@ assert_contains "$ADR" "separates read-only from mutating hooks" 'Read-only hook
 assert_contains "$ADR" "binds hook evidence to one attempt" 'Every hook invocation and result is bound to one lifecycle attempt'
 assert_contains "$ADR" "requires idempotent retries" 'same idempotency key returns the recorded result'
 assert_contains "$ADR" "compensates partial drain before retry" 'mutating hook times out, fails, or reports partial completion'
+assert_contains "$ADR" "rolls back partial substrate realization" 'partially applied substrate action enters `substrate_rollback`'
 assert_contains "$ADR" "keeps Heimdall out of topology authority" 'Heimdall.*Become topology authority'
 assert_contains "$ADR" "has a state transition diagram" 'stateDiagram-v2'
 assert_contains "$ADR" "defines stale and unknown semantics" 'stale.*unknown|unknown.*stale'
