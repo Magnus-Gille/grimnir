@@ -167,12 +167,8 @@ switch (query) {
       typeof authority.owner_overrides === 'object' &&
       !Array.isArray(authority.owner_overrides)
       ? authority.owner_overrides : {};
-    var checkoutOverrides = authority.checkout_overrides &&
-      typeof authority.checkout_overrides === 'object' &&
-      !Array.isArray(authority.checkout_overrides)
-      ? authority.checkout_overrides : {};
     var rows = components.map(function (c) {
-      return { repo: c.repo, checkout: checkoutOverrides[c.repo] || c.repo };
+      return { repo: c.repo, checkout: c.repo };
     });
     if (Array.isArray(authority.additional_repositories)) {
       authority.additional_repositories.forEach(function (entry) {

@@ -71,36 +71,19 @@ if (data.repository_authority !== undefined && !isPlainObject(data.repository_au
       }
     });
   }
-  if (authority.checkout_overrides !== undefined && !isPlainObject(authority.checkout_overrides)) {
-    fail('repository_authority.checkout_overrides must be an object');
-  } else if (isPlainObject(authority.checkout_overrides)) {
-    var componentRepos = {};
-    data.components.forEach(function (component) {
-      if (isPlainObject(component) && typeof component.repo === 'string') {
-        componentRepos[component.repo] = true;
-      }
-    });
-    Object.keys(authority.checkout_overrides).forEach(function (repo) {
-      var checkout = authority.checkout_overrides[repo];
-      if (!VALID_REPOSITORY_PART.test(repo) || !componentRepos[repo] ||
-          typeof checkout !== 'string' || !VALID_REPOSITORY_PART.test(checkout)) {
-        fail('repository_authority.checkout_overrides must map declared component repos to safe checkout names');
-      }
-    });
+  if (authority.checkout_overrides !== undefined) {
+    fail('repository_authority.checkout_overrides is not supported; canonical checkout names equal repository names');
   }
   if (!Array.isArray(authority.additional_repositories)) {
     fail('repository_authority.additional_repositories must be an array');
   } else {
     var seenAuthorityCheckouts = {};
-    var checkoutOverrides = isPlainObject(authority.checkout_overrides)
-      ? authority.checkout_overrides : {};
     data.components.forEach(function (component) {
       if (isPlainObject(component) && typeof component.repo === 'string') {
-        var componentCheckout = checkoutOverrides[component.repo] || component.repo;
-        if (seenAuthorityCheckouts[componentCheckout]) {
-          fail('duplicate repository-authority checkout: "' + componentCheckout + '"');
+        if (seenAuthorityCheckouts[component.repo]) {
+          fail('duplicate repository-authority checkout: "' + component.repo + '"');
         }
-        seenAuthorityCheckouts[componentCheckout] = true;
+        seenAuthorityCheckouts[component.repo] = true;
       }
     });
     authority.additional_repositories.forEach(function (entry, i) {

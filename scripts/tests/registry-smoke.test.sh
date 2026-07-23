@@ -97,7 +97,6 @@ cat > "$TMP_DIR/bad-repository-authority.json" << 'EOF'
   "repository_authority": {
     "default_owner": "owner|unsafe",
     "owner_overrides": [],
-    "checkout_overrides": [],
     "additional_repositories": [
       { "repo": "../escape", "checkout": "/absolute/path" }
     ]
@@ -118,7 +117,7 @@ cat > "$TMP_DIR/legacy-repository-authority.json" << 'EOF'
   "components": []
 }
 EOF
-assert_eq "repository authority without checkout overrides remains valid" "0" \
+assert_eq "repository authority with canonical checkout names remains valid" "0" \
   "$(run_validator "$TMP_DIR/legacy-repository-authority.json")"
 
 cat > "$TMP_DIR/bad-repository-checkout-override.json" << 'EOF'
@@ -126,7 +125,7 @@ cat > "$TMP_DIR/bad-repository-checkout-override.json" << 'EOF'
   "repository_authority": {
     "default_owner": "Magnus-Gille",
     "owner_overrides": {},
-    "checkout_overrides": { "not-a-component": "elsewhere" },
+    "checkout_overrides": { "alpha": "elsewhere" },
     "additional_repositories": []
   },
   "components": [
@@ -138,7 +137,7 @@ cat > "$TMP_DIR/bad-repository-checkout-override.json" << 'EOF'
   ]
 }
 EOF
-assert_eq "repository checkout override must name a declared component" "1" \
+assert_eq "repository checkout overrides are rejected as host-specific authority" "1" \
   "$(run_validator "$TMP_DIR/bad-repository-checkout-override.json")"
 
 cat > "$TMP_DIR/duplicate-repository-checkout.json" << 'EOF'
@@ -146,7 +145,6 @@ cat > "$TMP_DIR/duplicate-repository-checkout.json" << 'EOF'
   "repository_authority": {
     "default_owner": "Magnus-Gille",
     "owner_overrides": {},
-    "checkout_overrides": {},
     "additional_repositories": [
       { "repo": "other", "checkout": "alpha" }
     ]
@@ -569,9 +567,9 @@ repository_authority_rows="$(
   REGISTRY_PATH="$REPO_REGISTRY" QUERY=repository-authority \
     node --input-type=commonjs "$REGISTRY_JS"
 )"
-assert_eq "Heimdall checkout authority is canonical public repo" \
-  "heimdall-canonical|Magnus-Gille/heimdall" \
-  "$(printf '%s\n' "$repository_authority_rows" | grep '/heimdall$')"
+assert_eq "Heimdall checkout authority uses its canonical repository name" \
+  "heimdall|Magnus-Gille/heimdall" \
+  "$(printf '%s\n' "$repository_authority_rows" | grep '^heimdall|')"
 assert_eq "Skuld checkout uses the default canonical owner" \
   "skuld|Magnus-Gille/skuld" \
   "$(printf '%s\n' "$repository_authority_rows" | grep '^skuld|')"
