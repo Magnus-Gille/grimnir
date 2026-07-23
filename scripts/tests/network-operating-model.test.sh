@@ -22,6 +22,7 @@ require_text() {
 
 require_text "NAS Wi-Fi is the current intentional primary LAN path"
 require_text "Tailscale is the required transport for NAS-to-control observability"
+require_text "MagicDNS name or Tailnet"
 require_text "Do not disable, reprioritize, or restart either host's network interfaces"
 require_text "control host's Ethernet remains the preferred default route"
 

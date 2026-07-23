@@ -16,14 +16,15 @@ turning an intentional layout into an outage.
 
 | Node | LAN role | Cross-node service/observability role |
 |---|---|---|
-| NAS | **NAS Wi-Fi is the current intentional primary LAN path.** Ethernet may be physically disconnected and must not be treated as a failed service. | Use Tailscale/MagicDNS to reach the control host for service-to-service traffic and Heimdall telemetry. |
+| NAS | **NAS Wi-Fi is the current intentional primary LAN path.** Ethernet may be physically disconnected and must not be treated as a failed service. | Use the control host's stable Tailscale identity from the owner-only runtime overlay for service-to-service traffic and Heimdall telemetry. |
 | Control Pi (`huginmunin`) | Both Ethernet and Wi-Fi may be up; the **control host's Ethernet remains the preferred default route**. Wi-Fi is retained as a live resilience path. | Accept NAS-originated traffic on the Tailscale identity, rather than assuming one particular LAN address is reachable. |
 
 **Tailscale is the required transport for NAS-to-control observability.** In
-particular, producers on the NAS must target the control host's Tailscale
-MagicDNS name (for example `huginmunin`), not a `.local` name or hard-coded LAN
-address. The service owner is responsible for its endpoint configuration;
-Grimnir records the cross-component transport rule.
+particular, producers on the NAS must target the stable Tailscale identity
+provided by the owner-only runtime overlay: either its MagicDNS name or Tailnet
+address, not a `.local` name or hard-coded LAN address. The service owner is
+responsible for its endpoint configuration; Grimnir records the cross-component
+transport rule without publishing the private locator.
 
 This policy does not require Mimir itself to listen on the LAN. Its local
 loopback listener and its separately configured ingress are deliberate service
@@ -41,7 +42,8 @@ health:
    `curl -fsS http://127.0.0.1:3031/health`; this proves Mimir's listener is
    healthy without assuming it should bind to Wi-Fi.
 3. From the NAS, check the control-plane health through Tailscale, for example
-   `curl -fsS http://huginmunin:3033/health`. An HTTP response proves the
+   `curl -fsS http://<control-tailnet-host>:3033/health`, substituting the
+   owner-only MagicDNS name or Tailnet address. An HTTP response proves the
    transport path even if a protected endpoint later requires credentials.
 4. On the control Pi, inspect both routes and confirm the Ethernet default has
    the preferred metric. Check the declared Grimnir timers independently of
