@@ -37,10 +37,12 @@ echo "==============================="
 
 RUNTIME_HOME="$TMP_DIR/home/alpha"
 DEPLOY_TARGET="$RUNTIME_HOME/app"
-PRIVATE_ENV="$DEPLOY_TARGET/.env"
 SANDBOX_PATH="$RUNTIME_HOME/state"
+CROSS_COMPONENT_PATH="$RUNTIME_HOME/cross-component"
+PRIVATE_ENV="$SANDBOX_PATH/env"
 SYSTEM_ROOT="$TMP_DIR/etc/systemd/system"
-mkdir -p "$DEPLOY_TARGET/systemd" "$SANDBOX_PATH" "$SYSTEM_ROOT" "$TMP_DIR/bin"
+mkdir -p "$DEPLOY_TARGET/systemd" "$SANDBOX_PATH" "$CROSS_COMPONENT_PATH/child" \
+  "$SYSTEM_ROOT" "$TMP_DIR/bin"
 printf '%s\n' 'PRIVATE_LISTENER=tailnet-only-value' > "$PRIVATE_ENV"
 printf '%s\n' 'exit 0' > "$DEPLOY_TARGET/server.sh"
 chmod +x "$DEPLOY_TARGET/server.sh"
@@ -54,9 +56,10 @@ Description=Clean-install template
 [Service]
 User=<user>
 WorkingDirectory=<deploy-path>
-EnvironmentFile=<deploy-path>/.env
+EnvironmentFile=<home>/state/env
 ExecStart=$EXEC_SYMLINK <deploy-path>/server.sh
 ReadWritePaths=<home>/state
+ReadOnlyPaths=<home>/cross-component
 EOF
 
 cat > "$TMP_DIR/bin/getent" << 'EOF'
@@ -67,13 +70,13 @@ EOF
 chmod +x "$TMP_DIR/bin/getent"
 
 runtime_json=$(RUNTIME_HOME="$RUNTIME_HOME" DEPLOY_TARGET="$DEPLOY_TARGET" \
-  PRIVATE_ENV="$PRIVATE_ENV" SANDBOX_PATH="$SANDBOX_PATH" node -e '
+  PRIVATE_ENV="$PRIVATE_ENV" CROSS_COMPONENT_PATH="$CROSS_COMPONENT_PATH" node -e '
     process.stdout.write(JSON.stringify({
       user: "alpha",
       home: process.env.RUNTIME_HOME,
       deploy_target: process.env.DEPLOY_TARGET,
       environment_files: [process.env.PRIVATE_ENV],
-      sandbox_paths: [process.env.SANDBOX_PATH]
+      sandbox_paths: [process.env.CROSS_COMPONENT_PATH]
     }));
   ')
 units_json='[{"name":"alpha","type":"service","scope":"system"}]'
@@ -93,6 +96,8 @@ assert_file_contains "runtime user is rendered" "$rendered_unit" "User=alpha"
 assert_file_contains "deploy target is rendered" "$rendered_unit" "WorkingDirectory=$DEPLOY_TARGET"
 assert_file_contains "private environment path is retained" "$rendered_unit" "EnvironmentFile=$PRIVATE_ENV"
 assert_file_contains "sandbox path is rendered" "$rendered_unit" "ReadWritePaths=$SANDBOX_PATH"
+assert_file_contains "exact external dependency path is rendered" \
+  "$rendered_unit" "ReadOnlyPaths=$CROSS_COMPONENT_PATH"
 assert_file_contains "previous installed unit is retained for rollback" \
   "$rendered_unit.grimnir-previous" "PRIVATE_LISTENER=legacy-private-value"
 pass "symlinked system executable is accepted after executable access validation"
@@ -103,13 +108,13 @@ else
 fi
 
 bad_runtime_json=$(RUNTIME_HOME="$RUNTIME_HOME" DEPLOY_TARGET="$DEPLOY_TARGET" \
-  PRIVATE_ENV="$PRIVATE_ENV" SANDBOX_PATH="$SANDBOX_PATH" node -e '
+  PRIVATE_ENV="$PRIVATE_ENV" CROSS_COMPONENT_PATH="$CROSS_COMPONENT_PATH" node -e '
     process.stdout.write(JSON.stringify({
       user: "missing-user",
       home: process.env.RUNTIME_HOME,
       deploy_target: process.env.DEPLOY_TARGET,
       environment_files: [process.env.PRIVATE_ENV],
-      sandbox_paths: [process.env.SANDBOX_PATH]
+      sandbox_paths: [process.env.CROSS_COMPONENT_PATH]
     }));
   ')
 if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
@@ -152,9 +157,10 @@ cat > "$DEPLOY_TARGET/systemd/alpha.service" << 'EOF'
 [Service]
 User=<user>
 WorkingDirectory=<home>
-EnvironmentFile=<deploy-path>/.env
+EnvironmentFile=<home>/state/env
 ExecStart=/bin/sh <deploy-path>/server.sh
 ReadWritePaths=<home>/state
+ReadOnlyPaths=<home>/cross-component
 EOF
 assert_path_preflight_rejected "mismatched WorkingDirectory" \
   "WorkingDirectory must equal registered deploy target"
@@ -165,9 +171,10 @@ cat > "$DEPLOY_TARGET/systemd/alpha.service" << EOF
 [Service]
 User=<user>
 WorkingDirectory=<deploy-path>
-EnvironmentFile=<deploy-path>/.env
+EnvironmentFile=<home>/state/env
 ExecStart=/bin/sh $outside_exec
 ReadWritePaths=<home>/state
+ReadOnlyPaths=<home>/cross-component
 EOF
 assert_path_preflight_rejected "ExecStart path outside deploy target" \
   "ExecStart path is outside registered deploy target"
@@ -179,6 +186,7 @@ WorkingDirectory=<deploy-path>
 EnvironmentFile=<home>/unregistered.env
 ExecStart=/bin/sh <deploy-path>/server.sh
 ReadWritePaths=<home>/state
+ReadOnlyPaths=<home>/cross-component
 EOF
 assert_path_preflight_rejected "unregistered private environment file" \
   "EnvironmentFile is not registered"
@@ -187,14 +195,101 @@ cat > "$DEPLOY_TARGET/systemd/alpha.service" << 'EOF'
 [Service]
 User=<user>
 WorkingDirectory=<deploy-path>
-EnvironmentFile=<deploy-path>/.env
+EnvironmentFile=<home>/state/env
 ExecStart=/bin/sh <deploy-path>/server.sh
 ReadWritePaths=<home>/unregistered-state
+ReadOnlyPaths=<home>/cross-component
 EOF
 assert_path_preflight_rejected "unregistered sandbox path" \
   "ReadWritePaths path is outside registered roots"
 
+cat > "$DEPLOY_TARGET/systemd/alpha.service" << 'EOF'
+[Service]
+User=<user>
+WorkingDirectory=<deploy-path>
+EnvironmentFile=<home>/state/env
+ExecStart=/bin/sh <deploy-path>/server.sh
+ReadWritePaths=<home>/state
+ReadOnlyPaths=<home>/cross-component/child
+EOF
+assert_path_preflight_rejected "descendant of exact external dependency" \
+  "ReadOnlyPaths path is outside registered roots"
+
+cat > "$DEPLOY_TARGET/systemd/alpha.service" << 'EOF'
+[Service]
+User=<user>
+WorkingDirectory=<deploy-path>
+EnvironmentFile=<home>/state/env
+ExecStart=/bin/sh <deploy-path>/server.sh
+ReadWritePaths=<home>/state <home>/cross-component
+ReadOnlyPaths=<home>/cross-component
+EOF
+assert_path_preflight_rejected "write access to exact external dependency" \
+  "ReadWritePaths path is outside registered roots"
+
 cp "$valid_template" "$DEPLOY_TARGET/systemd/alpha.service"
+
+# A later install failure must restore every already-replaced unit so a future
+# daemon-reload cannot activate a mixed old/new set.
+MULTI_TARGET="$RUNTIME_HOME/multi-app"
+MULTI_SYSTEM_ROOT="$TMP_DIR/multi-systemd"
+mkdir -p "$MULTI_TARGET/systemd" "$MULTI_SYSTEM_ROOT"
+printf '%s\n' 'exit 0' > "$MULTI_TARGET/server.sh"
+chmod +x "$MULTI_TARGET/server.sh"
+for unit in alpha beta; do
+  cat > "$MULTI_TARGET/systemd/${unit}.service" << EOF
+[Service]
+User=<user>
+WorkingDirectory=<deploy-path>
+EnvironmentFile=<home>/state/env
+ExecStart=$EXEC_SYMLINK <deploy-path>/server.sh
+ReadWritePaths=<home>/state
+ReadOnlyPaths=<home>/cross-component
+EOF
+  printf 'OLD-%s\n' "$unit" > "$MULTI_SYSTEM_ROOT/${unit}.service"
+done
+multi_runtime_json=$(RUNTIME_HOME="$RUNTIME_HOME" MULTI_TARGET="$MULTI_TARGET" \
+  PRIVATE_ENV="$PRIVATE_ENV" CROSS_COMPONENT_PATH="$CROSS_COMPONENT_PATH" node -e '
+    process.stdout.write(JSON.stringify({
+      user: "alpha",
+      home: process.env.RUNTIME_HOME,
+      deploy_target: process.env.MULTI_TARGET,
+      environment_files: [process.env.PRIVATE_ENV],
+      sandbox_paths: [process.env.CROSS_COMPONENT_PATH]
+    }));
+  ')
+multi_units_json='[
+  {"name":"alpha","type":"service","scope":"system"},
+  {"name":"beta","type":"service","scope":"system"}
+]'
+REAL_INSTALL=$(command -v install)
+INSTALL_COUNT="$TMP_DIR/install-count"
+export REAL_INSTALL INSTALL_COUNT
+cat > "$TMP_DIR/bin/install" << 'EOF'
+#!/usr/bin/env bash
+count=0
+[[ -f "$INSTALL_COUNT" ]] && count=$(cat "$INSTALL_COUNT")
+count=$((count + 1))
+printf '%s\n' "$count" > "$INSTALL_COUNT"
+[[ "$count" -eq 2 ]] && exit 91
+exec "$REAL_INSTALL" "$@"
+EOF
+chmod +x "$TMP_DIR/bin/install"
+if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
+    SYSTEMD_SYSTEM_ROOT="$MULTI_SYSTEM_ROOT" \
+    bash "$RENDER_HELPER" "$MULTI_TARGET" "$multi_runtime_json" \
+      "$multi_units_json" "$persistent_json" >"$TMP_DIR/partial-install.out" 2>&1; then
+  fail "second unit install failure must fail rendering phase"
+else
+  pass "second unit install failure fails rendering phase"
+fi
+if [[ "$(cat "$MULTI_SYSTEM_ROOT/alpha.service")" == "OLD-alpha" &&
+      "$(cat "$MULTI_SYSTEM_ROOT/beta.service")" == "OLD-beta" ]]; then
+  pass "partial install failure restores the complete previous unit set"
+else
+  fail "partial install failure must not leave a mixed unit set"
+fi
+rm -f "$TMP_DIR/bin/install" "$INSTALL_COUNT"
 
 # Full deploy regression: once mutation begins, render/preflight failure must
 # leave the accepted marker absent and must prevent any restart round trip.

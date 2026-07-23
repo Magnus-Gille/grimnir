@@ -125,8 +125,10 @@ therefore deliberately markerless/unknown, never certified by the old SHA.
   before choosing the captured rollback commit.
 - **Rendered systemd units:** opted-in components preserve the prior installed unit as
   `<unit>.grimnir-previous`. Render/preflight failure occurs before restart and stays markerless.
-  If restart or boundary health later fails, restore that host-local snapshot and verify the same
-  controller and health gates before restoring the captured prior marker. See
+  A partial multi-unit copy failure restores every destination already replaced and returns before
+  daemon reload; an incomplete restore is reported explicitly and requires inspection. If restart
+  or boundary health later fails, restore the host-local snapshots and verify the same controller
+  and health gates before restoring the captured prior marker. See
   [`systemd-runtime-rendering.md`](systemd-runtime-rendering.md#rollback).
 
 ### Auto dependency bumps

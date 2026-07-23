@@ -234,15 +234,19 @@ function requireExisting(file, candidate, kind, allowSymlink = false) {
 
 const environmentFiles = runtime.environment_files || [];
 const sandboxPaths = runtime.sandbox_paths || [];
-const allowedSandboxRoots = [runtime.deploy_target].concat(persistentPaths, sandboxPaths);
+const ownedSandboxRoots = [runtime.deploy_target].concat(persistentPaths);
+
+function allowedSandboxPath(candidate, directive) {
+  if (ownedSandboxRoots.some((root) => within(candidate, root))) return true;
+  const exactExternalReadOnly = directive === "ReadOnlyPaths" ||
+    directive === "BindReadOnlyPaths" || directive === "InaccessiblePaths";
+  return exactExternalReadOnly && sandboxPaths.includes(candidate);
+}
 
 for (const envFile of environmentFiles) {
   requireExisting("runtime", envFile, "declared environment file");
 }
 for (const sandboxPath of sandboxPaths) {
-  if (!allowedSandboxRoots.some((root) => within(sandboxPath, root))) {
-    fail("runtime", "sandbox path is outside registered roots: " + sandboxPath);
-  }
   requireExisting("runtime", sandboxPath, "declared sandbox path");
 }
 
@@ -354,7 +358,7 @@ for (const entry of manifest) {
             fail(entry.file, key + " contains a non-absolute path: " + candidate);
             continue;
           }
-          if (!allowedSandboxRoots.some((root) => within(candidate, root))) {
+          if (!allowedSandboxPath(candidate, key)) {
             fail(entry.file, key + " path is outside registered roots: " + candidate);
           }
           requireExisting(entry.file, candidate, key + " path");
@@ -372,39 +376,120 @@ if (errors.length) {
 NODE
 
 system_root="${SYSTEMD_SYSTEM_ROOT:-/etc/systemd/system}"
+install_plan="$render_dir/install-plan"
+installed_plan="$render_dir/installed-plan"
+mkdir -p "$render_dir/backups"
+: > "$install_plan"
+: > "$installed_plan"
+
+destination_is_symlink() {
+  local privileged=$1 destination=$2
+  if [[ "$privileged" == "true" ]]; then
+    sudo test -L "$destination"
+  else
+    [[ -L "$destination" ]]
+  fi
+}
+
+destination_is_file() {
+  local privileged=$1 destination=$2
+  if [[ "$privileged" == "true" ]]; then
+    sudo test -f "$destination"
+  else
+    [[ -f "$destination" ]]
+  fi
+}
+
+copy_preserving() {
+  local privileged=$1 source=$2 destination=$3
+  if [[ "$privileged" == "true" ]]; then
+    sudo cp -p -- "$source" "$destination"
+  else
+    cp -p -- "$source" "$destination"
+  fi
+}
+
+install_rendered() {
+  local privileged=$1 source=$2 destination=$3
+  if [[ "$privileged" == "true" ]]; then
+    sudo install -D -m644 "$source" "$destination"
+  else
+    install -D -m644 "$source" "$destination"
+  fi
+}
+
+remove_destination() {
+  local privileged=$1 destination=$2
+  if [[ "$privileged" == "true" ]]; then
+    sudo rm -f -- "$destination"
+  else
+    rm -f -- "$destination"
+  fi
+}
+
+install_index=0
 while IFS='|' read -r unit_file unit_scope; do
   [[ -n "$unit_file" ]] || continue
+  install_index=$((install_index + 1))
+  privileged=false
   if [[ "$unit_scope" == "user" ]]; then
     unit_destination="$runtime_home/.config/systemd/user/$unit_file"
-    if [[ -L "$unit_destination" ]]; then
-      echo "ERROR: refusing to replace symlinked unit destination: $unit_destination" >&2
-      exit 1
-    fi
-    if [[ -f "$unit_destination" ]]; then
-      cp -p -- "$unit_destination" "${unit_destination}.grimnir-previous"
-    fi
-    install -D -m644 "$render_dir/$unit_file" "$unit_destination"
   elif [[ "$system_root" == "/etc/systemd/system" ]]; then
     unit_destination="$system_root/$unit_file"
-    if sudo test -L "$unit_destination"; then
-      echo "ERROR: refusing to replace symlinked unit destination: $unit_destination" >&2
-      exit 1
-    fi
-    if sudo test -f "$unit_destination"; then
-      sudo cp -p -- "$unit_destination" "${unit_destination}.grimnir-previous"
-    fi
-    sudo install -D -m644 "$render_dir/$unit_file" "$unit_destination"
+    privileged=true
   else
     unit_destination="$system_root/$unit_file"
-    if [[ -L "$unit_destination" ]]; then
-      echo "ERROR: refusing to replace symlinked unit destination: $unit_destination" >&2
-      exit 1
-    fi
-    if [[ -f "$unit_destination" ]]; then
-      cp -p -- "$unit_destination" "${unit_destination}.grimnir-previous"
-    fi
-    install -D -m644 "$render_dir/$unit_file" "$unit_destination"
   fi
+
+  if destination_is_symlink "$privileged" "$unit_destination"; then
+    echo "ERROR: refusing to replace symlinked unit destination: $unit_destination" >&2
+    exit 1
+  fi
+
+  backup="$render_dir/backups/$install_index"
+  had_previous=false
+  if destination_is_file "$privileged" "$unit_destination"; then
+    copy_preserving "$privileged" "$unit_destination" "$backup"
+    copy_preserving "$privileged" "$backup" "${unit_destination}.grimnir-previous"
+    had_previous=true
+  fi
+  printf '%s|%s|%s|%s|%s\n' \
+    "$unit_file" "$unit_destination" "$privileged" "$had_previous" "$backup" >> "$install_plan"
 done < "$manifest"
+
+install_failed=false
+while IFS='|' read -r unit_file unit_destination privileged had_previous backup; do
+  [[ -n "$unit_file" ]] || continue
+  if install_rendered "$privileged" "$render_dir/$unit_file" "$unit_destination"; then
+    printf '%s|%s|%s|%s|%s\n' \
+      "$unit_file" "$unit_destination" "$privileged" "$had_previous" "$backup" >> "$installed_plan"
+  else
+    echo "ERROR: failed to install rendered unit: $unit_destination" >&2
+    install_failed=true
+    break
+  fi
+done < "$install_plan"
+
+if [[ "$install_failed" == "true" ]]; then
+  rollback_failed=false
+  while IFS='|' read -r unit_file unit_destination privileged had_previous backup; do
+    [[ -n "$unit_file" ]] || continue
+    if [[ "$had_previous" == "true" ]]; then
+      if ! copy_preserving "$privileged" "$backup" "$unit_destination"; then
+        echo "ERROR: failed to restore prior unit after install failure: $unit_destination" >&2
+        rollback_failed=true
+      fi
+    elif ! remove_destination "$privileged" "$unit_destination"; then
+      echo "ERROR: failed to remove newly installed unit after install failure: $unit_destination" >&2
+      rollback_failed=true
+    fi
+  done < "$installed_plan"
+  if [[ "$rollback_failed" == "true" ]]; then
+    echo "ERROR: rendered unit rollback was incomplete; inspect destinations before daemon-reload" >&2
+  else
+    echo "ERROR: restored all previously replaced units; daemon-reload was not requested" >&2
+  fi
+  exit 1
+fi
 
 echo "SYSTEMD_UNITS_PREPARED"

@@ -11,7 +11,7 @@
 | **Hostnames / hosts** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
 | **Deploy paths, targets, systemd units & timer semantics** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
 | **Systemd unit structure / templates** | Owning component repo | `deploy.sh` installs install-ready units byte-for-byte or renders the bounded registry placeholders |
-| **Host systemd runtime identity, home, deploy target, private-environment paths and sandbox roots** | `services.json` | `deploy.sh`, `render-systemd-units.sh` |
+| **Host systemd runtime identity, home, deploy target, private-environment paths and exact external sandbox dependencies** | `services.json` | `deploy.sh`, `render-systemd-units.sh` |
 | **Persistent/runtime paths and component-specific rsync exclusions** | `services.json` | `deploy.sh`, registry validation |
 | **Global rsync safety exclusions** (`.env`, `.git`, dependencies, tests, deploy marker) | `scripts/deploy.sh` | deploy persistence tests |
 | **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |

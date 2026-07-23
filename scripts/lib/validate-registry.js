@@ -235,22 +235,15 @@ data.components.forEach(function (c, i) {
 
       if (Array.isArray(runtime.environment_files) && isCanonicalAbsolutePath(runtime.deploy_target)) {
         runtime.environment_files.forEach(function (environmentFile) {
-          if (isCanonicalAbsolutePath(environmentFile) &&
-              !isWithinPath(environmentFile, runtime.deploy_target)) {
-            fail(label + '.systemd_runtime.environment_files: private environment files must live within deploy_target');
-          }
-        });
-      }
-      if (Array.isArray(runtime.sandbox_paths) && isCanonicalAbsolutePath(runtime.deploy_target)) {
-        runtime.sandbox_paths.forEach(function (sandboxPath) {
-          if (!isCanonicalAbsolutePath(sandboxPath)) return;
-          var registered = isWithinPath(sandboxPath, runtime.deploy_target) ||
+          if (!isCanonicalAbsolutePath(environmentFile)) return;
+          var registered = isWithinPath(environmentFile, runtime.deploy_target) ||
             persistentPaths.some(function (persistentPath) {
-              return isCanonicalAbsolutePath(persistentPath) && isWithinPath(sandboxPath, persistentPath);
+              return isCanonicalAbsolutePath(persistentPath) &&
+                isWithinPath(environmentFile, persistentPath);
             });
           if (!registered) {
-            fail(label + '.systemd_runtime.sandbox_paths: path must be within deploy_target or persistent_paths: ' +
-              sandboxPath);
+            fail(label + '.systemd_runtime.environment_files: private environment files must live within ' +
+              'deploy_target or persistent_paths');
           }
         });
       }

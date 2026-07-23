@@ -26,8 +26,8 @@ Any other active placeholder fails closed.
     "user": "example",
     "home": "/home/example",
     "deploy_target": "/home/example/service",
-    "environment_files": ["/home/example/service/.env"],
-    "sandbox_paths": ["/home/example/.service"]
+    "environment_files": ["/home/example/.service/env"],
+    "sandbox_paths": ["/home/example/.ssh/service_read_only"]
   },
   "health_check": {
     "boundary": "network",
@@ -40,11 +40,15 @@ Any other active placeholder fails closed.
 so a unit cannot be rendered against one tree while rsync mutates another. `environment_files`
 lists required private-environment file paths, never their contents. Each file must already exist,
 must not be a symlink, and must be referenced by the rendered service without systemd's optional
-`-` prefix. Global rsync policy continues to exclude `.env`.
+`-` prefix. Each path must be inside the deploy target or a declared `persistent_paths` root.
+Global rsync policy continues to exclude `.env`.
 
-`sandbox_paths` lists additional registered roots that path-bearing sandbox directives may use.
-They must lie under the deploy target or a declared `persistent_paths` root. The renderer also
-accepts the deploy target and declared persistent roots themselves.
+`sandbox_paths` lists exact external dependencies that path-bearing sandbox directives may use,
+such as a read-only key or another component's data directory. Declaring one does not claim that
+the opting-in component owns or persists it, does not authorize descendants, and never grants
+write access. Exact external paths are accepted only by `ReadOnlyPaths=`, `BindReadOnlyPaths=`, or
+`InaccessiblePaths=`. The deploy target and declared persistent paths remain authorized roots, so
+directives may reference paths within either tree.
 
 `health_check.boundary` is:
 
@@ -66,8 +70,9 @@ For an opted-in rsync component, `scripts/deploy.sh` performs these phases:
 5. Require `WorkingDirectory=` to equal the deploy target; verify `ExecStart` executables and
    absolute arguments; require declared environment files; and reject unregistered or missing
    sandbox paths.
-6. Preserve each prior installed unit as `<unit>.grimnir-previous`, install all rendered units,
-   reload systemd, restart, and verify controller state.
+6. Snapshot every prior installed unit as `<unit>.grimnir-previous`, then install all rendered
+   units. If any copy fails, restore every unit already replaced and return before daemon reload.
+   Otherwise reload systemd, restart, and verify controller state.
 7. Run the declared host- or network-boundary health probe.
 8. Write `.deployed-commit` only after every gate succeeds.
 
@@ -94,12 +99,25 @@ Migrate one component at a time:
 Components without `systemd_runtime` retain the install-ready, byte-for-byte unit contract. This
 keeps migration explicit and avoids silently assigning host identities.
 
+### Heimdall migration dependency
+
+Heimdall is the incident-owning component and the first registry opt-in. The Grimnir registry
+change must not be deployed on its own: Heimdall's canonical templates currently hardcode
+`User=heimdall` and `/home/heimdall`, which no bounded placeholder renderer can safely reinterpret.
+A companion PR in the Heimdall repository must first replace those host literals with the supported
+placeholders. Merge and deploy that owning-repository template change before selectively deploying
+Heimdall through this contract. The companion PR link is pending; Grimnir PR #110 remains draft and
+deployment-blocked until it is recorded.
+
 ## Rollback
 
 The deploy log reports the prior accepted commit before mutation.
 
 - If render/preflight fails, do not restart: the old process is still running. Correct the registry
   or template and redeploy; the target remains markerless until acceptance.
+- If one unit copy fails during a multi-unit install, the renderer restores every unit it already
+  replaced and exits before daemon reload. An explicit incomplete-rollback error means the
+  destinations must be inspected manually before any reload.
 - If a rendered unit was installed and restart/health later fails, restore
   `<unit>.grimnir-previous` to the original unit path, run the appropriate daemon reload and restart,
   and verify the same declared health boundary. For system units use `sudo`; for user units use
