@@ -1,7 +1,7 @@
 # Grimnir System — Status
 
 **Last session:** 2026-07-23 (Codex) — ecosystem stabilization sweep
-**Deployed Grimnir revision:** `b371f2d`
+**Stabilization code revision:** `b371f2d` (PR #117; later commits may be status-only)
 
 ## The headline
 
@@ -60,7 +60,8 @@ agents and services were active.
 ## Verification at close
 
 - All eleven PRs merged with green CI and independent root review; M5 was attempted on every lane.
-- Grimnir control Pi: checkout and deploy marker both `b371f2d`; validation timer active.
+- Grimnir control Pi: exact checkout/marker equality verified after the status-only closeout;
+  validation timer active.
 - Gille/M5: exact accepted marker; system gateway and autonomy timer active; health green.
 - Heimdall: four runtime units/timers active; manual maintenance successful; database healthy.
 - Brokkr/NAS: maintenance timers active, push health 200, no failed units.
