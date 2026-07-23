@@ -15,6 +15,7 @@
 //   all          — full JSON array of all components
 //   nodes        — infra/inference hosts (data.nodes): name|hostname|ssh_alias|role|status|llm|monitor per line
 //   nodes-json   — full JSON array of all nodes (data.nodes)
+//   repository-authority — canonical local checkout|GitHub owner/repo rows
 
 var fs = require('fs');
 var path = require('path');
@@ -156,6 +157,34 @@ switch (query) {
     process.stdout.write(JSON.stringify(Array.isArray(data.nodes) ? data.nodes : []) + '\n');
     break;
   }
+  case 'repository-authority': {
+    var authority = data.repository_authority;
+    if (!authority || typeof authority !== 'object' || Array.isArray(authority) ||
+        typeof authority.default_owner !== 'string') {
+      break;
+    }
+    var overrides = authority.owner_overrides &&
+      typeof authority.owner_overrides === 'object' &&
+      !Array.isArray(authority.owner_overrides)
+      ? authority.owner_overrides : {};
+    var rows = components.map(function (c) {
+      return { repo: c.repo, checkout: c.repo };
+    });
+    if (Array.isArray(authority.additional_repositories)) {
+      authority.additional_repositories.forEach(function (entry) {
+        rows.push(entry);
+      });
+    }
+    var seen = {};
+    rows.forEach(function (entry) {
+      if (!entry || typeof entry.repo !== 'string' || typeof entry.checkout !== 'string') return;
+      if (seen[entry.checkout]) return;
+      seen[entry.checkout] = true;
+      var owner = overrides[entry.repo] || authority.default_owner;
+      process.stdout.write(entry.checkout + '|' + owner + '/' + entry.repo + '\n');
+    });
+    break;
+  }
   default: {
     // json:<field>=<value> — filter and return JSON
     var match = query.match(/^json:(\w+)=(.+)$/);
@@ -169,7 +198,7 @@ switch (query) {
       process.stdout.write(JSON.stringify(filtered) + '\n');
     } else {
       process.stderr.write('ERROR: Unknown query: ' + query + '\n');
-      process.stderr.write('Valid queries: deploy, scan, components, systemd, ports, validate, all, nodes, nodes-json, json:<field>=<value>\n');
+      process.stderr.write('Valid queries: deploy, scan, components, systemd, ports, validate, all, nodes, nodes-json, repository-authority, json:<field>=<value>\n');
       process.exit(1);
     }
   }

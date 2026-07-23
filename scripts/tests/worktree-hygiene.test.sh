@@ -128,6 +128,37 @@ assert_eq "deploy_target_is_alert violation -> yes" \
 assert_contains "deploy_target_detail violation references role-separation doc" \
   "$(deploy_target_detail violation-unexpected-git)" "role-separation.md"
 
+# ── canonical origin authority ────────────────────────────────────────────
+assert_eq "normalize HTTPS GitHub origin" "magnus-gille/heimdall" \
+  "$(normalize_github_remote "https://github.com/Magnus-Gille/heimdall.git")"
+assert_eq "normalize SCP-style GitHub origin" "magnus-gille/heimdall" \
+  "$(normalize_github_remote "git@github.com:Magnus-Gille/heimdall.git")"
+assert_eq "normalize ssh:// GitHub origin" "grimnir-bot/skuld" \
+  "$(normalize_github_remote "ssh://git@github.com/grimnir-bot/skuld.git")"
+assert_eq "non-GitHub origin does not disclose or masquerade as authority" "" \
+  "$(normalize_github_remote "ssh://git@internal.example/private/repo.git")"
+
+assert_eq "matching canonical origin -> ok" "ok" \
+  "$(classify_origin_authority magnus-gille/heimdall magnus-gille/heimdall yes)"
+assert_eq "missing origin -> missing-origin" "missing-origin" \
+  "$(classify_origin_authority magnus-gille/heimdall "" no)"
+assert_eq "non-GitHub origin -> non-github-origin" "non-github-origin" \
+  "$(classify_origin_authority magnus-gille/heimdall "" yes)"
+assert_eq "archived predecessor origin -> archived-origin" "archived-origin" \
+  "$(classify_origin_authority magnus-gille/heimdall magnus-gille/heimdall-private-archive yes)"
+assert_eq "wrong live GitHub origin -> wrong-origin" "wrong-origin" \
+  "$(classify_origin_authority magnus-gille/heimdall someone/heimdall yes)"
+assert_eq "origin authority ok is not an alert" "no" \
+  "$(origin_authority_is_alert ok)"
+assert_eq "archived origin is an alert" "yes" \
+  "$(origin_authority_is_alert archived-origin)"
+assert_contains "archived origin detail names expected authority" \
+  "$(origin_authority_detail archived-origin magnus-gille/heimdall magnus-gille/heimdall-private-archive)" \
+  "expected magnus-gille/heimdall"
+assert_not_contains "origin remediation never mutates a remote automatically" \
+  "$(origin_authority_remediation archived-origin magnus-gille/heimdall)" \
+  "git remote set-url"
+
 echo ""
 echo "worktree-hygiene gatherer tests (real fixture repos)"
 echo "====================================================="
@@ -224,6 +255,28 @@ assert_eq "plain deploy dir -> no" "no" "$(check_deploy_target_git_dir "$TMP_DIR
 assert_eq "deploy dir with .git -> yes" "yes" "$(check_deploy_target_git_dir "$TMP_DIR/deploy-git")"
 assert_eq "no-arg check_deploy_target_git_dir -> no" "no" "$(check_deploy_target_git_dir)"
 
+# ── checkout_origin_authority ─────────────────────────────────────────────
+mk_repo "$TMP_DIR/origin-authority-ok" main
+git -C "$TMP_DIR/origin-authority-ok" remote add origin \
+  "git@github.com:Magnus-Gille/heimdall.git"
+assert_eq "matching fixture origin is classified ok" \
+  "ok|magnus-gille/heimdall" \
+  "$(checkout_origin_authority "$TMP_DIR/origin-authority-ok" magnus-gille/heimdall)"
+
+mk_repo "$TMP_DIR/origin-authority-archive" main
+git -C "$TMP_DIR/origin-authority-archive" remote add origin \
+  "https://github.com/Magnus-Gille/heimdall-private-archive.git"
+assert_eq "archived fixture origin is classified without exposing raw URL" \
+  "archived-origin|magnus-gille/heimdall-private-archive" \
+  "$(checkout_origin_authority "$TMP_DIR/origin-authority-archive" magnus-gille/heimdall)"
+
+mk_repo "$TMP_DIR/origin-authority-non-github" main
+git -C "$TMP_DIR/origin-authority-non-github" remote add origin \
+  "ssh://git@internal.example/private/heimdall.git"
+assert_eq "non-GitHub fixture origin is classified without exposing raw URL" \
+  "non-github-origin|<non-github>" \
+  "$(checkout_origin_authority "$TMP_DIR/origin-authority-non-github" magnus-gille/heimdall)"
+
 echo ""
 echo "audit_repo_worktrees end-to-end tests"
 echo "======================================"
@@ -298,9 +351,13 @@ mkdir -p "$FIXTURE_ROOT"
 
 # Repo A: fully clean (canonical only, on main).
 mk_repo "$FIXTURE_ROOT/repo-a" main
+git -C "$FIXTURE_ROOT/repo-a" remote add origin \
+  "https://github.com/Magnus-Gille/repo-a.git"
 
 # Repo B: seeds a stale merged worktree AND a dirty worktree, canonical clean.
 mk_repo "$FIXTURE_ROOT/repo-b" main
+git -C "$FIXTURE_ROOT/repo-b" remote add origin \
+  "https://github.com/Magnus-Gille/repo-b-private-archive.git"
 git -C "$FIXTURE_ROOT/repo-b" branch feature/merged-b
 git -C "$FIXTURE_ROOT/repo-b" worktree add -q "$TMP_DIR/repo-b-stale" feature/merged-b
 git -C "$FIXTURE_ROOT/repo-b" merge -q --no-ff -m "merge" feature/merged-b
@@ -319,16 +376,31 @@ mkdir -p "$TMP_DIR/deploy-drift-target/.git"
 FIXTURE_SERVICES_JSON="$TMP_DIR/services.json"
 cat > "$FIXTURE_SERVICES_JSON" << EOF
 {
+  "repository_authority": {
+    "default_owner": "Magnus-Gille",
+    "additional_repositories": [],
+    "owner_overrides": {}
+  },
   "components": [
     {
-      "name": "fixture-component",
-      "repo": "fixture-component",
+      "name": "repo-a",
+      "repo": "repo-a",
       "host": null,
       "port": null,
       "deploy": true,
       "scan": false,
       "deploy_path": "$TMP_DIR/deploy-drift-target",
       "deploy_mode": "rsync",
+      "needs_build": false,
+      "systemd_units": []
+    },
+    {
+      "name": "repo-b",
+      "repo": "repo-b",
+      "host": null,
+      "port": null,
+      "deploy": false,
+      "scan": false,
       "needs_build": false,
       "systemd_units": []
     }
@@ -346,18 +418,39 @@ assert_eq "CLI exits 1 when fixture has issues" "1" "$dirty_rc"
 assert_contains "CLI flags repo-b stale worktree" "$dirty_output" "repo-b"
 assert_contains "CLI flags repo-b dirty worktree" "$dirty_output" "dirty"
 assert_contains "CLI flags repo-c canonical violation" "$dirty_output" "repo-c"
-assert_contains "CLI flags the deploy-target .git drift" "$dirty_output" "fixture-component"
+assert_contains "CLI flags the deploy-target .git drift" "$dirty_output" "repo-a"
 assert_contains "CLI flags deploy-target role-separation reference" "$dirty_output" "role-separation.md"
+assert_contains "CLI flags repo-b archived predecessor origin" "$dirty_output" "archived predecessor"
+assert_contains "CLI origin finding names expected repository" "$dirty_output" "magnus-gille/repo-b"
+assert_not_contains "CLI origin finding does not expose raw transport URL" \
+  "$dirty_output" "https://github.com"
 assert_not_contains "CLI output never instructs an unconditional delete" "$dirty_output" "rm -rf"
+assert_not_contains "CLI output never mutates a remote" "$dirty_output" "git remote set-url"
 assert_contains "CLI prints a summary line" "$dirty_output" "Summary:"
 
 # Clean-only fixture root: must report clean and exit 0.
 CLEAN_ROOT="$TMP_DIR/repos-root-clean"
 mkdir -p "$CLEAN_ROOT"
 mk_repo "$CLEAN_ROOT/repo-clean" main
+git -C "$CLEAN_ROOT/repo-clean" remote add origin \
+  "https://github.com/Magnus-Gille/repo-clean.git"
+
+CLEAN_SERVICES_JSON="$TMP_DIR/services-clean.json"
+cat > "$CLEAN_SERVICES_JSON" << EOF
+{
+  "repository_authority": {
+    "default_owner": "Magnus-Gille",
+    "additional_repositories": [
+      { "repo": "repo-clean", "checkout": "repo-clean" }
+    ],
+    "owner_overrides": {}
+  },
+  "components": []
+}
+EOF
 
 set +e
-clean_output="$(GRIMNIR_WORKTREE_AUDIT_ROOT="$CLEAN_ROOT" GRIMNIR_SERVICES_JSON="$TMP_DIR/no-such-services.json" \
+clean_output="$(GRIMNIR_WORKTREE_AUDIT_ROOT="$CLEAN_ROOT" GRIMNIR_SERVICES_JSON="$CLEAN_SERVICES_JSON" \
   "$SCRIPTS_DIR/worktree-hygiene-audit.sh" 2>&1)"
 clean_rc=$?
 set -e

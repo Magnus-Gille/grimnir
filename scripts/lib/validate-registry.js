@@ -50,6 +50,57 @@ if (!Array.isArray(data.components)) {
   printAndExit();
 }
 
+var VALID_REPOSITORY_PART = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
+
+if (data.repository_authority !== undefined && !isPlainObject(data.repository_authority)) {
+  fail('top-level "repository_authority" must be an object when present');
+} else if (isPlainObject(data.repository_authority)) {
+  var authority = data.repository_authority;
+  if (typeof authority.default_owner !== 'string' ||
+      !VALID_REPOSITORY_PART.test(authority.default_owner)) {
+    fail('repository_authority.default_owner must be a safe GitHub owner');
+  }
+  if (!isPlainObject(authority.owner_overrides)) {
+    fail('repository_authority.owner_overrides must be an object');
+  } else {
+    Object.keys(authority.owner_overrides).forEach(function (repo) {
+      if (!VALID_REPOSITORY_PART.test(repo) ||
+          typeof authority.owner_overrides[repo] !== 'string' ||
+          !VALID_REPOSITORY_PART.test(authority.owner_overrides[repo])) {
+        fail('repository_authority.owner_overrides must map safe repo names to safe GitHub owners');
+      }
+    });
+  }
+  if (!Array.isArray(authority.additional_repositories)) {
+    fail('repository_authority.additional_repositories must be an array');
+  } else {
+    var seenAuthorityCheckouts = {};
+    data.components.forEach(function (component) {
+      if (isPlainObject(component) && typeof component.repo === 'string') {
+        seenAuthorityCheckouts[component.repo] = true;
+      }
+    });
+    authority.additional_repositories.forEach(function (entry, i) {
+      var label = 'repository_authority.additional_repositories[' + i + ']';
+      if (!isPlainObject(entry)) {
+        fail(label + ' must be an object');
+        return;
+      }
+      ['repo', 'checkout'].forEach(function (field) {
+        if (typeof entry[field] !== 'string' || !VALID_REPOSITORY_PART.test(entry[field])) {
+          fail(label + '.' + field + ' must be a safe repository/directory name');
+        }
+      });
+      if (typeof entry.checkout === 'string') {
+        if (seenAuthorityCheckouts[entry.checkout]) {
+          fail('duplicate repository-authority checkout: "' + entry.checkout + '"');
+        }
+        seenAuthorityCheckouts[entry.checkout] = true;
+      }
+    });
+  }
+}
+
 var VALID_UNIT_TYPES = ['service', 'timer'];
 var VALID_UNIT_SCOPES = ['system', 'user'];
 var VALID_TIMER_SEMANTICS = ['recurring', 'one-shot'];

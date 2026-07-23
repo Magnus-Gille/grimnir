@@ -28,12 +28,19 @@ Deploy all services from the laptop with `make deploy` (from the grimnir repo), 
 
 ## GitHub ownership
 
-- **Magnus-Gille** — owns all repos
-- **grimnir-bot** — dedicated machine account for Pi. Added as collaborator on repos Hugin pushes to. Pi authenticates to GitHub exclusively via grimnir-bot SSH key.
+> **Source of truth:** `services.json.repository_authority`, combined with
+> each component's `repo` field. It also records local checkout-name
+> exceptions for ecosystem repositories that are not deployed components.
+
+- **Magnus-Gille** — default owner
+- **grimnir-bot** — explicit owner exception for Skuld, and the dedicated
+  machine account for Pi. Added as collaborator on repos Hugin pushes to. Pi
+  authenticates to GitHub exclusively via grimnir-bot SSH key.
 
 ## Repo naming
 
-Repos are named after the component, lowercase. The GitHub org matches the operator:
+Repos are named after the component, lowercase. The GitHub org normally
+matches the operator:
 - `Magnus-Gille/munin-memory`
 - `Magnus-Gille/hugin`
 - `Magnus-Gille/heimdall`
@@ -41,6 +48,11 @@ Repos are named after the component, lowercase. The GitHub org matches the opera
 - `Magnus-Gille/fortnox-mcp`
 - `Magnus-Gille/ratatoskr`
 - `grimnir-bot/skuld` (exception: created by Hugin task under bot account)
+
+Ecosystem repositories that are not deployed components are listed in
+`repository_authority.additional_repositories`; their canonical local
+checkout name is explicit so the audit never infers authority from an old
+directory or remote name.
 
 ## Systemd timers
 

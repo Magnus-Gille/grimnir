@@ -1,4 +1,16 @@
 {
+  "repository_authority": {
+    "default_owner": "Magnus-Gille",
+    "owner_overrides": {
+      "skuld": "grimnir-bot"
+    },
+    "additional_repositories": [
+      {
+        "repo": "gille-inference",
+        "checkout": "gille-inference"
+      }
+    ]
+  },
   "components": [
     {
       "name": "munin-memory",

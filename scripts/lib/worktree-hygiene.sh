@@ -174,6 +174,125 @@ deploy_target_detail() {
   esac
 }
 
+# Convert supported GitHub remote transports to a disclosure-safe,
+# case-insensitive "owner/repo" identity. Raw remote URLs are deliberately
+# never returned: non-GitHub transports collapse to an empty string so an
+# audit finding cannot leak a private host or locator.
+normalize_github_remote() {
+  local remote="${1:-}" slug=""
+  case "$remote" in
+    https://github.com/*)
+      slug="${remote#https://github.com/}"
+      ;;
+    git@github.com:*)
+      slug="${remote#git@github.com:}"
+      ;;
+    ssh://git@github.com/*)
+      slug="${remote#ssh://git@github.com/}"
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+
+  slug="${slug%/}"
+  slug="${slug%.git}"
+  case "$slug" in
+    */*)
+      local owner="${slug%%/*}" repo="${slug#*/}"
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+  [[ -n "$owner" && -n "$repo" && "$repo" != */* ]] || return 0
+  case "$owner$repo" in
+    *[!A-Za-z0-9_.-]*) return 0 ;;
+  esac
+  printf '%s/%s\n' "$owner" "$repo" | tr '[:upper:]' '[:lower:]'
+}
+
+classify_origin_authority() {
+  local expected="${1:-}" actual="${2:-}" has_origin="${3:-no}"
+  if [[ "$has_origin" != "yes" ]]; then
+    echo "missing-origin"
+  elif [[ -z "$actual" ]]; then
+    echo "non-github-origin"
+  elif [[ "$actual" == "$expected" ]]; then
+    echo "ok"
+  elif [[ "${actual#*/}" =~ (^|[-_.])(archive|archived|legacy|predecessor)([-_.]|$) ]]; then
+    echo "archived-origin"
+  else
+    echo "wrong-origin"
+  fi
+}
+
+origin_authority_is_alert() {
+  if [[ "${1:-ok}" == "ok" ]]; then
+    echo "no"
+  else
+    echo "yes"
+  fi
+}
+
+origin_authority_detail() {
+  local verdict="${1:-ok}" expected="${2:-<unknown>}" actual="${3:-<unknown>}"
+  case "$verdict" in
+    ok)
+      echo "origin matches repository authority ($expected)"
+      ;;
+    missing-origin)
+      echo "origin is missing; expected $expected"
+      ;;
+    non-github-origin)
+      echo "origin is not a recognized GitHub remote; expected $expected"
+      ;;
+    archived-origin)
+      echo "origin points to archived predecessor $actual; expected $expected"
+      ;;
+    wrong-origin)
+      echo "origin points to $actual; expected $expected"
+      ;;
+    *)
+      echo "unknown origin-authority verdict: $verdict; expected $expected"
+      ;;
+  esac
+}
+
+origin_authority_remediation() {
+  local verdict="${1:-ok}" expected="${2:-<unknown>}"
+  if [[ "$verdict" == "ok" ]]; then
+    echo ""
+  else
+    echo "Inspect local branches, worktrees, and both fetch/push URLs; then reconcile origin to $expected manually while preserving any useful predecessor under an explicit archival remote name. Nothing is changed by this audit."
+  fi
+}
+
+checkout_origin_authority() {
+  local repo_path="${1:-}" expected="${2:-}" remote="" actual="" has_origin="no"
+  [[ -n "$repo_path" && -n "$expected" ]] || return 0
+  if ! git -C "$repo_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    return 0
+  fi
+
+  remote="$(git -C "$repo_path" config --get remote.origin.url 2>/dev/null || true)"
+  if [[ -n "$remote" ]]; then
+    has_origin="yes"
+    actual="$(normalize_github_remote "$remote")"
+  fi
+
+  local verdict safe_actual
+  verdict="$(classify_origin_authority "$expected" "$actual" "$has_origin")"
+  if [[ "$has_origin" != "yes" ]]; then
+    safe_actual="<missing>"
+  elif [[ -z "$actual" ]]; then
+    safe_actual="<non-github>"
+  else
+    safe_actual="$actual"
+  fi
+  echo "$verdict|$safe_actual"
+}
+
 list_repo_worktrees() {
   local repo_path="${1:-}"
   [[ -n "$repo_path" ]] || return 0
