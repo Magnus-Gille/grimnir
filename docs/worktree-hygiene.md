@@ -227,6 +227,13 @@ When a checkout exists, a missing, non-GitHub, archived, or wrong `origin`
 is a finding. Output includes only normalized public GitHub identities (or
 `<missing>`/`<non-github>`), never the raw remote URL.
 
+When retaining an unrelated archive checkout is intentional, declare the
+separate active directory with `repository_authority.checkout_overrides`.
+The audit then inspects that named canonical directory and leaves the
+archive's remotes and history untouched. This is the Heimdall arrangement:
+`heimdall-canonical` is the clean public checkout, while `heimdall` remains
+the explicitly preserved private archive.
+
 The worktree-lifecycle portion is also wired into
 `scripts/generate-architecture.sh --validate` (the `grimnir-validate` timer),
 where its findings fold into the existing `PASS`/`FAIL` tally alongside the
