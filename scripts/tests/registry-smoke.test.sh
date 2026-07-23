@@ -337,6 +337,44 @@ cat > "$TMP_DIR/deploy-mode-bogus.json" << 'EOF'
 EOF
 assert_eq "deploy_mode bogus value -> exit 1" "1" "$(run_validator "$TMP_DIR/deploy-mode-bogus.json")"
 
+# ── Host-specific systemd runtime rendering contract (#107) ────────────────
+cat > "$TMP_DIR/systemd-runtime-valid.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1.local", "port": 3030,
+      "deploy": true, "scan": false, "deploy_path": "/home/alpha/app",
+      "persistent_paths": ["/home/alpha/state"], "needs_build": false,
+      "systemd_runtime": {
+        "user": "alpha", "home": "/home/alpha", "deploy_target": "/home/alpha/app",
+        "environment_files": ["/home/alpha/app/.env"],
+        "sandbox_paths": ["/home/alpha/state"]
+      },
+      "health_check": { "boundary": "network", "paths": ["/health"] },
+      "systemd_units": [{ "name": "alpha", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "valid systemd runtime rendering contract -> exit 0" "0" \
+  "$(run_validator "$TMP_DIR/systemd-runtime-valid.json")"
+
+cat > "$TMP_DIR/systemd-runtime-mismatch.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1.local", "port": 3030,
+      "deploy": true, "scan": false, "deploy_path": "/home/alpha/app",
+      "persistent_paths": [], "needs_build": false,
+      "systemd_runtime": {
+        "user": "missing user", "home": "/home/alpha", "deploy_target": "/home/other/app",
+        "environment_files": ["/home/alpha/private.env"],
+        "sandbox_paths": ["/tmp/unregistered"]
+      },
+      "systemd_units": [{ "name": "alpha", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "mismatched runtime identity/paths and missing health boundary -> exit 1" "1" \
+  "$(run_validator "$TMP_DIR/systemd-runtime-mismatch.json")"
+
 # ── Missing file entirely ───────────────────────────────────────────────────
 assert_eq "missing file -> exit 1" "1" "$(run_validator "$TMP_DIR/does-not-exist.json")"
 

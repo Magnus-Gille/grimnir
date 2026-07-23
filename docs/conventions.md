@@ -24,7 +24,7 @@ All components are named after figures from Norse mythology, reflecting their ro
 
 Remote install paths live in `services.json` as `deploy_path`. Most services live under `~/repos/<service-name>/`, but a few have intentional exceptions such as `munin-memory` (`~/munin-memory`) and `mimir` (`~/mimir-server`).
 
-Deploy all services from the laptop with `make deploy` (from the grimnir repo), or selectively with `make deploy ARGS="munin-memory hugin"`. The centralized script deploys the local working tree via rsync, runs a local build when `needs_build: true`, installs production dependencies on the target host, and restarts primary service units. Declared unit files must be install-ready: the deployer installs the selected `systemd/{unit}` or root `{unit}` bytes without rendering component-specific templates. For worktree-based deploys, pass an explicit source override such as `make deploy ARGS="munin-memory=/tmp/munin-memory-awesome"`.
+Deploy all services from the laptop with `make deploy` (from the grimnir repo), or selectively with `make deploy ARGS="munin-memory hugin"`. The centralized script deploys the local working tree via rsync, runs a local build when `needs_build: true`, installs production dependencies on the target host, and restarts primary service units. Declared units are install-ready by default. A component may opt into the bounded host renderer with `systemd_runtime`; see [`systemd-runtime-rendering.md`](systemd-runtime-rendering.md) for the registry contract, preflight, migration, and rollback procedure. For worktree-based deploys, pass an explicit source override such as `make deploy ARGS="munin-memory=/tmp/munin-memory-awesome"`.
 
 ## GitHub ownership
 

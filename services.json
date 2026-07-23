@@ -10,6 +10,17 @@
       "deploy_path": "/home/magnus/munin-memory",
       "persistent_paths": ["/home/magnus/.munin-memory"],
       "needs_build": true,
+      "systemd_runtime": {
+        "user": "magnus",
+        "home": "/home/magnus",
+        "deploy_target": "/home/magnus/munin-memory",
+        "environment_files": ["/home/magnus/munin-memory/.env"],
+        "sandbox_paths": []
+      },
+      "health_check": {
+        "boundary": "network",
+        "paths": ["/health", "/api/health"]
+      },
       "systemd_units": [
         { "name": "munin-memory", "type": "service" }
       ]

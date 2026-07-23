@@ -58,6 +58,8 @@ var VALID_COMPONENT_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 var VALID_HOST = /^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/;
 var VALID_ABSOLUTE_PATH = /^\/[A-Za-z0-9._@%+,=:\/-]+$/;
 var INVALID_RSYNC_EXCLUDE_CHARS = /[\x00-\x1f*?[\]{}\\]/;
+var VALID_HEALTH_BOUNDARIES = ['host', 'network'];
+var VALID_HEALTH_PATH = /^\/[A-Za-z0-9._~%+\/-]*$/;
 
 function isWithinPath(candidate, parent) {
   if (parent === '/') return path.posix.isAbsolute(candidate);
@@ -193,6 +195,92 @@ data.components.forEach(function (c, i) {
           persistentPath + ' (expected a root-anchored exclusion for /' + relativePath + ')');
       }
     });
+  }
+
+  if (c.systemd_runtime !== undefined) {
+    var runtime = c.systemd_runtime;
+    if (!isPlainObject(runtime)) {
+      fail(label + ': "systemd_runtime" must be an object when present');
+    } else {
+      if (c.deploy !== true || deployMode !== 'rsync') {
+        fail(label + ': "systemd_runtime" is only supported for deploy=true rsync components');
+      }
+      if (typeof runtime.user !== 'string' || !/^[a-z_][a-z0-9_-]*$/.test(runtime.user)) {
+        fail(label + '.systemd_runtime.user: must be a safe POSIX account name');
+      }
+      ['home', 'deploy_target'].forEach(function (field) {
+        if (!isCanonicalAbsolutePath(runtime[field])) {
+          fail(label + '.systemd_runtime.' + field + ': must be a canonical absolute path below /');
+        }
+      });
+      if (typeof runtime.deploy_target === 'string' && runtime.deploy_target !== c.deploy_path) {
+        fail(label + '.systemd_runtime.deploy_target: must exactly match deploy_path');
+      }
+      if (isCanonicalAbsolutePath(runtime.home) && isCanonicalAbsolutePath(runtime.deploy_target) &&
+          !isWithinPath(runtime.deploy_target, runtime.home)) {
+        fail(label + '.systemd_runtime.deploy_target: must be within the registered runtime home');
+      }
+
+      ['environment_files', 'sandbox_paths'].forEach(function (field) {
+        if (!Array.isArray(runtime[field])) {
+          fail(label + '.systemd_runtime.' + field + ': must be an explicit array');
+          return;
+        }
+        runtime[field].forEach(function (runtimePath, ri) {
+          if (!isCanonicalAbsolutePath(runtimePath)) {
+            fail(label + '.systemd_runtime.' + field + '[' + ri + ']: must be a canonical absolute path below /');
+          }
+        });
+      });
+
+      if (Array.isArray(runtime.environment_files) && isCanonicalAbsolutePath(runtime.deploy_target)) {
+        runtime.environment_files.forEach(function (environmentFile) {
+          if (isCanonicalAbsolutePath(environmentFile) &&
+              !isWithinPath(environmentFile, runtime.deploy_target)) {
+            fail(label + '.systemd_runtime.environment_files: private environment files must live within deploy_target');
+          }
+        });
+      }
+      if (Array.isArray(runtime.sandbox_paths) && isCanonicalAbsolutePath(runtime.deploy_target)) {
+        runtime.sandbox_paths.forEach(function (sandboxPath) {
+          if (!isCanonicalAbsolutePath(sandboxPath)) return;
+          var registered = isWithinPath(sandboxPath, runtime.deploy_target) ||
+            persistentPaths.some(function (persistentPath) {
+              return isCanonicalAbsolutePath(persistentPath) && isWithinPath(sandboxPath, persistentPath);
+            });
+          if (!registered) {
+            fail(label + '.systemd_runtime.sandbox_paths: path must be within deploy_target or persistent_paths: ' +
+              sandboxPath);
+          }
+        });
+      }
+      if (!isPlainObject(c.health_check)) {
+        fail(label + ': systemd_runtime requires an explicit "health_check" object');
+      }
+    }
+  }
+
+  if (c.health_check !== undefined) {
+    if (!isPlainObject(c.health_check)) {
+      fail(label + ': "health_check" must be an object when present');
+    } else {
+      if (VALID_HEALTH_BOUNDARIES.indexOf(c.health_check.boundary) === -1) {
+        fail(label + '.health_check.boundary: must be one of ' + VALID_HEALTH_BOUNDARIES.join('/'));
+      }
+      if (!Array.isArray(c.health_check.paths) || c.health_check.paths.length === 0) {
+        fail(label + '.health_check.paths: must be a non-empty array');
+      } else {
+        c.health_check.paths.forEach(function (healthPath, hi) {
+          if (typeof healthPath !== 'string' || !VALID_HEALTH_PATH.test(healthPath) ||
+              healthPath.indexOf('//') !== -1) {
+            fail(label + '.health_check.paths[' + hi + ']: must be a safe absolute HTTP path');
+          }
+        });
+      }
+      if (!Number.isInteger(c.port) || c.port < 1 || c.port > 65535) {
+        fail(label + ': health_check requires a registered port');
+      }
+    }
   }
 
   if (!Array.isArray(c.systemd_units)) {

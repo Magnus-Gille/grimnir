@@ -16,8 +16,15 @@ posix_shell_quote() {
 # component-owned template was selected instead of an install-ready unit.
 # Comments may document placeholders without making the unit unsafe.
 unit_template_token_awk() {
+  local render_enabled=${1:-false}
+  local allowed=''
+  if [[ "$render_enabled" == "true" ]]; then
+    allowed=' token != "<user>" && token != "<home>" && token != "<deploy-path>" && token != "<install-dir>" &&'
+  fi
   # shellcheck disable=SC2016 # emitted for awk, not expanded by this shell
-  printf '%s' '/^[[:space:]]*[#;]/ { next } match($0, /<[A-Za-z][A-Za-z0-9_-]*>/) { print substr($0, RSTART, RLENGTH); exit }'
+  printf '%s' '/^[[:space:]]*[#;]/ { next } { rest=$0; while (match(rest, /<[A-Za-z][A-Za-z0-9_-]*>/)) { token=substr(rest, RSTART, RLENGTH); if ('
+  printf '%s' "${allowed:-1 &&}"
+  printf '%s' ' 1) { print token; exit } rest=substr(rest, RSTART + RLENGTH) } }'
 }
 
 resolve_local_unit_source() {
@@ -32,7 +39,7 @@ resolve_local_unit_source() {
 }
 
 preflight_local_install_ready_unit_source() {
-  local repo_path=$1 unit_file=$2 required=${3:-true}
+  local repo_path=$1 unit_file=$2 required=${3:-true} render_enabled=${4:-false}
   local source token
 
   if ! source=$(resolve_local_unit_source "$repo_path" "$unit_file"); then
@@ -44,7 +51,7 @@ preflight_local_install_ready_unit_source() {
     return 0
   fi
 
-  token=$(awk "$(unit_template_token_awk)" "$source")
+  token=$(awk "$(unit_template_token_awk "$render_enabled")" "$source")
   if [[ -n "$token" ]]; then
     printf 'ERROR: unit source is not install-ready: %s (unit %s contains unresolved placeholder %s)\n' \
       "$source" "$unit_file" "$token" >&2

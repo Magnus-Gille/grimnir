@@ -13,6 +13,7 @@ GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
 REGISTRY="${REGISTRY_PATH:-$GRIMNIR_DIR/services.json}"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 REGISTRY_VALIDATOR="$SCRIPT_DIR/lib/validate-registry.js"
+SYSTEMD_RENDER_HELPER="$SCRIPT_DIR/lib/render-systemd-units.sh"
 # shellcheck source=scripts/lib/deploy-safety.sh
 source "$SCRIPT_DIR/lib/deploy-safety.sh"
 
@@ -152,23 +153,53 @@ unit_rows() {
 }
 
 preflight_local_unit_sources() {
-  local local_path=$1 units_json=$2 fallback_name=$3 fallback_type=$4 fallback_scope=$5
+  local local_path=$1 units_json=$2 fallback_name=$3 fallback_type=$4 fallback_scope=$5 render_enabled=${6:-false}
   local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file
 
   rows="$(unit_rows "$units_json" "$fallback_name" "$fallback_type" "$fallback_scope")"
   while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics; do
     [[ -n "$unit_name" ]] || continue
     unit_file="${unit_name}.${unit_kind}"
-    if ! preflight_local_install_ready_unit_source "$local_path" "$unit_file" true; then
+    if ! preflight_local_install_ready_unit_source "$local_path" "$unit_file" true "$render_enabled"; then
       return 1
     fi
     if [[ "$unit_kind" == "timer" ]]; then
       companion_file="${unit_name}.service"
-      if ! preflight_local_install_ready_unit_source "$local_path" "$companion_file" false; then
+      if ! preflight_local_install_ready_unit_source "$local_path" "$companion_file" false "$render_enabled"; then
         return 1
       fi
     fi
   done <<< "$rows"
+}
+
+health_path_rows() {
+  local health_json=$1
+  HEALTH_JSON="$health_json" node --input-type=commonjs -e '
+    var health = JSON.parse(process.env.HEALTH_JSON || "null");
+    var paths = health && Array.isArray(health.paths) ? health.paths : ["/health", "/api/health"];
+    paths.forEach(function (path) { process.stdout.write(path + "\n"); });
+  '
+}
+
+network_health_check() {
+  local host=$1 port=$2 health_json=$3 path health_ok=false attempt
+  attempt=1
+  while [[ "$attempt" -le 5 ]]; do
+    while IFS= read -r path; do
+      [[ -n "$path" ]] || continue
+      if curl -fsS --max-time 3 "http://${host}:${port}${path}" >/dev/null 2>&1; then
+        health_ok=true
+        break
+      fi
+    done < <(health_path_rows "$health_json")
+    [[ "$health_ok" == "true" ]] && break
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+  if [[ "$health_ok" != "true" ]]; then
+    echo "ERROR: network-boundary health check failed for ${host}:${port}" >&2
+    return 1
+  fi
 }
 
 rsync_exclude_rows() {
@@ -216,6 +247,7 @@ report_markerless_failure() {
 deploy_service() {
   local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system} deploy_mode=${8:-rsync} units_json=${9:-[]}
   local rsync_excludes_json=${10:-[]} health_port=${11:-}
+  local persistent_paths_json=${12:-[]} systemd_runtime_json=${13:-null} health_check_json=${14:-null}
   local local_path
   local remote_host
   local remote
@@ -224,6 +256,15 @@ deploy_service() {
   local commit_full
   local dirty_state
   local q_deploy_path
+  local render_enabled=false health_boundary=host
+
+  if [[ "$systemd_runtime_json" != "null" && -n "$systemd_runtime_json" ]]; then
+    render_enabled=true
+  fi
+  if [[ "$health_check_json" != "null" && -n "$health_check_json" ]]; then
+    health_boundary=$(HEALTH_JSON="$health_check_json" node --input-type=commonjs -e \
+      'process.stdout.write(JSON.parse(process.env.HEALTH_JSON).boundary)')
+  fi
 
   echo -e "\n${BOLD}=== ${name} (${host}) ===${NC}"
 
@@ -263,7 +304,7 @@ deploy_service() {
     # Central deploy installs declared units byte-for-byte. Reject a missing
     # source or a component-owned template before build, marker invalidation,
     # host resolution, or any remote mutation.
-    if ! preflight_local_unit_sources "$local_path" "$units_json" "$name" "$unit_type" "$unit_scope"; then
+    if ! preflight_local_unit_sources "$local_path" "$units_json" "$name" "$unit_type" "$unit_scope" "$render_enabled"; then
       results+=("${RED}✗${NC} ${name}")
       fail=$((fail + 1))
       return
@@ -368,6 +409,30 @@ deploy_service() {
 
   fi # end rsync-mode block (deploy_mode != git-pull)
 
+  if [[ "$render_enabled" == "true" ]]; then
+    echo "==> Rendering and preflighting systemd units on ${remote_host}..."
+    local render_cmd render_output
+    render_cmd="bash -s -- ${q_deploy_path} $(posix_shell_quote "$systemd_runtime_json") "
+    render_cmd+="$(posix_shell_quote "$units_json") $(posix_shell_quote "$persistent_paths_json")"
+    if ! render_output=$(ssh -o ConnectTimeout=10 "$remote" "$render_cmd" < "$SYSTEMD_RENDER_HELPER" 2>&1); then
+      [[ -n "$render_output" ]] && echo "$render_output" >&2
+      report_markerless_failure
+      echo -e "${RED}FAILED${NC}"
+      results+=("${RED}✗${NC} ${name}")
+      fail=$((fail + 1))
+      return
+    fi
+    if ! echo "$render_output" | grep -Fxq "SYSTEMD_UNITS_PREPARED"; then
+      [[ -n "$render_output" ]] && echo "$render_output" >&2
+      echo "ERROR: remote systemd renderer returned no trustworthy preparation receipt" >&2
+      report_markerless_failure
+      echo -e "${RED}FAILED${NC}"
+      results+=("${RED}✗${NC} ${name}")
+      fail=$((fail + 1))
+      return
+    fi
+  fi
+
   local cmd="cd ${q_deploy_path} && "
   local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file
   local timer_entry timer_name timer_semantics timer_next_check
@@ -386,41 +451,49 @@ deploy_service() {
     q_unit_label=$(posix_shell_quote "$unit_file")
 
     if [[ "$unit_actual_scope" == "user" ]]; then
-      cmd+="unit_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
-      cmd+="[ -n \"\$unit_src\" ] || { printf 'ERROR: unit file missing: %s\\n' ${q_unit_label} >&2; exit 1; }; "
-      unit_guard=$(prepare_remote_install_ready_unit_check_command unit_src "$unit_file")
-      cmd+="${unit_guard} && "
-      cmd+="install -D -m644 \"\$unit_src\" \"\$HOME\"/${q_user_dest} && "
+      if [[ "$render_enabled" != "true" ]]; then
+        cmd+="unit_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
+        cmd+="[ -n \"\$unit_src\" ] || { printf 'ERROR: unit file missing: %s\\n' ${q_unit_label} >&2; exit 1; }; "
+        unit_guard=$(prepare_remote_install_ready_unit_check_command unit_src "$unit_file")
+        cmd+="${unit_guard} && "
+        cmd+="install -D -m644 \"\$unit_src\" \"\$HOME\"/${q_user_dest} && "
+      fi
       user_needs_reload=true
       if [[ "$unit_kind" == "service" ]]; then
         user_services+=("$unit_name")
       elif [[ "$unit_kind" == "timer" ]]; then
-        companion_file="${unit_name}.service"
-        q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
-        q_unit_root=$(posix_shell_quote "$companion_file")
-        q_user_dest=$(posix_shell_quote ".config/systemd/user/${companion_file}")
-        cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
-        companion_guard=$(prepare_remote_install_ready_unit_check_command companion_src "$companion_file")
-        cmd+="if [ -n \"\$companion_src\" ]; then ${companion_guard} && install -D -m644 \"\$companion_src\" \"\$HOME\"/${q_user_dest}; fi && "
+        if [[ "$render_enabled" != "true" ]]; then
+          companion_file="${unit_name}.service"
+          q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
+          q_unit_root=$(posix_shell_quote "$companion_file")
+          q_user_dest=$(posix_shell_quote ".config/systemd/user/${companion_file}")
+          cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
+          companion_guard=$(prepare_remote_install_ready_unit_check_command companion_src "$companion_file")
+          cmd+="if [ -n \"\$companion_src\" ]; then ${companion_guard} && install -D -m644 \"\$companion_src\" \"\$HOME\"/${q_user_dest}; fi && "
+        fi
         user_timers+=("${unit_name}|${unit_timer_semantics}")
       fi
     else
-      cmd+="unit_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
-      cmd+="[ -n \"\$unit_src\" ] || { printf 'ERROR: unit file missing: %s\\n' ${q_unit_label} >&2; exit 1; }; "
-      unit_guard=$(prepare_remote_install_ready_unit_check_command unit_src "$unit_file")
-      cmd+="${unit_guard} && "
-      cmd+="sudo install -D -m644 \"\$unit_src\" ${q_system_dest} && "
+      if [[ "$render_enabled" != "true" ]]; then
+        cmd+="unit_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
+        cmd+="[ -n \"\$unit_src\" ] || { printf 'ERROR: unit file missing: %s\\n' ${q_unit_label} >&2; exit 1; }; "
+        unit_guard=$(prepare_remote_install_ready_unit_check_command unit_src "$unit_file")
+        cmd+="${unit_guard} && "
+        cmd+="sudo install -D -m644 \"\$unit_src\" ${q_system_dest} && "
+      fi
       system_needs_reload=true
       if [[ "$unit_kind" == "service" ]]; then
         system_services+=("$unit_name")
       elif [[ "$unit_kind" == "timer" ]]; then
-        companion_file="${unit_name}.service"
-        q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
-        q_unit_root=$(posix_shell_quote "$companion_file")
-        q_system_dest=$(posix_shell_quote "/etc/systemd/system/${companion_file}")
-        cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
-        companion_guard=$(prepare_remote_install_ready_unit_check_command companion_src "$companion_file")
-        cmd+="if [ -n \"\$companion_src\" ]; then ${companion_guard} && sudo install -D -m644 \"\$companion_src\" ${q_system_dest}; fi && "
+        if [[ "$render_enabled" != "true" ]]; then
+          companion_file="${unit_name}.service"
+          q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
+          q_unit_root=$(posix_shell_quote "$companion_file")
+          q_system_dest=$(posix_shell_quote "/etc/systemd/system/${companion_file}")
+          cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
+          companion_guard=$(prepare_remote_install_ready_unit_check_command companion_src "$companion_file")
+          cmd+="if [ -n \"\$companion_src\" ]; then ${companion_guard} && sudo install -D -m644 \"\$companion_src\" ${q_system_dest}; fi && "
+        fi
         system_timers+=("${unit_name}|${unit_timer_semantics}")
       fi
     fi
@@ -477,11 +550,18 @@ deploy_service() {
       cmd+="${timer_next_check} && "
     fi
   done
-  if [[ -n "$health_port" && "$health_port" != "null" ]]; then
+  if [[ -n "$health_port" && "$health_port" != "null" && "$health_boundary" == "host" ]]; then
+    local health_path q_health_path
     cmd+="{ health_ok=false; for attempt in 1 2 3 4 5; do "
     cmd+="for target in localhost 127.0.0.1 \$(hostname -I 2>/dev/null || true); do "
     cmd+="[ -n \"\$target\" ] || continue; case \"\$target\" in *:*) continue ;; esac; "
-    cmd+="for path in /health /api/health; do if curl -fsS --max-time 3 \"http://\${target}:${health_port}\${path}\" >/dev/null 2>&1; then health_ok=true; break 2; fi; done; done; "
+    cmd+="for path in "
+    while IFS= read -r health_path; do
+      [[ -n "$health_path" ]] || continue
+      q_health_path=$(posix_shell_quote "$health_path")
+      cmd+="${q_health_path} "
+    done < <(health_path_rows "$health_check_json")
+    cmd+="; do if curl -fsS --max-time 3 \"http://\${target}:${health_port}\${path}\" >/dev/null 2>&1; then health_ok=true; break 2; fi; done; done; "
     cmd+="[ \"\$health_ok\" = true ] && break; sleep 1; done; "
     cmd+="[ \"\$health_ok\" = true ] || { printf 'ERROR: health check failed on port %s\\n' $(posix_shell_quote "$health_port") >&2; exit 1; }; } && "
   fi
@@ -489,18 +569,55 @@ deploy_service() {
   # source (excluded from rsync above so --delete won't clobber it). Heimdall
   # reads <deploy_path>/.deployed-commit instead of trusting /health (often no
   # commit) or an on-Pi .git (rsync deployments remove repository metadata).
-  if [[ "$deploy_mode" == "git-pull" ]]; then
+  if [[ "$health_boundary" == "network" ]]; then
+    cmd+="echo 'DEPLOY_READY'"
+  elif [[ "$deploy_mode" == "git-pull" ]]; then
     # In git-pull mode the remote HEAD is the ground truth (origin/main was
     # just pulled) — stamp that, not the local checkout's commit.
     cmd+="git rev-parse HEAD > .deployed-commit && "
   else
     cmd+="printf '%s\\n' $(posix_shell_quote "$commit_full") > .deployed-commit && "
   fi
-  cmd+="echo 'DEPLOY_OK'"
+  if [[ "$health_boundary" != "network" ]]; then
+    cmd+="echo 'DEPLOY_OK'"
+  fi
 
   local output
   if output=$(ssh -o ConnectTimeout=10 "$remote" "$cmd" 2>&1); then
-    if echo "$output" | grep -q "DEPLOY_OK"; then
+    if [[ "$health_boundary" == "network" ]] && echo "$output" | grep -q "DEPLOY_READY"; then
+      if ! network_health_check "$remote_host" "$health_port" "$health_check_json"; then
+        report_markerless_failure
+        echo -e "${RED}FAILED${NC}"
+        results+=("${RED}✗${NC} ${name}")
+        fail=$((fail + 1))
+        return
+      fi
+      local stamp_cmd
+      if [[ "$deploy_mode" == "git-pull" ]]; then
+        stamp_cmd="cd ${q_deploy_path} && git rev-parse HEAD > .deployed-commit && echo DEPLOY_OK"
+      else
+        stamp_cmd="cd ${q_deploy_path} && printf '%s\\n' $(posix_shell_quote "$commit_full") > .deployed-commit && echo DEPLOY_OK"
+      fi
+      if ! output=$(ssh -o ConnectTimeout=10 "$remote" "$stamp_cmd" 2>&1) ||
+         ! echo "$output" | grep -q "DEPLOY_OK"; then
+        [[ -n "$output" ]] && echo "$output"
+        report_markerless_failure
+        echo -e "${RED}FAILED${NC}"
+        results+=("${RED}✗${NC} ${name}")
+        fail=$((fail + 1))
+        return
+      fi
+      echo -e "${GREEN}OK${NC}"
+      results+=("${GREEN}✓${NC} ${name}")
+      pass=$((pass + 1))
+    elif [[ "$health_boundary" == "network" ]]; then
+      [[ -n "$output" ]] && echo "$output"
+      echo "ERROR: remote restart gates returned no trustworthy readiness receipt" >&2
+      report_markerless_failure
+      echo -e "${RED}FAILED${NC}"
+      results+=("${RED}✗${NC} ${name}")
+      fail=$((fail + 1))
+    elif echo "$output" | grep -q "DEPLOY_OK"; then
       echo -e "${GREEN}OK${NC}"
       results+=("${GREEN}✓${NC} ${name}")
       pass=$((pass + 1))
@@ -534,6 +651,9 @@ for entry in "${SERVICES[@]}"; do
   units_json=$(service_field "$entry" systemd_units)
   rsync_excludes_json=$(service_field "$entry" rsync_excludes)
   health_port=$(service_field "$entry" port)
+  persistent_paths_json=$(service_field "$entry" persistent_paths)
+  systemd_runtime_json=$(service_field "$entry" systemd_runtime)
+  health_check_json=$(service_field "$entry" health_check)
 
   if [[ ${#requested[@]} -gt 0 ]]; then
     match=false
@@ -543,7 +663,7 @@ for entry in "${SERVICES[@]}"; do
     $match || continue
   fi
 
-  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}" "${rsync_excludes_json:-[]}" "${health_port:-}"
+  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}" "${rsync_excludes_json:-[]}" "${health_port:-}" "${persistent_paths_json:-[]}" "${systemd_runtime_json:-null}" "${health_check_json:-null}"
 done
 
 # Summary
