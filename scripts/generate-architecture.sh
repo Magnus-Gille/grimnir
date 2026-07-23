@@ -33,6 +33,9 @@ REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 # shellcheck source=scripts/lib/systemd-status.sh
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/systemd-status.sh"
+# shellcheck source=scripts/lib/runtime-state.sh
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/runtime-state.sh"
 # shellcheck source=scripts/lib/munin-rpc.sh
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/munin-rpc.sh"
@@ -159,7 +162,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   RESULTS=""
 
   # Read host-aware registry data
-  while IFS='|' read -r v_name v_host v_port v_repo v_deploy_path v_deploy_mode v_units_json; do
+  while IFS='|' read -r v_name v_host v_port v_repo v_deploy_path v_deploy_mode v_deploy v_runtime_state v_units_json; do
     [[ -z "$v_name" ]] && continue
 
     # Skip components with no host (laptop-only, e.g. fortnox-mcp)
@@ -179,8 +182,10 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
       IS_LOCAL=false
     fi
 
-    # Check systemd units
-    if [[ "$v_units_json" != "[]" ]] && [[ -n "$v_units_json" ]]; then
+    # Check systemd units against the registry's desired state. "stopped"
+    # requires clean inactivity; failed or unexpectedly active units remain red.
+    if [[ "$(runtime_checks_applicable "$v_runtime_state")" == "yes" ]] &&
+       [[ "$v_units_json" != "[]" ]] && [[ -n "$v_units_json" ]]; then
       unit_rows="$(unit_rows_from_json "$v_units_json")"
 
       while IFS='|' read -r unit_name unit_kind unit_scope; do
@@ -192,9 +197,13 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
           active="$(remote_systemctl_status "$v_host" "$unit_scope" is-active "$unit")"
         fi
 
-        case "$(systemctl_status_severity "$active" "$unit_scope")" in
+        case "$(runtime_observation_severity "$v_runtime_state" "$active" "$unit_scope")" in
           pass)
-            STATUS_LINE+=" unit:$unit($unit_scope)=active"
+            if [[ "$v_runtime_state" == "stopped" ]]; then
+              STATUS_LINE+=" unit:$unit($unit_scope)=inactive(expected)"
+            else
+              STATUS_LINE+=" unit:$unit($unit_scope)=active"
+            fi
             ;;
           warn)
             STATUS_LINE+=" unit:$unit($unit_scope)=unreachable"
@@ -209,7 +218,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     fi
 
     # Check port / health endpoint
-    if [[ -n "$v_port" ]]; then
+    if [[ "$(health_check_applicable "$v_runtime_state" "$v_port")" == "yes" ]]; then
       if [[ "$IS_LOCAL" == "true" ]]; then
         health_status="$(health_status_local "$v_port")"
       else
@@ -222,11 +231,13 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
         STATUS_LINE+=" health:$v_port=http$health_status"
         COMPONENT_OK=false
       fi
+    elif [[ "$v_runtime_state" == "stopped" && -n "$v_port" ]]; then
+      STATUS_LINE+=" health:$v_port=not-probed(expected-stopped)"
     fi
 
     # Check deployment freshness. git-pull components are live git checkouts;
     # rsync components are stamped by deploy.sh because rsync excludes .git/.
-    if [[ -n "$v_repo" ]]; then
+    if [[ -n "$v_repo" && "$(deployment_check_applicable "$v_deploy")" == "yes" ]]; then
       repo_path="${v_deploy_path:-/home/magnus/repos/$v_repo}"
       if [[ "$IS_LOCAL" == "true" ]]; then
         if [[ "$v_deploy_mode" == "git-pull" ]]; then
@@ -304,6 +315,8 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
           fi
         fi
       fi
+    elif [[ -n "$v_repo" ]]; then
+      STATUS_LINE+=" deploy:not-applicable"
     fi
 
     # Emit result line
@@ -313,6 +326,12 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     elif [[ "$COMPONENT_WARN" == "true" ]]; then
       RESULTS+="⚠️  $v_name:$STATUS_LINE\n"
       WARN=$((WARN + 1))
+    elif [[ "$v_runtime_state" == "stopped" ]]; then
+      RESULTS+="⏸️  $v_name: expected stopped;$STATUS_LINE\n"
+      PASS=$((PASS + 1))
+    elif [[ "$v_runtime_state" == "not-applicable" ]]; then
+      RESULTS+="⏭  $v_name: runtime not applicable;$STATUS_LINE\n"
+      PASS=$((PASS + 1))
     else
       RESULTS+="✅ $v_name:$STATUS_LINE\n"
       PASS=$((PASS + 1))
@@ -532,7 +551,7 @@ munin_tool_call() {
 }
 
 service_status_row() {
-  local unit_name="$1" unit_kind="$2" unit_scope="$3"
+  local unit_name="$1" unit_kind="$2" unit_scope="$3" desired_state="${4:-active}"
   local unit="${unit_name}.${unit_kind}"
   local active enabled pid mem mem_mb started
   local -a systemctl_prefix
@@ -544,7 +563,11 @@ service_status_row() {
     active="$("${systemctl_prefix[@]}" is-active "$unit" 2>/dev/null || echo 'unknown')"
     enabled="$("${systemctl_prefix[@]}" is-enabled "$unit" 2>/dev/null || echo 'unknown')"
   fi
-  if [[ "$active" == "active" && "$unit_kind" == "service" ]]; then
+  if [[ "$desired_state" == "stopped" && "$active" == "inactive" ]]; then
+    echo "| $unit | $unit_scope | ⏸️ $active (expected) | $enabled | — | — | — |"
+  elif [[ "$desired_state" == "stopped" ]]; then
+    echo "| $unit | $unit_scope | ❌ $active (expected inactive) | $enabled | — | — | — |"
+  elif [[ "$active" == "active" && "$unit_kind" == "service" ]]; then
     if [[ "$unit_scope" == "user" ]]; then
       pid="$(systemctl_user show "$unit" --property=MainPID | cut -d= -f2)"
       mem="$(systemctl_user show "$unit" --property=MemoryCurrent | cut -d= -f2)"
@@ -578,12 +601,13 @@ echo ""
 
 echo "🔍 Collecting service status..."
 DEPLOYMENT_TABLE=""
-while IFS='|' read -r _s_name _s_host _s_port _s_repo _s_deploy_path _s_deploy_mode s_units_json; do
+while IFS='|' read -r _s_name _s_host _s_port _s_repo _s_deploy_path _s_deploy_mode _s_deploy s_runtime_state s_units_json; do
+  [[ "$s_runtime_state" != "not-applicable" ]] || continue
   [[ -n "$s_units_json" && "$s_units_json" != "[]" ]] || continue
   s_unit_rows="$(unit_rows_from_json "$s_units_json")"
   while IFS='|' read -r s_unit_name s_unit_kind s_unit_scope; do
     [[ -n "$s_unit_name" ]] || continue
-    DEPLOYMENT_TABLE+="$(service_status_row "$s_unit_name" "$s_unit_kind" "$s_unit_scope")\n"
+    DEPLOYMENT_TABLE+="$(service_status_row "$s_unit_name" "$s_unit_kind" "$s_unit_scope" "$s_runtime_state")\n"
   done <<< "$s_unit_rows"
 done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")
 
@@ -611,8 +635,15 @@ done
 
 echo "🔍 Running health checks..."
 HEALTH_RESULTS=""
-while IFS='|' read -r h_name h_host h_port _h_repo _h_deploy_path _h_deploy_mode _h_units_json; do
+while IFS='|' read -r h_name h_host h_port _h_repo _h_deploy_path _h_deploy_mode _h_deploy h_runtime_state _h_units_json; do
   [[ -n "$h_name" && -n "$h_port" ]] || continue
+
+  if [[ "$h_runtime_state" == "stopped" ]]; then
+    HEALTH_RESULTS+="- ⏸️ **$h_name** (:$h_port) — not probed (expected stopped)\n"
+    continue
+  elif [[ "$h_runtime_state" == "not-applicable" ]]; then
+    continue
+  fi
 
   if [[ "$h_host" == "huginmunin.local" ]] || [[ "$h_host" == "huginmunin" ]]; then
     status="$(health_status_local "$h_port")"

@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-worktree-hygiene test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -45,10 +45,13 @@ test-registry-checkout: ## Unit tests for the registry-checkout integrity helper
 test-systemd-status: ## Scope-aware local/remote systemd status checks (issue #63)
 	@bash scripts/tests/systemd-status.test.sh
 
+test-runtime-state: ## Desired runtime and deployment-state validation (issue #109)
+	@bash scripts/tests/runtime-state.test.sh
+
 test-worktree-hygiene: ## Unit + fixture tests for the worktree/deploy hygiene audit (issue #87)
 	@bash scripts/tests/worktree-hygiene.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-worktree-hygiene ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md

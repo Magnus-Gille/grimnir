@@ -53,6 +53,7 @@ if (!Array.isArray(data.components)) {
 var VALID_UNIT_TYPES = ['service', 'timer'];
 var VALID_UNIT_SCOPES = ['system', 'user'];
 var VALID_TIMER_SEMANTICS = ['recurring', 'one-shot'];
+var VALID_RUNTIME_STATES = ['active', 'stopped', 'not-applicable'];
 var VALID_UNIT_NAME = /^[A-Za-z0-9_.@-]+$/;
 var VALID_COMPONENT_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 var VALID_HOST = /^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/;
@@ -105,6 +106,12 @@ data.components.forEach(function (c, i) {
       fail(label + ': field "' + field + '" must be a boolean');
     }
   });
+
+  if (c.desired_runtime_state !== undefined &&
+      VALID_RUNTIME_STATES.indexOf(c.desired_runtime_state) === -1) {
+    fail(label + ': "desired_runtime_state" must be one of ' +
+      VALID_RUNTIME_STATES.join('/') + ', got "' + c.desired_runtime_state + '"');
+  }
 
   if (c.deploy_mode !== undefined && c.deploy_mode !== 'rsync' && c.deploy_mode !== 'git-pull') {
     fail(label + ': "deploy_mode" must be "rsync" or "git-pull" when present, got "' + c.deploy_mode + '"');
@@ -290,6 +297,10 @@ data.components.forEach(function (c, i) {
   if (!Array.isArray(c.systemd_units)) {
     fail(label + ': "systemd_units" must be an array');
   } else {
+    if (c.desired_runtime_state === 'not-applicable' &&
+        (c.systemd_units.length > 0 || (c.port !== undefined && c.port !== null))) {
+      fail(label + ': desired_runtime_state "not-applicable" cannot declare systemd units or a health port');
+    }
     c.systemd_units.forEach(function (u, ui) {
       var uLabel = label + '.systemd_units[' + ui + ']';
       if (!isPlainObject(u)) {

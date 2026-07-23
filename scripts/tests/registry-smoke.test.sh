@@ -303,6 +303,32 @@ cat > "$TMP_DIR/unsafe-component-strings.json" << 'EOF'
 EOF
 assert_eq "unsafe name/repo/host/path strings -> exit 1" "1" "$(run_validator "$TMP_DIR/unsafe-component-strings.json")"
 
+# ── Desired runtime state is bounded and internally consistent ─────────────
+cat > "$TMP_DIR/bad-runtime-state.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": null, "port": null,
+      "deploy": false, "scan": true, "needs_build": false,
+      "desired_runtime_state": "paused-maybe", "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "invalid desired runtime state -> exit 1" "1" \
+  "$(run_validator "$TMP_DIR/bad-runtime-state.json")"
+
+cat > "$TMP_DIR/not-applicable-with-runtime.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1.local", "port": 3030,
+      "deploy": false, "scan": true, "needs_build": false,
+      "desired_runtime_state": "not-applicable",
+      "systemd_units": [{ "name": "alpha", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "not-applicable runtime cannot declare units or health -> exit 1" "1" \
+  "$(run_validator "$TMP_DIR/not-applicable-with-runtime.json")"
+
 # ── Duplicate node name ──────────────────────────────────────────────────────
 cat > "$TMP_DIR/dup-node.json" << 'EOF'
 {
@@ -519,6 +545,31 @@ assert_eq "real services.json: Verdandi protects legacy data and declares canoni
 
 assert_eq "real services.json: Verdandi deploy carries legacy data exclusion" \
   '["/data/"]' "$(deploy_field "$REPO_REGISTRY" verdandi rsync_excludes)"
+
+validate_field() {  # $1 = registry path, $2 = component name, $3 = zero-based field
+  REGISTRY_PATH="$1" QUERY=validate node --input-type=commonjs "$REGISTRY_JS" 2>/dev/null \
+    | COMPONENT_NAME="$2" COMPONENT_FIELD="$3" node --input-type=commonjs -e '
+        var input = "";
+        process.stdin.on("data", function (chunk) { input += chunk; });
+        process.stdin.on("end", function () {
+          var row = input.trim().split("\n").filter(Boolean)
+            .map(function (line) { return line.split("|"); })
+            .filter(function (fields) { return fields[0] === process.env.COMPONENT_NAME; })[0];
+          if (!row) process.exit(1);
+          process.stdout.write(row[Number(process.env.COMPONENT_FIELD)] || "");
+        });
+      '
+}
+assert_eq "Verdandi validation projection is intentionally stopped" "stopped" \
+  "$(validate_field "$REPO_REGISTRY" verdandi 7)"
+assert_eq "Verdandi remains deployment-marker managed" "true" \
+  "$(validate_field "$REPO_REGISTRY" verdandi 6)"
+assert_eq "Brokkr validation projection keeps active timers" "active" \
+  "$(validate_field "$REPO_REGISTRY" brokkr 7)"
+assert_eq "Brokkr validation projection skips deploy markers" "false" \
+  "$(validate_field "$REPO_REGISTRY" brokkr 6)"
+assert_eq "Fortnox has no managed runtime" "not-applicable" \
+  "$(validate_field "$REPO_REGISTRY" fortnox-mcp 7)"
 
 cat > "$TMP_DIR/order.json" << 'EOF'
 {
