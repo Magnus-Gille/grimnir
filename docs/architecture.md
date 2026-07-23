@@ -163,6 +163,10 @@ change and cannot silently authorize a physical move. See
 [ADR-007](adr-007-node-substrate-contract.md) for the state machine, conflict rules and promotion
 requirements.
 
+Read-only preflight hooks and mutating lifecycle hooks are distinct. Every mutating invocation and
+result is bound to one plan and lifecycle attempt with a deadline and idempotency key; partial or
+failed mutation must be compensated and the prior baseline verified before another attempt.
+
 ---
 
 ## Munin — Memory

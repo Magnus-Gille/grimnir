@@ -103,6 +103,12 @@
     a topology authority. Private network identity, Wi-Fi details, credentials and live locators
     remain in owner-only overlays; public shared schemas use safe examples.
 
+15. **Mutating hooks are attempt-bound and compensated.** Read-only preflight is distinct from
+    drain, apply, rollback and other mutating lifecycle actions. Their invocations and results bind
+    to the exact plan, desired revision, observations, deadline and idempotency key. A failed,
+    timed-out or partial mutation must restore and verify its declared baseline before another
+    attempt; old evidence cannot be replayed to promote a new plan.
+
 ## Validation
 
 The generator should warn on discrepancies it can detect:

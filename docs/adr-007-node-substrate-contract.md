@@ -42,12 +42,15 @@ stateDiagram-v2
     [*] --> desired_changed: desired placement/version changes
     desired_changed --> observe: Brokkr collects fresh observed facts
     observe --> blocked: unknown, stale, unavailable, or incompatible evidence
-    observe --> preflight: requirements and hooks are satisfiable
-    preflight --> blocked: drain/transfer/network/storage/rollback gate fails
+    observe --> preflight: read-only requirements and hook declarations are satisfiable
+    preflight --> blocked: network/storage/rollback or required-hook declaration fails
     preflight --> operator_gate: physical move or protected action needs operator
-    operator_gate --> reconcile: operator confirms completed prerequisite
-    preflight --> reconcile: no operator action required
-    reconcile --> verify: substrate action and component-owned hooks complete
+    operator_gate --> execute: fresh preflight confirms completed prerequisite
+    preflight --> execute: no operator action required
+    execute --> compensate: mutating hook fails, times out, or completes partially
+    execute --> verify: substrate action and component-owned hooks complete
+    compensate --> blocked: compensation or baseline verification fails
+    compensate --> observe: compensation restores the verified baseline
     verify --> promoted: all fresh evidence and hooks pass
     verify --> rollback: verification fails after mutation
     rollback --> blocked: rollback incomplete or verification remains failed
@@ -78,15 +81,33 @@ never silently changes workload intent.
 Each workload can publish a small versioned contract naming its requirements and hooks. Hooks are
 declarations at the boundary, not code imported into Brokkr:
 
-- `drain` prepares the workload for a move;
+- read-only `preflight` checks whether declared prerequisites are currently satisfiable;
+- mutating `drain` prepares the workload for a move;
 - `verify` attests service-specific health after a substrate step;
-- `rollback` restores the workload's own data or runtime state when needed.
+- mutating `rollback` or `compensate` restores the workload's own data, availability or runtime
+  state when needed.
 
 Brokkr invokes only an agreed hook interface, captures the result as evidence and fails closed on
 a missing, incompatible, timed-out or unsuccessful hook. It does not interpret business data,
 rewrite service configuration, or substitute its own health check for the component's verification.
 The component owner defines hook side effects, time bounds, data migration semantics and rollback
 recipe.
+
+Read-only hooks may participate in preflight. A mutating hook may run only after preflight, inside
+an accepted lifecycle attempt with a declared reversal or compensation recipe. If `drain` or any
+other mutating hook times out, fails, or reports partial completion, the lifecycle enters
+`compensate`; it must run the component-owned recipe and verify the pre-attempt workload baseline
+before becoming eligible for another plan. Missing compensation blocks mutation up front.
+Compensation failure is a terminal blocked result requiring the declared disaster-recovery path;
+it is never silently retried as a fresh drain.
+
+Every hook invocation and result is bound to one lifecycle attempt. The invocation envelope carries
+an attempt ID, plan ID and digest, desired revision, observation/evidence IDs, action and hook
+digest, deadline, and idempotency key. The result echoes those bindings plus its result ID,
+timestamps and outcome. Brokkr rejects an expired result, a binding mismatch, or a result replayed
+from another attempt. Retrying the same idempotency key returns the recorded result rather than
+repeating side effects; a new attempt and key are allowed only after the prior attempt is promoted
+or its compensation/rollback baseline is verified.
 
 ### Conflict, unknown and stale semantics
 
@@ -135,10 +156,12 @@ its recorded pre-state. The workload owner owns rollback of service data, deploy
 state. A mixed move has both recipes; neither owner may claim the other recipe succeeded.
 
 Promotion requires a fresh observation, successful Brokkr preflight/reconciliation evidence and
-every required component-owned verification hook. A failure after mutation triggers the relevant
-rollback recipes and leaves the lifecycle result blocked until rollback is verified. The general
-audit and reversal-recipe convention in [failure-recovery.md](failure-recovery.md) still applies to
-autonomous mutations; this ADR assigns operational ownership, not an exemption from audit.
+every required component-owned verification hook, all bound to the exact lifecycle attempt and
+plan. A failure after mutation triggers the relevant compensation or rollback recipes and leaves
+the lifecycle result blocked until the pre-attempt baseline or declared recovery state is verified.
+The general audit and reversal-recipe convention in
+[failure-recovery.md](failure-recovery.md) still applies to autonomous mutations; this ADR assigns
+operational ownership, not an exemption from audit.
 
 ## Consequences
 
