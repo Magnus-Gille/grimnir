@@ -9,7 +9,7 @@
 |-----------|---------------------|------------------------|
 | **Port assignments** | `services.json` | `generate-architecture.sh`, `deploy.sh`, `security-scan.sh`, `docs/architecture.md` |
 | **SSH and consumer-health hostnames** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
-| **Deploy paths, targets, systemd units & timer semantics** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
+| **Deploy paths, targets, desired runtime state, systemd units & timer semantics** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
 | **Systemd unit structure / templates** | Owning component repo | `deploy.sh` installs install-ready units byte-for-byte or renders the bounded registry placeholders |
 | **Host systemd runtime identity, home, deploy target, private-environment paths and exact external sandbox dependencies** | `services.json` | `deploy.sh`, `render-systemd-units.sh` |
 | **Persistent/runtime paths and component-specific rsync exclusions** | `services.json` | `deploy.sh`, registry validation |
@@ -75,6 +75,15 @@
 11. **Cross-repo contract changes are two-consumer changes.** A LearningTaskContract change is not
     complete until immutable synthetic fixtures pass in both Hugin and `gille-inference` and both
     owners review it. Unknown or incompatible decision-driving semantics fail closed.
+
+12. **Runtime and deployment applicability are separate registry facts.**
+    `desired_runtime_state` is `active`, `stopped`, or `not-applicable` (an omitted value defaults
+    to strict `active` for compatibility). Active components require active declared units and
+    successful HTTP health when a port is declared. Stopped components require cleanly inactive
+    units and are not HTTP-probed; active or failed units are drift. Not-applicable components
+    declare neither units nor a health port. Independently, only `deploy: true` components have a
+    meaningful `.deployed-commit` marker. A `deploy: false` platform peer such as Brokkr can still
+    have active timers, but marker validation is skipped.
 
 ## Validation
 

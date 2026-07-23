@@ -109,6 +109,7 @@
       "host": null,
       "port": null,
       "deploy": false,
+      "desired_runtime_state": "not-applicable",
       "scan": true,
       "needs_build": false,
       "systemd_units": []
@@ -134,6 +135,7 @@
       "host": "huginmunin.local",
       "port": 3036,
       "deploy": true,
+      "desired_runtime_state": "stopped",
       "scan": true,
       "deploy_path": "/home/magnus/repos/verdandi",
       "persistent_paths": [
@@ -152,6 +154,7 @@
       "host": "huginmunin.local",
       "port": null,
       "deploy": false,
+      "desired_runtime_state": "active",
       "scan": true,
       "deploy_path": "/home/magnus/repos/brokkr",
       "needs_build": false,

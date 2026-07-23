@@ -9,7 +9,8 @@
 //   components   — all component names, space-separated
 //   systemd      — all systemd unit names, space-separated
 //   ports        — components with ports, output: name|port per line
-//   validate     — host-aware output for validation: name|host|port|repo|deploy_path|deploy_mode|units_json per line
+//   validate     — host-aware output for validation:
+//                  name|host|port|repo|deploy_path|deploy_mode|deploy|desired_runtime_state|units_json
 //   json:<field>=<value> — filter by field, output full JSON array
 //   all          — full JSON array of all components
 //   nodes        — infra/inference hosts (data.nodes): name|hostname|ssh_alias|role|status|llm|monitor per line
@@ -111,15 +112,19 @@ switch (query) {
     break;
   }
   case 'validate': {
-    // Host-aware output for validation: name|host|port|repo|deploy_path|deploy_mode|units_json
+    // Runtime and deployment applicability are separate: deploy=false skips
+    // marker validation but may still declare active systemd units.
     // Includes all components so validator can check each on the correct host
     components.forEach(function (c) {
       var port = c.port || '';
       var host = c.host || '';
       var deployPath = c.deploy_path || '';
       var deployMode = c.deploy_mode || 'rsync';
+      var desiredRuntimeState = c.desired_runtime_state || 'active';
       var units = JSON.stringify(c.systemd_units || []);
-      process.stdout.write(c.name + '|' + host + '|' + port + '|' + c.repo + '|' + deployPath + '|' + deployMode + '|' + units + '\n');
+      process.stdout.write(c.name + '|' + host + '|' + port + '|' + c.repo + '|' +
+        deployPath + '|' + deployMode + '|' + String(Boolean(c.deploy)) + '|' +
+        desiredRuntimeState + '|' + units + '\n');
     });
     break;
   }
