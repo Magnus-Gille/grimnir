@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-worktree-hygiene test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-worktree-hygiene test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -30,6 +30,9 @@ test-registry-smoke: ## Schema/consistency smoke check for services.json (issue 
 test-deploy-persistent-paths: ## Fail closed before rsync can delete an in-target runtime path
 	@bash scripts/tests/deploy-persistent-paths.test.sh
 
+test-deploy-systemd-render: ## Render and preflight host-specific systemd runtime identity (issue #107)
+	@bash scripts/tests/deploy-systemd-render.test.sh
+
 test-failure-recovery-doc: ## Regression test: assert docs/failure-recovery.md defines the undo convention (issue #46)
 	@bash tests/scripts/test-failure-recovery-doc.sh
 
@@ -45,7 +48,7 @@ test-systemd-status: ## Scope-aware local/remote systemd status checks (issue #6
 test-worktree-hygiene: ## Unit + fixture tests for the worktree/deploy hygiene audit (issue #87)
 	@bash scripts/tests/worktree-hygiene.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-worktree-hygiene ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-worktree-hygiene ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md

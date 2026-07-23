@@ -8,9 +8,10 @@
 | Fact type | Authoritative source | Derived by / consumers |
 |-----------|---------------------|------------------------|
 | **Port assignments** | `services.json` | `generate-architecture.sh`, `deploy.sh`, `security-scan.sh`, `docs/architecture.md` |
-| **Hostnames / hosts** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
+| **SSH and consumer-health hostnames** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
 | **Deploy paths, targets, systemd units & timer semantics** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
-| **Install-ready systemd unit contents** | Owning component repo | `deploy.sh` installs selected `systemd/{unit}` or root `{unit}` bytes without rendering |
+| **Systemd unit structure / templates** | Owning component repo | `deploy.sh` installs install-ready units byte-for-byte or renders the bounded registry placeholders |
+| **Host systemd runtime identity, home, deploy target, private-environment paths and exact external sandbox dependencies** | `services.json` | `deploy.sh`, `render-systemd-units.sh` |
 | **Persistent/runtime paths and component-specific rsync exclusions** | `services.json` | `deploy.sh`, registry validation |
 | **Global rsync safety exclusions** (`.env`, `.git`, dependencies, tests, deploy marker) | `scripts/deploy.sh` | deploy persistence tests |
 | **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |
@@ -57,11 +58,13 @@
    before acceptance. A timer whose only trigger is legitimately single-fire, such as a lone
    `OnBootSec`, must be declared with `timer_semantics: "one-shot"` in `services.json`.
 
-9. **Declared unit sources are install-ready artifacts, not templates.** The owning component repo
-   owns unit contents. Central deploy selects `systemd/{unit}` before root `{unit}` and installs the
-   selected bytes without component-specific rendering. Unresolved angle-bracket identifiers on
-   active unit lines fail preflight; template files must use a different name or live outside those
-   selected paths. Placeholder prose in comments is allowed.
+9. **Unit rendering is explicit and bounded.** The owning component repo owns unit structure.
+   Components without `systemd_runtime` remain install-ready artifacts: central deploy selects
+   `systemd/{unit}` before root `{unit}` and installs the selected bytes. Opted-in components may
+   use only the host placeholders defined in
+   [`systemd-runtime-rendering.md`](systemd-runtime-rendering.md); the renderer validates runtime
+   identity and every relevant path before restart. Unknown active placeholders always fail.
+   Private values remain in required, host-owned environment files.
 
 10. **The learning contract assigns authority; it does not centralize evidence.** Hugin owns its
     task/execution/product/correction and prompt/harness-experiment facts. `gille-inference` owns

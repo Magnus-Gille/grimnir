@@ -39,6 +39,21 @@
       "deploy_path": "/home/magnus/repos/heimdall",
       "persistent_paths": ["/home/magnus/.heimdall"],
       "needs_build": false,
+      "systemd_runtime": {
+        "user": "magnus",
+        "home": "/home/magnus",
+        "deploy_target": "/home/magnus/repos/heimdall",
+        "environment_files": ["/home/magnus/.heimdall/env"],
+        "sandbox_paths": [
+          "/home/magnus/.munin-memory",
+          "/home/magnus/.ssh/heimdall_ed25519"
+        ]
+      },
+      "health_check": {
+        "boundary": "network",
+        "host": "huginmunin",
+        "paths": ["/health", "/api/health"]
+      },
       "systemd_units": [
         { "name": "heimdall", "type": "service" },
         { "name": "heimdall-collect", "type": "timer" },

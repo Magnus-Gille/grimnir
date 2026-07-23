@@ -75,7 +75,10 @@ switch (query) {
         unit_scope: unitScope,
         deploy_mode: deployMode,
         systemd_units: c.systemd_units || [],
-        rsync_excludes: c.rsync_excludes || []
+        rsync_excludes: c.rsync_excludes || [],
+        persistent_paths: c.persistent_paths || [],
+        systemd_runtime: c.systemd_runtime || null,
+        health_check: c.health_check || null
       }) + '\n');
     });
     break;

@@ -337,6 +337,105 @@ cat > "$TMP_DIR/deploy-mode-bogus.json" << 'EOF'
 EOF
 assert_eq "deploy_mode bogus value -> exit 1" "1" "$(run_validator "$TMP_DIR/deploy-mode-bogus.json")"
 
+# ── Host-specific systemd runtime rendering contract (#107) ────────────────
+cat > "$TMP_DIR/systemd-runtime-valid.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1.local", "port": 3030,
+      "deploy": true, "scan": false, "deploy_path": "/home/alpha/app",
+      "persistent_paths": ["/home/alpha/state"], "needs_build": false,
+      "systemd_runtime": {
+        "user": "alpha", "home": "/home/alpha", "deploy_target": "/home/alpha/app",
+        "environment_files": ["/home/alpha/state/env"],
+        "sandbox_paths": ["/home/alpha/.ssh/read-only-key"]
+      },
+      "health_check": { "boundary": "network", "host": "health-alpha", "paths": ["/health"] },
+      "systemd_units": [{ "name": "alpha", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "valid systemd runtime rendering contract -> exit 0" "0" \
+  "$(run_validator "$TMP_DIR/systemd-runtime-valid.json")"
+
+cat > "$TMP_DIR/systemd-runtime-unregistered-env.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1.local", "port": 3030,
+      "deploy": true, "scan": false, "deploy_path": "/home/alpha/app",
+      "persistent_paths": ["/home/alpha/state"], "needs_build": false,
+      "systemd_runtime": {
+        "user": "alpha", "home": "/home/alpha", "deploy_target": "/home/alpha/app",
+        "environment_files": ["/home/other/private.env"],
+        "sandbox_paths": []
+      },
+      "health_check": { "boundary": "network", "host": "health-alpha", "paths": ["/health"] },
+      "systemd_units": [{ "name": "alpha", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "environment file outside deploy/persistent roots -> exit 1" "1" \
+  "$(run_validator "$TMP_DIR/systemd-runtime-unregistered-env.json")"
+
+cat > "$TMP_DIR/network-health-missing-host.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "ssh-alpha", "port": 3030,
+      "deploy": true, "scan": false, "deploy_path": "/home/alpha/app",
+      "persistent_paths": [], "needs_build": false,
+      "health_check": { "boundary": "network", "paths": ["/health"] },
+      "systemd_units": [{ "name": "alpha", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "network health without an explicit host -> exit 1" "1" \
+  "$(run_validator "$TMP_DIR/network-health-missing-host.json")"
+
+cat > "$TMP_DIR/network-health-private-ip.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "ssh-alpha", "port": 3030,
+      "deploy": true, "scan": false, "deploy_path": "/home/alpha/app",
+      "persistent_paths": [], "needs_build": false,
+      "health_check": { "boundary": "network", "host": "100.64.0.1", "paths": ["/health"] },
+      "systemd_units": [{ "name": "alpha", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "network health private IP locator -> exit 1" "1" \
+  "$(run_validator "$TMP_DIR/network-health-private-ip.json")"
+
+cat > "$TMP_DIR/host-health-without-host.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "ssh-alpha", "port": 3030,
+      "deploy": true, "scan": false, "deploy_path": "/home/alpha/app",
+      "persistent_paths": [], "needs_build": false,
+      "health_check": { "boundary": "host", "paths": ["/health"] },
+      "systemd_units": [{ "name": "alpha", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "host-boundary health retains implicit local targets -> exit 0" "0" \
+  "$(run_validator "$TMP_DIR/host-health-without-host.json")"
+
+cat > "$TMP_DIR/systemd-runtime-mismatch.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1.local", "port": 3030,
+      "deploy": true, "scan": false, "deploy_path": "/home/alpha/app",
+      "persistent_paths": [], "needs_build": false,
+      "systemd_runtime": {
+        "user": "missing user", "home": "/home/alpha", "deploy_target": "/home/other/app",
+        "environment_files": ["/home/alpha/private.env"],
+        "sandbox_paths": ["/tmp/unregistered"]
+      },
+      "systemd_units": [{ "name": "alpha", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "mismatched runtime identity/paths and missing health boundary -> exit 1" "1" \
+  "$(run_validator "$TMP_DIR/systemd-runtime-mismatch.json")"
+
 # ── Missing file entirely ───────────────────────────────────────────────────
 assert_eq "missing file -> exit 1" "1" "$(run_validator "$TMP_DIR/does-not-exist.json")"
 
@@ -395,6 +494,14 @@ assert_eq "real services.json: Heimdall deploy refreshes boot-check timer compan
   "$(deploy_field "$REPO_REGISTRY" heimdall systemd_units)"
 assert_eq "real services.json: Heimdall deploy carries its health port" \
   "3033" "$(deploy_field "$REPO_REGISTRY" heimdall port)"
+assert_eq "real services.json: munin-memory remains outside runtime rendering scope" \
+  "null" "$(deploy_field "$REPO_REGISTRY" munin-memory systemd_runtime)"
+assert_eq "real services.json: Heimdall owns the reviewed host runtime contract" \
+  '{"user":"magnus","home":"/home/magnus","deploy_target":"/home/magnus/repos/heimdall","environment_files":["/home/magnus/.heimdall/env"],"sandbox_paths":["/home/magnus/.munin-memory","/home/magnus/.ssh/heimdall_ed25519"]}' \
+  "$(deploy_field "$REPO_REGISTRY" heimdall systemd_runtime)"
+assert_eq "real services.json: Heimdall health uses the network consumer boundary" \
+  '{"boundary":"network","host":"huginmunin","paths":["/health","/api/health"]}' \
+  "$(deploy_field "$REPO_REGISTRY" heimdall health_check)"
 
 assert_eq "real services.json: skuld timer deploys via user manager" \
   "user" "$(deploy_field "$REPO_REGISTRY" skuld unit_scope)"
