@@ -185,14 +185,15 @@ anything.
    the configured name matches the registry. It is not a substitute for the
    ownership and ancestry preconditions above.
 
-#### Known unresolved authority discrepancy: Skuld
+#### Resolved authority discrepancy: Skuld
 
-As of 2026-07-23, `repository_authority.owner_overrides.skuld` declares
-`grimnir-bot/skuld`, but the active pull-request and issue history and the
-local checkout lineage are owned by `Magnus-Gille/skuld`. Treat this as an
-unresolved registry defect: do not retarget the active checkout to
-`grimnir-bot/skuld`, and do not call the audit clean until an owner-approved
-registry decision or deliberate history/workflow migration resolves it.
+On 2026-07-23, GitHub evidence showed that `Magnus-Gille/skuld` is the private
+active repository: it contains `grimnir-bot/skuld`'s `main` history and has the
+current pull-request workflow. `grimnir-bot/skuld` is also private and
+unarchived, but its `main` and GitHub activity stopped in March. The registry
+therefore names the active `Magnus-Gille/skuld` repository. Preserve the older
+remote as an explicitly named predecessor where it exists; do not retarget an
+active checkout toward the stale repository merely to satisfy an old registry.
 
 Never replace this procedure with `git remote remove`, an unrecorded
 `set-url`, a reset, or a checkout in a dirty canonical tree. Those operations

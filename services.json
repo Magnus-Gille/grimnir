@@ -1,9 +1,7 @@
 {
   "repository_authority": {
     "default_owner": "Magnus-Gille",
-    "owner_overrides": {
-      "skuld": "grimnir-bot"
-    },
+    "owner_overrides": {},
     "additional_repositories": [
       {
         "repo": "gille-inference",
