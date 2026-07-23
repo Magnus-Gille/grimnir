@@ -218,21 +218,19 @@ prints one line per worktree that has a finding, followed by a summary line
 (`Summary: N ok, M issues`) and a non-destructive remediation recipe per
 finding. Exit code is `0` when nothing is flagged, `1` otherwise.
 
-For canonical-origin checks, component checkout names come from
-`services.json.components[].repo`; the default GitHub owner, owner
-exceptions, and non-component/renamed checkout mappings come from
-`services.json.repository_authority`. A checkout absent on the current host
-is skipped because hosts intentionally carry only part of the ecosystem.
-When a checkout exists, a missing, non-GitHub, archived, or wrong `origin`
-is a finding. Output includes only normalized public GitHub identities (or
-`<missing>`/`<non-github>`), never the raw remote URL.
+For canonical-origin checks, component checkout names come directly from
+`services.json.components[].repo`; the default GitHub owner, owner exceptions,
+and non-component repositories come from `services.json.repository_authority`.
+A checkout absent on the current host is skipped because hosts intentionally
+carry only part of the ecosystem. When a checkout exists, a missing,
+non-GitHub, archived, or wrong `origin` is a finding. Output includes only
+normalized public GitHub identities (or `<missing>`/`<non-github>`), never raw
+remote URLs.
 
-When retaining an unrelated archive checkout is intentional, declare the
-separate active directory with `repository_authority.checkout_overrides`.
-The audit then inspects that named canonical directory and leaves the
-archive's remotes and history untouched. This is the Heimdall arrangement:
-`heimdall-canonical` is the clean public checkout, while `heimdall` remains
-the explicitly preserved private archive.
+When retaining an unrelated archive checkout is intentional, keep it in a
+separately named directory and preserve its remotes and history there. The
+declared canonical directory keeps its repository name; the audit never
+rewrites that global contract to suit one host.
 
 The worktree-lifecycle portion is also wired into
 `scripts/generate-architecture.sh --validate` (the `grimnir-validate` timer),

@@ -380,8 +380,7 @@ cat > "$FIXTURE_SERVICES_JSON" << EOF
   "repository_authority": {
     "default_owner": "Magnus-Gille",
     "additional_repositories": [],
-    "owner_overrides": {},
-    "checkout_overrides": {}
+    "owner_overrides": {}
   },
   "components": [
     {
@@ -445,8 +444,7 @@ cat > "$CLEAN_SERVICES_JSON" << EOF
     "additional_repositories": [
       { "repo": "repo-clean", "checkout": "repo-clean" }
     ],
-    "owner_overrides": {},
-    "checkout_overrides": {}
+    "owner_overrides": {}
   },
   "components": []
 }
@@ -460,6 +458,61 @@ set -e
 
 assert_eq "CLI exits 0 on a fully clean fixture root" "0" "$clean_rc"
 assert_contains "CLI reports 0 issues on the clean fixture" "$clean_output" "0 issues"
+
+# Canonical authority is host-independent: ordinary `heimdall` checkouts are
+# audited on both Mac-like and control-host roots, while unrelated repositories
+# absent from either host remain outside that host's local audit.
+HEIMDALL_AUTHORITY_JSON="$TMP_DIR/services-heimdall-authority.json"
+cat > "$HEIMDALL_AUTHORITY_JSON" << 'EOF'
+{
+  "repository_authority": {
+    "default_owner": "Magnus-Gille",
+    "additional_repositories": [
+      { "repo": "unrelated", "checkout": "unrelated" }
+    ],
+    "owner_overrides": {}
+  },
+  "components": [
+    {
+      "name": "heimdall",
+      "repo": "heimdall",
+      "host": null,
+      "port": null,
+      "deploy": false,
+      "scan": false,
+      "needs_build": false,
+      "systemd_units": []
+    }
+  ]
+}
+EOF
+
+MAC_ROOT="$TMP_DIR/repos-root-mac"
+mkdir -p "$MAC_ROOT"
+mk_repo "$MAC_ROOT/heimdall" main
+git -C "$MAC_ROOT/heimdall" remote add origin \
+  "https://github.com/Magnus-Gille/heimdall.git"
+set +e
+mac_output="$(GRIMNIR_WORKTREE_AUDIT_ROOT="$MAC_ROOT" GRIMNIR_SERVICES_JSON="$HEIMDALL_AUTHORITY_JSON" \
+  "$SCRIPTS_DIR/worktree-hygiene-audit.sh" 2>&1)"
+mac_rc=$?
+set -e
+assert_eq "Mac fixture accepts ordinary canonical heimdall checkout" "0" "$mac_rc"
+assert_contains "Mac fixture audits the present Heimdall checkout" "$mac_output" "Summary: 2 ok, 0 issues"
+
+CONTROL_ROOT="$TMP_DIR/repos-root-control"
+mkdir -p "$CONTROL_ROOT"
+mk_repo "$CONTROL_ROOT/heimdall" main
+git -C "$CONTROL_ROOT/heimdall" remote add origin \
+  "https://github.com/Magnus-Gille/heimdall.git"
+set +e
+control_output="$(GRIMNIR_WORKTREE_AUDIT_ROOT="$CONTROL_ROOT" GRIMNIR_SERVICES_JSON="$HEIMDALL_AUTHORITY_JSON" \
+  "$SCRIPTS_DIR/worktree-hygiene-audit.sh" 2>&1)"
+control_rc=$?
+set -e
+assert_eq "control fixture accepts ordinary canonical Heimdall checkout" "0" "$control_rc"
+assert_contains "control fixture audits present Heimdall despite absent unrelated repo" \
+  "$control_output" "Summary: 2 ok, 0 issues"
 
 # ── Canonical-origin reconciliation runbook ───────────────────────────────
 # The ancestry preflight must run against the checkout being reconciled, not

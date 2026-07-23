@@ -110,9 +110,9 @@ shopt -u nullglob
 
 # Canonical-origin authority check (#112). The registry combines component
 # repo names with the explicit GitHub owner/checkout exceptions declared in
-# repository_authority. Missing local checkouts are skipped: this audit runs
-# on hosts that intentionally carry only part of the ecosystem. Existing
-# checkouts are inspected read-only and raw remote URLs are never printed.
+# repository_authority. Hosts intentionally carry only a subset of the
+# ecosystem, so absent local checkouts are skipped. Existing checkouts are
+# inspected read-only and raw remote URLs are never printed.
 if [[ -f "$SERVICES_JSON" ]]; then
   REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
   while IFS='|' read -r checkout_name expected_authority; do

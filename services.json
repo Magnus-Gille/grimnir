@@ -2,9 +2,6 @@
   "repository_authority": {
     "default_owner": "Magnus-Gille",
     "owner_overrides": {},
-    "checkout_overrides": {
-      "heimdall": "heimdall-canonical"
-    },
     "additional_repositories": [
       {
         "repo": "gille-inference",
