@@ -24,7 +24,9 @@ All components are named after figures from Norse mythology, reflecting their ro
 
 Remote install paths live in `services.json` as `deploy_path`. Most services live under `~/repos/<service-name>/`, but a few have intentional exceptions such as `munin-memory` (`~/munin-memory`) and `mimir` (`~/mimir-server`).
 
-Deploy all services from the laptop with `make deploy` (from the grimnir repo), or selectively with `make deploy ARGS="munin-memory hugin"`. The centralized script deploys the local working tree via rsync, runs a local build when `needs_build: true`, installs production dependencies on the target host, and restarts primary service units. Declared units are install-ready by default. A component may opt into the bounded host renderer with `systemd_runtime`; see [`systemd-runtime-rendering.md`](systemd-runtime-rendering.md) for the registry contract, preflight, migration, and rollback procedure. For worktree-based deploys, pass an explicit source override such as `make deploy ARGS="munin-memory=/tmp/munin-memory-awesome"`.
+Deploy selectively from the laptop with an explicitly bound source and full commit SHA, for example `make deploy ARGS="heimdall=/private/tmp/heimdall-release@<accepted-full-sha>"`. Bare service names and no-argument deploys fail closed. The centralized script validates every selected source before any component mutation, deploys via rsync or the registered git-pull mode, runs a local build when `needs_build: true`, installs production dependencies on the target host, and restarts primary service units. Declared units are install-ready by default. A component may opt into the bounded host renderer with `systemd_runtime`; see [`systemd-runtime-rendering.md`](systemd-runtime-rendering.md) for the registry contract, preflight, migration, and rollback procedure.
+
+For owning-repository deploy commands outside the centrally deployable set, use `scripts/guarded-deploy.sh` as the outer source-identity boundary. See [`deployment-source-binding.md`](deployment-source-binding.md) for both contracts and examples.
 
 ## GitHub ownership
 
@@ -77,4 +79,4 @@ Every Grimnir service follows these patterns:
 - systemd for process management (Restart=always)
 - `/health` endpoint for Heimdall monitoring
 - `.env` file on Pi for secrets (never in git, never overwritten by deploy)
-- Centralized deploy via `grimnir/scripts/deploy.sh` is preferred; per-repo deploy scripts remain for bootstrap or repo-specific extras
+- Centralized deploy via `grimnir/scripts/deploy.sh` is preferred; per-repo deploy scripts remain for bootstrap or repo-specific extras and must be invoked through Grimnir's `scripts/guarded-deploy.sh`

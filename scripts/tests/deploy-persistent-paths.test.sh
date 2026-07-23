@@ -266,9 +266,23 @@ commit_fixture_repo() {
 
 assert_rejected_before_remote() {
   local desc=$1 fixture=$2 expected_error=${3:-}
+  local fixture_name fixture_repo fixture_source fixture_revision fixture_request
+  fixture_name=$(REGISTRY_PATH="$fixture" node -e '
+    var data = require(process.env.REGISTRY_PATH);
+    process.stdout.write(String(data.components[0].name));
+  ')
+  fixture_repo=$(REGISTRY_PATH="$fixture" node -e '
+    var data = require(process.env.REGISTRY_PATH);
+    process.stdout.write(String(data.components[0].repo));
+  ')
+  fixture_source="$TMP_DIR/repos/$fixture_repo"
+  fixture_revision=$(git -C "$fixture_source" rev-parse HEAD 2>/dev/null ||
+    printf '%040d' 0)
+  fixture_request="${fixture_name}=${fixture_source}@${fixture_revision}"
   rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$BUILD_CAPTURE"
   if REGISTRY_PATH="$fixture" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
-      PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/rejected.out" 2>&1; then
+      PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "$fixture_request" \
+        >"$TMP_DIR/rejected.out" 2>&1; then
     fail "$desc: deploy must fail"
   else
     pass "$desc: deploy fails"
@@ -514,11 +528,14 @@ cat > "$TMP_DIR/repos/alpha/alpha-recurring.service" << 'EOF'
 ExecStart=/bin/true
 EOF
 commit_fixture_repo "$TMP_DIR/repos/alpha"
+ALPHA_SHA=$(git -C "$TMP_DIR/repos/alpha" rev-parse HEAD)
+ALPHA_REQUEST="alpha=$TMP_DIR/repos/alpha@$ALPHA_SHA"
 
 rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
 printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
 if REGISTRY_PATH="$TMP_DIR/safe.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
-    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/safe.out" 2>&1; then
+    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "$ALPHA_REQUEST" \
+      >"$TMP_DIR/safe.out" 2>&1; then
   pass "safe registry completes mocked deploy"
 else
   fail "safe registry completes mocked deploy"
@@ -660,7 +677,8 @@ assert_markerless_failure() {
   rc=0
   SSH_FAIL_MODE="$ssh_fail" RSYNC_FAIL_MODE="$rsync_fail" \
     REGISTRY_PATH="$TMP_DIR/safe.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
-    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/failure.out" 2>&1 || rc=$?
+    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "$ALPHA_REQUEST" \
+      >"$TMP_DIR/failure.out" 2>&1 || rc=$?
   if [[ "$rc" == 1 && ! -e "$REMOTE_MARKER_STATE" ]] &&
      grep -Fq "markerless/unknown" "$TMP_DIR/failure.out"; then
     pass "$desc leaves the deployment markerless"
@@ -679,7 +697,7 @@ printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
 rc=0
 SSH_FAIL_MODE=invalidate REGISTRY_PATH="$TMP_DIR/safe.json" \
   LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
-  bash "$DEPLOY" alpha >"$TMP_DIR/invalidation-fail.out" 2>&1 || rc=$?
+  bash "$DEPLOY" "$ALPHA_REQUEST" >"$TMP_DIR/invalidation-fail.out" 2>&1 || rc=$?
 if [[ "$rc" == 1 && ! -e "$RSYNC_CAPTURE" ]] &&
    [[ "$(tr '\n' ' ' < "$ORDER_CAPTURE")" == "invalidate " ]]; then
   pass "uncertain marker invalidation stops before code mutation"
@@ -691,7 +709,8 @@ fi
 echo stray > "$TMP_DIR/repos/alpha/untracked.txt"
 rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
 if REGISTRY_PATH="$TMP_DIR/safe.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
-    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/dirty.out" 2>&1; then
+    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "$ALPHA_REQUEST" \
+      >"$TMP_DIR/dirty.out" 2>&1; then
   fail "dirty source must fail"
 else
   pass "dirty source fails"
@@ -716,9 +735,13 @@ cat > "$TMP_DIR/git-pull.json" << 'EOF'
 }
 EOF
 rm -f "$TMP_DIR/repos/alpha/untracked.txt" "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+git init -q --bare "$TMP_DIR/alpha-origin.git"
+git -C "$TMP_DIR/repos/alpha" remote add origin "$TMP_DIR/alpha-origin.git"
+git -C "$TMP_DIR/repos/alpha" push -q -u origin main
 printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
 if REGISTRY_PATH="$TMP_DIR/git-pull.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
-    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" alpha >"$TMP_DIR/git-pull.out" 2>&1; then
+    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "$ALPHA_REQUEST" \
+      >"$TMP_DIR/git-pull.out" 2>&1; then
   pass "git-pull deployment completes with mocked remote"
 else
   fail "git-pull deployment completes with mocked remote"
@@ -755,12 +778,43 @@ printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
 rc=0
 SSH_FAIL_MODE=pull REGISTRY_PATH="$TMP_DIR/git-pull.json" \
   LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
-  bash "$DEPLOY" alpha >"$TMP_DIR/pull-fail.out" 2>&1 || rc=$?
+  bash "$DEPLOY" "$ALPHA_REQUEST" >"$TMP_DIR/pull-fail.out" 2>&1 || rc=$?
 if [[ "$rc" == 1 && ! -e "$REMOTE_MARKER_STATE" ]] &&
    grep -Fq "markerless/unknown" "$TMP_DIR/pull-fail.out"; then
   pass "failed git pull leaves the deployment markerless"
 else
   fail "failed git pull must leave the deployment markerless"
+fi
+
+# The source remote is read before accepted-marker invalidation. If main has
+# advanced past the explicitly expected revision, fail with the marker intact
+# and make no SSH deployment call.
+git clone -q -b main "$TMP_DIR/alpha-origin.git" "$TMP_DIR/origin-updater"
+printf '%s\n' advanced > "$TMP_DIR/origin-updater/advanced.txt"
+git -C "$TMP_DIR/origin-updater" add advanced.txt
+GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t \
+  git -C "$TMP_DIR/origin-updater" commit -q -m advanced
+git -C "$TMP_DIR/origin-updater" push -q origin main
+ADVANCED_SHA=$(git -C "$TMP_DIR/origin-updater" rev-parse HEAD)
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
+rc=0
+REGISTRY_PATH="$TMP_DIR/git-pull.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
+  PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "$ALPHA_REQUEST" \
+  >"$TMP_DIR/upstream-mismatch.out" 2>&1 || rc=$?
+if [[ "$rc" == 1 && "$(cat "$REMOTE_MARKER_STATE")" == "$PRIOR_SHA" ]] &&
+   [[ ! -e "$SSH_CAPTURE" && ! -e "$RSYNC_CAPTURE" ]]; then
+  pass "git-pull upstream mismatch fails before marker invalidation or pull"
+else
+  fail "git-pull upstream mismatch must fail before marker invalidation or pull"
+fi
+if grep -Fq "Expected remote source: origin/refs/heads/main @ $ALPHA_SHA" \
+    "$TMP_DIR/upstream-mismatch.out" &&
+   grep -Fq "Actual remote source: origin/refs/heads/main @ $ADVANCED_SHA" \
+    "$TMP_DIR/upstream-mismatch.out"; then
+  pass "git-pull upstream mismatch reports expected and actual revisions"
+else
+  fail "git-pull upstream mismatch must report expected and actual revisions"
 fi
 
 echo ""

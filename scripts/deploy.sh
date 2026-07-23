@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Grimnir deploy script — deploys services to Pi hosts via SSH.
-# Usage: ./scripts/deploy.sh [service[=/abs/path/to/worktree] ...]
-# No args = deploy all services. Pass one or more names to deploy selectively.
-# Use name=/path to deploy from a specific local worktree instead of $HOME/repos/<repo>.
+# Usage: ./scripts/deploy.sh service[=/abs/path/to/worktree]@FULL_COMMIT_SHA [...]
+# Every selected source requires its immutable expected revision. Use name@SHA
+# for $HOME/repos/<repo>, or name=/path@SHA for an explicit worktree.
 #
 # Service list is read from services.json (the single source of truth).
 
@@ -16,6 +16,8 @@ REGISTRY_VALIDATOR="$SCRIPT_DIR/lib/validate-registry.js"
 SYSTEMD_RENDER_HELPER="$SCRIPT_DIR/lib/render-systemd-units.sh"
 # shellcheck source=scripts/lib/deploy-safety.sh
 source "$SCRIPT_DIR/lib/deploy-safety.sh"
+# shellcheck source=scripts/lib/deploy-source.sh
+source "$SCRIPT_DIR/lib/deploy-source.sh"
 
 # Validate the full registry before producing JSON Lines deploy records. No
 # network or filesystem mutation occurs before this gate passes.
@@ -110,18 +112,140 @@ build_locally() {
 
 resolve_local_path() {
   local service_name=$1 repo=$2
-  local req
+  local req req_name source_override
 
   # ${arr[@]+...} idiom: bash 3.2 (macOS) treats an empty array's "${arr[@]}"
-  # as unbound under set -u — this crashed every no-args `make deploy`.
+  # as unbound under set -u. Keep the required no-args failure deterministic.
   for req in ${requested[@]+"${requested[@]}"}; do
-    if [[ "$req" == "${service_name}="* ]]; then
-      echo "${req#*=}"
-      return
+    req_name=$(deployment_request_name "$req")
+    if [[ "$req_name" == "$service_name" ]]; then
+      source_override=$(deployment_request_source_override "$req")
+      if [[ -n "$source_override" ]]; then
+        echo "$source_override"
+        return
+      fi
     fi
   done
 
   echo "${LOCAL_REPOS_ROOT}/${repo}"
+}
+
+deployment_request_without_revision() {
+  local request=$1
+  if [[ "$request" == *@* ]]; then
+    echo "${request%@*}"
+  else
+    echo "$request"
+  fi
+}
+
+deployment_request_name() {
+  local request_without_revision
+  request_without_revision=$(deployment_request_without_revision "$1")
+  if [[ "$request_without_revision" == *=* ]]; then
+    echo "${request_without_revision%%=*}"
+  else
+    echo "$request_without_revision"
+  fi
+}
+
+deployment_request_source_override() {
+  local request_without_revision
+  request_without_revision=$(deployment_request_without_revision "$1")
+  if [[ "$request_without_revision" == *=* ]]; then
+    echo "${request_without_revision#*=}"
+  fi
+}
+
+deployment_request_expected_revision() {
+  local request=$1
+  if [[ "$request" == *@* ]]; then
+    echo "${request##*@}"
+  fi
+}
+
+request_matches_service() {
+  local service_name=$1 req
+  for req in ${requested[@]+"${requested[@]}"}; do
+    if [[ "$(deployment_request_name "$req")" == "$service_name" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+expected_revision_for_service() {
+  local service_name=$1 req
+  for req in ${requested[@]+"${requested[@]}"}; do
+    if [[ "$(deployment_request_name "$req")" == "$service_name" ]]; then
+      deployment_request_expected_revision "$req"
+      return
+    fi
+  done
+}
+
+preflight_deploy_sources() {
+  local req req_name expected_revision entry name repo deploy_mode local_path known duplicate seen_names=""
+
+  if [[ ${#requested[@]} -eq 0 ]]; then
+    echo "ERROR: deploy requires at least one service bound to an explicit full commit SHA" >&2
+    echo "Usage: ./scripts/deploy.sh service[=/absolute/worktree]@FULL_COMMIT_SHA [...]" >&2
+    return 1
+  fi
+
+  for req in ${requested[@]+"${requested[@]}"}; do
+    req_name=$(deployment_request_name "$req")
+    expected_revision=$(deployment_request_expected_revision "$req")
+    if [[ -z "$req_name" ]] || ! is_full_commit_sha "$expected_revision"; then
+      echo "ERROR: deploy source requires an explicit full commit SHA: $req" >&2
+      echo "Usage: ./scripts/deploy.sh service[=/absolute/worktree]@FULL_COMMIT_SHA [...]" >&2
+      return 1
+    fi
+
+    known=false
+    for entry in "${SERVICES[@]}"; do
+      name=$(service_field "$entry" name)
+      if [[ "$name" == "$req_name" ]]; then
+        known=true
+        break
+      fi
+    done
+    if [[ "$known" != "true" ]]; then
+      echo "ERROR: unknown deployable service in request: $req_name" >&2
+      return 1
+    fi
+
+    duplicate=false
+    case " $seen_names " in
+      *" $req_name "*) duplicate=true ;;
+    esac
+    if [[ "$duplicate" == "true" ]]; then
+      echo "ERROR: duplicate deployment source request: $req_name" >&2
+      return 1
+    fi
+    seen_names="${seen_names} ${req_name}"
+  done
+
+  # Validate the entire invocation before the first selected component can
+  # build, invalidate a remote marker, sync, pull, or restart.
+  for entry in "${SERVICES[@]}"; do
+    name=$(service_field "$entry" name)
+    request_matches_service "$name" || continue
+    repo=$(service_field "$entry" repo)
+    deploy_mode=$(service_field "$entry" deploy_mode)
+    local_path=$(resolve_local_path "$name" "$repo")
+    expected_revision=$(expected_revision_for_service "$name")
+    if ! verify_deploy_source_revision "$local_path" "$expected_revision" true; then
+      echo "ERROR: refusing deployment before any component mutation" >&2
+      return 1
+    fi
+    if [[ "${deploy_mode:-rsync}" == "git-pull" ]] &&
+       ! verify_expected_remote_revision \
+         "$local_path" origin refs/heads/main "$expected_revision" true; then
+      echo "ERROR: refusing git-pull deployment before marker invalidation" >&2
+      return 1
+    fi
+  done
 }
 
 unit_rows() {
@@ -248,6 +372,7 @@ deploy_service() {
   local name=$1 repo=$2 host=$3 deploy_path=$4 unit_type=$5 needs_build=$6 unit_scope=${7:-system} deploy_mode=${8:-rsync} units_json=${9:-[]}
   local rsync_excludes_json=${10:-[]} health_port=${11:-}
   local persistent_paths_json=${12:-[]} systemd_runtime_json=${13:-null} health_check_json=${14:-null}
+  local expected_revision=${15:-}
   local local_path
   local remote_host
   local remote
@@ -274,16 +399,9 @@ deploy_service() {
 
   local_path=$(resolve_local_path "$name" "$repo")
 
-  if [[ ! -d "$local_path" ]]; then
-    echo "ERROR: Local repo not found: $local_path" >&2
-    echo -e "${RED}FAILED${NC}"
-    results+=("${RED}✗${NC} ${name}")
-    fail=$((fail + 1))
-    return
-  fi
-
-  if ! git -C "$local_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo "ERROR: Local source is not a git worktree: $local_path" >&2
+  # Re-check at the per-component boundary to narrow the gap between the
+  # invocation-wide preflight and any local build or remote mutation.
+  if ! verify_deploy_source_revision "$local_path" "$expected_revision"; then
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
     return
@@ -295,6 +413,12 @@ deploy_service() {
     # git-pull mode ships origin/main on the remote — the local tree is not
     # the source, so its branch/dirtiness is informational only.
     echo "Source: origin/main (deploy_mode=git-pull — local tree not shipped; local: ${branch} @ ${commit})"
+    if ! verify_expected_remote_revision \
+        "$local_path" origin refs/heads/main "$expected_revision"; then
+      results+=("${RED}✗${NC} ${name}")
+      fail=$((fail + 1))
+      return
+    fi
   else
     if [[ -n "$(git -C "$local_path" status --porcelain 2>/dev/null)" ]]; then
       echo "ERROR: Refusing rsync deploy from a dirty working tree: $local_path" >&2
@@ -356,10 +480,11 @@ deploy_service() {
     # fail the deploy loudly instead.
     local pull_cmd
     pull_cmd="git -C ${q_deploy_path} fetch --quiet origin && "
+    pull_cmd+="if [ \"\$(git -C ${q_deploy_path} rev-parse origin/main)\" != $(posix_shell_quote "$expected_revision") ]; then echo 'ERROR: origin/main != expected deployment revision after fetch' >&2; exit 1; fi && "
     pull_cmd+="git -C ${q_deploy_path} checkout --quiet main && "
     pull_cmd+="git -C ${q_deploy_path} pull --ff-only --quiet origin main && "
     pull_cmd+="if [ -n \"\$(git -C ${q_deploy_path} status --porcelain)\" ]; then echo 'ERROR: checkout dirty after pull' >&2; exit 1; fi && "
-    pull_cmd+="if [ \"\$(git -C ${q_deploy_path} rev-parse HEAD)\" != \"\$(git -C ${q_deploy_path} rev-parse origin/main)\" ]; then echo 'ERROR: HEAD != origin/main after pull (stray local commits?)' >&2; exit 1; fi"
+    pull_cmd+="if [ \"\$(git -C ${q_deploy_path} rev-parse HEAD)\" != $(posix_shell_quote "$expected_revision") ]; then echo 'ERROR: HEAD != expected deployment revision after pull' >&2; exit 1; fi"
     # shellcheck disable=SC2029 # deploy_path is a local var; intentional client-side expansion
     if ! ssh -o ConnectTimeout=10 "$remote" "$pull_cmd"; then
       report_markerless_failure
@@ -640,8 +765,12 @@ deploy_service() {
   fi
 }
 
-# Filter to requested services, or deploy all
+# Validate and deploy only the explicitly revision-bound requests.
 requested=("$@")
+
+if ! preflight_deploy_sources; then
+  exit 1
+fi
 
 for entry in "${SERVICES[@]}"; do
   name=$(service_field "$entry" name)
@@ -659,15 +788,10 @@ for entry in "${SERVICES[@]}"; do
   systemd_runtime_json=$(service_field "$entry" systemd_runtime)
   health_check_json=$(service_field "$entry" health_check)
 
-  if [[ ${#requested[@]} -gt 0 ]]; then
-    match=false
-    for req in ${requested[@]+"${requested[@]}"}; do
-      [[ "$req" == "$name" || "$req" == "${name}="* ]] && match=true && break
-    done
-    $match || continue
-  fi
+  request_matches_service "$name" || continue
 
-  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}" "${rsync_excludes_json:-[]}" "${health_port:-}" "${persistent_paths_json:-[]}" "${systemd_runtime_json:-null}" "${health_check_json:-null}"
+  expected_revision=$(expected_revision_for_service "$name")
+  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}" "${rsync_excludes_json:-[]}" "${health_port:-}" "${persistent_paths_json:-[]}" "${systemd_runtime_json:-null}" "${health_check_json:-null}" "$expected_revision"
 done
 
 # Summary
