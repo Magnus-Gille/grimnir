@@ -18,7 +18,7 @@ three roles that want incompatible things from it:
 
 | Role | Who drives it | What it wants the tree to be |
 |------|---------------|------------------------------|
-| **Deploy target** | `scripts/deploy.sh` (`make deploy grimnir`) rsyncs the laptop working tree here with `--delete` | An exact mirror of whatever local working tree was deployed |
+| **Deploy target** | `scripts/deploy.sh` (`make deploy ARGS="grimnir=/absolute/worktree@FULL_COMMIT_SHA"`) advances this checkout only after source binding | A clean `main` checkout matching the explicitly expected `origin/main` revision |
 | **Canonical git checkout** | Registry consumers read `services.json` from here; the `grimnir-security-scan` and `grimnir-validate` timers run *from* here | Pristine: on the default branch (`main`), clean, matching `origin/main` |
 | **Hugin task workspace** | Hugin (task dispatcher) has historically used this checkout as a working tree, checking out branches per task | A scratch tree it can check out arbitrary branches into and mutate |
 

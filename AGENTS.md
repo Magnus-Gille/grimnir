@@ -131,7 +131,8 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 
 | Script | Purpose | Run with |
 |--------|---------|----------|
-| `scripts/deploy.sh` | Deploy services to Pi hosts (all or selective) | `make deploy` or `make deploy ARGS="munin-memory"` |
+| `scripts/deploy.sh` | Deploy registered services from explicitly bound revisions | `make deploy ARGS="service=/absolute/worktree@FULL_COMMIT_SHA"` |
+| `scripts/guarded-deploy.sh` | Bind arbitrary owning-repo deploy commands to an expected worktree + revision | See `docs/deployment-source-binding.md` |
 | `scripts/generate-architecture.sh` | Generate deployment snapshot + full-architecture.md | `make docs` (Pi only) |
 | `scripts/output-audit.py` | Audit owner+AI repository output over a date window | `python3 scripts/output-audit.py` (reads an untracked local identities config; see `scripts/output-audit-identities.example.json`) |
 | `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets | `make security` |

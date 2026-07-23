@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -9,7 +9,7 @@ security: ## Run security scan across all Grimnir repos
 security-dry: ## Run security scan (dry run, no Munin writes)
 	@./scripts/security-scan.sh --dry-run
 
-deploy: ## Deploy all services to Pi (or: make deploy ARGS="munin-memory hugin")
+deploy: ## Deploy bound sources (ARGS="service=/absolute/worktree@FULL_COMMIT_SHA [...]")
 	@./scripts/deploy.sh $(ARGS)
 
 test-security-skip: ## Regression test: assert security-scan skips test/eval fixtures (issue #22)
@@ -26,6 +26,9 @@ test-munin-rpc: ## Reject HTTP, JSON-RPC, and MCP tool errors from scheduled wri
 
 test-registry-smoke: ## Schema/consistency smoke check for services.json (issue #48)
 	@bash scripts/tests/registry-smoke.test.sh
+
+test-deploy-source-revision: ## Bind every deploy source to an explicit immutable revision (issue #114)
+	@bash scripts/tests/deploy-source-revision.test.sh
 
 test-deploy-persistent-paths: ## Fail closed before rsync can delete an in-target runtime path
 	@bash scripts/tests/deploy-persistent-paths.test.sh
@@ -51,7 +54,7 @@ test-runtime-state: ## Desired runtime and deployment-state validation (issue #1
 test-worktree-hygiene: ## Unit + fixture tests for the worktree/deploy hygiene audit (issue #87)
 	@bash scripts/tests/worktree-hygiene.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-munin-rpc test-registry-smoke test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md

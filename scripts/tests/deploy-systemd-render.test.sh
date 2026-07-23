@@ -355,6 +355,8 @@ git init -q -b main "$REPO"
 git -C "$REPO" add .
 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t \
   git -C "$REPO" commit -q -m seed
+REPO_SHA=$(git -C "$REPO" rev-parse HEAD)
+ALPHA_REQUEST="alpha=$REPO@$REPO_SHA"
 
 registry="$TMP_DIR/services.json"
 RUNTIME_HOME="$RUNTIME_HOME" PRIVATE_ENV="$PRIVATE_ENV" SANDBOX_PATH="$SANDBOX_PATH" \
@@ -438,7 +440,7 @@ chmod +x "$TMP_DIR/bin/ssh" "$TMP_DIR/bin/rsync" "$TMP_DIR/bin/curl"
 
 rc=0
 SSH_SYSTEMD_VERIFY_FAIL=true REGISTRY_PATH="$registry" LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
-  bash "$DEPLOY" alpha >"$TMP_DIR/deploy.out" 2>&1 || rc=$?
+  bash "$DEPLOY" "$ALPHA_REQUEST" >"$TMP_DIR/deploy.out" 2>&1 || rc=$?
 if [[ "$rc" == 1 ]]; then
   pass "systemd verification failure fails deployment"
 else
@@ -473,7 +475,7 @@ NODE
 rm -f "$ORDER_CAPTURE" "$SSH_CAPTURE" "$REMOTE_MARKER_STATE"
 printf '%040d\n' 2 > "$REMOTE_MARKER_STATE"
 if REGISTRY_PATH="$registry" LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
-    bash "$DEPLOY" alpha >"$TMP_DIR/deploy-success.out" 2>&1; then
+    bash "$DEPLOY" "$ALPHA_REQUEST" >"$TMP_DIR/deploy-success.out" 2>&1; then
   pass "rendered deployment passes network-boundary health"
 else
   fail "rendered deployment must pass network-boundary health"

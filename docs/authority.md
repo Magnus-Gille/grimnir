@@ -14,6 +14,7 @@
 | **Host systemd runtime identity, home, deploy target, private-environment paths and exact external sandbox dependencies** | `services.json` | `deploy.sh`, `render-systemd-units.sh` |
 | **Persistent/runtime paths and component-specific rsync exclusions** | `services.json` | `deploy.sh`, registry validation |
 | **Global rsync safety exclusions** (`.env`, `.git`, dependencies, tests, deploy marker) | `scripts/deploy.sh` | deploy persistence tests |
+| **Deployment source identity** (expected worktree + immutable revision) | `scripts/lib/deploy-source.sh` | deploy source-revision tests |
 | **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |
 | **Repo names / GitHub ownership / canonical local checkout mapping** | `services.json` (`components[].repo` plus `repository_authority`) | `docs/conventions.md`, worktree-hygiene audit |
 | **Service patterns / conventions** | `docs/conventions.md` | per-repo CLAUDE.md |

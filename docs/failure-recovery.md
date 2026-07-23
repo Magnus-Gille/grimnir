@@ -117,6 +117,12 @@ then invalidates that acceptance marker before the first rsync or git-pull tree 
 the new SHA only after dependency, unit, restart, and health gates succeed. A failed deployment is
 therefore deliberately markerless/unknown, never certified by the old SHA.
 
+Before marker invalidation, every selected source must match the orchestrator's explicit worktree
+path and full commit SHA. Git-pull deployments additionally resolve `origin/main` read-only and
+require it to equal that SHA. Owning-repository deploy entry points outside the centrally deployable
+set use `scripts/guarded-deploy.sh` for the same outer identity boundary; see
+[`deployment-source-binding.md`](deployment-source-binding.md).
+
 - **Reversal recipe:** perform a clean selective redeploy of the captured prior SHA. Rsync is not
   transactional, so marker absence is the signal to rollback or finish a verified redeploy—not a
   claim that the old files are still intact.
