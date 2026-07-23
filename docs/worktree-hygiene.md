@@ -2,7 +2,8 @@
 
 > Status: adopted. Extends the canonical-checkout guard from issue #47
 > (`docs/role-separation.md`, `scripts/lib/registry-checkout.sh`) to the full
-> worktree lifecycle, and adds a narrow deploy-target role check. Read-only
+> worktree lifecycle, adds a narrow deploy-target role check, and verifies
+> canonical local origins against repository authority. Read-only
 > audit; see `scripts/worktree-hygiene-audit.sh` and
 > `scripts/lib/worktree-hygiene.sh`.
 
@@ -32,6 +33,10 @@ this class of activity accumulates residue:
   components by the `.deployed-commit` marker check), or — the narrower gap
   this issue closes — an **rsync deploy target that has unexpectedly grown a
   `.git` directory**, meaning it is quietly doubling as an ad hoc checkout.
+- **Repository-authority drift** — a canonical local checkout's `origin`
+  still points at an archived predecessor, fork, or unrelated repository. A
+  plain fetch can then look successful while returning stale or
+  non-canonical history.
 
 An audit (2026-07, grimnir#87) found exactly this kind of residue: dozens of
 worktrees on the Hugin dispatcher host including prunable and dirty stale
@@ -67,6 +72,11 @@ tree and believing cross-repo work landed when only half of it did.
    issue #47's harness) both report hygiene state read-only. Findings are
    evidence for a human/agent to act on, not something the tooling fixes
    itself.
+6. **Treat remote reconciliation as an operator action.** The audit compares
+   normalized GitHub `owner/repo` identities from
+   `services.json.repository_authority`; it never changes fetch/push URLs.
+   Before reconciling a finding, inspect local branches and worktrees and
+   preserve a useful predecessor under an explicit archival remote name.
 
 ## Running the audit
 
@@ -86,10 +96,20 @@ prints one line per worktree that has a finding, followed by a summary line
 (`Summary: N ok, M issues`) and a non-destructive remediation recipe per
 finding. Exit code is `0` when nothing is flagged, `1` otherwise.
 
-It is also wired into `scripts/generate-architecture.sh --validate` (the
-`grimnir-validate` timer), where its findings fold into the existing
-`PASS`/`FAIL` tally and Munin-persisted validation report alongside the #47
-registry-checkout check and the per-component deployment-freshness checks.
+For canonical-origin checks, component checkout names come from
+`services.json.components[].repo`; the default GitHub owner, owner
+exceptions, and non-component/renamed checkout mappings come from
+`services.json.repository_authority`. A checkout absent on the current host
+is skipped because hosts intentionally carry only part of the ecosystem.
+When a checkout exists, a missing, non-GitHub, archived, or wrong `origin`
+is a finding. Output includes only normalized public GitHub identities (or
+`<missing>`/`<non-github>`), never the raw remote URL.
+
+The worktree-lifecycle portion is also wired into
+`scripts/generate-architecture.sh --validate` (the `grimnir-validate` timer),
+where its findings fold into the existing `PASS`/`FAIL` tally alongside the
+#47 registry-checkout check and per-component deployment-freshness checks.
+Origin-authority findings currently belong to the standalone local audit.
 
 Unit and fixture tests: `make test-worktree-hygiene` (also part of
 `make test`), exercised against constructed fixture git repos — never against
@@ -106,6 +126,7 @@ the real, live repos. See `scripts/tests/worktree-hygiene.test.sh`.
 | `prunable` | Administrative worktree entry present, but its working directory is gone | Reconcile the registration only: `git worktree prune` (does not touch any other worktree's files). |
 | `alert-branch` / `alert-dirty` / `alert-branch-dirty` (canonical only) | The canonical checkout itself has drifted off the default branch and/or gone dirty — the #47 poisoning class | Reconcile manually to the default branch; see `docs/role-separation.md`. |
 | `violation-unexpected-git` (deploy target) | A non-`git-pull` deploy target unexpectedly contains a `.git` directory | Investigate manually; do not delete `.git` automatically. |
+| `missing-origin` / `non-github-origin` / `archived-origin` / `wrong-origin` | The canonical checkout's `origin` does not match repository authority | Inspect branches, worktrees, and fetch/push URLs; reconcile manually while preserving useful predecessor history under an explicit archival remote. |
 
 `classify_deploy_target` trusts `services.json`'s declared `deploy_mode` as the
 intended contract, not something it infers from the filesystem. If a
@@ -122,6 +143,11 @@ the repo-wide git-safety rule that destroying uncommitted or untracked work
 is never automatic. If a destructive action is ever warranted (e.g. removing
 a confirmed-stale worktree), it is an explicit, opt-in, operator-run command
 — never something this tooling executes on your behalf.
+
+The same boundary applies to remotes: the audit reads
+`remote.origin.url`, normalizes supported GitHub transports for comparison,
+and reports a verdict. It never executes `git remote set-url`, adds/removes
+a remote, fetches, or pushes.
 
 ## Known heuristic limit
 

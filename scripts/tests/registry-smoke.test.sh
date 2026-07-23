@@ -91,6 +91,43 @@ assert_eq "valid registry -> exit 0" "0" "$(run_validator "$TMP_DIR/valid.json")
 REPO_REGISTRY="$SCRIPT_DIR/../../services.json"
 assert_eq "real services.json -> exit 0" "0" "$(run_validator "$REPO_REGISTRY")"
 
+# ── Repository authority is bounded and machine-readable (#112) ───────────
+cat > "$TMP_DIR/bad-repository-authority.json" << 'EOF'
+{
+  "repository_authority": {
+    "default_owner": "owner|unsafe",
+    "owner_overrides": [],
+    "additional_repositories": [
+      { "repo": "../escape", "checkout": "/absolute/path" }
+    ]
+  },
+  "components": []
+}
+EOF
+assert_eq "unsafe repository authority -> exit 1" "1" \
+  "$(run_validator "$TMP_DIR/bad-repository-authority.json")"
+
+cat > "$TMP_DIR/duplicate-repository-checkout.json" << 'EOF'
+{
+  "repository_authority": {
+    "default_owner": "Magnus-Gille",
+    "owner_overrides": {},
+    "additional_repositories": [
+      { "repo": "other", "checkout": "alpha" }
+    ]
+  },
+  "components": [
+    {
+      "name": "alpha", "repo": "alpha", "host": null, "port": null,
+      "deploy": false, "scan": false, "needs_build": false,
+      "systemd_units": []
+    }
+  ]
+}
+EOF
+assert_eq "repository authority cannot silently shadow a component checkout -> exit 1" "1" \
+  "$(run_validator "$TMP_DIR/duplicate-repository-checkout.json")"
+
 # ── rsync persistent-path safety ───────────────────────────────────────────
 cat > "$TMP_DIR/missing-persistent-paths.json" << 'EOF'
 {
@@ -493,6 +530,20 @@ assert_clean_failure "null entry in nodes" "$TMP_DIR/null-node.json"
 # appending units must never change the deploy row. Pin the real services.json
 # plus the ordering contract on a synthetic fixture.
 REGISTRY_JS="$SCRIPT_DIR/../lib/registry.js"
+repository_authority_rows="$(
+  REGISTRY_PATH="$REPO_REGISTRY" QUERY=repository-authority \
+    node --input-type=commonjs "$REGISTRY_JS"
+)"
+assert_eq "Heimdall checkout authority is canonical public repo" \
+  "heimdall|Magnus-Gille/heimdall" \
+  "$(printf '%s\n' "$repository_authority_rows" | grep '^heimdall|')"
+assert_eq "Skuld checkout retains its owner exception" \
+  "skuld|grimnir-bot/skuld" \
+  "$(printf '%s\n' "$repository_authority_rows" | grep '^skuld|')"
+assert_eq "Gille Inference canonical checkout maps to public authority" \
+  "gille-inference|Magnus-Gille/gille-inference" \
+  "$(printf '%s\n' "$repository_authority_rows" | grep '^gille-inference|')"
+
 deploy_field() {  # $1 = registry path, $2 = component name, $3 = field
   REGISTRY_PATH="$1" QUERY=deploy node --input-type=commonjs "$REGISTRY_JS" 2>/dev/null \
     | COMPONENT_NAME="$2" COMPONENT_FIELD="$3" node --input-type=commonjs -e '

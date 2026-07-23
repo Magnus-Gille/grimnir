@@ -15,7 +15,7 @@
 | **Persistent/runtime paths and component-specific rsync exclusions** | `services.json` | `deploy.sh`, registry validation |
 | **Global rsync safety exclusions** (`.env`, `.git`, dependencies, tests, deploy marker) | `scripts/deploy.sh` | deploy persistence tests |
 | **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |
-| **Repo names / GitHub ownership** | `docs/conventions.md` | `docs/architecture.md`, generator |
+| **Repo names / GitHub ownership / canonical local checkout mapping** | `services.json` (`components[].repo` plus `repository_authority`) | `docs/conventions.md`, worktree-hygiene audit |
 | **Service patterns / conventions** | `docs/conventions.md` | per-repo CLAUDE.md |
 | **Component roles (short)** | `docs/conventions.md` | `docs/architecture.md`, generator |
 | **System design philosophy / rationale** | `docs/architecture.md` | per-repo CLAUDE.md (may reference) |
@@ -94,6 +94,10 @@ The generator should warn on discrepancies it can detect:
 - Deploy path in `services.json` vs WorkingDirectory / EnvironmentFile paths in unit files
 - Git-pull checkout HEAD vs the exact live `origin/main` SHA (an unreachable origin is never current)
 - Missing, symlinked, or malformed rsync deployment markers
+
+The standalone worktree-hygiene audit additionally warns when a canonical
+local checkout's `origin` disagrees with the GitHub repository identity in
+`services.json.repository_authority`, including archived predecessors.
 
 ## Document boundary: `architecture.md` vs `snapshot.md`
 

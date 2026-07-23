@@ -8,6 +8,8 @@
 # reports:
 #   - a canonical checkout that is dirty or off its default branch (role
 #     violation per #47)
+#   - a canonical checkout whose origin disagrees with the repository
+#     authority declared in services.json, including archived predecessors
 #   - stale linked worktrees (branch merged into the default branch, or its
 #     upstream is gone) that were never cleaned up
 #   - dirty linked worktrees holding uncommitted work
@@ -105,6 +107,33 @@ for repo_dir in "$REPOS_ROOT"/*/; do
   done < <(audit_repo_worktrees "$repo_dir" "$DEFAULT_BRANCH")
 done
 shopt -u nullglob
+
+# Canonical-origin authority check (#112). The registry combines component
+# repo names with the explicit GitHub owner/checkout exceptions declared in
+# repository_authority. Missing local checkouts are skipped: this audit runs
+# on hosts that intentionally carry only part of the ecosystem. Existing
+# checkouts are inspected read-only and raw remote URLs are never printed.
+if [[ -f "$SERVICES_JSON" ]]; then
+  REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
+  while IFS='|' read -r checkout_name expected_authority; do
+    [[ -n "$checkout_name" && -n "$expected_authority" ]] || continue
+    checkout_path="$REPOS_ROOT/$checkout_name"
+    if ! git -C "$checkout_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      continue
+    fi
+    expected_authority="$(printf '%s' "$expected_authority" | tr '[:upper:]' '[:lower:]')"
+    origin_row="$(checkout_origin_authority "$checkout_path" "$expected_authority")"
+    origin_verdict="${origin_row%%|*}"
+    origin_actual="${origin_row#*|}"
+    if [[ "$(origin_authority_is_alert "$origin_verdict")" == "yes" ]]; then
+      OFFENDERS+="❌ $checkout_name canonical checkout origin: $(origin_authority_detail "$origin_verdict" "$expected_authority" "$origin_actual")\n"
+      RECIPES+="  - $checkout_name origin: $(origin_authority_remediation "$origin_verdict" "$expected_authority")\n"
+      ISSUES=$((ISSUES + 1))
+    else
+      PASS=$((PASS + 1))
+    fi
+  done < <(REGISTRY_PATH="$SERVICES_JSON" QUERY=repository-authority node --input-type=commonjs "$REGISTRY_JS")
+fi
 
 # Deploy-target role check (#47/#87): an rsync deploy target that has grown a
 # .git directory may be doubling as an ad hoc checkout. Only meaningful on the
