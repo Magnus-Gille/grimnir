@@ -29,6 +29,7 @@ This is the system-level documentation and operations repository. No service cod
 What's here:
 
 - **[docs/architecture.md](docs/architecture.md)** — Full system architecture (topology, components, security, data flow)
+- **[docs/network-operating-model.md](docs/network-operating-model.md)** — Safe operating contract for the Wi-Fi NAS, dual-homed control Pi, and Tailscale telemetry path
 - **[docs/conventions.md](docs/conventions.md)** — Naming, ports, service patterns, GitHub ownership
 - **[docs/vision.md](docs/vision.md)** — Where the project is heading
 - **[docs/learning-task-contract.md](docs/learning-task-contract.md)** — Versioned Hugin↔M5 learning-evidence seam, field ownership, compatibility, and measurable loop milestones
