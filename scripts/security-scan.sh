@@ -730,7 +730,7 @@ OUTDIR="$SCAN_TMP" SCAN_DATE="$SCAN_DATE" TIMESTAMP="$TIMESTAMP" HOST="$HOSTNAME
 scan_summary_json="$(cat "$SCAN_TMP/_scan_summary_json")"
 
 # Write 1: Full scan summary
-echo "  Writing scan summary to security/scans/${SCAN_DATE}..."
+echo "  Writing scan summary to security/scans (${SCAN_DATE})..."
 summary_content="## Security Scan Summary
 
 Scan date: ${SCAN_DATE}
@@ -757,7 +757,7 @@ Incomplete repositories: ${INCOMPLETE_REPOS:-none}
 ${scan_summary_json}
 \`\`\`"
 
-summary_args="$(NAMESPACE_VAL="security/scans/${SCAN_DATE}" KEY_VAL="summary" \
+summary_args="$(NAMESPACE_VAL="security/scans" KEY_VAL="${SCAN_DATE}" \
   CONTENT_VAL="$summary_content" node --input-type=commonjs -e '
     console.log(JSON.stringify({
       namespace: process.env.NAMESPACE_VAL,
@@ -823,7 +823,7 @@ done
 # Write 3: Scan event log
 echo "  Logging scan event..."
 log_content="Security scan completed at ${TIMESTAMP} on ${HOSTNAME_VAL}. Overall:${OVERALL_STATUS}; findings:${FINDING_STATUS}; complete:${SCAN_COMPLETE}; incomplete_repos:${INCOMPLETE_REPOS:-none}. Totals — critical:${TOTAL_CRITICAL} high:${TOTAL_HIGH} moderate:${TOTAL_MODERATE} low:${TOTAL_LOW} secrets:${TOTAL_SECRETS}. Scanner v${SCANNER_VERSION}."
-log_args="$(NAMESPACE_VAL="security/" CONTENT_VAL="$log_content" node --input-type=commonjs -e '
+log_args="$(NAMESPACE_VAL="security" CONTENT_VAL="$log_content" node --input-type=commonjs -e '
   console.log(JSON.stringify({
     namespace: process.env.NAMESPACE_VAL,
     content: process.env.CONTENT_VAL,
