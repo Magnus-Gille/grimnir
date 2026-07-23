@@ -380,7 +380,8 @@ cat > "$FIXTURE_SERVICES_JSON" << EOF
   "repository_authority": {
     "default_owner": "Magnus-Gille",
     "additional_repositories": [],
-    "owner_overrides": {}
+    "owner_overrides": {},
+    "checkout_overrides": {}
   },
   "components": [
     {
@@ -444,7 +445,8 @@ cat > "$CLEAN_SERVICES_JSON" << EOF
     "additional_repositories": [
       { "repo": "repo-clean", "checkout": "repo-clean" }
     ],
-    "owner_overrides": {}
+    "owner_overrides": {},
+    "checkout_overrides": {}
   },
   "components": []
 }

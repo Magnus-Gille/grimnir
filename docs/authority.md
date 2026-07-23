@@ -128,6 +128,15 @@ The standalone worktree-hygiene audit additionally warns when a canonical
 local checkout's `origin` disagrees with the GitHub repository identity in
 `services.json.repository_authority`, including archived predecessors.
 
+`repository_authority.checkout_overrides` is deliberately limited to named
+component repositories. It is used when an archived predecessor must remain
+available beside a separate, clean canonical checkout. For example, Heimdall
+is audited at `heimdall-canonical`, whose authority is
+`Magnus-Gille/heimdall`; the older `heimdall` checkout remains an archive and
+is not silently retargeted. This mapping affects the read-only authority
+audit only. It does not change a component's repo identifier, deployment
+target, or any existing checkout.
+
 ## Document boundary: `architecture.md` vs `snapshot.md`
 
 The generator assembles `full-architecture.md` from two sources. This table defines what belongs where.
