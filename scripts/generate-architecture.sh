@@ -400,14 +400,23 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     wt_repo_dir="${wt_repo_dir%/}"
     [[ -d "$wt_repo_dir/.git" ]] || continue
     wt_repo_name="$(basename "$wt_repo_dir")"
+    wt_default_row="$(resolve_repo_default_branch "$wt_repo_dir")"
+    wt_default_branch="${wt_default_row%%|*}"
+    wt_default_source="${wt_default_row#*|}"
+    wt_audit_default="$wt_default_branch"
+    [[ -n "$wt_audit_default" ]] || wt_audit_default="__unknown_default_branch__"
 
     while IFS='|' read -r wt_path wt_role wt_verdict wt_branch; do
       [[ -n "$wt_path" ]] || continue
       if [[ "$wt_role" == "canonical" ]]; then
-        if [[ "$(registry_checkout_is_alert "$wt_verdict")" == "yes" ]]; then
-          RESULTS+="❌ worktree:$wt_repo_name (canonical): $(registry_checkout_detail "$wt_verdict" "$REGISTRY_DEFAULT_BRANCH") ($wt_path)\n"
+        if [[ -z "$wt_default_branch" ]]; then
+          RESULTS+="❌ worktree:$wt_repo_name (canonical): default branch unresolved ($wt_default_source); refusing to guess ($wt_path)\n"
+          WT_FAIL=$((WT_FAIL + 1))
+        elif [[ "$(registry_checkout_is_alert "$wt_verdict")" == "yes" ]]; then
+          RESULTS+="❌ worktree:$wt_repo_name (canonical): $(registry_checkout_detail "$wt_verdict" "$wt_default_branch") (default resolved via $wt_default_source) ($wt_path)\n"
           WT_FAIL=$((WT_FAIL + 1))
         else
+          RESULTS+="✅ worktree:$wt_repo_name (canonical): on $wt_default_branch, clean (default resolved via $wt_default_source) ($wt_path)\n"
           WT_PASS=$((WT_PASS + 1))
         fi
       else
@@ -418,7 +427,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
           WT_PASS=$((WT_PASS + 1))
         fi
       fi
-    done < <(audit_repo_worktrees "$wt_repo_dir" "$REGISTRY_DEFAULT_BRANCH")
+    done < <(audit_repo_worktrees "$wt_repo_dir" "$wt_audit_default")
   done
   shopt -u nullglob
 

@@ -63,6 +63,15 @@
 # worktree_upstream_gone <repo_path> <branch>
 #   "yes"/"no" staleness signals for a linked worktree's branch.
 #
+# resolve_repo_default_branch <repo_path> [<fallback_branch>]
+#   Resolves the repository's default branch without changing local refs or
+#   working-tree state. Emits "<branch>|<source>", where source is
+#   "origin/HEAD", "remote-HEAD", "fallback", or an explicit
+#   "unknown-*" reason. A locally cached origin/HEAD is preferred; when it is
+#   absent, a read-only `git ls-remote --symref origin HEAD` lookup is used.
+#   A fallback is used only when both sources are unavailable. Invalid or
+#   malicious branch data fails closed and is never passed on as a ref.
+#
 # check_deploy_target_git_dir <path>
 #   "yes" if <path>/.git exists, else "no".
 #
@@ -339,6 +348,104 @@ worktree_is_dirty() {
     echo "yes"
   else
     echo "no"
+  fi
+}
+
+# Return success only for conservative, shell-safe Git branch names. Git's
+# own check-ref-format protects ref semantics; the ASCII allow-list additionally
+# keeps audit output and downstream ref use unambiguous. This audit need not
+# support exotic branch names to safely inspect a production checkout.
+worktree_safe_branch_name() {
+  local branch="${1:-}"
+  [[ "$branch" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || return 1
+  [[ "$branch" != *".."* && "$branch" != */./* && "$branch" != */../* ]] || return 1
+  git check-ref-format --branch "$branch" >/dev/null 2>&1
+}
+
+# Parse only the exact symbolic-ref line emitted by `git ls-remote --symref
+# origin HEAD`: "ref: refs/heads/<branch>\tHEAD". Everything else is unknown.
+worktree_parse_remote_head() {
+  local line branch=""
+  while IFS= read -r line; do
+    case "$line" in
+      $'ref: refs/heads/'*$'\tHEAD')
+        branch="${line#ref: refs/heads/}"
+        branch="${branch%$'\tHEAD'}"
+        worktree_safe_branch_name "$branch" || return 1
+        printf '%s\n' "$branch"
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+
+# Only query ordinary Git transports by URL. In particular, reject ext:: and
+# other helper transports: an audit must not execute a repository-controlled
+# remote helper merely to label a branch. Local paths are retained for
+# hermetic fixtures and on-host bare remotes.
+worktree_safe_remote_url() {
+  local remote_url="${1:-}"
+  case "$remote_url" in
+    https://*|http://*|ssh://*|git://*|file://*|/*|./*|../*|git@*:* ) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+resolve_repo_default_branch() {
+  local repo_path="${1:-}" fallback="${2:-}" ref="" branch="" remote_output="" remote_url=""
+  [[ -n "$repo_path" ]] || { echo "|unknown-no-repo"; return 0; }
+  if ! git -C "$repo_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "|unknown-not-git"
+    return 0
+  fi
+
+  # symbolic-ref only reads the local tracking ref; it never fetches, checks
+  # out, or otherwise mutates the repository.
+  ref="$(git -C "$repo_path" symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null || true)"
+  if [[ -n "$ref" ]]; then
+    case "$ref" in
+      refs/remotes/origin/*)
+        branch="${ref#refs/remotes/origin/}"
+        if worktree_safe_branch_name "$branch"; then
+          printf '%s|origin/HEAD\n' "$branch"
+        else
+          echo "|unknown-invalid-origin-head"
+        fi
+        return 0
+        ;;
+      *)
+        echo "|unknown-invalid-origin-head"
+        return 0
+        ;;
+    esac
+  fi
+
+  # `ls-remote --symref` is a read-only protocol query. Do not use fetch:
+  # resolving an audit label must never update refs or alter checkout state.
+  remote_url="$(git -C "$repo_path" remote get-url origin 2>/dev/null || true)"
+  if [[ -n "$remote_url" ]] && worktree_safe_remote_url "$remote_url"; then
+    remote_output="$(GIT_TERMINAL_PROMPT=0 git -c protocol.ext.allow=never -C "$repo_path" ls-remote --symref "$remote_url" HEAD 2>/dev/null || true)"
+    branch="$(printf '%s\n' "$remote_output" | worktree_parse_remote_head 2>/dev/null || true)"
+    if [[ -n "$branch" ]]; then
+      printf '%s|remote-HEAD\n' "$branch"
+      return 0
+    fi
+    if [[ "$remote_output" == *"ref: refs/heads/"* ]]; then
+      echo "|unknown-invalid-remote-head"
+      return 0
+    fi
+  elif [[ -n "$remote_url" ]]; then
+    echo "|unknown-unsafe-origin-url"
+    return 0
+  fi
+
+  if [[ -n "$fallback" ]] && worktree_safe_branch_name "$fallback"; then
+    printf '%s|fallback\n' "$fallback"
+  elif [[ -n "$fallback" ]]; then
+    echo "|unknown-invalid-fallback"
+  else
+    echo "|unknown-unavailable"
   fi
 }
 

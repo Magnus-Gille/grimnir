@@ -242,6 +242,17 @@ Unit and fixture tests: `make test-worktree-hygiene` (also part of
 `make test`), exercised against constructed fixture git repos — never against
 the real, live repos. See `scripts/tests/worktree-hygiene.test.sh`.
 
+### Default-branch resolution
+
+The audit resolves each repository's default branch independently. It reads
+the local `refs/remotes/origin/HEAD` first and, when that is absent, performs
+only the read-only `git ls-remote --symref origin HEAD` query. It never fetches,
+switches branches, or updates refs while auditing. If neither source can prove
+the branch, it reports an unresolved default branch rather than assuming
+`main`. Operators that need a deterministic compatibility fallback may supply
+`--default-branch <safe-branch>` (or `GRIMNIR_DEFAULT_BRANCH`); the output marks
+that choice as a fallback.
+
 ## What the audit reports (and never does)
 
 | Verdict | Meaning | Suggested manual remediation |

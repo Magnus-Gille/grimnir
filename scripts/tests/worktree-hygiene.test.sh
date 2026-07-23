@@ -177,6 +177,54 @@ mk_repo() {  # $1 = dir, $2 = branch
     git -C "$dir" commit -q -m "seed"
 }
 
+set_local_origin_head() {  # $1 = repo dir, $2 = safe branch name
+  git -C "$1" symbolic-ref refs/remotes/origin/HEAD "refs/remotes/origin/$2"
+}
+
+# ── default-branch resolution (hermetic real-repository fixtures) ──────────
+mk_repo "$TMP_DIR/default-main" main
+git -C "$TMP_DIR/default-main" remote add origin "$TMP_DIR/no-network-needed.git"
+set_local_origin_head "$TMP_DIR/default-main" main
+assert_eq "local origin/HEAD resolves main without a network query" \
+  "main|origin/HEAD" "$(resolve_repo_default_branch "$TMP_DIR/default-main")"
+
+mk_repo "$TMP_DIR/default-master" master
+git -C "$TMP_DIR/default-master" remote add origin "$TMP_DIR/no-network-needed.git"
+set_local_origin_head "$TMP_DIR/default-master" master
+assert_eq "local origin/HEAD resolves master without assuming main" \
+  "master|origin/HEAD" "$(resolve_repo_default_branch "$TMP_DIR/default-master")"
+
+git init -q --bare "$TMP_DIR/default-remote-head.git"
+mk_repo "$TMP_DIR/default-remote-query" master
+git -C "$TMP_DIR/default-remote-query" remote add origin "$TMP_DIR/default-remote-head.git"
+git -C "$TMP_DIR/default-remote-query" push -q origin master
+git -C "$TMP_DIR/default-remote-head.git" symbolic-ref HEAD refs/heads/master
+assert_eq "read-only remote HEAD query resolves master when local origin/HEAD is absent" \
+  "master|remote-HEAD" "$(resolve_repo_default_branch "$TMP_DIR/default-remote-query")"
+
+mk_repo "$TMP_DIR/default-missing" main
+assert_eq "missing origin/HEAD and no fallback fails unknown" \
+  "|unknown-unavailable" "$(resolve_repo_default_branch "$TMP_DIR/default-missing")"
+assert_eq "missing origin/HEAD uses an explicit safe fallback only" \
+  "main|fallback" "$(resolve_repo_default_branch "$TMP_DIR/default-missing" main)"
+
+mk_repo "$TMP_DIR/default-unreachable" master
+git -C "$TMP_DIR/default-unreachable" remote add origin "$TMP_DIR/does-not-exist.git"
+assert_eq "unreachable origin and no fallback fails unknown" \
+  "|unknown-unavailable" "$(resolve_repo_default_branch "$TMP_DIR/default-unreachable")"
+
+mk_repo "$TMP_DIR/default-malicious" main
+git -C "$TMP_DIR/default-malicious" remote add origin "$TMP_DIR/no-network-needed.git"
+git -C "$TMP_DIR/default-malicious" symbolic-ref refs/remotes/origin/HEAD \
+  "refs/remotes/origin/master;not-a-branch"
+assert_eq "malicious origin/HEAD fails closed instead of falling back" \
+  "|unknown-invalid-origin-head" "$(resolve_repo_default_branch "$TMP_DIR/default-malicious" main)"
+
+mk_repo "$TMP_DIR/default-unsafe-url" main
+git -C "$TMP_DIR/default-unsafe-url" remote add origin "ext::echo should-not-run"
+assert_eq "unsafe helper origin fails closed instead of executing or falling back" \
+  "|unknown-unsafe-origin-url" "$(resolve_repo_default_branch "$TMP_DIR/default-unsafe-url" main)"
+
 # ── list_repo_worktrees ────────────────────────────────────────────────────
 mk_repo "$TMP_DIR/wt-repo" main
 git -C "$TMP_DIR/wt-repo" branch feature/done
@@ -354,11 +402,13 @@ mkdir -p "$FIXTURE_ROOT"
 mk_repo "$FIXTURE_ROOT/repo-a" main
 git -C "$FIXTURE_ROOT/repo-a" remote add origin \
   "https://github.com/Magnus-Gille/repo-a.git"
+set_local_origin_head "$FIXTURE_ROOT/repo-a" main
 
 # Repo B: seeds a stale merged worktree AND a dirty worktree, canonical clean.
 mk_repo "$FIXTURE_ROOT/repo-b" main
 git -C "$FIXTURE_ROOT/repo-b" remote add origin \
   "https://github.com/Magnus-Gille/repo-b-private-archive.git"
+set_local_origin_head "$FIXTURE_ROOT/repo-b" main
 git -C "$FIXTURE_ROOT/repo-b" branch feature/merged-b
 git -C "$FIXTURE_ROOT/repo-b" worktree add -q "$TMP_DIR/repo-b-stale" feature/merged-b
 git -C "$FIXTURE_ROOT/repo-b" merge -q --no-ff -m "merge" feature/merged-b
@@ -368,6 +418,8 @@ echo "uncommitted" > "$TMP_DIR/repo-b-dirty/scratch.txt"
 
 # Repo C: canonical checkout itself is dirty AND off the default branch.
 mk_repo "$FIXTURE_ROOT/repo-c" main
+git -C "$FIXTURE_ROOT/repo-c" remote add origin "$TMP_DIR/no-network-needed.git"
+set_local_origin_head "$FIXTURE_ROOT/repo-c" main
 git -C "$FIXTURE_ROOT/repo-c" checkout -q -b task/stray-session
 echo "stray" > "$FIXTURE_ROOT/repo-c/leftover.tmp"
 
@@ -428,6 +480,7 @@ assert_not_contains "CLI origin finding does not expose raw transport URL" \
 assert_not_contains "CLI output never instructs an unconditional delete" "$dirty_output" "rm -rf"
 assert_not_contains "CLI output never mutates a remote" "$dirty_output" "git remote set-url"
 assert_contains "CLI prints a summary line" "$dirty_output" "Summary:"
+assert_contains "CLI names the origin/HEAD default-resolution source" "$dirty_output" "default resolved via origin/HEAD"
 
 # Clean-only fixture root: must report clean and exit 0.
 CLEAN_ROOT="$TMP_DIR/repos-root-clean"
@@ -435,6 +488,7 @@ mkdir -p "$CLEAN_ROOT"
 mk_repo "$CLEAN_ROOT/repo-clean" main
 git -C "$CLEAN_ROOT/repo-clean" remote add origin \
   "https://github.com/Magnus-Gille/repo-clean.git"
+set_local_origin_head "$CLEAN_ROOT/repo-clean" main
 
 CLEAN_SERVICES_JSON="$TMP_DIR/services-clean.json"
 cat > "$CLEAN_SERVICES_JSON" << EOF
@@ -529,6 +583,37 @@ unscoped_step_three_git="$(
     grep -v 'git -C /path/to/checkout' || true
 )"
 assert_eq "runbook ancestry commands never use the operator cwd" "" "$unscoped_step_three_git"
+
+# A clean master repository must not be false-flagged just because another
+# repository in the root happens to use main.
+MASTER_ROOT="$TMP_DIR/repos-root-master"
+mkdir -p "$MASTER_ROOT"
+mk_repo "$MASTER_ROOT/repo-master" master
+git -C "$MASTER_ROOT/repo-master" remote add origin "$TMP_DIR/no-network-needed.git"
+set_local_origin_head "$MASTER_ROOT/repo-master" master
+set +e
+master_output="$(GRIMNIR_WORKTREE_AUDIT_ROOT="$MASTER_ROOT" GRIMNIR_SERVICES_JSON="$TMP_DIR/no-services.json" \
+  "$SCRIPTS_DIR/worktree-hygiene-audit.sh" 2>&1)"
+master_rc=$?
+set -e
+assert_eq "CLI accepts a clean master default branch" "0" "$master_rc"
+assert_contains "CLI reports the resolved master default branch" "$master_output" \
+  "repo-master: master (origin/HEAD)"
+
+# No origin/HEAD plus an unreachable origin is an explicit finding, not an
+# excuse to check out or silently assume a branch.
+UNKNOWN_ROOT="$TMP_DIR/repos-root-unknown"
+mkdir -p "$UNKNOWN_ROOT"
+mk_repo "$UNKNOWN_ROOT/repo-unknown" master
+git -C "$UNKNOWN_ROOT/repo-unknown" remote add origin "$TMP_DIR/no-such-origin.git"
+set +e
+unknown_output="$(GRIMNIR_WORKTREE_AUDIT_ROOT="$UNKNOWN_ROOT" GRIMNIR_SERVICES_JSON="$TMP_DIR/no-services.json" \
+  "$SCRIPTS_DIR/worktree-hygiene-audit.sh" 2>&1)"
+unknown_rc=$?
+set -e
+assert_eq "CLI fails when the default branch cannot be proved" "1" "$unknown_rc"
+assert_contains "CLI reports unresolved default branch" "$unknown_output" "default branch unresolved"
+assert_not_contains "CLI never switches branches while resolving unknown default" "$unknown_output" "git checkout"
 
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
