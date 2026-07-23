@@ -30,7 +30,8 @@
 #
 # Env overrides (mirrors scripts/lib/registry-checkout.sh conventions):
 #   GRIMNIR_WORKTREE_AUDIT_ROOT   repos root to scan (default: $HOME/repos)
-#   GRIMNIR_DEFAULT_BRANCH        default branch name (default: main)
+#   GRIMNIR_DEFAULT_BRANCH        explicit fallback branch when a repository's
+#                                 origin/HEAD cannot be resolved (default: none)
 #   GRIMNIR_SERVICES_JSON         services.json path for the deploy-target
 #                                 check (default: <this repo>/services.json)
 #
@@ -47,7 +48,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/worktree-hygiene.sh"
 
 REPOS_ROOT="${GRIMNIR_WORKTREE_AUDIT_ROOT:-$HOME/repos}"
-DEFAULT_BRANCH="${GRIMNIR_DEFAULT_BRANCH:-main}"
+DEFAULT_BRANCH="${GRIMNIR_DEFAULT_BRANCH:-}"
 SERVICES_JSON="${GRIMNIR_SERVICES_JSON:-$SCRIPT_DIR/../services.json}"
 
 while [[ $# -gt 0 ]]; do
@@ -63,8 +64,14 @@ PASS=0
 ISSUES=0
 OFFENDERS=""
 RECIPES=""
+RESOLUTIONS=""
 
-echo "Worktree Hygiene Audit — root: $REPOS_ROOT (default branch: $DEFAULT_BRANCH)"
+if [[ -n "$DEFAULT_BRANCH" ]]; then
+  default_label="fallback: $DEFAULT_BRANCH"
+else
+  default_label="per repository (origin/HEAD)"
+fi
+echo "Worktree Hygiene Audit — root: $REPOS_ROOT (default branch: $default_label)"
 echo "=============================================================="
 echo ""
 
@@ -80,14 +87,29 @@ for repo_dir in "$REPOS_ROOT"/*/; do
   repo_dir="${repo_dir%/}"
   [[ -d "$repo_dir/.git" ]] || continue
   repo_name="$(basename "$repo_dir")"
+  default_row="$(resolve_repo_default_branch "$repo_dir" "$DEFAULT_BRANCH")"
+  repo_default_branch="${default_row%%|*}"
+  repo_default_source="${default_row#*|}"
+  audit_default_branch="$repo_default_branch"
+  [[ -n "$audit_default_branch" ]] || audit_default_branch="__unknown_default_branch__"
+  if [[ -n "$repo_default_branch" ]]; then
+    RESOLUTIONS+="  - $repo_name: $repo_default_branch ($repo_default_source)\n"
+  else
+    RESOLUTIONS+="  - $repo_name: <unresolved> ($repo_default_source)\n"
+  fi
 
   while IFS='|' read -r w_path w_role w_verdict w_branch; do
     [[ -n "$w_path" ]] || continue
     if [[ "$w_role" == "canonical" ]]; then
-      if [[ "$(registry_checkout_is_alert "$w_verdict")" == "yes" ]]; then
-        detail="$(registry_checkout_detail "$w_verdict" "$DEFAULT_BRANCH")"
+      if [[ -z "$repo_default_branch" ]]; then
+        OFFENDERS+="❌ $repo_name (canonical checkout, $w_path): default branch unresolved ($repo_default_source); refusing to guess\n"
+        RECIPES+="  - $repo_name canonical checkout ($w_path): inspect origin/HEAD and the remote default branch manually. The audit made no checkout or ref changes.\n"
+        ISSUES=$((ISSUES + 1))
+      elif [[ "$(registry_checkout_is_alert "$w_verdict")" == "yes" ]]; then
+        detail="$(registry_checkout_detail "$w_verdict" "$repo_default_branch")"
+        detail+=" (default resolved via $repo_default_source)"
         OFFENDERS+="❌ $repo_name (canonical checkout, $w_path): $detail\n"
-        RECIPES+="  - $repo_name canonical checkout ($w_path): reconcile manually to $DEFAULT_BRANCH — 'git status' / 'git checkout $DEFAULT_BRANCH' / commit or stash, as appropriate. Never auto-fixed. See docs/role-separation.md.\n"
+        RECIPES+="  - $repo_name canonical checkout ($w_path): reconcile manually to $repo_default_branch — 'git status' / 'git checkout $repo_default_branch' / commit or stash, as appropriate. Never auto-fixed. See docs/role-separation.md.\n"
         ISSUES=$((ISSUES + 1))
       else
         PASS=$((PASS + 1))
@@ -104,9 +126,14 @@ for repo_dir in "$REPOS_ROOT"/*/; do
         PASS=$((PASS + 1))
       fi
     fi
-  done < <(audit_repo_worktrees "$repo_dir" "$DEFAULT_BRANCH")
+  done < <(audit_repo_worktrees "$repo_dir" "$audit_default_branch")
 done
 shopt -u nullglob
+
+if [[ -n "$RESOLUTIONS" ]]; then
+  echo "Resolved default branches:"
+  echo -e "$RESOLUTIONS"
+fi
 
 # Canonical-origin authority check (#112). The registry combines component
 # repo names with the explicit GitHub owner/checkout exceptions declared in
