@@ -1,67 +1,64 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-22 (Claude Code, Fable 5) — session-leftover cleanup; all working trees clean
-**Branch:** `main` at `dc6f625`
+**Last session:** 2026-07-23 (Codex) — ecosystem stabilization sweep
+**Deployed Grimnir revision:** `8a06a5d`
 
 ## The headline
 
-The self-improving delegation loop remains **ARMED with no human in the operating path**
-(owner decision 2026-07-20, design: `docs/autonomous-improvement-design.md`).
-**First scheduled ticks fire the morning of 2026-07-22** — M5 `gille-autonomy-tick.timer`
-05:30 UTC (Tier 0, kill switch OFF), Pi `hugin-experiment-cadence.timer` 05:00 CEST
-(fueled: candidate-pool assembler + evidence resolver live; harness-lane sampler real at 10%).
-Owner controls unchanged: `AUTONOMY_KILL_SWITCH=on` in `/home/magnus/home-server-eval/.env`,
-or `systemctl --user disable --now gille-autonomy-tick.timer` on M5.
+Ten stability PRs across Grimnir, Gille Inference, Brokkr, Heimdall, and Mimir are merged,
+deployed, and live-verified. The sweep focused on explicit runtime identity, fail-closed
+deployment boundaries, preserved state, truthful health checks, and visible repository drift.
+Munin Memory implementation was explicitly excluded.
 
-## Completed this session (2026-07-21 → 22)
+## Completed this session
 
-- **Session-leftover adoption — PR #99** (squash `dc6f625`, CI green, `make test` 73/73):
-  team-equivalent-6mo debate artifacts + reviewer column in `debate/INDEX.md`;
-  `scripts/output-audit.py` + example identities config (+ AGENTS.md Scripts row);
-  the two 2026-07-13 Verdandi research notes; the 2026-07-09 Fable/Sol vision reviews moved
-  to `docs/vision-review-*`. All 8 files publication-safety scanned pre-push (deterministic
-  pattern scan + M5 semantic scan, gpt-oss-120b, 11 units, all SAFE) and committed
-  byte-identical. Implemented headless by Codex (gpt-5.6-sol); Fable review gate.
-- **Blog draft rehomed:** gille-ai PR #12 merged (`3dc1a53`) — the Swedish grimnir-ekosystem
-  post now lives in its owning repo, `draft: true`-gated (filter verified in every collection
-  query); `blogg/` removed from grimnir; ad-hoc preview harness dropped as redundant.
-- **gille-inference worktrees 5 → 2** (canonical + deploy-live): the dirty `gille-5-wiring`
-  worktree (prior STATUS item 4) resolved — inert `allowScripts` leftover dropped by owner
-  decision (issue gi#59 filed then closed, preservation branch deleted, local-only);
-  t234 worktree removed (branch kept for test-mining per its own commit message);
-  pre-cutover `public-ready` worktree removed (disjoint history, cutover superseded it).
-- **PR #92 ("Prepare Grimnir for public collaboration") CLOSED by owner decision** —
-  the full-transparency posture main already practices is ratified; branch
-  `codex/public-ready-20260719` kept recoverable, its worktree removed.
-- **Friction logged** (`signals/friction`): M5 gateway saturation under concurrent fan-out
-  (13/24 subagent + 4/4 root asks busy/timeout) and the stateless-scanner failure mode
-  (over-flags already-public infra names; scan prompts need repo-verified carve-outs).
+- Gille Inference PRs #67/#68: preserve the approved cache while rejecting unknown deploy
+  residue; reject truncated judge output before verification. M5 gateway is active on the exact
+  accepted revision, with its timer, hook, health endpoint, and cache verified.
+- Brokkr PRs #21/#23: explicit NAS runtime/deploy identity and truthful environment-state
+  handling. NAS timers are active, push health is 200, and no units are failed.
+- Heimdall PRs #12/#14 and Grimnir PR #110: Node-compatible systemd hardening, rendered runtime
+  paths, full-set preflight validation, rollback, and explicit network health authority.
+  Maintenance completed successfully and the database quick-check returned `ok`.
+- Mimir PR #26: reject partial reporter configuration before mutation. Tests and live health
+  passed on the exact deployed revision.
+- Grimnir PR #111: desired runtime state is distinct from deployment applicability.
+- Grimnir PR #113: repository authority is machine-readable and canonical-origin drift is now
+  reported read-only. The deployed audit reproduced current local mismatches without mutation.
+- High-value follow-ups filed: #114 binds deploy invocations to the expected source revision;
+  #115 safely reconciles origin-authority findings.
+
+## Important incidents and learnings
+
+- Deployment source identity was not sufficiently bound to the orchestrator's intended revision.
+  The resulting procedure change and durable fix are tracked in high-priority issue #114.
+- Release-directory replaceability proved to be an important deployment contract; persistent data
+  and protected configuration remained outside that boundary.
+- An early delegated task crossed the explicit Munin exclusion with a metadata write. No Munin
+  code changed, the violation was surfaced, and all later work avoided Munin.
+- M5 was useful for narrow, grounded checks and found one exact portability defect. It was not
+  reliable as a final review gate: several runs stalled, escalated, collapsed distinct concepts,
+  or hallucinated findings. Root review remained decisive.
 
 ## Next steps (priority order)
 
-1. **Check the first scheduled tick results** (fired ~05:00–05:30 on 2026-07-22):
-   `systemctl --user status gille-autonomy-tick` on M5 (exit 3 = unresolved-revert attention
-   state; Telegram push live) and the Pi cadence run.
-2. gi#57 — three LOW Sol follow-ups (revert-path only; cannot trigger before Tier 1 + a breach).
-3. gi#58 — adopt the notify hook into deploy-managed IaC.
-4. Remaining epic tail: gi#11 (served-model refresh), gi#13 (ground-truth reviewer adoption),
-   gi#14 (Verdandi audit events — blocked on verdandi#15), #79, #90, hugin#192 harness campaign.
-5. Editorial pass on the gille-ai grimnir-ekosystem draft; publishing is a one-line
-   `draft: false` flip in `src/content/blog/sv/grimnir-ekosystem.md` (gille-ai repo).
+1. Implement high-priority deploy source binding in Grimnir #114.
+2. Inspect and reconcile repository origins reported by #115, preserving predecessor history.
+3. Schedule the pending M5 kernel reboot and Raspberry Pi firmware updates when active work can
+   tolerate interruption.
+4. Watch NAS storage (86% used, 261 GB free) and confirm Time Machine completion from the client.
+5. Finish the separate Gemma4 serving half of Gille Inference #60.
 
-## Blockers
+## Blockers / owner input
 
-None.
+Only disruptive maintenance timing: M5 reboot and Pi firmware updates were not forced while
+agents and services were active.
 
 ## Verification at close
 
-- grimnir: `main` `dc6f625` == `origin/main`, working tree clean, CI green on PR #99.
-- gille-inference: `main` `d05194f` == `canonical/main`, clean; worktrees reduced to
-  canonical + deploy-live (intentional).
-- gille-ai: `master` `3dc1a53` == `origin/master`; draft post verified excluded by
-  `!data.draft` in blog index, slug pages, homepage, RSS/llms/md endpoints.
-- Durable records: Munin decision logs 2026-07-21 (cleanup dispositions + owner decisions).
-- Pre-existing, deliberately untouched: grimnir stale `[gone]`-upstream branches;
-  gille-ai untracked screenshots/STATUS.md and three older agent worktrees
-  (`gille-ai-lagerbevis` worktree directory missing — registered/prunable, left for
-  the owning session).
+- All ten PRs merged with green CI and independent root review; M5 was attempted on every lane.
+- Grimnir control Pi: checkout and deploy marker both `8a06a5d`; validation timer active.
+- Gille/M5: exact accepted marker; system gateway and autonomy timer active; health green.
+- Heimdall: four runtime units/timers active; manual maintenance successful; database healthy.
+- Brokkr/NAS: maintenance timers active, push health 200, no failed units.
+- Mimir: service active, exact marker, health green, no recent reporter errors.
