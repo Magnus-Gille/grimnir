@@ -28,6 +28,7 @@ assert_contains "$ADR" "keeps component hooks component-owned" 'Owning component
 assert_contains "$ADR" "keeps Heimdall out of topology authority" 'Heimdall.*Become topology authority'
 assert_contains "$ADR" "has a state transition diagram" 'stateDiagram-v2'
 assert_contains "$ADR" "defines stale and unknown semantics" 'stale.*unknown|unknown.*stale'
+assert_contains "$ADR" "allows only exactly planned drift to reconcile" 'Planned drift may proceed only through the exact bound plan'
 assert_contains "$ADR" "defines physical relocation" 'physical node relocation'
 assert_contains "$ADR" "defines workload relocation" 'workload relocation'
 assert_contains "$ADR" "assigns substrate rollback" 'Brokkr owns rollback'

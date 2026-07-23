@@ -92,7 +92,11 @@ recipe.
 
 Desired state and observed state are not voted together. A conflict is represented explicitly:
 
-- if desired placement differs from a fresh observation, the system is **drifted**, not converged;
+- if desired placement differs from a fresh observation, the system is **drifted**, not converged.
+  That expected difference is the input to a reconciliation plan, not by itself a reason the plan
+  can never execute. The plan binds the exact desired revision, observation and scoped changes;
+- if the desired revision changes after planning, or fresh observation finds drift outside the
+  plan's bound baseline, the plan is stale and must be rebuilt before mutation;
 - if observation is absent, too old for the declared freshness bound, malformed, or from an
   incompatible contract version, it is **unknown**;
 - an unavailable Brokkr observer, Heimdall transport, or required workload hook makes the relevant
@@ -100,11 +104,13 @@ Desired state and observed state are not voted together. A conflict is represent
 - only the authority for a fact may correct that fact. Grimnir changes intent; Brokkr refreshes
   observations; the workload owner corrects its requirements/hooks; Heimdall corrects presentation.
 
-Preflight and mutation fail closed for drift, unknown, stale or blocked decision-driving inputs.
-Heimdall may display these states and transport evidence, but its availability is never proof of
-topology or workload health. If Heimdall is unavailable, reconciliation evidence is retained by
-the producing owner and promotion still requires the declared evidence; presentation is recorded
-as degraded rather than inferred green.
+Preflight and mutation fail closed for **unplanned or baseline-changing drift**, unknown, stale or
+blocked decision-driving inputs. Planned drift may proceed only through the exact bound plan after
+all gates pass; promotion requires that its scoped drift is gone. Heimdall may display these states
+and transport evidence, but its availability is never proof of topology or workload health. If
+Heimdall is unavailable, reconciliation evidence is retained by the producing owner and promotion
+still requires the declared evidence; presentation is recorded as degraded rather than inferred
+green.
 
 ### Availability failure behavior
 
