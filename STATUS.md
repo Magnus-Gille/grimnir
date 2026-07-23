@@ -13,17 +13,6 @@ The self-improving delegation loop remains **ARMED with no human in the operatin
 Owner controls unchanged: `AUTONOMY_KILL_SWITCH=on` in `/home/magnus/home-server-eval/.env`,
 or `systemctl --user disable --now gille-autonomy-tick.timer` on M5.
 
-## Active draft PR (2026-07-23)
-
-- **#110 / issue #107 — host-specific systemd runtime rendering:** draft branch
-  `agent/render-host-systemd-units` adds registry-owned runtime
-  user/home/deploy target rendering, private environment-file preservation, fail-before-restart
-  unit/path preflight, network-boundary health acceptance, markerless failure regression, and
-  migration/rollback documentation.
-- Local verification is green: `make test`, full repository shellcheck, and `git diff --check`.
-- No deployment or merge was performed. Next gate is independent PR review plus green CI, followed
-  by an explicitly authorized selective deployment.
-
 ## Completed this session (2026-07-21 → 22)
 
 - **Session-leftover adoption — PR #99** (squash `dc6f625`, CI green, `make test` 73/73):
