@@ -78,6 +78,127 @@ tree and believing cross-repo work landed when only half of it did.
    Before reconciling a finding, inspect local branches and worktrees and
    preserve a useful predecessor under an explicit archival remote name.
 
+### Canonical-origin reconciliation runbook
+
+An audit finding is only a **candidate for investigation**, not permission to
+change `origin`. Use this procedure only when the declared repository, its
+history, and its active GitHub workflow all agree. It changes remote
+configuration only: it does not check out, merge, reset, delete, or push
+anything.
+
+1. Inspect before changing state. In particular, capture the working-tree
+   state, every linked worktree, and both fetch and push configuration:
+
+   ```bash
+   git -C /path/to/checkout status --short --branch
+   git -C /path/to/checkout worktree list --porcelain
+   git -C /path/to/checkout remote -v
+   git -C /path/to/checkout config --get-regexp '^remote\.' || true
+   ```
+
+   Stop when a conflicting archival remote name already exists, the declared
+   authority is ambiguous, or active work makes a remote-name change unsafe.
+   Do not use this runbook for an excluded active repository.
+
+2. Verify the declared repository's ownership before trusting its name. Check
+   its GitHub archive state and current pull-request/issue workflow, then do
+   the same for the checkout's current `origin` when the two differ:
+
+   ```bash
+   git ls-remote --heads https://github.com/OWNER/REPOSITORY.git main
+   gh repo view OWNER/REPOSITORY --json nameWithOwner,isArchived,defaultBranchRef,url
+   gh pr list --repo OWNER/REPOSITORY --state all --limit 10
+   gh issue list --repo OWNER/REPOSITORY --state all --limit 10
+   ```
+
+   Stop if the declared target is archived, has a different active workflow
+   from the predecessor, or otherwise does not own the work being reconciled.
+   A matching `owner/repo` string alone does not establish operational
+   authority.
+
+3. Fetch the candidate tip without changing branch configuration, then prove
+   the ancestry relation. A candidate is safe only when it is identical to
+   `main` or already contains `main`; a candidate behind `main` would accept
+   an ordinary fast-forward push, and an unrelated history makes migration a
+   separate, explicit project.
+
+   ```bash
+   git -C /path/to/checkout fetch --no-tags https://github.com/OWNER/REPOSITORY.git main
+   candidate="$(git -C /path/to/checkout rev-parse FETCH_HEAD)"
+
+   if test "$(git -C /path/to/checkout rev-parse main)" = "$candidate"; then
+     echo 'safe: identical histories'
+   elif git -C /path/to/checkout merge-base --is-ancestor main "$candidate"; then
+     echo 'safe: candidate contains local main; local checkout is stale'
+   elif git -C /path/to/checkout merge-base --is-ancestor "$candidate" main; then
+     echo 'STOP: candidate is behind local main; an ordinary push would advance it'
+     exit 1
+   else
+     echo 'STOP: histories are unrelated; plan a migration instead'
+     exit 1
+   fi
+   ```
+
+   Do not replace either stop condition with a rebase, force-push, or an
+   improvised history transplant. Preserve both remotes and escalate the
+   registry/ownership decision instead.
+
+4. Only after those preconditions pass, preserve the old `origin` under an
+   explicit name before adding the canonical one. Replace the URL and branch
+   with the registry's declared values:
+
+   ```bash
+   git -C /path/to/checkout remote rename origin archive-predecessor
+   git -C /path/to/checkout remote add origin https://github.com/OWNER/REPOSITORY.git
+   git -C /path/to/checkout fetch origin
+   git -C /path/to/checkout branch --set-upstream-to=origin/main main
+   ```
+
+   `git remote rename` retains the predecessor URL and its tracking refs under
+   `archive-predecessor`; it does not discard the old history. Use a more
+   specific archival name if that name is already legitimately occupied.
+
+5. If the checkout already has the declared canonical remote under another
+   name, swap names rather than creating a duplicate. This also preserves the
+   old `origin` and rewrites branches that tracked the existing canonical
+   remote to track the new `origin`:
+
+   ```bash
+   git -C /path/to/checkout remote rename origin archive-predecessor
+   git -C /path/to/checkout remote rename canonical origin
+   git -C /path/to/checkout fetch origin
+   git -C /path/to/checkout branch --set-upstream-to=origin/main main
+   ```
+
+6. Verify both directions and rerun the read-only authority audit:
+
+   ```bash
+   git -C /path/to/checkout remote get-url origin
+   git -C /path/to/checkout remote get-url --push origin
+   git -C /path/to/checkout remote get-url archive-predecessor
+   git -C /path/to/checkout rev-parse --abbrev-ref main@{upstream}
+   scripts/worktree-hygiene-audit.sh
+   ```
+
+   The full hygiene audit can still report unrelated dirty, stale, or prunable
+   worktrees. A clear `canonical checkout origin:` section proves only that
+   the configured name matches the registry. It is not a substitute for the
+   ownership and ancestry preconditions above.
+
+#### Known unresolved authority discrepancy: Skuld
+
+As of 2026-07-23, `repository_authority.owner_overrides.skuld` declares
+`grimnir-bot/skuld`, but the active pull-request and issue history and the
+local checkout lineage are owned by `Magnus-Gille/skuld`. Treat this as an
+unresolved registry defect: do not retarget the active checkout to
+`grimnir-bot/skuld`, and do not call the audit clean until an owner-approved
+registry decision or deliberate history/workflow migration resolves it.
+
+Never replace this procedure with `git remote remove`, an unrecorded
+`set-url`, a reset, or a checkout in a dirty canonical tree. Those operations
+either destroy the predecessor reference or expand a configuration repair into
+an unreviewed source-state change.
+
 ## Running the audit
 
 Standalone, against the real repo tree on a host:
