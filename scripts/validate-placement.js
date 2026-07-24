@@ -134,6 +134,7 @@ function validateDesiredRegistry(registry, errors) {
   });
   var componentNames = {};
   var workloadIds = {};
+  var desiredPorts = {};
   registry.components.forEach(function (component, index) {
     var label = 'registry.components[' + index + ']';
     if (!plain(component)) { errors.push(label + ' must be an object'); return; }
@@ -152,6 +153,15 @@ function validateDesiredRegistry(registry, errors) {
     if (!(component.port === null || component.port === undefined ||
         (Number.isInteger(component.port) && component.port >= 1 && component.port <= 65535))) {
       errors.push(label + '.port must be null or an integer from 1 through 65535');
+    }
+    if (typeof component.port === 'number') {
+      var portOwner = desiredPorts[component.port];
+      var portLabel = label + ' (' + (component.name || 'unnamed') + ')';
+      if (portOwner !== undefined) {
+        errors.push('duplicate desired port ' + component.port + ' used by ' + portOwner + ' and ' + portLabel);
+      } else {
+        desiredPorts[component.port] = portLabel;
+      }
     }
     if (!(component.host === null || (typeof component.host === 'string' && component.host.length <= 253 &&
         SAFE_HOST.test(component.host)))) {

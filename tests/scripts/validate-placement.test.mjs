@@ -138,6 +138,9 @@ try {
     ["invalid-deploy", (data) => { data.components[0].deploy = "true"; }, /components\[0\]\.deploy must be boolean/],
     ["invalid-state", (data) => { data.components[0].desired_runtime_state = "running"; }, /components\[0\]\.desired_runtime_state is invalid/],
     ["invalid-port", (data) => { data.components[0].port = 70000; }, /components\[0\]\.port/],
+    ["hugin-port-collision", (data) => {
+      data.components.find((component) => component.name === "hugin").port = 3030;
+    }, /duplicate desired port 3030.*munin-memory.*hugin/],
     ["duplicate-node", (data) => { data.nodes[1].node_id = data.nodes[0].node_id; }, /duplicate desired node_id/],
     ["duplicate-workload", (data) => { data.components[1].workload_id = data.components[0].workload_id; }, /duplicate desired workload_id/],
     ["unknown-target", (data) => { data.components[0].target_node_id = "node-unknown"; }, /target_node_id.*registered node/],
