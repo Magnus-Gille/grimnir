@@ -12,6 +12,9 @@
   "components": [
     {
       "name": "munin-memory",
+      "workload_id": "workload-munin-memory",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "munin-memory", "digest": "sha256:754071860f784ef02c74951e56d857fb30ff1a5724bec28d45cc091bb5441804" },
       "repo": "munin-memory",
       "host": "huginmunin.local",
       "port": 3030,
@@ -26,6 +29,9 @@
     },
     {
       "name": "hugin",
+      "workload_id": "workload-hugin",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "hugin", "digest": "sha256:04a18def4314e569c9f9ffa76fcfb4a5bf1e34973f84721a4d8467788a16f2c4" },
       "repo": "hugin",
       "host": "huginmunin.local",
       "port": 3032,
@@ -41,6 +47,9 @@
     },
     {
       "name": "heimdall",
+      "workload_id": "workload-heimdall",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "heimdall", "digest": "sha256:ad003f4198f2c4d04515afbdc51463eda477805ecff6717e8e4f69a0deb7448f" },
       "repo": "heimdall",
       "host": "huginmunin.local",
       "port": 3033,
@@ -73,6 +82,9 @@
     },
     {
       "name": "ratatoskr",
+      "workload_id": "workload-ratatoskr",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "ratatoskr", "digest": "sha256:23a1dd98a93a718b28b452ff352017dbc65f2105686df3677dae55713cd28621" },
       "repo": "ratatoskr",
       "host": "huginmunin.local",
       "port": 3034,
@@ -87,6 +99,9 @@
     },
     {
       "name": "skuld",
+      "workload_id": "workload-skuld",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "skuld", "digest": "sha256:e482a322b1eaa8cc4a6ee3d05860be3dcd24e7f83dd5378c8644a5034a902b5c" },
       "repo": "skuld",
       "host": "huginmunin.local",
       "port": null,
@@ -101,6 +116,9 @@
     },
     {
       "name": "mimir",
+      "workload_id": "workload-mimir",
+      "target_node_id": "node-nas",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "mimir", "digest": "sha256:f81faff9605d81db9b4c2de4ed3d1540d0628144375af7b9fc7fa5034d76bfdd" },
       "repo": "mimir",
       "host": "nas.local",
       "port": 3031,
@@ -115,6 +133,8 @@
     },
     {
       "name": "fortnox-mcp",
+      "workload_id": "workload-fortnox-mcp",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "fortnox-mcp", "digest": "sha256:82c47f589409b022dbef6a751fe9e600b4d30ab6085c1bd7252381733fa5a0fb" },
       "repo": "fortnox-mcp",
       "host": null,
       "port": null,
@@ -126,6 +146,9 @@
     },
     {
       "name": "grimnir",
+      "workload_id": "workload-grimnir",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "grimnir", "digest": "sha256:5b6beb419c57989353f52ccd2f6cd667b781de287d3790d680e0dbb4f79e6add" },
       "repo": "grimnir",
       "host": "huginmunin.local",
       "port": null,
@@ -141,6 +164,9 @@
     },
     {
       "name": "verdandi",
+      "workload_id": "workload-verdandi",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "verdandi", "digest": "sha256:c52adb8e298a016033f79c1f53a4cc797ab0e5f10b7f001fb2206659306d29d8" },
       "repo": "verdandi",
       "host": "huginmunin.local",
       "port": 3036,
@@ -160,6 +186,9 @@
     },
     {
       "name": "brokkr",
+      "workload_id": "workload-brokkr",
+      "target_node_id": "node-huginmunin",
+      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "brokkr", "digest": "sha256:1f72de8ec7b7b308f262f0b8282d213af011c3369345ca54dcf08f08bc76cee0" },
       "repo": "brokkr",
       "host": "huginmunin.local",
       "port": null,
@@ -177,6 +206,7 @@
   "nodes": [
     {
       "name": "huginmunin",
+      "node_id": "node-huginmunin",
       "hostname": "huginmunin.local",
       "ssh_alias": null,
       "hardware": "Raspberry Pi (aarch64), 8GB",
@@ -190,6 +220,7 @@
     },
     {
       "name": "nas",
+      "node_id": "node-nas",
       "hostname": "nas.local",
       "ssh_alias": null,
       "hardware": "NAS",
@@ -201,6 +232,7 @@
     },
     {
       "name": "m5",
+      "node_id": "node-m5",
       "hostname": "100.76.72.59",
       "ssh_alias": "m5",
       "hardware": "BosGame M5 (BeyondMax) — AMD Strix Halo (Ryzen AI Max+ 395), 128GB unified memory",
@@ -214,6 +246,7 @@
     },
     {
       "name": "orin",
+      "node_id": "node-orin",
       "hostname": "100.127.176.78",
       "ssh_alias": "orin",
       "hardware": "NVIDIA Jetson Orin Nano, 8GB",
@@ -227,6 +260,7 @@
     },
     {
       "name": "laptop",
+      "node_id": "node-laptop",
       "hostname": null,
       "ssh_alias": null,
       "hardware": "MacBook Air M4, 32GB unified memory",
@@ -241,6 +275,7 @@
     },
     {
       "name": "skald",
+      "node_id": "node-skald",
       "hostname": "skald.local",
       "ssh_alias": "skald",
       "hardware": "Raspberry Pi + e-paper display",

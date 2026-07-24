@@ -42,6 +42,7 @@ What's here:
 - **[docs/interactive-session-posture.md](docs/interactive-session-posture.md)** — Hugin/fresh-session handoff after untrusted input
 - **[docs/agent-harness-bakeoff-2026-07-08.md](docs/agent-harness-bakeoff-2026-07-08.md)** — Evidence note on open-source, model-agnostic agent harnesses for moving Hugin/Grimnir beyond Claude-only execution
 - **[services.json](services.json)** — Single source of truth for the component inventory (`components`) and the infrastructure/inference-node inventory (`nodes` — hosts, hardware, role, LLM servers). Query via `scripts/lib/registry.js` (`QUERY=nodes`).
+- **[Placement validation](docs/placement-validation.md)** — Read-only desired-vs-observed workload placement comparison using explicit Brokkr evidence.
 - **[scripts/](scripts/)** — Deploy, security scan, and architecture generation scripts
 
 ## Design principles

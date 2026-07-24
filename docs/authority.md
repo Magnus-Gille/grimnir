@@ -33,6 +33,7 @@
 | **Observed node capability, location/network/storage realization and substrate reconciliation evidence** | Brokkr's versioned observation/evidence contract | Grimnir drift view, component preflight, Heimdall presentation |
 | **Workload requirements, drain/verify hooks, service-data migration and workload rollback** | Owning component repository's versioned contract | Brokkr lifecycle adapter, Grimnir planning, Heimdall presentation |
 | **Node/workload reconciliation lifecycle result** | Brokkr for substrate steps; owning component for workload hooks | Grimnir promotion decision, Heimdall presentation |
+| **Desired-vs-observed placement drift view** | Grimnir's read-only validator over `services.json` plus explicit Brokkr evidence | Brokkr planning, Heimdall presentation |
 | **Norse naming / mythology mapping** | `docs/conventions.md` | all docs |
 
 ## Rules
@@ -113,6 +114,13 @@
     applied network, storage or location action restores and verifies its recorded substrate
     pre-state before workload compensation or retry. Incomplete substrate rollback is terminally
     blocked; a later attempt cannot relabel it as fresh work.
+
+17. **Placement validation has no implicit observer.** The registry supplies only declared
+    `node_id`, `workload_id`, target and immutable owner-contract provenance/digest references.
+    A placement view must take a versioned, canonically digest-bound Brokkr observation as
+    explicit input and must never query a host or infer deployed, running, healthy, or capable
+    state from configuration. Missing, stale, malformed, unsupported, unreferenced, extra, or
+    incompatible evidence is drift/unknown and fails closed.
 
 ## Validation
 

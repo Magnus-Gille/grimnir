@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grimnir.gille.ai/contracts/placement-validation/v1/schema.json",
+  "title": "Brokkr placement observation v1",
+  "description": "Public-safe, read-only Brokkr observation consumed by Grimnir placement validation. It does not authorize a mutation or replace desired placement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "schema_version", "observation_id", "observed_at", "valid_until", "evidence", "node_capabilities", "workloads", "capability_assessments"],
+  "properties": {
+    "kind": { "const": "brokkr-placement-observation" },
+    "schema_version": { "const": "v1" },
+    "observation_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,62}$" },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "valid_until": { "type": "string", "format": "date-time" },
+    "evidence": { "type": "object", "additionalProperties": false, "required": ["evidence_id", "producer", "observed_at", "digest"], "properties": { "evidence_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,62}$" }, "producer": { "const": "brokkr" }, "observed_at": { "type": "string", "format": "date-time" }, "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" } } },
+    "node_capabilities": { "type": "array", "items": { "$ref": "node-substrate-contract-v1.schema.json#/$defs/node-capability" } },
+    "workloads": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["workload_id", "node_id", "deployed", "running", "healthy", "units"], "properties": { "workload_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,62}$" }, "node_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,62}$" }, "deployed": { "enum": ["deployed", "missing", "unknown", "not_applicable"] }, "running": { "enum": ["running", "stopped", "unknown", "not_applicable"] }, "healthy": { "enum": ["healthy", "unhealthy", "unknown", "not_applicable"] }, "units": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9@._-]+$" } } } } },
+    "capability_assessments": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["workload_id", "node_id", "requirement_kind", "requirement_schema_version", "requirement_producer", "requirement_digest", "compatibility"], "properties": { "workload_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,62}$" }, "node_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,62}$" }, "requirement_kind": { "const": "workload-requirement" }, "requirement_schema_version": { "const": "v1" }, "requirement_producer": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,62}$" }, "requirement_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }, "compatibility": { "enum": ["compatible", "incompatible", "unknown"] } } } }
+  }
+}
