@@ -95,13 +95,16 @@ run_one() {
   # doc_hit: the target path appears in the input of any tool call. Matching on
   # the tool-call stream rather than the answer text is deliberate — it detects
   # the file actually being opened, not the model mentioning a plausible path.
-  local doc_hit=false
-  if jq -e --arg t "$target" '
-        select(.type=="assistant")
-        | .message.content[]? | select(.type=="tool_use")
-        | (.input | tostring) | contains($t)' "$raw" >/dev/null 2>&1; then
-    doc_hit=true
-  fi
+  # NOTE: must slurp and reduce with `any`. An earlier version used `jq -e` over
+  # the stream, whose exit status reflects only the LAST emitted value — so a run
+  # counted as a hit only if the target appeared in its final tool call. That
+  # systematically under-counted, and penalised whichever arm explored more after
+  # already finding the document.
+  local doc_hit
+  doc_hit=$(jq -s --arg t "$target" '
+      [ .[] | select(.type=="assistant")
+            | .message.content[]? | select(.type=="tool_use")
+            | (.input | tostring) | contains($t) ] | any' "$raw")
 
   local tool_calls
   tool_calls=$(jq -s '[.[] | select(.type=="assistant") | .message.content[]?
