@@ -38,6 +38,7 @@ function exact(object, fields, label, errors) {
 }
 var ID = /^[a-z][a-z0-9-]{2,62}$/;
 var DIGEST = /^sha256:[a-f0-9]{64}$/;
+var SAFE_HOST = /^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/;
 var UTC = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z$/;
 function instant(value) {
   if (typeof value !== 'string') return NaN;
@@ -58,8 +59,11 @@ function naturalCompare(left, right) {
     var aNumber = /^\d+$/.test(a[index]);
     var bNumber = /^\d+$/.test(b[index]);
     if (aNumber && bNumber) {
-      var numeric = Number(a[index]) - Number(b[index]);
-      if (numeric) return numeric;
+      var aSignificant = a[index].replace(/^0+/, '') || '0';
+      var bSignificant = b[index].replace(/^0+/, '') || '0';
+      if (aSignificant.length !== bSignificant.length) return aSignificant.length - bSignificant.length;
+      if (aSignificant !== bSignificant) return aSignificant < bSignificant ? -1 : 1;
+      if (a[index].length !== b[index].length) return a[index].length - b[index].length;
     }
     return a[index] < b[index] ? -1 : 1;
   }
@@ -92,6 +96,7 @@ function validateNode(record, now, errors) {
   if (!ID.test(record.node_id || '')) errors.push('node-capability.node_id must be a stable public-safe id');
   var observedAt = instant(record.observed_at); var validUntil = instant(record.valid_until);
   if (Number.isNaN(observedAt) || Number.isNaN(validUntil) || validUntil <= observedAt) errors.push('node-capability timestamps must be valid and increasing');
+  if (!Number.isNaN(observedAt) && observedAt > now) errors.push('node-capability.observed_at must not be later than --now: ' + record.node_id);
   validateEvidence(record.evidence, record.observed_at, 'node-capability.evidence', errors);
   validateEvidenceDigest(record, 'node-capability', errors);
   if (['known', 'unknown', 'not_applicable'].indexOf(record.capability_status) === -1) errors.push('node-capability capability_status is invalid: ' + record.node_id);
@@ -108,6 +113,104 @@ function validateNode(record, now, errors) {
   if (!Array.isArray(record.deployment_mechanisms) || !record.deployment_mechanisms.length || new Set(record.deployment_mechanisms).size !== record.deployment_mechanisms.length || !record.deployment_mechanisms.every(function (value) { return mechanismValues.indexOf(value) !== -1; })) errors.push('node-capability.deployment_mechanisms must be a non-empty unique v1 array');
   var extensionIds = {};
   if (!Array.isArray(record.extensions) || !record.extensions.every(function (entry) { var valid = plain(entry) && Object.keys(entry).length === 3 && ID.test(entry.id || '') && /^v[1-9][0-9]*$/.test(entry.version || '') && entry.decision_effect === 'informational' && !extensionIds[entry.id]; extensionIds[entry.id] = true; return valid; })) errors.push('node-capability extensions must be unique and informational only');
+}
+
+function validateDesiredRegistry(registry, errors) {
+  if (!plain(registry) || !Array.isArray(registry.components) || !Array.isArray(registry.nodes)) {
+    errors.push('registry must provide components and nodes arrays');
+    return;
+  }
+  var desiredNodes = {};
+  registry.nodes.forEach(function (node, index) {
+    var label = 'registry.nodes[' + index + ']';
+    if (!plain(node)) { errors.push(label + ' must be an object'); return; }
+    if (!ID.test(node.node_id || '')) errors.push(label + '.node_id must be a stable public-safe id');
+    else if (desiredNodes[node.node_id]) errors.push('duplicate desired node_id: ' + node.node_id);
+    else desiredNodes[node.node_id] = node;
+    if (!(node.hostname === null || (typeof node.hostname === 'string' && node.hostname.length <= 253 &&
+        SAFE_HOST.test(node.hostname)))) {
+      errors.push(label + '.hostname must be null or a safe hostname/address');
+    }
+  });
+  var componentNames = {};
+  var workloadIds = {};
+  registry.components.forEach(function (component, index) {
+    var label = 'registry.components[' + index + ']';
+    if (!plain(component)) { errors.push(label + ' must be an object'); return; }
+    if (!ID.test(component.name || '')) errors.push(label + '.name must be a stable public-safe id');
+    else if (componentNames[component.name]) errors.push('duplicate desired component name: ' + component.name);
+    else componentNames[component.name] = true;
+    if (!ID.test(component.repo || '')) errors.push(label + '.repo must be a stable public-safe id');
+    if (!ID.test(component.workload_id || '')) errors.push(label + '.workload_id must be a stable public-safe id');
+    else if (workloadIds[component.workload_id]) errors.push('duplicate desired workload_id: ' + component.workload_id);
+    else workloadIds[component.workload_id] = true;
+    if (typeof component.deploy !== 'boolean') errors.push(label + '.deploy must be boolean');
+    if (own(component, 'desired_runtime_state') &&
+        ['active', 'stopped', 'not-applicable'].indexOf(component.desired_runtime_state) === -1) {
+      errors.push(label + '.desired_runtime_state is invalid');
+    }
+    if (!(component.port === null || component.port === undefined ||
+        (Number.isInteger(component.port) && component.port >= 1 && component.port <= 65535))) {
+      errors.push(label + '.port must be null or an integer from 1 through 65535');
+    }
+    if (!(component.host === null || (typeof component.host === 'string' && component.host.length <= 253 &&
+        SAFE_HOST.test(component.host)))) {
+      errors.push(label + '.host must be null or a safe hostname/address');
+    }
+    if (component.host === null) {
+      if (own(component, 'target_node_id') && component.target_node_id !== null) {
+        errors.push(label + '.target_node_id is forbidden for a hostless workload');
+      }
+    } else if (!ID.test(component.target_node_id || '') || !desiredNodes[component.target_node_id]) {
+      errors.push(label + '.target_node_id must reference a registered node');
+    } else if (desiredNodes[component.target_node_id].hostname !== component.host) {
+      errors.push(label + '.host and target node hostname disagree');
+    }
+    if (!Array.isArray(component.systemd_units)) {
+      errors.push(label + '.systemd_units must be an array');
+    } else {
+      if (component.desired_runtime_state === 'not-applicable' &&
+          (component.systemd_units.length || (component.port !== null && component.port !== undefined))) {
+        errors.push(label + '.desired_runtime_state not-applicable cannot declare units or a port');
+      }
+      if (component.host === null &&
+          (component.deploy !== false || component.desired_runtime_state !== 'not-applicable' ||
+           component.systemd_units.length || (component.port !== null && component.port !== undefined))) {
+        errors.push(label + ' hostless workload must be undeployed, not-applicable, and have no units or port');
+      }
+      var unitNames = {};
+      component.systemd_units.forEach(function (unit, unitIndex) {
+        var unitLabel = label + '.systemd_units[' + unitIndex + ']';
+        if (!plain(unit)) { errors.push(unitLabel + ' must be an object'); return; }
+        Object.keys(unit).forEach(function (field) {
+          if (['name', 'type', 'scope', 'timer_semantics'].indexOf(field) === -1) {
+            errors.push(unitLabel + '.' + field + ' is not a placement field');
+          }
+        });
+        if (typeof unit.name !== 'string' || !/^[a-z0-9@._-]+$/.test(unit.name)) {
+          errors.push(unitLabel + '.name must be a safe unit id');
+        } else if (unitNames[unit.name]) {
+          errors.push('duplicate desired unit for ' + component.workload_id + ': ' + unit.name);
+        } else unitNames[unit.name] = true;
+        if (['service', 'timer'].indexOf(unit.type) === -1) errors.push(unitLabel + '.type is invalid');
+        if (own(unit, 'scope') && ['system', 'user'].indexOf(unit.scope) === -1) errors.push(unitLabel + '.scope is invalid');
+        if (own(unit, 'timer_semantics') &&
+            (unit.type !== 'timer' || ['recurring', 'one-shot'].indexOf(unit.timer_semantics) === -1)) {
+          errors.push(unitLabel + '.timer_semantics is invalid');
+        }
+      });
+    }
+    var contract = component.workload_contract;
+    if (!plain(contract) || Object.keys(contract).sort().join(',') !== 'digest,kind,producer,schema_version') {
+      errors.push(label + '.workload_contract must contain the exact v1 provenance fields');
+    } else {
+      if (contract.kind !== 'workload-requirement' || contract.schema_version !== 'v1') {
+        errors.push(label + '.workload_contract must use workload-requirement v1');
+      }
+      if (contract.producer !== component.repo) errors.push(label + '.workload_contract.producer must equal repo');
+      if (!DIGEST.test(contract.digest || '')) errors.push(label + '.workload_contract.digest must be a sha256 digest');
+    }
+  });
 }
 
 var errors = [];
@@ -136,7 +239,7 @@ try {
 } catch (error) {
   errors.push('tracked schema validation unavailable: ' + error.message);
 }
-if (!plain(registry) || !Array.isArray(registry && registry.components) || !Array.isArray(registry && registry.nodes)) errors.push('registry must provide components and nodes arrays');
+validateDesiredRegistry(registry, errors);
 if (!plain(observation)) errors.push('observation must be a JSON object');
 if (!errors.length) {
   runtimeSchema.validate(observation).forEach(function (error) {
@@ -149,6 +252,7 @@ if (!errors.length) {
   if (!ID.test(observation.observation_id || '')) errors.push('observation.observation_id must be a stable public-safe id');
   var topObservedAt = instant(observation.observed_at); var topValidUntil = instant(observation.valid_until);
   if (Number.isNaN(topObservedAt) || Number.isNaN(topValidUntil) || topValidUntil <= topObservedAt) errors.push('observation timestamps must be valid and increasing');
+  if (!Number.isNaN(topObservedAt) && topObservedAt > now) errors.push('observation.observed_at must not be later than --now');
   validateEvidence(observation.evidence, observation.observed_at, 'observation.evidence', errors);
   validateEvidenceDigest(observation, 'observation', errors);
   ['node_capabilities', 'workloads', 'capability_assessments'].forEach(function (field) { if (!Array.isArray(observation[field])) errors.push('observation.' + field + ' must be an array'); });
@@ -267,6 +371,7 @@ registry.components.forEach(function (component, index) {
   var healthyExpected = desiredState === 'active' && component.port !== null && component.port !== undefined ? 'healthy' : 'not_applicable';
   if (observed.healthy !== healthyExpected) add('health-state', { workload_id: workloadId, node_id: targetNodeId, expected: healthyExpected, observed: observed.healthy });
   observed.units.forEach(function (unit) { if (units.indexOf(unit) === -1) add('extra-live-unit', { workload_id: workloadId, node_id: observed.node_id, unit_id: unit }); });
+  units.forEach(function (unit) { if (observed.units.indexOf(unit) === -1) add('missing-live-unit', { workload_id: workloadId, node_id: observed.node_id, unit_id: unit }); });
 });
 observation.workloads.forEach(function (workload) {
   var desired = desiredWorkloads[workload.workload_id];
@@ -284,7 +389,7 @@ observation.capability_assessments.forEach(function (assessment) {
 });
 if (instant(observation.valid_until) <= now) add('stale-evidence', { evidence_id: observation.evidence.evidence_id, detail: 'placement observation expired' });
 
-var categoryOrder = ['incompatible-capability', 'extra-node', 'extra-workload', 'extra-assessment', 'extra-live-unit', 'missing-workload', 'stale-evidence', 'missing-evidence', 'deployment-state', 'running-state', 'health-state'];
+var categoryOrder = ['incompatible-capability', 'extra-node', 'extra-workload', 'extra-assessment', 'extra-live-unit', 'missing-live-unit', 'missing-workload', 'stale-evidence', 'missing-evidence', 'deployment-state', 'running-state', 'health-state'];
 drift.sort(function (left, right) {
   var category = categoryOrder.indexOf(left.category) - categoryOrder.indexOf(right.category);
   if (category) return category;

@@ -36,16 +36,18 @@ rejects JSON Schema keywords outside the dependency-free supported subset, resol
 the placement schema's node/substrate reference, and validates the observation
 before semantic reconciliation. Unsupported schema versions or keywords,
 malformed provenance, digest mismatch, missing references, or out-of-interval
-records fail validation. Freshness expiry is reported as fail-closed drift at the
-caller-supplied `--now`.
+records fail validation. Top-level and nested observations later than the
+caller-supplied `--now` are rejected; freshness expiry is reported as fail-closed
+drift. External schema references resolve against their exact registered identity
+or relative path, without basename aliases.
 
 The JSON result has independent `declared`, `deployed`, `running`, and `healthy`
 fields per workload. `declared` is registry intent; the other three are observation
 values and never inferred from configuration. Drift items are deterministic and
 natural-sort numeric identifier fragments numerically. Categories include
 `missing-workload`, `incompatible-capability`, `extra-node`, `extra-workload`,
-`extra-assessment`, `extra-live-unit`, `stale-evidence`, and `missing-evidence`,
-plus separate deployment/running/health state mismatches.
+`extra-assessment`, `extra-live-unit`, `missing-live-unit`, `stale-evidence`, and
+`missing-evidence`, plus separate deployment/running/health state mismatches.
 
 The fixtures are synthetic and hermetic. They cover current desired placement on
 `huginmunin`, `nas`, and `m5`, plus a proposed Hugin-to-M5 target. They neither

@@ -50,13 +50,35 @@ const unresolvedSchema = JSON.parse(fs.readFileSync(path.join(root, "docs", "pla
 const nodeSchema = JSON.parse(fs.readFileSync(path.join(root, "docs", "node-substrate-contract-v1.schema.json"), "utf8"));
 unresolvedSchema.properties.node_capabilities.items.$ref = "missing-node-schema.json#/$defs/node-capability";
 assert.throws(() => schemaSubset.createValidator({ rootName: "placement-validation-v1.schema.json", schemas: [{ name: "placement-validation-v1.schema.json", schema: unresolvedSchema }, { name: "node-substrate-contract-v1.schema.json", schema: nodeSchema }] }), /unresolved external schema ref/, "tracked schema reference drift fails closed before observation validation");
+const oneOfWithSibling = schemaSubset.createValidator({
+  rootName: "root.json",
+  schemas: [{
+    name: "root.json",
+    schema: { type: "integer", minimum: 10, oneOf: [{ const: 5 }, { const: 10 }] }
+  }]
+});
+assert.deepEqual(oneOfWithSibling.validate(5), ["$: minimum"], "oneOf is conjunctive with sibling constraints");
+assert.throws(() => schemaSubset.createValidator({
+  rootName: "schemas/root.json",
+  schemas: [
+    { name: "schemas/root.json", schema: { $ref: "renamed/node.json" } },
+    { name: "contracts/node.json", schema: { type: "object" } }
+  ]
+}), /unresolved external schema ref/, "external refs cannot drift through a matching basename alias");
+assert.deepEqual(schemaSubset.createValidator({
+  rootName: "schemas/root.json",
+  schemas: [
+    { name: "schemas/root.json", schema: { $ref: "node.json" } },
+    { name: "schemas/node.json", schema: { type: "object", required: ["node_id"] } }
+  ]
+}).validate({ node_id: "node-exact" }), [], "relative external refs resolve only to the exact registered path");
 
 const proposed = run(path.join(fixtures, "hugin-to-m5-services.json"), path.join(fixtures, "hugin-to-m5.json"));
 assert.equal(proposed.compliant, true, "proposed Hugin-to-M5 placement can be evaluated without live access");
 
 const drifted = run(path.join(root, "services.json"), path.join(fixtures, "drift.json"));
 assert.equal(drifted.compliant, false, "drift fixture fails closed");
-assert.deepEqual([...new Set(drifted.drift.map((item) => item.category))], ["incompatible-capability", "extra-live-unit", "missing-workload", "stale-evidence", "missing-evidence", "deployment-state", "running-state", "health-state"], "drift categories are separate and deterministic");
+assert.deepEqual([...new Set(drifted.drift.map((item) => item.category))], ["incompatible-capability", "extra-live-unit", "missing-live-unit", "missing-workload", "stale-evidence", "missing-evidence", "deployment-state", "running-state", "health-state"], "drift categories are separate and deterministic");
 assert.deepEqual(drifted.drift.filter((item) => item.category === "extra-live-unit").map((item) => item.unit_id), ["hugin-2", "hugin-10"], "numeric identifiers sort numerically");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "grimnir-placement-"));
@@ -95,6 +117,48 @@ try {
   const staleResult = run(path.join(root, "services.json"), writeFixture(tmp, "stale-nested.json", staleNested));
   assert.ok(staleResult.drift.some((item) => item.category === "stale-evidence" && item.node_id === "node-huginmunin"), "stale nested evidence fails closed as deterministic drift");
 
+  const futureTop = fixture("current.json");
+  futureTop.observed_at = "2026-07-23T10:16:00Z";
+  futureTop.evidence.observed_at = futureTop.observed_at;
+  for (const node of futureTop.node_capabilities) {
+    node.observed_at = futureTop.observed_at;
+    node.evidence.observed_at = futureTop.observed_at;
+  }
+  seal(futureTop);
+  assert.throws(() => run(path.join(root, "services.json"), writeFixture(tmp, "future-top.json", futureTop)), /observation\.observed_at.*--now/, "top-level evidence cannot be observed after the evaluation instant");
+
+  const futureNested = fixture("current.json");
+  futureNested.node_capabilities[0].observed_at = "2026-07-23T10:16:00Z";
+  futureNested.node_capabilities[0].evidence.observed_at = "2026-07-23T10:16:00Z";
+  seal(futureNested);
+  assert.throws(() => run(path.join(root, "services.json"), writeFixture(tmp, "future-nested.json", futureNested)), /node-capability\.observed_at.*--now/, "nested node evidence cannot be observed after the evaluation instant");
+
+  const desiredRegistry = JSON.parse(fs.readFileSync(path.join(root, "services.json"), "utf8"));
+  const invalidDesiredCases = [
+    ["invalid-deploy", (data) => { data.components[0].deploy = "true"; }, /components\[0\]\.deploy must be boolean/],
+    ["invalid-state", (data) => { data.components[0].desired_runtime_state = "running"; }, /components\[0\]\.desired_runtime_state is invalid/],
+    ["invalid-port", (data) => { data.components[0].port = 70000; }, /components\[0\]\.port/],
+    ["duplicate-node", (data) => { data.nodes[1].node_id = data.nodes[0].node_id; }, /duplicate desired node_id/],
+    ["duplicate-workload", (data) => { data.components[1].workload_id = data.components[0].workload_id; }, /duplicate desired workload_id/],
+    ["unknown-target", (data) => { data.components[0].target_node_id = "node-unknown"; }, /target_node_id.*registered node/],
+    ["host-target-mismatch", (data) => { data.components[0].host = "elsewhere.example"; }, /host.*target node.*disagree/],
+    ["invalid-unit-type", (data) => { data.components[0].systemd_units[0].type = "socket"; }, /systemd_units\[0\]\.type is invalid/],
+    ["duplicate-unit", (data) => { data.components[1].systemd_units.push(structuredClone(data.components[1].systemd_units[0])); }, /duplicate desired unit/],
+    ["invalid-contract-producer", (data) => { data.components[0].workload_contract.producer = "other-owner"; }, /workload_contract\.producer must equal repo/]
+  ];
+  for (const [name, mutate, expected] of invalidDesiredCases) {
+    const invalidRegistry = structuredClone(desiredRegistry);
+    mutate(invalidRegistry);
+    assert.throws(() => run(writeFixture(tmp, `${name}-registry.json`, invalidRegistry), path.join(fixtures, "current.json")), expected, `desired registry rejects ${name} before reconciliation`);
+  }
+
+  const missingUnit = fixture("current.json");
+  const huginObservation = missingUnit.workloads.find((workload) => workload.workload_id === "workload-hugin");
+  huginObservation.units = huginObservation.units.filter((unit) => unit !== "hugin-daily-analysis");
+  seal(missingUnit);
+  const missingUnitResult = run(path.join(root, "services.json"), writeFixture(tmp, "missing-unit.json", missingUnit));
+  assert.ok(missingUnitResult.drift.some((item) => item.category === "missing-live-unit" && item.workload_id === "workload-hugin" && item.unit_id === "hugin-daily-analysis"), "declared units absent from observation are explicit symmetric drift");
+
   const unknownNode = fixture("current.json");
   unknownNode.workloads[0].node_id = "node-unknown";
   seal(unknownNode);
@@ -119,7 +183,7 @@ try {
   assert.deepEqual(extraResult.drift.filter((item) => item.workload_id === "workload-extra-2" && item.category === "extra-live-unit").map((item) => item.unit_id), ["extra-2", "extra-10"], "units from wholly extra workloads are numeric-sorted drift");
 
   const extraNodes = fixture("current.json");
-  for (const suffix of ["10", "2"]) {
+  for (const suffix of ["10", "2", "9007199254740992", "09007199254740993"]) {
     const node = structuredClone(extraNodes.node_capabilities[0]);
     node.node_id = `node-extra-${suffix}`;
     node.evidence.evidence_id = `evidence-extra-${suffix}`;
@@ -128,7 +192,7 @@ try {
   extraNodes.workloads.push({ workload_id: "workload-extra-node", node_id: "node-extra-2", deployed: "deployed", running: "running", healthy: "healthy", units: ["extra-node-unit"] });
   seal(extraNodes);
   const extraNodeResult = run(path.join(root, "services.json"), writeFixture(tmp, "extra-nodes.json", extraNodes));
-  assert.deepEqual(extraNodeResult.drift.filter((item) => item.category === "extra-node").map((item) => item.node_id), ["node-extra-2", "node-extra-10"], "wholly extra nodes are deterministic numeric-sorted drift");
+  assert.deepEqual(extraNodeResult.drift.filter((item) => item.category === "extra-node").map((item) => item.node_id), ["node-extra-2", "node-extra-10", "node-extra-9007199254740992", "node-extra-09007199254740993"], "wholly extra nodes are arbitrary-precision numeric-sorted drift");
   assert.ok(extraNodeResult.drift.some((item) => item.category === "extra-workload" && item.workload_id === "workload-extra-node" && item.node_id === "node-extra-2"), "workload on an undeclared node remains explicit drift");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });

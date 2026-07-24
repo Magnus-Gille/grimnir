@@ -132,21 +132,35 @@ function createValidator(options) {
   }
   var byName = {};
   var refs = [];
+  function register(identity, schema) {
+    if (Object.prototype.hasOwnProperty.call(byName, identity) && byName[identity] !== schema) {
+      throw new Error('duplicate schema identity: ' + identity);
+    }
+    byName[identity] = schema;
+  }
   options.schemas.forEach(function (entry) {
     if (!entry || typeof entry.name !== 'string' || !plain(entry.schema)) {
       throw new Error('invalid schema registration');
     }
     inspectSchema(entry.schema, entry.name, entry.name, refs);
-    byName[entry.name] = entry.schema;
-    byName[path.basename(entry.name)] = entry.schema;
-    if (typeof entry.schema.$id === 'string') byName[entry.schema.$id] = entry.schema;
+    register(entry.name, entry.schema);
+    if (typeof entry.schema.$id === 'string') register(entry.schema.$id, entry.schema);
   });
   if (!byName[options.rootName]) throw new Error('root schema is not registered: ' + options.rootName);
 
   function resolve(ref, currentName) {
     var parts = ref.split('#');
-    var targetName = parts[0] || currentName;
-    var target = byName[targetName] || byName[path.basename(targetName)];
+    var targetName = parts[0];
+    if (!targetName) {
+      targetName = currentName;
+    } else if (!/^[A-Za-z][A-Za-z0-9+.-]*:/.test(targetName)) {
+      if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(currentName)) {
+        targetName = new URL(targetName, currentName).href;
+      } else {
+        targetName = path.posix.normalize(path.posix.join(path.posix.dirname(currentName), targetName));
+      }
+    }
+    var target = byName[targetName];
     if (!target) throw new Error('unresolved external schema ref ' + ref);
     var resolved = fragment(target, parts.length > 1 ? '#' + parts[1] : '#');
     if (resolved === undefined) throw new Error('unresolved schema fragment ' + ref);
@@ -163,14 +177,15 @@ function createValidator(options) {
       var target = resolve(node.$ref, currentName);
       return errorsFor(target.schema, value, at, target.rootName);
     }
+    var errors = [];
     if (node.oneOf) {
       var attempts = node.oneOf.map(function (child) {
         return errorsFor(child, value, at, currentName);
       });
-      return attempts.filter(function (attempt) { return attempt.length === 0; }).length === 1
-        ? [] : [at + ': expected exactly one schema branch'];
+      if (attempts.filter(function (attempt) { return attempt.length === 0; }).length !== 1) {
+        errors.push(at + ': expected exactly one schema branch');
+      }
     }
-    var errors = [];
     if (Object.prototype.hasOwnProperty.call(node, 'const') &&
         canonical(value) !== canonical(node.const)) errors.push(at + ': const mismatch');
     if (node.enum && !node.enum.some(function (candidate) {
