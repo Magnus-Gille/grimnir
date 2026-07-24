@@ -34,6 +34,8 @@
 | **Workload requirements, drain/verify hooks, service-data migration and workload rollback** | Owning component repository's versioned contract | Brokkr lifecycle adapter, Grimnir planning, Heimdall presentation |
 | **Node/workload reconciliation lifecycle result** | Brokkr for substrate steps; owning component for workload hooks | Grimnir promotion decision, Heimdall presentation |
 | **Desired-vs-observed placement drift view** | Grimnir's read-only validator over `services.json` plus explicit Brokkr evidence | Brokkr planning, Heimdall presentation |
+| **Desired unattended-maintenance policy (schedule, timezone/DST, missed-window/overdue/deferral rules, allowed update classes/sources, reboot/failure limits) and its deterministic digest** | `docs/maintenance-policy-contract.md` plus `docs/maintenance-policy-v1.schema.json` | Brokkr scheduling/execution, Grimnir planning, Heimdall presentation |
+| **Maintenance decision-effect projection (bound to a policy digest and explicit Brokkr evidence)** | Brokkr or an execution controller, per `docs/maintenance-policy-contract.md`'s decision-effect rules | Grimnir planning, Heimdall presentation |
 | **Norse naming / mythology mapping** | `docs/conventions.md` | all docs |
 
 ## Rules
@@ -121,6 +123,16 @@
     explicit input and must never query a host or infer deployed, running, healthy, or capable
     state from configuration. Missing, stale, malformed, unsupported, unreferenced, extra, or
     incompatible evidence is drift/unknown and fails closed.
+
+18. **A maintenance policy is intent, never a live probe, credential, private locator, shell
+    command, or configuration content.** It neither proves eligibility nor authorizes mutation
+    without fresh Brokkr observations and the execution controller's own safety gates. A
+    `maintenance-decision` touches evidence only by an opaque `evidence_id`/`digest` reference,
+    exactly like `node-substrate`'s `lifecycle-result.observation_evidence_id`. An unresolvable
+    IANA timezone, an ambiguous/nonexistent local time paired with a `fail_closed` (or, for a
+    nonexistent time, `skip_occurrence`) DST policy, an unknown field, an invalid duration, or an
+    unsafe update class/source all fail closed. See
+    [`docs/maintenance-policy-contract.md`](maintenance-policy-contract.md).
 
 ## Validation
 
