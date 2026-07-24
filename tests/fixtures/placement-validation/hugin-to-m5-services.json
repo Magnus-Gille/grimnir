@@ -1,6 +1,6 @@
 {
   "components": [
-    { "name": "hugin", "host": "m5.example", "port": 3032, "deploy": true, "desired_runtime_state": "active", "workload_id": "workload-hugin", "target_node_id": "node-m5", "workload_contract": { "kind": "workload-requirement", "schema_version": "v1" }, "systemd_units": [{ "name": "hugin", "type": "service" }, { "name": "hugin-daily-analysis", "type": "timer" }] }
+    { "name": "hugin", "repo": "hugin", "host": "m5.example", "port": 3032, "deploy": true, "desired_runtime_state": "active", "workload_id": "workload-hugin", "target_node_id": "node-m5", "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "hugin", "digest": "sha256:04a18def4314e569c9f9ffa76fcfb4a5bf1e34973f84721a4d8467788a16f2c4" }, "systemd_units": [{ "name": "hugin", "type": "service" }, { "name": "hugin-daily-analysis", "type": "timer" }] }
   ],
   "nodes": [{ "node_id": "node-m5", "hostname": "m5.example" }]
 }

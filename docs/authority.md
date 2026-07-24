@@ -116,10 +116,11 @@
     blocked; a later attempt cannot relabel it as fresh work.
 
 17. **Placement validation has no implicit observer.** The registry supplies only declared
-    `node_id`, `workload_id`, target and workload-contract references. A placement view must take
-    a versioned Brokkr observation as explicit input and must never query a host or infer
-    deployed, running, healthy, or capable state from configuration. Missing, stale, malformed,
-    unsupported, or incompatible evidence is drift/unknown and fails closed.
+    `node_id`, `workload_id`, target and immutable owner-contract provenance/digest references.
+    A placement view must take a versioned, canonically digest-bound Brokkr observation as
+    explicit input and must never query a host or infer deployed, running, healthy, or capable
+    state from configuration. Missing, stale, malformed, unsupported, unreferenced, extra, or
+    incompatible evidence is drift/unknown and fails closed.
 
 ## Validation
 

@@ -6,6 +6,9 @@
 // never opens a network connection or derives liveness from desired config.
 
 var fs = require('fs');
+var path = require('path');
+var canonicalEvidence = require('./lib/canonical-evidence.js');
+var schemaSubset = require('./lib/json-schema-subset.js');
 
 var args = process.argv.slice(2);
 function option(name) {
@@ -75,6 +78,13 @@ function validateEvidence(evidence, observedAt, label, errors) {
   if (evidence.observed_at !== observedAt || Number.isNaN(instant(evidence.observed_at))) errors.push(label + '.observed_at must exactly match its observation timestamp');
   if (!DIGEST.test(evidence.digest || '')) errors.push(label + '.digest must be a sha256 digest');
 }
+function validateEvidenceDigest(record, label, errors) {
+  if (!plain(record) || !plain(record.evidence) || !DIGEST.test(record.evidence.digest || '')) return;
+  var expected = canonicalEvidence.evidenceDigest(record);
+  if (record.evidence.digest !== expected) {
+    errors.push(label + '.evidence.digest mismatch: expected ' + expected);
+  }
+}
 function validateNode(record, now, errors) {
   var fields = ['kind', 'schema_version', 'node_id', 'observed_at', 'valid_until', 'evidence', 'capability_status', 'architecture', 'resources', 'uptime_class', 'network_capabilities', 'logical_storage', 'service_manager', 'deployment_mechanisms', 'health_reporting', 'extensions'];
   if (!exact(record, fields, 'node-capability', errors)) return;
@@ -83,6 +93,7 @@ function validateNode(record, now, errors) {
   var observedAt = instant(record.observed_at); var validUntil = instant(record.valid_until);
   if (Number.isNaN(observedAt) || Number.isNaN(validUntil) || validUntil <= observedAt) errors.push('node-capability timestamps must be valid and increasing');
   validateEvidence(record.evidence, record.observed_at, 'node-capability.evidence', errors);
+  validateEvidenceDigest(record, 'node-capability', errors);
   if (['known', 'unknown', 'not_applicable'].indexOf(record.capability_status) === -1) errors.push('node-capability capability_status is invalid: ' + record.node_id);
   if (['arm64', 'x86_64', 'unknown', 'not_applicable'].indexOf(record.architecture) === -1) errors.push('node-capability architecture is invalid: ' + record.node_id);
   if (!exact(record.resources, ['cpu_cores', 'memory_mib'], 'node-capability.resources', errors) || !Number.isInteger(record.resources.cpu_cores) || record.resources.cpu_cores < 1 || !Number.isInteger(record.resources.memory_mib) || record.resources.memory_mib < 1) errors.push('node-capability.resources must contain positive numeric observed resources');
@@ -105,8 +116,33 @@ if (Number.isNaN(now)) errors.push('--now must be a real UTC timestamp');
 var registry; var observation;
 try { registry = readJson(registryPath); } catch (error) { errors.push(error.message); }
 try { observation = readJson(observationPath); } catch (error) { errors.push(error.message); }
+var placementSchema; var nodeSchema; var runtimeSchema;
+try {
+  placementSchema = readJson(path.join(__dirname, '..', 'docs', 'placement-validation-v1.schema.json'));
+  nodeSchema = readJson(path.join(__dirname, '..', 'docs', 'node-substrate-contract-v1.schema.json'));
+  if (placementSchema.$id !== 'https://grimnir.gille.ai/contracts/placement-validation/v1/schema.json') {
+    throw new Error('unexpected pinned placement schema identity');
+  }
+  if (nodeSchema.$id !== 'https://grimnir.gille.ai/contracts/node-substrate/v1/schema.json') {
+    throw new Error('unexpected pinned node/substrate schema identity');
+  }
+  runtimeSchema = schemaSubset.createValidator({
+    rootName: 'placement-validation-v1.schema.json',
+    schemas: [
+      { name: 'placement-validation-v1.schema.json', schema: placementSchema },
+      { name: 'node-substrate-contract-v1.schema.json', schema: nodeSchema }
+    ]
+  });
+} catch (error) {
+  errors.push('tracked schema validation unavailable: ' + error.message);
+}
 if (!plain(registry) || !Array.isArray(registry && registry.components) || !Array.isArray(registry && registry.nodes)) errors.push('registry must provide components and nodes arrays');
 if (!plain(observation)) errors.push('observation must be a JSON object');
+if (!errors.length) {
+  runtimeSchema.validate(observation).forEach(function (error) {
+    errors.push('placement-validation-v1 schema: ' + error);
+  });
+}
 if (!errors.length) {
   exact(observation, ['kind', 'schema_version', 'observation_id', 'observed_at', 'valid_until', 'evidence', 'node_capabilities', 'workloads', 'capability_assessments'], 'observation', errors);
   if (observation.kind !== 'brokkr-placement-observation' || observation.schema_version !== 'v1') errors.push('observation must use kind brokkr-placement-observation and schema_version v1');
@@ -114,11 +150,28 @@ if (!errors.length) {
   var topObservedAt = instant(observation.observed_at); var topValidUntil = instant(observation.valid_until);
   if (Number.isNaN(topObservedAt) || Number.isNaN(topValidUntil) || topValidUntil <= topObservedAt) errors.push('observation timestamps must be valid and increasing');
   validateEvidence(observation.evidence, observation.observed_at, 'observation.evidence', errors);
+  validateEvidenceDigest(observation, 'observation', errors);
   ['node_capabilities', 'workloads', 'capability_assessments'].forEach(function (field) { if (!Array.isArray(observation[field])) errors.push('observation.' + field + ' must be an array'); });
 }
 if (!errors.length) {
   observation.node_capabilities.forEach(function (node) { validateNode(node, now, errors); });
-  var seenNodes = {}; observation.node_capabilities.forEach(function (node) { if (node && seenNodes[node.node_id]) errors.push('duplicate observed node_id: ' + node.node_id); else if (node) seenNodes[node.node_id] = node; });
+  var seenEvidenceIds = {};
+  seenEvidenceIds[observation.evidence.evidence_id] = true;
+  var seenNodes = {};
+  observation.node_capabilities.forEach(function (node) {
+    if (node && seenNodes[node.node_id]) errors.push('duplicate observed node_id: ' + node.node_id);
+    else if (node) seenNodes[node.node_id] = node;
+    if (node && node.evidence) {
+      if (seenEvidenceIds[node.evidence.evidence_id]) {
+        errors.push('duplicate Brokkr evidence_id: ' + node.evidence.evidence_id);
+      }
+      seenEvidenceIds[node.evidence.evidence_id] = true;
+    }
+    if (node && (instant(node.observed_at) < topObservedAt ||
+        instant(node.valid_until) > topValidUntil)) {
+      errors.push('node-capability interval falls outside top-level observation: ' + node.node_id);
+    }
+  });
   var seenWorkloads = {};
   observation.workloads.forEach(function (workload, index) {
     var label = 'observation.workloads[' + index + ']';
@@ -128,17 +181,34 @@ if (!errors.length) {
     if (['running', 'stopped', 'unknown', 'not_applicable'].indexOf(workload.running) === -1) errors.push(label + '.running is invalid');
     if (['healthy', 'unhealthy', 'unknown', 'not_applicable'].indexOf(workload.healthy) === -1) errors.push(label + '.healthy is invalid');
     if (!Array.isArray(workload.units) || !workload.units.every(function (unit) { return typeof unit === 'string' && /^[a-z0-9@._-]+$/.test(unit); }) || new Set(workload.units).size !== workload.units.length) errors.push(label + '.units must be unique safe unit ids');
+    if (!seenNodes[workload.node_id]) errors.push(label + ' references unknown observed node: ' + workload.node_id);
     if (seenWorkloads[workload.workload_id]) errors.push('duplicate observed workload_id: ' + workload.workload_id); else seenWorkloads[workload.workload_id] = workload;
   });
   var assessments = {};
   observation.capability_assessments.forEach(function (assessment, index) {
     var label = 'observation.capability_assessments[' + index + ']';
-    if (!exact(assessment, ['workload_id', 'node_id', 'requirement_kind', 'requirement_schema_version', 'requirement_digest', 'compatibility'], label, errors)) return;
+    if (!exact(assessment, ['workload_id', 'node_id', 'requirement_kind', 'requirement_schema_version', 'requirement_producer', 'requirement_digest', 'compatibility'], label, errors)) return;
     if (!ID.test(assessment.workload_id || '') || !ID.test(assessment.node_id || '')) errors.push(label + ' IDs must be stable public-safe ids');
-    if (assessment.requirement_kind !== 'workload-requirement' || assessment.requirement_schema_version !== 'v1' || !DIGEST.test(assessment.requirement_digest || '')) errors.push(label + ' must bind the exact workload-requirement v1 digest');
+    if (assessment.requirement_kind !== 'workload-requirement' || assessment.requirement_schema_version !== 'v1' ||
+        typeof assessment.requirement_producer !== 'string' || !ID.test(assessment.requirement_producer) ||
+        !DIGEST.test(assessment.requirement_digest || '')) errors.push(label + ' must bind the exact workload-requirement v1 producer and digest');
     if (['compatible', 'incompatible', 'unknown'].indexOf(assessment.compatibility) === -1) errors.push(label + '.compatibility is invalid');
+    if (!seenNodes[assessment.node_id]) errors.push(label + ' references unknown observed node: ' + assessment.node_id);
     var key = assessment.workload_id + '|' + assessment.node_id;
     if (assessments[key]) errors.push('duplicate capability assessment: ' + key); else assessments[key] = assessment;
+  });
+  registry.components.forEach(function (component) {
+    if (!plain(component) || !component.target_node_id) return;
+    var assessment = assessments[component.workload_id + '|' + component.target_node_id];
+    if (!assessment) return;
+    var contract = component.workload_contract;
+    if (!plain(contract) || Object.keys(contract).length !== 4 ||
+        contract.kind !== assessment.requirement_kind ||
+        contract.schema_version !== assessment.requirement_schema_version ||
+        contract.producer !== assessment.requirement_producer ||
+        contract.digest !== assessment.requirement_digest) {
+      errors.push('workload requirement provenance/digest mismatch: ' + component.workload_id);
+    }
   });
 }
 fail(errors);
@@ -147,6 +217,14 @@ var desiredNodes = {};
 registry.nodes.forEach(function (node) { if (plain(node) && ID.test(node.node_id || '')) desiredNodes[node.node_id] = node; });
 var drift = []; var states = [];
 function add(category, data) { drift.push(Object.assign({ category: category }, data)); }
+observation.node_capabilities.forEach(function (node) {
+  if (!desiredNodes[node.node_id]) {
+    add('extra-node', { node_id: node.node_id, evidence_id: node.evidence.evidence_id });
+  }
+  if (instant(node.valid_until) <= now) {
+    add('stale-evidence', { node_id: node.node_id, evidence_id: node.evidence.evidence_id });
+  }
+});
 var desiredWorkloads = {};
 registry.components.forEach(function (component, index) {
   if (!plain(component)) { add('missing-evidence', { detail: 'invalid desired component at index ' + index }); return; }
@@ -162,10 +240,15 @@ registry.components.forEach(function (component, index) {
   if (!ID.test(targetNodeId || '') || !desiredNodes[targetNodeId]) { add('missing-evidence', { workload_id: workloadId, detail: 'desired target_node_id does not reference a registered node' }); return; }
   var target = desiredNodes[targetNodeId];
   if (target.hostname !== component.host) add('missing-evidence', { workload_id: workloadId, node_id: targetNodeId, detail: 'desired host and target node disagree' });
-  if (!plain(component.workload_contract) || component.workload_contract.kind !== 'workload-requirement' || component.workload_contract.schema_version !== 'v1' || Object.keys(component.workload_contract).length !== 2) add('missing-evidence', { workload_id: workloadId, detail: 'desired workload must reference workload-requirement v1 exactly' });
+  if (!plain(component.workload_contract) || component.workload_contract.kind !== 'workload-requirement' ||
+      component.workload_contract.schema_version !== 'v1' ||
+      component.workload_contract.producer !== component.repo ||
+      !DIGEST.test(component.workload_contract.digest || '') ||
+      Object.keys(component.workload_contract).length !== 4) {
+    add('missing-evidence', { workload_id: workloadId, detail: 'desired workload must exactly pin owner-published workload-requirement v1 provenance and digest' });
+  }
   var node = observation.node_capabilities.filter(function (candidate) { return candidate.node_id === targetNodeId; })[0];
   if (!node) { add('missing-evidence', { workload_id: workloadId, node_id: targetNodeId, detail: 'no Brokkr node capability evidence' }); return; }
-  if (instant(node.valid_until) <= now) add('stale-evidence', { workload_id: workloadId, node_id: targetNodeId, evidence_id: node.evidence.evidence_id });
   if (node.capability_status !== 'known' || ['arm64', 'x86_64'].indexOf(node.architecture) === -1) add('incompatible-capability', { workload_id: workloadId, node_id: targetNodeId, compatibility: 'unknown', detail: 'node capability cannot drive placement' });
   var assessment = assessments[workloadId + '|' + targetNodeId];
   if (!assessment) add('missing-evidence', { workload_id: workloadId, node_id: targetNodeId, detail: 'no Brokkr capability assessment bound to the workload contract' });
@@ -185,9 +268,23 @@ registry.components.forEach(function (component, index) {
   if (observed.healthy !== healthyExpected) add('health-state', { workload_id: workloadId, node_id: targetNodeId, expected: healthyExpected, observed: observed.healthy });
   observed.units.forEach(function (unit) { if (units.indexOf(unit) === -1) add('extra-live-unit', { workload_id: workloadId, node_id: observed.node_id, unit_id: unit }); });
 });
+observation.workloads.forEach(function (workload) {
+  var desired = desiredWorkloads[workload.workload_id];
+  if (desired && desired.target_node_id) return;
+  add('extra-workload', { workload_id: workload.workload_id, node_id: workload.node_id });
+  workload.units.forEach(function (unit) {
+    add('extra-live-unit', { workload_id: workload.workload_id, node_id: workload.node_id, unit_id: unit });
+  });
+});
+observation.capability_assessments.forEach(function (assessment) {
+  var desired = desiredWorkloads[assessment.workload_id];
+  if (!desired || desired.target_node_id !== assessment.node_id) {
+    add('extra-assessment', { workload_id: assessment.workload_id, node_id: assessment.node_id });
+  }
+});
 if (instant(observation.valid_until) <= now) add('stale-evidence', { evidence_id: observation.evidence.evidence_id, detail: 'placement observation expired' });
 
-var categoryOrder = ['incompatible-capability', 'extra-live-unit', 'missing-workload', 'stale-evidence', 'missing-evidence', 'deployment-state', 'running-state', 'health-state'];
+var categoryOrder = ['incompatible-capability', 'extra-node', 'extra-workload', 'extra-assessment', 'extra-live-unit', 'missing-workload', 'stale-evidence', 'missing-evidence', 'deployment-state', 'running-state', 'health-state'];
 drift.sort(function (left, right) {
   var category = categoryOrder.indexOf(left.category) - categoryOrder.indexOf(right.category);
   if (category) return category;
