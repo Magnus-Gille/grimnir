@@ -5,6 +5,10 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DOC="$REPO_ROOT/docs/maintenance-policy-contract.md"
 AGENTS="$REPO_ROOT/AGENTS.md"
+# The document index moved out of AGENTS.md into docs/index.md (progressive
+# disclosure). Discoverability assertions target the index; test-doc-index.sh
+# separately asserts that AGENTS.md still reaches the index in one hop.
+INDEX="$REPO_ROOT/docs/index.md"
 AUTHORITY="$REPO_ROOT/docs/authority.md"
 PASS=0
 FAIL=0
@@ -47,8 +51,9 @@ assert_contains "$DOC" "keeps additionalProperties closed everywhere" 'additiona
 assert_contains "$DOC" "confirms node-substrate compatibility without modifying it" 'byte-for-byte untouched'
 assert_contains "$DOC" "confirms node-substrate tests still pass" 'passes unmodified \(10/10 existing hermetic fixture scenarios\)'
 assert_contains "$DOC" "declares out-of-scope execution" 'Out of scope for v1'
-assert_contains "$AGENTS" "references the maintenance-policy contract doc" 'maintenance-policy-contract\.md'
-assert_contains "$AGENTS" "references the maintenance-policy schema" 'maintenance-policy-v1\.schema\.json'
+assert_contains "$AGENTS" "instruction file reaches the document index in one hop" 'docs/index\.md'
+assert_contains "$INDEX" "index references the maintenance-policy contract doc" 'maintenance-policy-contract\.md'
+assert_contains "$INDEX" "index references the maintenance-policy schema" 'maintenance-policy-v1\.schema\.json'
 assert_contains "$AUTHORITY" "maps maintenance-policy authority" 'maintenance.policy'
 
 if [[ "$FAIL" -eq 0 ]]; then
