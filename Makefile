@@ -60,6 +60,9 @@ test-maintenance-policy-contract: ## Validate the maintenance-policy v1 schema, 
 test-maintenance-policy-contract-doc: ## Regression test: assert the maintenance-policy intent/DST/digest contract (issue #134)
 	@bash tests/scripts/test-maintenance-policy-contract-doc.sh
 
+test-doc-index: ## Regression test: assert docs/index.md stays reachable, complete, and constraint-preserving
+	@bash tests/scripts/test-doc-index.sh
+
 test-network-operating-model: ## Regression test: assert the NAS/control network operating policy (issue #12)
 	@bash scripts/tests/network-operating-model.test.sh
 
@@ -75,7 +78,7 @@ test-runtime-state: ## Desired runtime and deployment-state validation (issue #1
 test-worktree-hygiene: ## Unit + fixture tests for the worktree/deploy hygiene audit (issue #87)
 	@bash scripts/tests/worktree-hygiene.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-doc-index ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
