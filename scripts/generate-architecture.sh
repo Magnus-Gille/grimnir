@@ -137,6 +137,15 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   # shellcheck source=scripts/lib/notify.sh
   # shellcheck disable=SC1091
   source "$SCRIPT_DIR/lib/notify.sh"
+  # Exit-status contract: audit success vs. fleet cleanliness are different
+  # questions — see scripts/lib/validate-exit.sh for the rationale.
+  # shellcheck source=scripts/lib/validate-exit.sh
+  # shellcheck disable=SC1091
+  source "$SCRIPT_DIR/lib/validate-exit.sh"
+
+  # Set to a non-empty reason string the moment the audit itself (not a
+  # finding) cannot do its job — see scripts/lib/validate-exit.sh.
+  AUDIT_ERROR=""
 
   # Find Munin token (same logic as main mode)
   if [[ -z "$MUNIN_TOKEN" ]]; then
@@ -161,7 +170,14 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   FAIL=0
   RESULTS=""
 
-  # Read host-aware registry data
+  # Read host-aware registry data. Captured (not piped via process
+  # substitution) so a registry.js failure — malformed services.json, node
+  # crash — is an explicit AUDIT_ERROR instead of silently yielding zero rows
+  # and a false-clean "0 issues" report (issue: exit-status semantics).
+  if ! validate_rows="$(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")"; then
+    AUDIT_ERROR="cannot read registry ($REGISTRY) via $REGISTRY_JS"
+  fi
+
   while IFS='|' read -r v_name v_host v_port v_repo v_deploy_path v_deploy_mode v_deploy v_runtime_state v_units_json; do
     [[ -z "$v_name" ]] && continue
 
@@ -336,7 +352,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
       RESULTS+="✅ $v_name:$STATUS_LINE\n"
       PASS=$((PASS + 1))
     fi
-  done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")
+  done <<< "$validate_rows"
 
   # ─── Registry checkout integrity (#47) ───────────────────
   # The canonical grimnir checkout on huginmunin is the source every registry
@@ -395,6 +411,9 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
 
   WT_PASS=0
   WT_FAIL=0
+  if [[ ! -d "$REPOS_DIR" ]]; then
+    AUDIT_ERROR="${AUDIT_ERROR:-cannot enumerate worktrees ($REPOS_DIR not found)}"
+  fi
   shopt -s nullglob
   for wt_repo_dir in "$REPOS_DIR"/*/; do
     wt_repo_dir="${wt_repo_dir%/}"
@@ -443,7 +462,19 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   echo "Summary: $PASS ok, $FAIL issues, $WARN warnings"
   echo ""
 
-  # Write to Munin if token available
+  # Severity token for consumers (Munin content, Heimdall) that want a single
+  # field to render rather than re-deriving it from counts.
+  if [[ "$FAIL" -gt 0 ]]; then
+    SEVERITY="issues"
+  elif [[ "$WARN" -gt 0 ]]; then
+    SEVERITY="warnings"
+  else
+    SEVERITY="clean"
+  fi
+
+  # Write to Munin if token available. This IS the reporting channel: whether
+  # findings above actually reach the owner depends on this succeeding, not
+  # on the FAIL count — see scripts/lib/validate-exit.sh.
   VALIDATION_PERSISTED=false
   if [[ -n "$MUNIN_TOKEN" ]]; then
     # Munin helpers (inline — validation mode is self-contained)
@@ -452,6 +483,8 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     }
 
     validation_content="## Registry Validation — $TIMESTAMP
+
+findings: $FAIL, warnings: $WARN, severity: $SEVERITY
 
 $PASS ok, $FAIL issues, $WARN warnings
 
@@ -477,14 +510,21 @@ $(echo -e "$RESULTS")"
       echo "⚠ Failed to write validation results to Munin"
     fi
 
-    # Also log the event
-    log_payload="$(CONTENT_VAL="Registry validation: $PASS ok, $FAIL issues at $TIMESTAMP" node --input-type=commonjs -e '
+    # Also log the event. Root cause of the historical "Failed to append
+    # validation event to Munin" failure: this namespace was "validation/"
+    # (trailing slash). Munin's write-target grammar rejects trailing/doubled
+    # slashes as ambiguous (confirmed live: {"ok":false,"error":"validation_error",
+    # "message":"Invalid namespace \"validation/\" ... Did you mean \"validation\"?"}).
+    # memory_write's "validation/registry" call above was never affected because
+    # it has no trailing slash — only this memory_log call broke, silently
+    # amputating the one channel meant to carry findings to the owner.
+    log_payload="$(CONTENT_VAL="Registry validation: $PASS ok, $FAIL issues, $WARN warnings at $TIMESTAMP (severity=$SEVERITY)" node --input-type=commonjs -e '
       console.log(JSON.stringify({
         jsonrpc: "2.0", id: 1, method: "tools/call",
         params: {
           name: "memory_log",
           arguments: {
-            namespace: "validation/",
+            namespace: "validation",
             content: process.env.CONTENT_VAL,
             tags: ["validation", "registry", "automated"]
           }
@@ -497,18 +537,24 @@ $(echo -e "$RESULTS")"
     fi
 
     if [[ "$VALIDATION_PERSISTED" == "true" ]]; then
-      echo "📡 Results written to Munin (validation/registry/latest)"
+      echo "📡 Results written to Munin (validation/registry/latest, findings=$FAIL severity=$SEVERITY)"
     fi
   else
     echo "⚠ No Munin token — results printed to stdout only"
   fi
 
-  # A systemd-successful run means both the live checks and their durable
-  # operator-facing record succeeded. Findings remain in stdout/Munin first.
-  if [[ "$FAIL" -gt 0 ]] || [[ "$VALIDATION_PERSISTED" != "true" ]]; then
-    exit 1
-  fi
-  exit 0
+  # ─── Exit contract ─────────────────────────────────────────
+  # Exit status reports whether the AUDIT ran to completion and could report
+  # its findings — NOT whether the fleet is clean. See
+  # scripts/lib/validate-exit.sh for the full rationale and the pure decision
+  # functions under test. A non-zero exit here means systemd should alarm
+  # because the audit itself is broken (couldn't read its inputs, couldn't
+  # enumerate what it needed to check, or couldn't durably report what it
+  # found) — never because it found problems. Findings remain visible in
+  # stdout/journal always, and in Munin whenever the reporting channel above
+  # is healthy.
+  audit_status_line "$FAIL" "$WARN" "$AUDIT_ERROR" "$VALIDATION_PERSISTED"
+  exit "$(audit_exit_code "$AUDIT_ERROR" "$VALIDATION_PERSISTED")"
 fi
 
 # ─── Detect environment (normal mode) ────────────────────────
