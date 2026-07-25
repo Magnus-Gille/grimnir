@@ -1,105 +1,127 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-25 (Claude) — publication, roadmap batch, and substrate-contract work
-**Latest system revision:** grimnir `a201afd` (maintenance-policy v1 contract)
+**Last session:** 2026-07-25/26 (Claude) — monitoring correctness, deploy safety, and a backlog audit
+**Latest system revision:** grimnir `87dfc6f` (deploy unit-path guard)
 
 ## The headline
 
-Two repositories were taken public to escape a GitHub Actions billing wall, the stabilization
-sweep's loose ends were closed, and eight roadmap tickets shipped across six repositories with
-four certified production deploys. The substrate maintenance program is now unblocked: Grimnir
-defines `maintenance-policy` v1 and Brokkr already consumes it through a read-only planner.
-Munin Memory remained excluded throughout (parallel session).
+Heimdall was the session's centre of gravity and its open alerts went from **9 of unknown truth to 5,
+all verified true**, then to a state where every remaining alert is either actionable or a known
+miscalibration with a filed ticket. The root cause was not any single bug: **production Heimdall had
+been running the committed *demonstration* config since the 2026-07-19 public release**, with RFC 5737
+documentation addresses and demo host names. Backup and disk probes were dark for three days.
+
+A second theme ran through the whole session: **the issue tracker is not evidence about the running
+system, in either direction.** Four issues were open after their work was done; one (#69) asserted a
+service was missing while it was running fine.
 
 ## Completed this session
 
-### Publication (owner-approved, per repository)
+### Merged and deployed
 
-- **Ratatoskr and Verdandi are public.** Full-history `gitleaks` scans found no real secrets across
-  108 commits. Added README, MIT LICENSE, and SECURITY.md to both; Verdandi's README states its
-  stopped status honestly (publication is a visibility change, not a restart). Two real tailnet IPs
-  were scrubbed from Ratatoskr — the second (the M5 gateway address) was caught only by an
-  independent adversarial review after the first pass missed it. Retired CGNAT addresses remain in
-  old history as documented, accepted residual risk.
-- Publication also cleared the immediate CI blocker: both repositories now run Actions on the free
-  public tier.
+| repo | PR | commit | change |
+|---|---|---|---|
+| heimdall | #25 | `945847c` | alarm correctness + display reduction; deployed |
+| grimnir | #148 | `0e03def` | audit exit semantics + fixed Munin reporting channel; live on Pi |
+| grimnir | #150 | `87dfc6f` | deploy refuses a unit whose target contradicts `deploy_path` |
+| brokkr | #43 | `99afdb3` | `pipefail` bug that silently aborted `maintenance-os` daily; deployed |
+| hugin | #321 | `3be19f7` | Heimdall descriptor 7,754 → ~690 bytes; **not deployed** (see blockers) |
+| munin-memory | #260 | `cd80e33` | bounded `memory_orient` in every detail mode |
+| munin-memory | #261 | `e8caef0` | exact-anchor retrieval floor |
+| munin-memory | #265 | `2eaa4e5` | release v0.6.1; deployed to huginmunin |
+| gille-inference | #92 | `125b0f3` | canonicalize task-type identity for authority gates |
+| gille-inference | #93 | `7c628ff` | stamped vs defaulted delegator attribution |
 
-### Roadmap tickets shipped
+Deployed and certified: gille-inference `125b0f3` (owner-run), munin-memory v0.6.1, heimdall
+`945847c`, brokkr `99afdb3`, grimnir `0e03def` on the Pi checkout.
 
-- **Grimnir #134** — `maintenance-policy` v1: closed schema, intent-only contract with explicit DST
-  behavior, a deterministic `maintenance-policy-digest-jcs-v1` digest, and 12 adversarial fixture
-  categories. Unblocks the Brokkr maintenance epic.
-- **Brokkr #33** — read-only maintenance observation and plan, the contract's first consumer.
-  Consumes the Grimnir schema and fixtures as a SHA-pinned vendor copy rather than re-deriving them.
-- **Gille Inference #74** — bounded local-review lane (`review-bounded`) with three contract-shaped
-  subtask kinds, a deterministic verifier, and an advisory-only guardrail; `code-review` stays
-  frontier-only. **#57** — three watchdog revert-path follow-ups, red/green. **#15** — corrected
-  `$HS_API_KEY` documentation with a consistency test. **#73** — Node 24 action pins.
-- **Heimdall #5** — thermal zones discovered from sysfs by declared type (zone index is boot-order,
-  not an identifier); fixed in all three collectors. **#6** — insight KPI thresholds moved to shared,
-  documented bands where unknown never renders as good.
-- **Hugin #316**, **fortnox-mcp #81**, **Ratatoskr #52**, **Verdandi #24** — Node 24 immutable action
-  pins and deployment-checkout cleanliness.
+### Heimdall — what was actually wrong
 
-### Deploys (all certified against the running service)
+- **`commits_behind = -1`** (`drift.js:280`, `else { commitsBehind = -1 }`) produced 6 of the 9 alerts.
+  Drift now resolves to `up-to-date | drift | ahead | unknown`, per repo rather than per systemd unit,
+  with "not measurable" rendered distinctly from "behind".
+- **Zombie alerts** bound to a dead host identity (`huginmunin` stopped reporting 2026-07-23 while the
+  same machine reported as `control-node`). Reconciled via `fleet.host_aliases` plus a staleness reaper.
+- **Real failures were silent** while false ones were loud: `brokkr-maintenance-os` (exit 1 daily) and
+  `grimnir-validate` raised no alert at all.
+- **Production ran the demo config.** `HEIMDALL_CONFIG_PATH` and `GRIMNIR_SERVICES_JSON` were both
+  unset, so RFC 5737 addresses were live. Fixed with a non-repo overlay at
+  `/home/magnus/.heimdall/config.json` (mode 0600) plus `HEIMDALL_STORAGE_SSH_USER=magnus` and
+  `HEIMDALL_STORAGE_SSH_HOST`. **Three separate places defaulted to documentation addresses**; all
+  three had to be fixed before a single metric flowed. NAS probes revived after three days dark.
 
-- Gille Inference `abe9f08` then `7dd9ddf` to M5: tailnet health, authenticated capability probe 200,
-  autonomy timer re-armed, marker stamped only after every check passed.
-- Heimdall `71e6429` to the control node, plus the Python fleet agent to the NAS. Live-verified by
-  a post-restart CPU temperature sample on the control node and a real Pi sysfs reading from the NAS.
+### Deploy safety
 
-### Repository hygiene
+`grimnir#150` was written because `make deploy` **took Munin Memory down for ~10 minutes**: it rsynced
+code to the registry `deploy_path` and installed a unit pointing at `/srv/grimnir/munin-memory`, a path
+that does not exist on the host. Recovery worked only because a March-era `.bak` happened to survive.
 
-- 96 stale worktrees and merged branches removed across ten repositories, each verified clean and
-  byte-identical to its merged PR head first. Nine canonical checkouts fast-forwarded.
+The guard immediately found **two more armed instances**: `mimir` (unit says `User=mimir`,
+`/home/mimir/mimir-server` — neither exists on the NAS; filed mimir#29) and `brokkr` (unit runs from
+`~/.local/lib/brokkr` while the registry says `/home/magnus/repos/brokkr` — a silent no-op deploy).
+
+### Backlog reconciliation
+
+Audited all 35 open grimnir issues: **1 delivered, 11 partial, 23 open**. Corrected #102 (NOT
+delivered — `hugin#289` open, so acceptance criterion 4 unmet), #78 (2 of 3 "remaining" repos already
+gone), #90 (only `claude-config#11` outstanding). Closed **#69 as invalid** and recorded the trial
+dates in `docs/skuld-trial-decision.md` (PR #147) — they were blank placeholders, so the day-28 gate
+could never come due.
 
 ## Important incidents and learnings
 
-- **A wrong assumption, corrected in the record.** The Heimdall NAS temperature fix was reviewed on
-  the assumption that the NAS reports through the SSH forced-command probe. It does not —
-  `/home/heimdall` and the `heimdall` user do not exist on the NAS (likely lost in the relocation
-  rebuild); it reports through the Python push agent. Filed as heimdall#23: the SSH storage probe is
-  either dead code that looks canonical or an intended path failing silently.
-- **The M5 review lane splits along task shape, and that is now measured.** Bounded single-question
-  reviews were reliable across both sessions, including a substring-edge case and a four-part
-  shell-semantics check. A whole-patch adversarial review produced four findings, all refuted — one
-  would have removed claim-token fencing. A later bounded review reasoned a guardrail correctly and
-  then stamped the opposite verdict label. Conclusion, recorded on gille-inference#25 and encoded in
-  #74: score machine-checkable structured fields, never a model's prose verdict.
-- **Contract claims were verified by independent computation, not by re-running their own tests.**
-  The maintenance-policy DST fixtures were checked against the real tz database, and its digest was
-  reproduced by a second implementation written from the prose spec alone.
+- **The deploy outage (grimnir#146).** The `/srv/grimnir` relocation is half-done: the owning repo
+  declares post-relocation units while the registry and hosts are pre-relocation, and nothing failed
+  closed. Finish or revert the relocation; it belongs with Epic C / brokkr#12.
+- **#69 nearly cost a working service.** It claimed skuld was never installed; the owner had approved
+  cutting it. Skuld runs as a **user-scope** timer — `systemctl list-units` reports zero and reads as
+  absence. Verifying against the host is the only reason a live daily briefing was not archived.
+  **"Not in `systemctl list-units`" is not evidence a service is absent.**
+- **Thresholds encoded assumptions nobody had checked.** Three tickets (heimdall#27, #28, #29) share one
+  shape: a constant standing in for a property that should be read from the thing being monitored — a
+  demo config assumed real, a 6h backup threshold against a **weekly** schedule
+  (`AutoBackupInterval = 604800`), an 80% disk rule against a volume deliberately run near-full by quota.
+- **M5 splits by task shape, again.** Bounded structural extraction was reliable and produced a real
+  review finding; anything reasoning-shaped failed (it returned an inverted answer on brokkr control
+  flow and was discarded). Under four concurrent agents, two independently recovered from "server is
+  busy" by **trimming the prompt** rather than waiting — pointing at admission behaviour, not raw
+  capacity. Recorded on gille-inference#25.
 
 ## Next steps (priority order)
 
-1. **Owner: fix GitHub Actions billing.** Private-repo CI is still refused at job start; skuld PR #12
-   is reviewed and one click from merge once it can run. Grimnir #140 scopes the self-hosted-runner
-   alternative (private repositories only — never a public repo).
-2. Brokkr #40 — surface unservable policy-requested update classes at the plan envelope level before
-   #10/#35 consume the plan.
-3. Gille Inference #80 — normalize caller-supplied `task_type` so the advisory-only guardrail cannot
-   be bypassed by whitespace or case.
-4. Heimdall #23 — decide whether the SSH storage probe is retired or repaired.
-5. Grimnir #139 (fleet-wide action-pin policy) and #136 (Claude capacity preflight) are in flight in
-   other sessions; skuld #13 proposes routing the commitment extractor to M5.
-6. Carry over from the prior sweep: reconcile repository origins from #115, and schedule the pending
-   M5 reboot and Pi firmware updates when work can tolerate interruption.
+1. **grimnir#149** — set `HEIMDALL_HUB_URL`/`HEIMDALL_FLEET_TOKEN` for Hugin **before** deploying it, or
+   the capability-evidence panels disappear rather than move.
+2. **mimir#29** — armed to take Mimir down on its next deploy. The guard now refuses it, but the
+   underlying contradiction stands.
+3. **gille-inference#95** — policy reads canonical identity while the ledger writes verbatim, so failures
+   cannot degrade a lane. Blocks #85 (first enforced lane).
+4. **#85** — then enforce one lane (`reason-hard @ gpt-oss-120b`, `numeric`-verified: 25/25, p90 13,731 ms)
+   with pre-registered thresholds and a *tested* rollback.
+5. **heimdall#26/#27/#28/#29** — snapshot staleness, non-repo config with a documentation-address
+   assertion, and the two threshold miscalibrations.
+6. **gille-inference#96** — price the five delegator ids in use; `verified_savings_actual_usd` stays $0.00
+   until then, which also blocks grimnir#67.
+7. **brokkr#44** — turn the 8-variable deploy incantation into a committed profile.
+8. **The `/srv/grimnir` relocation decision** (grimnir#146) — finish or revert.
 
 ## Blockers / owner input
 
-- **GitHub Actions billing** — the only true blocker. It refuses private-repo CI jobs before they
-  start, which forced the publication decision and still holds skuld #12.
-- Disruptive maintenance timing (M5 reboot, Pi firmware) remains unscheduled.
+- **Time Machine migration in progress.** Destination moved to m5 (4TB, `smb://magnus@m5._smb._tcp.local./TimeMachine`)
+  and re-added with encryption; the initial full backup (~786 GiB) was running at session close as
+  `Magnus MacBook Air <uuid>.incomplete`. **Do not remove the NAS destination until it completes** — an
+  `.incomplete` bundle is not restorable, so the NAS is currently the only usable backup.
+- **Hugin deploy blocked** on grimnir#149.
+- GitHub Actions billing for private repos remains the standing blocker from prior sessions.
 
 ## Verification at close
 
-- Every merged PR had green CI plus independent review; each also received a bounded M5 pass, with
-  declines recorded on the PR when M5 findings did not survive validation.
-- Gille Inference: `7dd9ddf` deployed; live `/v1/capabilities/review-lane` confirms `code-review`
-  frontier-only and `review-bounded` local-advisory with `promoted: false`.
-- Heimdall: `71e6429` live, `/api/health` reports the exact merged SHA; post-deploy temperature
-  samples confirmed on both the control node and the NAS.
-- Grimnir: `make test` 117 passed / 0 failed; the node-substrate contract still validates 10/10, so
-  v1 consumers are unaffected by the new maintenance contract.
-- Brokkr: full suite and shellcheck clean; the maintenance planner's non-mutation property was
-  verified structurally (single exec call site behind an allowlist, argv array, no shell).
+- Every merged PR had green CI plus independent review with executed verification — regressions
+  mutation-tested to confirm they fail without the fix, not merely inspected.
+- Heimdall's `test/live-alert-state.test.js` replays the nine real alerts and asserts each corrected
+  outcome (8/8 passing), including that an audit reporting 2 findings raises **no** failure alert.
+- `grimnir-validate` verified live under systemd: exit **0**, `Result=success`,
+  `AUDIT OK: ran to completion — 2 finding(s)`, and `Results written to Munin (findings=2 severity=issues)`
+  after months of a silent trailing-slash failure (`validation/` vs `validation`).
+- NAS probes confirmed revived: `disk_used_pct_nas`, `tm_last_backup`, `munin_backup_latest/count` all
+  updated after being frozen since 2026-07-22.
+- grimnir `make test` 117 passed / 0 failed plus the new 12-test exit-contract suite; shellcheck clean.
