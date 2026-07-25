@@ -121,6 +121,8 @@ the annotation, not only the filename.
 | `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets | `make security` |
 | `scripts/worktree-hygiene-audit.sh` | Read-only audit of stale/dirty/orphaned worktrees, canonical-checkout drift, and deploy-target role violations across owned repos | `scripts/worktree-hygiene-audit.sh` (also wired into `scripts/generate-architecture.sh --validate`); tests via `make test-worktree-hygiene` |
 | `scripts/tests/ab-instructions-eval.sh` | A/B a change to the agent-instruction files against a frozen retrieval probe set | `scripts/tests/ab-instructions-eval.sh --before DIR --after DIR` |
+| `scripts/tests/ab-rescore.sh` | Recompute A/B verdicts from retained raw streams after a detector fix, instead of re-running the eval | `scripts/tests/ab-rescore.sh RAW_DIR` |
+| `tests/scripts/test-doc-index.sh` | Guard: fails when a doc exists but is not indexed here, when a required constraint annotation is dropped, or when a behavioural rule leaves `AGENTS.md` | `make test` |
 
 > OS patching (`setup-host-patching.sh`) and maintenance reports (`maintenance-report.sh`) have moved
 > to the `brokkr` repo. Use `make patching` / `make maintenance-os` / `make maintenance-deps` from

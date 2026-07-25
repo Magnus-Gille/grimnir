@@ -34,7 +34,42 @@ is scored on `assert` only, and it passed 3/3 in both arms in every run.
 
 Parity holds probe-by-probe. `session-posture` scored 1/3 in **both** arms in this run after
 scoring 3/3 in runs 1–2 — unexplained probe variance, not attributable to the change. `AGENTS.md`
-went from 1273 to 698 words.
+went from 1325 to 698 words. Both arms recorded `errors: 0` in all four runs, so no run was scored
+as a miss because it failed or timed out.
+
+**Read the denominators carefully.** The table above is the *retrieval-only* slice (10 probes × 3).
+The iteration history below quotes *whole-set* rates (all 13 probes × 3), because that is what runs
+1–2 were scored on. Under that same whole-set metric run 4 is **before 0.872 / after 0.795** —
+numerically below run 2's 0.846. The entire 7.7-point gap is `verdandi-restart` going 3/3 → 0/3,
+which is the desirable behaviour described under Findings, not a retrieval loss. Both framings are
+stated here rather than only the flattering one.
+
+The `before` arm was built from `7579a6e`, whose `AGENTS.md` is 1273 words. The PR's merge-base is
+`1497326` at 1325 words — #141 and #142 added ~52 words of index after the probe freeze. So the arm
+measured an instruction file two commits older than the one actually being replaced. No probe
+targets the maintenance-policy docs, and the extra 52 words would only widen the token gap in the
+change's favour, so the direction of the result is unaffected.
+
+### Per-probe record (run 4)
+
+Reproduced here because `outputs/` is gitignored: without this table the headline numbers are not
+checkable from the repository alone, and the raw streams do not survive a fresh checkout.
+
+| probe | kind | before doc-hit | after doc-hit | before assert | after assert |
+|---|---|---|---|---|---|
+| `repo-visibility-CONTROL` | control | 0/3 | 0/3 | 3/3 | 3/3 |
+| `skuld-gate` | policy | 3/3 | 3/3 | 3/3 | 3/3 |
+| `verdandi-restart` | policy | 3/3 | 0/3 | 3/3 | 3/3 |
+| `data-lifecycle` | retrieval | 3/3 | 3/3 | — | — |
+| `deploy-binding` | retrieval | 3/3 | 3/3 | — | — |
+| `failure-recovery` | retrieval | 3/3 | 3/3 | — | — |
+| `role-separation` | retrieval | 3/3 | 3/3 | — | — |
+| `service-inventory` | retrieval | 3/3 | 3/3 | — | — |
+| `session-posture` | retrieval | 1/3 | 1/3 | — | — |
+| `succession` | retrieval | 3/3 | 3/3 | — | — |
+| `tenant-contract` | retrieval | 3/3 | 3/3 | — | — |
+| `threat-model` | retrieval | 3/3 | 3/3 | — | — |
+| `worktree-hygiene` | retrieval | 3/3 | 3/3 | — | — |
 
 ## Iteration history
 
@@ -49,10 +84,13 @@ Runs 1–3 rates are restated under the corrected detector (see below), not as o
 
 ## Findings
 
-**The failure mode of progressive disclosure is confabulation, not slow retrieval.** In run 1, six
-runs made *zero tool calls*: the agent did not search and come up empty, it produced a confident and
-well-structured invented account of the recovery convention. The inline descriptions had been
-signalling *that a recorded answer exists*, not merely where it lives.
+**The failure mode of progressive disclosure is confabulation, not slow retrieval.** In run 1,
+**five `after`-arm runs made zero tool calls against zero in `before`**: the agent did not search and
+come up empty, it produced a confident and well-structured invented account of the recovery
+convention. The inline descriptions had been signalling *that a recorded answer exists*, not merely
+where it lives. (Seven runs made zero tool calls in total, but two of those were the control probe,
+where making no tool call is the *correct* behaviour — and the `before` arm did it too. Only the
+five are anomalous.)
 
 **Partial enumerations read as exhaustive.** v1's pointer listed a sample of topics; the
 worst-scoring probes were exactly those absent from the list. This recurred one level down: v2 named
@@ -63,6 +101,32 @@ keeping", "restart *Verdandi*"). Naming the component decision records closed th
 3/3 → 0/3 in run 4 while `assert` holds 3/3. With the not-authorized status stated in `AGENTS.md`,
 the agent declines immediately and cites the instruction file. Scored on the metric that applies to
 it, that is an improvement; scored on doc-hit alone it reads as a regression.
+
+## What doc-hit cannot see
+
+Independent review of this change found a blind spot in the primary metric, and it is the most
+important thing recorded here.
+
+`doc_hit` measures whether an agent *that was asked a question* goes and opens the right document.
+It cannot measure an agent that was **never asked**, and therefore never realised a constraint
+applied. So a rule that states an *obligation* rather than a *location* loses something real when it
+moves behind the index, and the eval reports parity regardless.
+
+Three such rules were caught before merge: the autonomous-mutation reversal recipe **and audit
+event** (of which "audit event" had been dropped from both files entirely), the required Hugin
+handoff after untrusted input, and the canonical-checkout/deploy-target separation. All three are
+now stated inline in `AGENTS.md` and guarded by `REQUIRED_INLINE_RULES` in
+`tests/scripts/test-doc-index.sh`.
+
+The general rule for anyone repeating this on another repository: **classify by whether the text
+changes what an agent does, not by whether it looks like a table.** Reference material moves;
+obligations stay. A metric that only scores retrieval will not warn you.
+
+A second review finding in the same family: an early version of the pointer named Hugin, Munin and
+Brokkr among the per-component decision records and instructed the agent to "assume a record
+exists". No such records exist. That is the run-1 confabulation defect reintroduced from the
+opposite direction — by over-enumeration rather than under-enumeration. Corrected to name only the
+records that exist, and to say *check before concluding none exists*.
 
 ## Harness defect found mid-flight
 

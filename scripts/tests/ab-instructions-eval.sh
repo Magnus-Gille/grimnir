@@ -58,6 +58,10 @@ mkdir -p "$RAW_DIR"
 
 command -v claude >/dev/null || { echo "claude CLI not found" >&2; exit 1; }
 command -v jq >/dev/null || { echo "jq not found" >&2; exit 1; }
+# Not a stock macOS tool — it ships with GNU coreutils. Checked here because it is
+# used unconditionally per run, so a missing binary would otherwise surface as 78
+# identical "run failed" results that look like a real regression.
+command -v timeout >/dev/null || { echo "timeout not found (brew install coreutils)" >&2; exit 1; }
 
 PROBE_IDS=()
 while IFS= read -r id; do PROBE_IDS+=("$id"); done < <(jq -r '.probes[].id' "$PROBES")

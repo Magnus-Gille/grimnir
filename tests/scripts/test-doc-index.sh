@@ -64,6 +64,22 @@ for annotation in "${REQUIRED_ANNOTATIONS[@]}"; do
   fi
 done
 
+# 3b. Some rules state an obligation rather than a location. An agent that never
+#     thinks to ask the question still has to honour them, so they must stay in
+#     the always-loaded instruction file — moving them behind the index would be
+#     invisible to the A/B, whose doc-hit metric only measures agents that went
+#     looking. Guarded here because that blind spot makes drift easy to miss.
+declare -a REQUIRED_INLINE_RULES=(
+  "reversal recipe and an audit event"
+  "Hugin handoff"
+  "must not** double as a deploy target"
+)
+for rule in "${REQUIRED_INLINE_RULES[@]}"; do
+  if ! grep -qF "$rule" "$AGENTS"; then
+    err "behavioural rule lost from $AGENTS: \"$rule\" — it must not move to $INDEX"
+  fi
+done
+
 # 4. The instruction file stays lean. This is the whole point of the split; a
 #    generous ceiling that still catches the index creeping back in.
 words=$(wc -w < "$AGENTS")
