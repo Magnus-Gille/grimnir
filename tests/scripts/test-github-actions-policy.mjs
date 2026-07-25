@@ -15,6 +15,18 @@ const grimnirUpstream = path.join(
   repoRoot,
   "tests/fixtures/github-actions-policy/grimnir-upstream.json",
 );
+const policySource = readFileSync(script, "utf8");
+
+assert.match(
+  policySource,
+  /\/git\/trees\//,
+  "live inventory must walk the exact Git tree, not only Actions API-visible workflows",
+);
+assert.doesNotMatch(
+  policySource,
+  /\/actions\/workflows/,
+  "live inventory must not silently omit workflow files absent from the Actions API",
+);
 
 function runFixture() {
   return spawnSync(process.execPath, [script, "--fixture", fixture, "--format", "json"], {
@@ -39,7 +51,7 @@ assert.deepEqual(
     status,
   })),
   [
-    { repository: "Magnus-Gille/alpha", workflow_count: 1, uses_count: 10, status: "audited" },
+    { repository: "Magnus-Gille/alpha", workflow_count: 1, uses_count: 11, status: "audited" },
     { repository: "Magnus-Gille/billing-repo", workflow_count: 0, uses_count: 0, status: "evidence-unavailable" },
     { repository: "Magnus-Gille/transport-repo", workflow_count: 0, uses_count: 0, status: "evidence-unavailable" },
   ],
@@ -124,10 +136,15 @@ assert.equal(
   false,
   "approved local Node 24 action produced a finding",
 );
+assert.equal(
+  report.findings.some((finding) => finding.action === "vendor/reusable"),
+  false,
+  "approved pinned remote reusable workflow produced a runtime finding",
+);
 assert.deepEqual(report.summary, {
   repositories: 3,
   workflows: 1,
-  uses: 10,
+  uses: 11,
   policy_errors: 6,
   evidence_errors: 4,
 });

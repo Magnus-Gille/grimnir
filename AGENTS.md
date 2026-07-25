@@ -126,6 +126,14 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 - `docs/agent-harness-bakeoff-2026-07-08.md` — Evidence note on open-source, model-agnostic agent
   harnesses. Goose and OpenCode both completed M5-backed edit/test loops; OpenCode is the recommended
   first Hugin coding-lane adapter, Goose the general-worker candidate.
+- `docs/adr-007-node-substrate-contract.md` — Node/Substrate authority boundary (desired vs. observed
+  vs. required vs. lifecycle-result) implemented by `docs/node-substrate-contract-v1.schema.json` and
+  fixtures under `tests/fixtures/node-substrate-contract`
+- `docs/maintenance-policy-contract.md` — Versioned, intent-only `maintenance-policy`/`maintenance-decision`
+  contract for unattended substrate upkeep (selectors, IANA timezone/DST, windows, missed-window/overdue/
+  maximum-deferral decision rules, deterministic policy digest); machine schema
+  `docs/maintenance-policy-v1.schema.json`, fixtures and validator under
+  `tests/fixtures/maintenance-policy` and `tests/scripts/validate-maintenance-policy-contract.mjs`
 - `services.json` — **Single source of truth** for component inventory (names, hosts, ports, systemd
   units). All scripts read from it via `scripts/lib/registry.js`
 

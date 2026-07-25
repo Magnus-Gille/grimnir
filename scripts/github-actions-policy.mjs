@@ -306,8 +306,6 @@ async function auditFleet(repositories, client) {
       repoReports.push({
         owner_repo: repository.owner_repo,
         repository: repository.repository,
-        visibility: repository.visibility || "unknown",
-        snapshot_sha: null,
         workflow_count: 0,
         uses_count: 0,
         status: "evidence-unavailable",
@@ -328,8 +326,6 @@ async function auditFleet(repositories, client) {
     repoReports.push({
       owner_repo: repository.owner_repo,
       repository: repository.repository,
-      visibility: inventory.visibility || repository.visibility || "unknown",
-      snapshot_sha: inventory.snapshot_sha,
       workflow_count: workflows.length,
       uses_count: usesCount,
       status: "audited",
@@ -463,18 +459,21 @@ class GitHubClient {
     const commit = await this.requestJson(
       `/repos/${repository.repository}/commits/${encodeURIComponent(metadata.default_branch)}`,
     );
-    const workflows = [];
-    for (let page = 1; ; page += 1) {
-      const response = await this.requestJson(
-        `/repos/${repository.repository}/actions/workflows?per_page=100&page=${page}`,
-      );
-      const pageWorkflows = Array.isArray(response.workflows) ? response.workflows : [];
-      workflows.push(...pageWorkflows);
-      if (pageWorkflows.length < 100) break;
+    const tree = await this.requestJson(
+      `/repos/${repository.repository}/git/trees/${encodeURIComponent(commit.sha)}?recursive=1`,
+    );
+    if (tree.truncated || !Array.isArray(tree.tree)) {
+      throw new EvidenceError("unknown", "GitHub did not return a complete workflow tree");
     }
+    const workflows = [];
     const content = [];
-    for (const workflow of workflows) {
-      if (typeof workflow.path !== "string") continue;
+    for (const workflow of tree.tree) {
+      if (
+        workflow?.type !== "blob" ||
+        typeof workflow.path !== "string" ||
+        !workflow.path.startsWith(".github/workflows/") ||
+        !/\.ya?ml$/i.test(workflow.path)
+      ) continue;
       content.push({
         path: workflow.path,
         content: await this.readContent(repository.repository, workflow.path, commit.sha),

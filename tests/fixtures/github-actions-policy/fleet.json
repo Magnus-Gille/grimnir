@@ -8,7 +8,7 @@
       "workflows": [
         {
           "path": ".github/workflows/ci.yml",
-          "content": "name: fixture\n# SECRET_MARKER must never reach policy output\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4 # v4.2.2\n      - uses: actions/setup-node@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n      - uses: vendor/stale@cccccccccccccccccccccccccccccccccccccccc # v1.2.3\n      - uses: vendor/node20@eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee # v1.0.0\n      - uses: vendor/node24@ffffffffffffffffffffffffffffffffffffffff # v2.0.0\n      - uses: private/action@1111111111111111111111111111111111111111 # v3.0.0\n      - uses: vendor/transport@2222222222222222222222222222222222222222 # v1.0.0\n      - uses: vendor/unknown@3333333333333333333333333333333333333333 # v1.0.0\n      - uses: docker://alpine:latest\n      - uses: ./local-action\n      - run: echo do-not-expose\n"
+          "content": "name: fixture\n# SECRET_MARKER must never reach policy output\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4 # v4.2.2\n      - uses: actions/setup-node@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n      - uses: vendor/stale@cccccccccccccccccccccccccccccccccccccccc # v1.2.3\n      - uses: vendor/node20@eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee # v1.0.0\n      - uses: vendor/node24@ffffffffffffffffffffffffffffffffffffffff # v2.0.0\n      - uses: private/action@1111111111111111111111111111111111111111 # v3.0.0\n      - uses: vendor/transport@2222222222222222222222222222222222222222 # v1.0.0\n      - uses: vendor/unknown@3333333333333333333333333333333333333333 # v1.0.0\n      - uses: vendor/reusable/.github/workflows/reuse.yml@4444444444444444444444444444444444444444 # v1.0.0\n      - uses: docker://alpine:latest\n      - uses: ./local-action\n      - run: echo do-not-expose\n"
         }
       ],
       "local_manifests": {
@@ -88,6 +88,14 @@
       },
       "manifests": {
         "3333333333333333333333333333333333333333": "name: unknown\nruns:\n  using: wasm\n  main: index.wasm\n"
+      }
+    },
+    "vendor/reusable": {
+      "tags": {
+        "v1.0.0": "4444444444444444444444444444444444444444"
+      },
+      "manifests": {
+        "4444444444444444444444444444444444444444": "name: reusable\non:\n  workflow_call:\n"
       }
     }
   }

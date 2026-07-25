@@ -12,8 +12,10 @@ node scripts/github-actions-policy.mjs --format json
 ```
 
 The helper uses `GH_TOKEN` or `GITHUB_TOKEN`, falling back to `gh auth token`. The credential needs
-read access to every registered private repository that should be audited. A repository or upstream
-Action that cannot be read is an error, not a silent skip.
+read access to every registered private repository that should be audited. It enumerates the exact
+default-branch Git tree under `.github/workflows/`, rather than relying on the Actions API's visible
+workflow list, so disabled and otherwise non-API-visible workflow files are still included. A
+repository or upstream Action that cannot be read is an error, not a silent skip.
 
 ## Policy
 

@@ -137,6 +137,19 @@ set use `scripts/guarded-deploy.sh` for the same outer identity boundary; see
   or boundary health later fails, restore the host-local snapshots and verify the same controller
   and health gates before restoring the captured prior marker. See
   [`systemd-runtime-rendering.md`](systemd-runtime-rendering.md#rollback).
+- **Byte-for-byte ("install-ready") systemd units** (the majority of the fleet — components without
+  a `systemd_runtime` block): before any install, the deployer refuses to proceed if a unit's
+  `WorkingDirectory` or `EnvironmentFile` does not resolve under the component's registry
+  `deploy_path` — a deploy that rsyncs code to one path and points systemd at another must never
+  reach a stop/restart (issue #146; this is precisely the shape of the 2026-07-25 munin-memory
+  outage, where `services.json` said `/home/magnus/munin-memory` and the owning repo's unit said
+  `/srv/grimnir/munin-memory`). Once that agrees, and immediately before the subsequent install, the
+  deployer preflights the unit's declared `User=` (system scope only) and every `EnvironmentFile=`
+  for presence on the target, then — if a unit is already installed at the destination — copies it to
+  `<destination>.bak.<UTC timestamp>` and prints the backup path before overwriting. Any of these
+  checks failing aborts before daemon-reload, stop, or restart, and the deployment stays markerless.
+  Reversal recipe: restore the printed `.bak.<timestamp>` file to `<destination>`, `daemon-reload`,
+  and redeploy the previously captured `.deployed-commit` SHA.
 
 ### Auto dependency bumps
 
