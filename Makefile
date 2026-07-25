@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-github-actions-policy test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -69,7 +69,10 @@ test-runtime-state: ## Desired runtime and deployment-state validation (issue #1
 test-worktree-hygiene: ## Unit + fixture tests for the worktree/deploy hygiene audit (issue #87)
 	@bash scripts/tests/worktree-hygiene.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene ## Run all test suites
+test-github-actions-policy: ## Enforce immutable Action pins, provenance, and approved runtimes (issue #139)
+	@node tests/scripts/test-github-actions-policy.mjs
+
+test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-github-actions-policy ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md

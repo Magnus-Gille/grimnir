@@ -1,0 +1,18 @@
+{
+  "actions/checkout": {
+    "tags": {
+      "v7.0.1": "3d3c42e5aac5ba805825da76410c181273ba90b1"
+    },
+    "manifests": {
+      "3d3c42e5aac5ba805825da76410c181273ba90b1": "name: checkout\nruns:\n  using: node24\n  main: dist/index.js\n"
+    }
+  },
+  "actions/setup-node": {
+    "tags": {
+      "v7.0.0": "820762786026740c76f36085b0efc47a31fe5020"
+    },
+    "manifests": {
+      "820762786026740c76f36085b0efc47a31fe5020": "name: setup-node\nruns:\n  using: node24\n  main: dist/index.js\n"
+    }
+  }
+}

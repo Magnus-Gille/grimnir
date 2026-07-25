@@ -81,6 +81,8 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 - `docs/worktree-hygiene.md` — Multi-agent worktree/deployment hygiene protocol: stale/dirty/orphaned
   worktree detection, canonical-checkout and deploy-target role violations, non-destructive
   remediation recipes, and how to run the audit (`scripts/worktree-hygiene-audit.sh`, issue #87)
+- `docs/github-actions-policy.md` — Central read-only fleet policy for immutable Action pins,
+  release provenance, exact upstream runtime evidence, and owner-routed findings (issue #139)
 - `docs/observability-and-improvement.md` — How components capture traces, score outputs, and feed the
   self-improving loop
 - `docs/learning-task-contract.md` — Normative Hugin↔M5 learning-evidence seam: field and decision
@@ -137,6 +139,7 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 | `scripts/output-audit.py` | Audit owner+AI repository output over a date window | `python3 scripts/output-audit.py` (reads an untracked local identities config; see `scripts/output-audit-identities.example.json`) |
 | `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets | `make security` |
 | `scripts/worktree-hygiene-audit.sh` | Read-only audit of stale/dirty/orphaned worktrees, canonical-checkout drift, and deploy-target role violations across owned repos | `scripts/worktree-hygiene-audit.sh` (also wired into `scripts/generate-architecture.sh --validate`); tests via `make test-worktree-hygiene` |
+| `scripts/github-actions-policy.mjs` | Read-only fleet audit of workflow Action pins, upstream release provenance, and exact manifest runtimes | `node scripts/github-actions-policy.mjs --format text`; hermetic and owning-repo checks via `make test-github-actions-policy` |
 
 > OS patching (`setup-host-patching.sh`) and maintenance reports (`maintenance-report.sh`) have moved
 > to the `brokkr` repo. Use `make patching` / `make maintenance-os` / `make maintenance-deps` from

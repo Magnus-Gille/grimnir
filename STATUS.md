@@ -3,6 +3,12 @@
 **Last session:** 2026-07-23 (Codex) — ecosystem stabilization sweep
 **Stabilization code revision:** `b371f2d` (PR #117; later commits may be status-only)
 
+## Current work
+
+- Grimnir #139 is implemented on `agent/issue-139-action-policy` pending review: a central,
+  read-only GitHub Actions pin/provenance/runtime audit with deterministic owner-routed findings,
+  fail-closed evidence classification, hermetic fixtures, and an owning-repo CI regression.
+
 ## The headline
 
 Thirteen stability PRs across Grimnir, Gille Inference, Brokkr, Heimdall, and Mimir are merged,
