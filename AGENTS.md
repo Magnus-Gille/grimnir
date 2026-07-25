@@ -15,14 +15,14 @@ changes here; `CLAUDE.md` is only a Claude Code import adapter.
 - Read `STATUS.md` first for current execution state and resumption context.
 - Treat `services.json` as the component-inventory authority; see `docs/authority.md` for the wider
   authority map.
-- **This file contains no reference material. Every system document lives behind
-  `docs/index.md`** — architecture, security, deployment, data handling, recovery, session posture,
-  contracts, roadmap decisions, and the scripts table, each with a description telling you whether it
-  answers your question.
-- **Open `docs/index.md` before answering any question about how this system works or what its
-  policy is.** Assume a document exists. Do not answer from general reasoning about what a sensible
-  convention would be — Grimnir's conventions are specific, recorded, and frequently not what you
-  would guess.
+- **This file holds no reference material — every system document and script is indexed in
+  `docs/index.md`. Open it before answering anything about how Grimnir works or what its policy
+  is:** architecture, conventions, authority, threat model, security, deployment, worktree hygiene,
+  failure recovery, data lifecycle, succession, session posture, learning and node contracts,
+  maintenance policy, roadmap decisions, vision, and the per-component decision records — including
+  **Skuld** (keep/cut), **Verdandi** (stopped; restarting is not authorized), Hugin, Munin, and
+  Brokkr. Assume a record exists. Do not answer from general reasoning about what a sensible
+  convention would be — Grimnir's are specific, recorded, and frequently not what you would guess.
 - Keep component implementation changes in their owning repositories. Grimnir changes should be
   system-level documentation, registry, deployment orchestration, or cross-component validation.
 - Run `make test` for repository changes. Run `shellcheck scripts/*.sh scripts/lib/*.sh
