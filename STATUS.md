@@ -1,7 +1,8 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-25 (Claude) — publication, roadmap batch, and substrate-contract work
-**Latest system revision:** grimnir `a201afd` (maintenance-policy v1 contract)
+**Last session:** 2026-07-25 (Claude) — context-engineering pass on the instruction files
+**Prior session, same day:** publication, roadmap batch, and substrate-contract work
+**Latest system revision:** grimnir `1497326` (2026-07-25 session record)
 
 ## The headline
 
@@ -11,7 +12,45 @@ four certified production deploys. The substrate maintenance program is now unbl
 defines `maintenance-policy` v1 and Brokkr already consumes it through a read-only planner.
 Munin Memory remained excluded throughout (parallel session).
 
-## Completed this session
+## Completed this session — context-engineering pass (later session, 2026-07-25)
+
+Applied Anthropic's Claude-5-generation context-engineering guidance to the instruction files, and
+measured the result rather than assuming it.
+
+- **PR #143 (open, unreviewed)** — moves the 30-entry document index and scripts table out of
+  `AGENTS.md` into `docs/index.md`. `AGENTS.md` 1273 → 698 words, 2,474 fewer prompt tokens per
+  session, at **measured retrieval parity** (28/30 both arms; policy and control constraints 9/9
+  both arms). Took four iterations; the first regressed and was caught by measurement, not review.
+- **New capability: `scripts/tests/ab-instructions-eval.sh`** — A/B harness that runs a frozen probe
+  set through headless Claude Code in two worktrees differing only in instruction files, scoring
+  doc-hit mechanically from the tool-call stream. Plus `ab-rescore.sh` to re-score retained raw
+  streams without paying for re-runs. Reusable for the three MCP tool-surface tickets below and for
+  the global `claude-config/AGENTS.md` pass.
+- **New guard: `tests/scripts/test-doc-index.sh`** (in `make test`) — asserts the index stays
+  reachable in one hop, lists every doc, has no broken pointers, and preserves constraint-bearing
+  annotations verbatim.
+- **Cross-repo tickets filed** — munin-memory #257, hugin #318, gille-inference #81: expressive tool
+  schemas over prose examples. Each explicitly scopes safety/policy text *out* of trimming.
+
+### Findings worth carrying forward
+
+- **Progressive disclosure fails by confabulation, not slow retrieval.** When the agent did not know
+  a document existed it produced a confident, well-structured, invented answer — six runs made zero
+  tool calls. Inline descriptions signal *that a recorded answer exists*, not just where.
+- **Partial enumerations read as exhaustive.** Every topic named in the pointer scored perfectly;
+  everything omitted became invisible. This recurred at two levels — first topics, then component
+  names ("is *Skuld* worth keeping", "restart *Verdandi*").
+- **Guard found pre-existing rot**, unrelated to the change: `docs/vision.md` (the v0.2 decision
+  rule), `docs/ecosystem-review-plan.md`, and `docs/GRIMNIR_DEVELOPMENT_PLAN.md` were missing from
+  the original index — the last carrying an invisible "⛔ do not execute this plan" marker.
+- **My own harness had an arm-biasing defect** (`jq -e` returns only the last stream value, so
+  doc-hit counted only final tool calls; the after arm makes more calls and was penalised). Found by
+  reading transcripts when a result looked wrong. Retained raw streams made the correction cost one
+  re-score instead of 78 re-runs.
+
+Evidence: `docs/instruction-ab-evidence-2026-07-25.md`.
+
+## Completed this session — publication and roadmap batch (earlier session, 2026-07-25)
 
 ### Publication (owner-approved, per repository)
 
@@ -72,6 +111,12 @@ Munin Memory remained excluded throughout (parallel session).
 
 ## Next steps (priority order)
 
+0. **PR #143 needs an independent review before merge** (house rule: prefer Codex sol high-effort).
+   It is rebased on `1497326` with `make test` 117/0 green. Note for the reviewer: #141's two
+   maintenance-policy discoverability assertions were repointed at `docs/index.md`, with an explicit
+   `AGENTS.md → docs/index.md` one-hop assertion added, so that intent is still enforced.
+
+
 1. **Owner: fix GitHub Actions billing.** Private-repo CI is still refused at job start; skuld PR #12
    is reviewed and one click from merge once it can run. Grimnir #140 scopes the self-hosted-runner
    alternative (private repositories only — never a public repo).
@@ -84,6 +129,15 @@ Munin Memory remained excluded throughout (parallel session).
    other sessions; skuld #13 proposes routing the commitment extractor to M5.
 6. Carry over from the prior sweep: reconcile repository origins from #115, and schedule the pending
    M5 reboot and Pi firmware updates when work can tolerate interruption.
+
+## Open questions from the context-engineering pass
+
+- `session-posture` probe scored 1/3 in **both** arms in run 4 after 3/3 in runs 1–2. Unexplained
+  probe variance, not caused by the change; worth understanding before leaning on that probe again.
+- The four eval runs cost roughly $25–30 in Sonnet tokens. The global `claude-config/AGENTS.md`
+  pass will cost similar and affects all 18 repos.
+- Not yet done: the global `AGENTS.md` pass itself (portable rules → Codex and Pi), which was the
+  original question that started the session.
 
 ## Blockers / owner input
 
