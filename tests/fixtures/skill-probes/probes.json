@@ -1,0 +1,175 @@
+{
+  "_comment": [
+    "Frozen probe set for the skill-description A/B (grimnir).",
+    "",
+    "Each probe is a natural request a user would actually make. `expect` is the skill",
+    "that should fire. The metric is read mechanically from the tool-call stream: did the",
+    "agent invoke the Skill tool with that name? That needs no judge.",
+    "",
+    "`kind`:",
+    "  trigger  - a skill SHOULD fire, and it should be `expect`.",
+    "  control  - NO skill should fire. Guards against a trim that makes descriptions so",
+    "             broad they capture unrelated requests. A trim that improves trigger rate",
+    "             by firing on everything is a regression, and only controls catch it.",
+    "  negative - a skill set adjacent to `avoid` must NOT fire. These are the destructive",
+    "             skills; over-triggering them is the worst failure mode in the set.",
+    "",
+    "Written BEFORE any description was edited, so the probes cannot be tuned to the trim.",
+    "Probes deliberately avoid the exact trigger vocabulary of the current descriptions —",
+    "matching a description verbatim tests string overlap, not retrieval."
+  ],
+  "probes": [
+    {
+      "id": "check-email",
+      "kind": "trigger",
+      "expect": "check-email",
+      "prompt": "Did anything come in from Anders about the invoice this week?"
+    },
+    {
+      "id": "check-calendar",
+      "kind": "trigger",
+      "expect": "check-calendar",
+      "prompt": "Am I free Thursday afternoon, or is that day already spoken for?"
+    },
+    {
+      "id": "check-tasks",
+      "kind": "trigger",
+      "expect": "check-tasks",
+      "prompt": "Is that job I sent to the Pi still going, or did it fall over?"
+    },
+    {
+      "id": "issues",
+      "kind": "trigger",
+      "expect": "issues",
+      "prompt": "What's still open on this repo?"
+    },
+    {
+      "id": "email-triage",
+      "kind": "trigger",
+      "expect": "email-triage",
+      "prompt": "Going back over the last couple of months, which conversations am I still on the hook to answer?"
+    },
+    {
+      "id": "draft-email",
+      "kind": "trigger",
+      "expect": "draft-email",
+      "prompt": "Write something to Anders proposing we meet next week to go through the numbers."
+    },
+    {
+      "id": "research-spike",
+      "kind": "trigger",
+      "expect": "research-spike",
+      "prompt": "I want a proper deep dive on RISC-V inference accelerators, with sources."
+    },
+    {
+      "id": "delegate",
+      "kind": "trigger",
+      "expect": "delegate",
+      "prompt": "Summarise this changelog with something cheaper — no need to spend good tokens on it."
+    },
+    {
+      "id": "share",
+      "kind": "trigger",
+      "expect": "share",
+      "prompt": "Get me a link to that PDF I can send to someone outside."
+    },
+    {
+      "id": "friction-triage",
+      "kind": "trigger",
+      "expect": "friction-triage",
+      "prompt": "We've been collecting complaints about things that keep breaking. Turn that into actual tickets."
+    },
+    {
+      "id": "magnus-security-review",
+      "kind": "trigger",
+      "expect": "magnus-security-review",
+      "prompt": "Go through this codebase properly and tell me how it could be attacked."
+    },
+    {
+      "id": "find-skills",
+      "kind": "trigger",
+      "expect": "find-skills",
+      "prompt": "Is there something already built that handles this, or do I need to write it?"
+    },
+    {
+      "id": "debate",
+      "kind": "trigger",
+      "expect": "debate",
+      "prompt": "Before I commit to this plan, I want a second model to argue against it."
+    },
+    {
+      "id": "close",
+      "kind": "trigger",
+      "expect": "close",
+      "prompt": "Right, I think we're done for today. Wrap it up properly."
+    },
+    {
+      "id": "index-artifacts",
+      "kind": "trigger",
+      "expect": "index-artifacts",
+      "prompt": "Make the files sitting in mimir findable from my other machines."
+    },
+    {
+      "id": "capture",
+      "kind": "trigger",
+      "expect": "capture",
+      "prompt": "I've got a pile of half-finished notes I dumped in. Sort them out."
+    },
+    {
+      "id": "m365-auth",
+      "kind": "trigger",
+      "expect": "m365-auth",
+      "prompt": "Outlook stuff is throwing an auth error again."
+    },
+    {
+      "id": "review-pr-codex",
+      "kind": "trigger",
+      "expect": "review-pr-codex",
+      "prompt": "Get a different model to look over this branch before it goes in."
+    },
+    {
+      "id": "deploy",
+      "kind": "trigger",
+      "expect": "deploy",
+      "prompt": "Push heimdall out to the Pi."
+    },
+    {
+      "id": "submit-task",
+      "kind": "trigger",
+      "expect": "submit-task",
+      "prompt": "Hand this off to the Pi to chew on in the background."
+    },
+    {
+      "id": "CONTROL-arithmetic",
+      "kind": "control",
+      "expect": null,
+      "prompt": "What is 17 times 23?"
+    },
+    {
+      "id": "CONTROL-explain",
+      "kind": "control",
+      "expect": null,
+      "prompt": "Explain in two sentences what a git rebase does."
+    },
+    {
+      "id": "CONTROL-definition",
+      "kind": "control",
+      "expect": null,
+      "prompt": "What does the acronym TLS stand for?"
+    },
+    {
+      "id": "NEGATIVE-deploy-talk",
+      "kind": "negative",
+      "avoid": "deploy",
+      "expect": null,
+      "prompt": "In general, what are the risks of deploying straight to production on a Friday?"
+    },
+    {
+      "id": "NEGATIVE-email-talk",
+      "kind": "negative",
+      "avoid": "check-email",
+      "expect": null,
+      "prompt": "What makes a subject line good? Just talking generally, don't look anything up."
+    }
+  ]
+}
