@@ -124,12 +124,31 @@ echo
 
 # Run one probe against whatever ~/.claude/skills currently points at.
 #
-# SAFETY: --allowedTools Skill with the default permission mode. Only the Skill
-# tool is pre-approved, so a skill body that tries to run Bash, edit, or fetch is
-# denied rather than prompted. Verified empirically: a probe skill instructed to
-# `echo ... > /tmp/...` fired the Skill call and produced no file. That is what
-# makes it safe to probe `deploy` and `submit-task` — the routing decision is
-# observed without the body being able to act.
+# SAFETY: the routing decision must be observable without the skill body being
+# able to act, because `deploy` and `submit-task` are in the probe set.
+#
+# The user's ~/.claude/settings.json sets permissions.defaultMode="auto", which
+# auto-approves every tool, so --allowedTools alone constrains nothing. An early
+# version of this harness relied on it and a check-email probe duly ran four m365
+# Graph queries and spawned a subagent before the run was killed.
+#
+# The obvious fix — --setting-sources project, to drop those settings — is WRONG
+# here, and measurably so: ~/.claude/skills is itself a user-level source, so
+# that flag removes the very skill set under test. Measured directly: with it, a
+# check-tasks probe fires nothing; without it, the skill fires. An arm that loads
+# no skills scores zero on every probe and looks like a catastrophic regression.
+#
+# So user settings stay, and the sandbox is built from two other pieces:
+#   - MCP disabled outright. This is the sharp edge: hugin_submit dispatches real
+#     work to the Pi and m5 spends real inference. Both were observed executing
+#     under defaultMode="auto". Disabling is arm-neutral (~230 tokens, measured).
+#   - --disallowedTools for every write-capable built-in.
+# What remains reachable is Read/Grep/Glob/ToolSearch — read-only.
+#
+# Verified with this exact combination: `deploy` and `submit-task` probes route
+# correctly (the Skill call is observed) while only Skill and ToolSearch execute,
+# and a probe skill told to write a file produces none. Re-verify with
+# tests/scripts/test-skills-eval-sandbox.sh after touching any of these flags.
 run_one() {
   local arm="$1" probe_id="$2" rep="$3"
   local prompt kind expect avoid raw
@@ -144,9 +163,11 @@ run_one() {
   # reproducible and free of its side effects.
   if ! (cd "$REPO_ROOT" && timeout "$TIMEOUT_S" command claude -p "$prompt" \
         --output-format stream-json --verbose \
+        --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
         --allowedTools Skill \
-        --model "$MODEL") > "$raw" 2>"$raw.err"; then
-    jq -n --arg arm "$arm" --arg id "$probe_id" --arg kind "$kind" --argjson rep "$rep" \
+        --disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch Agent Task \
+        --model "$MODEL" < /dev/null) > "$raw" 2>"$raw.err"; then
+    jq -n -c --arg arm "$arm" --arg id "$probe_id" --arg kind "$kind" --argjson rep "$rep" \
       '{arm:$arm, probe:$id, kind:$kind, rep:$rep, error:"run failed or timed out",
         fired:null, correct:false, prompt_tokens:null, cost_usd:null, duration_ms:null}'
     return
@@ -186,7 +207,7 @@ run_one() {
                             + (.cache_read_input_tokens // 0)
                             + (.input_tokens // 0)] | first // null' "$raw")
 
-  jq -n \
+  jq -n -c \
     --arg arm "$arm" --arg id "$probe_id" --arg kind "$kind" --argjson rep "$rep" \
     --arg fired "$fired" --arg expect "$expect" --argjson correct "$correct" \
     --argjson prompt_tokens "${prompt_tokens:-null}" --argjson res "$result_line" \
