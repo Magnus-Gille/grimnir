@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -42,6 +42,9 @@ test-deploy-persistent-paths: ## Fail closed before rsync can delete an in-targe
 test-deploy-systemd-render: ## Render and preflight host-specific systemd runtime identity (issue #107)
 	@bash scripts/tests/deploy-systemd-render.test.sh
 
+test-deploy-unit-target-guard: ## Fail closed before restart when a unit's WorkingDirectory/EnvironmentFile contradicts deploy_path (issue #146)
+	@bash scripts/tests/deploy-unit-target-guard.test.sh
+
 test-failure-recovery-doc: ## Regression test: assert docs/failure-recovery.md defines the undo convention (issue #46)
 	@bash tests/scripts/test-failure-recovery-doc.sh
 
@@ -78,7 +81,7 @@ test-worktree-hygiene: ## Unit + fixture tests for the worktree/deploy hygiene a
 test-validate-exit: ## Unit tests for the audit exit-status contract (findings vs. audit failure)
 	@bash scripts/tests/validate-exit.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
