@@ -72,6 +72,11 @@ the annotation, not only the filename.
   delegate; private-envelope contents stay out of git
 - `docs/data-lifecycle.md` — Store-by-store retention, correction, erasure, and backup-expiry map
 
+- `docs/instruction-ab-evidence-2026-07-25.md` — Measured before/after evidence for the
+  `AGENTS.md` → `docs/index.md` split (grimnir#143): method, per-run results, the confabulation and
+  partial-enumeration findings, and the harness defect found mid-flight. Harness
+  `scripts/tests/ab-instructions-eval.sh`, probes under `tests/fixtures/instruction-probes/`.
+
 ## Vision and superseded plans
 
 - `docs/vision.md` — **DRAFT v0.2 (2026-06-29), supersedes v0.1.** Direction, not commitments:
