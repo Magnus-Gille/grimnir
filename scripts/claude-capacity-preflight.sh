@@ -3,10 +3,10 @@
 # claude-capacity-preflight.sh — cheap, read-only Claude availability check (#136).
 #
 # probe runs one no-tools, no-session-persistence request with the fixed one-token
-# prompt "Reply with exactly READY." It never retries. The output is a public-safe
-# key=value record; stderr is classified but never replayed because it can contain
-# account or transport detail. A capacity result exits 10, auth 11, model 12,
-# network 13, and unknown 14.
+# prompt "Reply with exactly READY." It uses safe mode and a tiny explicit budget,
+# and never retries. The output is a public-safe key=value record; stderr is
+# classified but never replayed because it can contain account or transport detail.
+# A capacity result exits 10, auth 11, model 12, network 13, and unknown 14.
 #
 # fallback does not invoke Claude. It preserves the current worktree/commit, reports
 # whether the branch is ahead or dirty, suppresses same-capacity retries, and names
@@ -15,6 +15,7 @@ set -euo pipefail
 
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 CLAUDE_PREFLIGHT_MODEL="${CLAUDE_PREFLIGHT_MODEL:-sonnet}"
+CLAUDE_PREFLIGHT_MAX_BUDGET_USD="${CLAUDE_PREFLIGHT_MAX_BUDGET_USD:-0.01}"
 NEXT_AGENT="${CLAUDE_FALLBACK_AGENT:-codex}"
 
 usage() {
@@ -37,8 +38,8 @@ classify_failure() {
   elif [[ "$text" == *"authentication"* ]] || [[ "$text" == *"unauthorized"* ]] ||
        [[ "$text" == *"not logged in"* ]] || [[ "$text" == *"api key"* ]]; then
     printf '%s' auth
-  elif [[ "$text" == *"model"* && ( "$text" == *"unavailable"* || "$text" == *"not found"* || "$text" == *"unknown"* ) ]]; then
-    printf '%s' model
+  elif [[ "$text" == *"model"* && ( "$text" == *"unavailable"* || "$text" == *"not available"* || "$text" == *"not found"* || "$text" == *"unknown"* || "$text" == *"does not exist"* || "$text" == *"unsupported"* || ( "$text" == *"selected model"* && "$text" == *"may not exist"* ) ) ]]; then
+    printf '%s' model_unavailable
   elif [[ "$text" == *"network"* ]] || [[ "$text" == *"econn"* ]] || [[ "$text" == *"enotfound"* ]] ||
        [[ "$text" == *"connection"* ]] || [[ "$text" == *"timeout"* ]]; then
     printf '%s' network
@@ -50,23 +51,25 @@ classify_failure() {
 probe() {
   local model="$1" out err code failure
   if ! safe_model "$model"; then
-    printf 'status=fallback\nclass=model\nmodel=invalid\nretry=suppressed\n'
+    printf 'status=fallback\nclass=model_unavailable\nattempted_model=invalid\nretry=suppressed\n'
     return 12
   fi
   out="$(mktemp)"; err="$(mktemp)"
   trap 'rm -f "$out" "$err"' RETURN
   set +e
-  "$CLAUDE_BIN" --print --no-session-persistence --tools '' --model "$model" 'Reply with exactly READY.' >"$out" 2>"$err"
+  "$CLAUDE_BIN" --print --no-session-persistence --safe-mode --tools '' \
+    --max-budget-usd "$CLAUDE_PREFLIGHT_MAX_BUDGET_USD" --model "$model" \
+    'Reply with exactly READY.' >"$out" 2>"$err"
   code=$?
   set -e
   if [[ "$code" -eq 0 && "$(tr -d '[:space:]' <"$out")" == READY ]]; then
-    printf 'status=ready\nclass=none\nmodel=%s\nretry=not-needed\n' "$model"
+    printf 'status=ready\nclass=none\nattempted_model=%s\nretry=not-needed\n' "$model"
     return 0
   fi
   failure="$(classify_failure "$(cat "$err" "$out")")"
-  printf 'status=fallback\nclass=%s\nmodel=%s\nretry=suppressed\n' "$failure" "$model"
+  printf 'status=fallback\nclass=%s\nattempted_model=%s\nretry=suppressed\n' "$failure" "$model"
   case "$failure" in
-    capacity) return 10 ;; auth) return 11 ;; model) return 12 ;; network) return 13 ;; *) return 14 ;;
+    capacity) return 10 ;; auth) return 11 ;; model_unavailable) return 12 ;; network) return 13 ;; *) return 14 ;;
   esac
 }
 
