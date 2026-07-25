@@ -41,8 +41,9 @@ scripts/github-project-preflight.sh ticket \
   --label from:grimnir --owner Magnus-Gille --number 1
 ```
 
-The issue is created first. If Project access is unavailable, the command exits
-successfully after printing `board_addition=pending` and one
+The issue is created first. If Project access is unavailable, or the subsequent
+`gh project item-add` call fails, the command exits successfully after printing
+`board_addition=pending`, a non-secret `board_addition_class`, and one
 `pending_board_addition=<issue-url>` line per created ticket. Preserve those
 lines and add them after the owner fixes scope or connectivity:
 

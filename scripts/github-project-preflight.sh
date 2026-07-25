@@ -87,7 +87,7 @@ preflight() {
 ticket() {
   local repo="$1" title="$2" body_file="$3" owner="$4" number="$5"; shift 5
   local -a args=(issue create --repo "$repo" --title "$title" --body-file "$body_file")
-  local label issue_url result code
+  local label issue_url result item_add_result code class
   if [[ "$#" -gt 0 ]]; then
     for label in "$@"; do args+=(--label "$label"); done
   fi
@@ -97,8 +97,15 @@ ticket() {
   result="$(preflight "$owner" "$number" yes)"; code=$?
   set -e
   if [[ "$code" -eq 0 ]]; then
-    $GH_BIN project item-add "$number" --owner "$owner" --url "$issue_url" >/dev/null
-    printf 'board_addition=added\n'
+    set +e
+    item_add_result="$($GH_BIN project item-add "$number" --owner "$owner" --url "$issue_url" 2>&1)"; code=$?
+    set -e
+    if [[ "$code" -eq 0 ]]; then
+      printf 'board_addition=added\n'
+    else
+      class="$(failure_class "$item_add_result")"
+      printf 'board_addition=pending\nboard_addition_class=%s\npending_board_addition=%s\n' "$class" "$issue_url"
+    fi
   else
     printf '%s\n' "$result"
     printf 'board_addition=pending\npending_board_addition=%s\n' "$issue_url"

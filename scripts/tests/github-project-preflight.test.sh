@@ -19,6 +19,12 @@ case "${GH_SCENARIO:?}" in
     if [[ "$1 $2" == "issue create" ]]; then printf 'https://github.com/Magnus-Gille/brokkr/issues/99\n';
     elif [[ "$1 $2" == "auth status" ]]; then printf '{"hosts":{"github.com":[{"active":true,"scopes":"repo"}]}}\n';
     else printf 'unexpected gh invocation: %s %s\n' "$1" "$2" >&2; exit 1; fi ;;
+  ticket-add-fails)
+    if [[ "$1 $2" == "issue create" ]]; then printf 'https://github.com/Magnus-Gille/brokkr/issues/100\n';
+    elif [[ "$1 $2" == "auth status" ]]; then printf '{"hosts":{"github.com":[{"active":true,"scopes":"repo, read:project, project"}]}}\n';
+    elif [[ "$1 $2 $3" == "project view 1" ]]; then printf 'Roadmap\n';
+    elif [[ "$1 $2 $3" == "project item-add 1" ]]; then printf 'error connecting to api.github.com\n' >&2; exit 1;
+    else printf 'unexpected gh invocation: %s %s\n' "$1" "$2" >&2; exit 1; fi ;;
   ready)
     if [[ "$1 $2" == "auth status" ]]; then printf '{"hosts":{"github.com":[{"active":true,"scopes":"repo, read:project, project"}]}}\n'; else printf 'Roadmap\n'; fi ;;
   missing-read)
@@ -55,5 +61,13 @@ ticket_output="$(PATH="$TMP:$PATH" GH_SCENARIO=ticket-pending "$SCRIPT" ticket -
 set -e
 assert_code 'ticket creation survives unavailable board' 0 "$ticket_code"
 assert_contains 'ticket reports pending board addition' "$ticket_output" 'pending_board_addition=https://github.com/Magnus-Gille/brokkr/issues/99'
+
+set +e
+item_add_output="$(PATH="$TMP:$PATH" GH_SCENARIO=ticket-add-fails "$SCRIPT" ticket --repo Magnus-Gille/brokkr --title Example --body-file "$TMP/body.md" --owner Magnus-Gille --number 1 2>"$TMP/item-add.err")"; item_add_code=$?
+set -e
+assert_code 'ticket creation survives item-add failure' 0 "$item_add_code"
+assert_contains 'item-add failure has a deterministic class' "$item_add_output" 'board_addition_class=network_api_failure'
+assert_contains 'item-add failure reports pending board addition' "$item_add_output" 'pending_board_addition=https://github.com/Magnus-Gille/brokkr/issues/100'
+if [[ ! -s "$TMP/item-add.err" ]]; then pass 'item-add failure does not leak stderr'; else fail 'item-add failure does not leak stderr'; fi
 
 echo "Results: $PASS passed, $FAIL failed"; [[ "$FAIL" -eq 0 ]]
