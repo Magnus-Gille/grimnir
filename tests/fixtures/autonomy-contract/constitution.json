@@ -1,6 +1,87 @@
 {
-  "kind": "autonomy-constitution", "schema_version": "v1", "constitution_id": "grimnir-autonomy-v1", "issued_at": "2026-07-26T00:00:00Z", "promotion_mode": "mechanical",
-  "protected_lanes": ["credentials-and-auth", "deployments-and-code", "privacy-retention-and-erasure", "firmware-and-remote-recovery", "constitution-and-safety-gates"],
-  "autonomous_classes": ["routing", "no-reboot-security-bugfix-maintenance"], "required_identities": ["least-privilege-restore-worker", "least-privilege-recovery-worker"],
-  "required_postconditions": ["verifier-passes", "watch-window-recorded", "disarm-confirmed"], "fault_injection_requirements": ["recovery-path-proven", "observer-cannot-actuate"], "constitution_digest": "sha256:843b0e6980421869ccf73473e2b1f95e7d00c4d3f5c258d97615bece6d7b380a", "extensions": []
+  "kind": "autonomy-constitution",
+  "schema_version": "v1",
+  "constitution_id": "grimnir-autonomy-v1",
+  "issued_at": "2026-07-26T00:00:00Z",
+  "promotion_mode": "mechanical-for-covered-classes-only",
+  "protected_lanes": [
+    "credentials-and-auth",
+    "owner-policy",
+    "constitution-and-safety-gates",
+    "deployments-and-code",
+    "privacy-retention-and-erasure",
+    "firmware",
+    "remote-recovery",
+    "model-weight-training",
+    "irreversible-external-actions",
+    "package-downgrade"
+  ],
+  "safety_floors": {
+    "fail_closed": true,
+    "kill_switch": true,
+    "fresh_evidence": true,
+    "unique_identity": true,
+    "content_blind_journal": true,
+    "observer_cannot_actuate": true,
+    "unknown_disarms": true,
+    "protected_lanes_never_promote": true
+  },
+  "autonomous_classes": [
+    {
+      "class": "routing",
+      "level": "L5",
+      "admission": "mechanical-after-all-predicates",
+      "recovery_class": "R-exact",
+      "bounds": {
+        "max_concurrent_targets": 1,
+        "canary_only_until_armed_fleet": true,
+        "deadline_seconds": 3600,
+        "watch_seconds": 3600,
+        "max_attempts": 1
+      },
+      "identities": {
+        "executor": "routing-executor",
+        "recovery_worker": "routing-restore-worker"
+      },
+      "required_postconditions": [
+        "verifier-passes",
+        "canary-watch-complete",
+        "disarm-confirmed"
+      ],
+      "fault_injection_requirements": [
+        "executor-interruption",
+        "observer-cannot-actuate",
+        "recovery-path-proven"
+      ]
+    },
+    {
+      "class": "no-reboot-security-bugfix-maintenance",
+      "level": "L4",
+      "admission": "mechanical-after-all-predicates",
+      "recovery_class": "R-forward",
+      "bounds": {
+        "max_concurrent_targets": 1,
+        "canary_only_until_armed_fleet": true,
+        "deadline_seconds": 3600,
+        "watch_seconds": 3600,
+        "max_attempts": 1
+      },
+      "identities": {
+        "executor": "maintenance-executor",
+        "recovery_worker": "maintenance-recovery-worker"
+      },
+      "required_postconditions": [
+        "verifier-passes",
+        "canary-watch-complete",
+        "disarm-confirmed"
+      ],
+      "fault_injection_requirements": [
+        "executor-interruption",
+        "observer-cannot-actuate",
+        "recovery-path-proven"
+      ]
+    }
+  ],
+  "constitution_digest": "sha256:9e882dda92d93577c38131cff3f52bf1b178b4f754dd85bb1877ef64bae248f2",
+  "extensions": []
 }

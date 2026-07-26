@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grimnir.gille.ai/contracts/autonomy-coverage-registry/v1/schema.json",
+  "title": "Grimnir autonomy coverage registry v1",
+  "type": "object", "additionalProperties": false,
+  "required": ["kind", "schema_version", "registry_id", "issued_at", "constitution_digest", "global_state", "domains", "registry_digest", "extensions"],
+  "properties": { "kind": { "const": "autonomy-coverage-registry" }, "schema_version": { "const": "v1" }, "registry_id": { "$ref": "#/$defs/id" }, "issued_at": { "$ref": "#/$defs/utc" }, "constitution_digest": { "$ref": "#/$defs/digest" }, "global_state": { "enum": ["disarmed", "armed"] }, "domains": { "type": "array", "minItems": 12, "uniqueItems": true, "items": { "$ref": "#/$defs/domain" } }, "registry_digest": { "$ref": "#/$defs/digest" }, "extensions": { "type": "array", "maxItems": 0 } },
+  "$defs": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,62}$" }, "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }, "utc": { "type": "string", "format": "date-time" }, "domain": { "type": "object", "additionalProperties": false, "required": ["domain", "level", "owner", "recovery_class", "coverage", "target_state"], "properties": { "domain": { "enum": ["routing", "no-reboot-security-bugfix-maintenance", "credentials-and-auth", "owner-policy", "constitution-and-safety-gates", "deployments-and-code", "privacy-retention-and-erasure", "firmware", "remote-recovery", "model-weight-training", "irreversible-external-actions", "package-downgrade"] }, "level": { "enum": ["L4", "L5", "permanent"] }, "owner": { "enum": ["gille-inference", "brokkr", "owner"] }, "recovery_class": { "enum": ["R-exact", "R-forward", "none"] }, "coverage": { "enum": ["out-of-scope", "protected", "shadow", "armed-canary", "armed-fleet"] }, "target_state": { "enum": ["never-mechanical", "shadow-only", "armed-canary", "armed-fleet"] } } } }
+}

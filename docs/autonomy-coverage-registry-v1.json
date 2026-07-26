@@ -1,11 +1,108 @@
 {
-  "kind": "autonomy-coverage-registry", "schema_version": "v1", "registry_id": "grimnir-autonomy-coverage", "issued_at": "2026-07-26T00:00:00Z", "state": "disarmed",
+  "kind": "autonomy-coverage-registry",
+  "schema_version": "v1",
+  "registry_id": "grimnir-autonomy-coverage",
+  "issued_at": "2026-07-26T00:00:00Z",
+  "constitution_digest": "sha256:9e882dda92d93577c38131cff3f52bf1b178b4f754dd85bb1877ef64bae248f2",
+  "global_state": "disarmed",
   "domains": [
-    { "domain": "routing", "level": "L5", "coverage": "shadow", "owner": "gille-inference", "recovery_class": "R-exact" },
-    { "domain": "no-reboot-security-bugfix-maintenance", "level": "L4", "coverage": "shadow", "owner": "brokkr", "recovery_class": "R-forward" },
-    { "domain": "credentials-and-auth", "level": "permanent", "coverage": "protected", "owner": "owner", "recovery_class": "none" },
-    { "domain": "deployments-and-code", "level": "permanent", "coverage": "protected", "owner": "owner", "recovery_class": "none" },
-    { "domain": "privacy-retention-and-erasure", "level": "permanent", "coverage": "protected", "owner": "owner", "recovery_class": "none" },
-    { "domain": "firmware-and-remote-recovery", "level": "permanent", "coverage": "out-of-scope", "owner": "owner", "recovery_class": "none" }
-  ], "registry_digest": "sha256:5891142bd6b30fc9d7f9a7f41b3656a456319e88e63ad99cf2b7d6beeb219003", "extensions": []
+    {
+      "domain": "routing",
+      "level": "L5",
+      "owner": "gille-inference",
+      "recovery_class": "R-exact",
+      "coverage": "shadow",
+      "target_state": "armed-canary"
+    },
+    {
+      "domain": "no-reboot-security-bugfix-maintenance",
+      "level": "L4",
+      "owner": "brokkr",
+      "recovery_class": "R-forward",
+      "coverage": "shadow",
+      "target_state": "armed-canary"
+    },
+    {
+      "domain": "credentials-and-auth",
+      "level": "permanent",
+      "owner": "owner",
+      "recovery_class": "none",
+      "coverage": "protected",
+      "target_state": "never-mechanical"
+    },
+    {
+      "domain": "owner-policy",
+      "level": "permanent",
+      "owner": "owner",
+      "recovery_class": "none",
+      "coverage": "protected",
+      "target_state": "never-mechanical"
+    },
+    {
+      "domain": "constitution-and-safety-gates",
+      "level": "permanent",
+      "owner": "owner",
+      "recovery_class": "none",
+      "coverage": "protected",
+      "target_state": "never-mechanical"
+    },
+    {
+      "domain": "deployments-and-code",
+      "level": "permanent",
+      "owner": "owner",
+      "recovery_class": "none",
+      "coverage": "protected",
+      "target_state": "never-mechanical"
+    },
+    {
+      "domain": "privacy-retention-and-erasure",
+      "level": "permanent",
+      "owner": "owner",
+      "recovery_class": "none",
+      "coverage": "protected",
+      "target_state": "never-mechanical"
+    },
+    {
+      "domain": "firmware",
+      "level": "permanent",
+      "owner": "owner",
+      "recovery_class": "none",
+      "coverage": "protected",
+      "target_state": "never-mechanical"
+    },
+    {
+      "domain": "remote-recovery",
+      "level": "permanent",
+      "owner": "owner",
+      "recovery_class": "none",
+      "coverage": "protected",
+      "target_state": "never-mechanical"
+    },
+    {
+      "domain": "model-weight-training",
+      "level": "permanent",
+      "owner": "owner",
+      "recovery_class": "none",
+      "coverage": "protected",
+      "target_state": "never-mechanical"
+    },
+    {
+      "domain": "irreversible-external-actions",
+      "level": "permanent",
+      "owner": "owner",
+      "recovery_class": "none",
+      "coverage": "protected",
+      "target_state": "never-mechanical"
+    },
+    {
+      "domain": "package-downgrade",
+      "level": "permanent",
+      "owner": "owner",
+      "recovery_class": "none",
+      "coverage": "protected",
+      "target_state": "never-mechanical"
+    }
+  ],
+  "registry_digest": "sha256:1781b4967c913865dc77ce704154e542148f75fb478a3044930b58aaefc09a7e",
+  "extensions": []
 }

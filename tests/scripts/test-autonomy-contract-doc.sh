@@ -7,4 +7,7 @@ done
 grep -Fq 'R-exact' "$ROOT/docs/adr-008-autonomy-constitution.md"
 grep -Fq 'R-forward' "$ROOT/docs/adr-008-autonomy-constitution.md"
 grep -Fq 'W0 is disarmed' "$ROOT/docs/adr-008-autonomy-constitution.md"
+grep -Fq 'content-blind' "$ROOT/docs/adr-008-autonomy-constitution.md"
+grep -Fq 'unknown → recover' "$ROOT/docs/adr-008-autonomy-constitution.md"
+grep -Fq 'Heimdall is read-only' "$ROOT/docs/adr-008-autonomy-constitution.md"
 echo "autonomy-contract documentation checks passed"

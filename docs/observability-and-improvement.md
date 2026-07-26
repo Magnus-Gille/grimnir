@@ -218,6 +218,8 @@ owner-controlled; see [the autonomous-improvement design](autonomous-improvement
 ADR-008 now supplies the cross-domain supervision floor: mechanical promotion is only for an
 explicitly covered, digest-bound class with a domain journal and a disarming recovery worker.
 Heimdall is read-only and Verdandi is an optional receipt projection; neither can admit or actuate.
+The historical “promotion-ready, then operator applies” records retain their provenance: they remain
+the required posture outside ADR-008's two future armed classes and while W0 is disarmed.
 
 ## Delivered core loop and remaining maturity
 

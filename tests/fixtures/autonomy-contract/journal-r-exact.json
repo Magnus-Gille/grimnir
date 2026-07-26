@@ -1,4 +1,150 @@
-[
-  { "kind": "autonomous-mutation-journal-entry", "schema_version": "v1", "entry_id": "routing-prepare-001", "mutation_id": "routing-canary-001", "sequence": 1, "recorded_at": "2026-07-26T00:00:00Z", "phase": "prepare", "outcome": "prepared", "constitution_digest": "CONSTITUTION", "baseline_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "postconditions_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "deadline": "2026-07-26T01:00:00Z", "recovery": { "class": "R-exact", "worker_identity": "least-privilege-restore-worker", "disarms_after_action": true }, "previous_receipt_digest": null, "receipt_digest": "PENDING", "content_refs": ["evidence:routing-canary-001"], "extensions": [] },
-  { "kind": "autonomous-mutation-journal-entry", "schema_version": "v1", "entry_id": "routing-disarm-001", "mutation_id": "routing-canary-001", "sequence": 2, "recorded_at": "2026-07-26T00:05:00Z", "phase": "disarm", "outcome": "disarmed", "constitution_digest": "CONSTITUTION", "baseline_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "postconditions_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "deadline": "2026-07-26T01:00:00Z", "recovery": { "class": "R-exact", "worker_identity": "least-privilege-restore-worker", "disarms_after_action": true }, "previous_receipt_digest": "PREVIOUS", "receipt_digest": "PENDING", "content_refs": ["evidence:routing-canary-001"], "extensions": [] }
-]
+{
+  "kind": "autonomous-mutation-journal",
+  "schema_version": "v1",
+  "journal_id": "routing-journal-001",
+  "domain": "routing",
+  "constitution_digest": "sha256:9e882dda92d93577c38131cff3f52bf1b178b4f754dd85bb1877ef64bae248f2",
+  "entries": [
+    {
+      "entry_id": "routing-prepare-001",
+      "mutation_id": "routing-canary-001",
+      "sequence": 1,
+      "recorded_at": "2026-07-26T00:00:00Z",
+      "phase": "prepare",
+      "outcome": "prepared",
+      "attempt_id": "routing-attempt-001",
+      "idempotency_key": "routing-idem-001",
+      "executor_identity": "routing-executor",
+      "risk_scope": "routing",
+      "baseline_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postconditions_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "deadline": "2026-07-26T01:00:00Z",
+      "canary": {
+        "scope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "target_count": 1,
+        "watch_deadline": "2026-07-26T00:30:00Z"
+      },
+      "recovery": {
+        "class": "R-exact",
+        "worker_identity": "routing-restore-worker",
+        "descriptor_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "disarms_after_action": true
+      },
+      "quarantine": {
+        "state": "not-applicable",
+        "reason_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "previous_receipt_digest": null,
+      "receipt_digest": "sha256:f874be5273bfbcf1a4907059af40c173539795455383d0036acf9760d5ff7f83",
+      "content_refs": [
+        "ref:routing-evidence-001"
+      ]
+    },
+    {
+      "entry_id": "routing-unknown-001",
+      "mutation_id": "routing-canary-001",
+      "sequence": 2,
+      "recorded_at": "2026-07-26T00:05:00Z",
+      "phase": "unknown",
+      "outcome": "unknown",
+      "attempt_id": "routing-attempt-001",
+      "idempotency_key": "routing-idem-001",
+      "executor_identity": "routing-executor",
+      "risk_scope": "routing",
+      "baseline_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postconditions_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "deadline": "2026-07-26T01:00:00Z",
+      "canary": {
+        "scope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "target_count": 1,
+        "watch_deadline": "2026-07-26T00:30:00Z"
+      },
+      "recovery": {
+        "class": "R-exact",
+        "worker_identity": "routing-restore-worker",
+        "descriptor_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "disarms_after_action": true
+      },
+      "quarantine": {
+        "state": "not-applicable",
+        "reason_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "previous_receipt_digest": "sha256:f874be5273bfbcf1a4907059af40c173539795455383d0036acf9760d5ff7f83",
+      "receipt_digest": "sha256:d6dd5f332ee91c09f0c081a6193f821c0f39dc8bc5a91eb9318e07e556d3b473",
+      "content_refs": [
+        "ref:routing-evidence-001"
+      ]
+    },
+    {
+      "entry_id": "routing-recover-001",
+      "mutation_id": "routing-canary-001",
+      "sequence": 3,
+      "recorded_at": "2026-07-26T00:06:00Z",
+      "phase": "recover",
+      "outcome": "recovered",
+      "attempt_id": "routing-attempt-001",
+      "idempotency_key": "routing-idem-001",
+      "executor_identity": "routing-restore-worker",
+      "risk_scope": "routing",
+      "baseline_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postconditions_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "deadline": "2026-07-26T01:00:00Z",
+      "canary": {
+        "scope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "target_count": 1,
+        "watch_deadline": "2026-07-26T00:30:00Z"
+      },
+      "recovery": {
+        "class": "R-exact",
+        "worker_identity": "routing-restore-worker",
+        "descriptor_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "disarms_after_action": true
+      },
+      "quarantine": {
+        "state": "not-applicable",
+        "reason_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "previous_receipt_digest": "sha256:d6dd5f332ee91c09f0c081a6193f821c0f39dc8bc5a91eb9318e07e556d3b473",
+      "receipt_digest": "sha256:243c6e8e0bc5956796fc14b51129a28679e8a065b24d7ff76703cb585de05d74",
+      "content_refs": [
+        "ref:routing-evidence-001"
+      ]
+    },
+    {
+      "entry_id": "routing-disarm-001",
+      "mutation_id": "routing-canary-001",
+      "sequence": 4,
+      "recorded_at": "2026-07-26T00:07:00Z",
+      "phase": "disarm",
+      "outcome": "disarmed",
+      "attempt_id": "routing-attempt-001",
+      "idempotency_key": "routing-idem-001",
+      "executor_identity": "routing-restore-worker",
+      "risk_scope": "routing",
+      "baseline_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postconditions_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "deadline": "2026-07-26T01:00:00Z",
+      "canary": {
+        "scope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "target_count": 1,
+        "watch_deadline": "2026-07-26T00:30:00Z"
+      },
+      "recovery": {
+        "class": "R-exact",
+        "worker_identity": "routing-restore-worker",
+        "descriptor_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "disarms_after_action": true
+      },
+      "quarantine": {
+        "state": "not-applicable",
+        "reason_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "previous_receipt_digest": "sha256:243c6e8e0bc5956796fc14b51129a28679e8a065b24d7ff76703cb585de05d74",
+      "receipt_digest": "sha256:428ba4cd3ef2d4e5638caa161a5c73077c20922829f2363effda71d5ab629995",
+      "content_refs": [
+        "ref:routing-evidence-001"
+      ]
+    }
+  ],
+  "extensions": []
+}

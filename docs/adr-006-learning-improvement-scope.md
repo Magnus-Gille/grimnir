@@ -22,16 +22,19 @@ LearningTaskContract v1 includes two improvement classes:
 1. **Route and roster selection:** use verifier-backed capability evidence to retain, freeze,
    remove, or prefer an existing model/configuration for a bounded task type.
 2. **Prompt, harness, and tool-policy optimization:** run matched, one-axis experiments with
-   independent verification, product-quality gates, reviewed deployment, and rollback.
+   independent verification, product-quality gates, bounded deployment, and rollback.
 
 **Model-weight training is not in v1.** It is a conditional future program, not a hidden extension
 of harvesting and not an automatic use of task content. The capability ledger and harvested labels
 remain evaluation/routing evidence unless a separately authorized export is created.
 
-Promotion is deliberately manual. `promotion-ready` means the evidence gate passed; it does not
-authorize Hugin or the gateway to edit configuration, deploy code, replace a champion, or train a
-model. The owning repository's human operator applies the exact reviewed reference and records the
-result.
+Historical note (superseded in a narrow scope): at ADR-006 acceptance, promotion was deliberately
+manual: `promotion-ready` meant the evidence gate passed but did not authorize application. That
+preserved result provenance and remains true for protected lanes, code/deployments, irreversible
+actions, and model-weight training. [ADR-008](adr-008-autonomy-constitution.md) supersedes that
+per-change human-approval rule only for a future **armed, covered, digest-bound** routing or
+no-reboot security/bugfix-maintenance instance. It does not authorize Hugin/gateway code changes,
+protected-lane edits, training, or a currently disarmed W0 record.
 
 ## Gate for a future weight-training program
 
