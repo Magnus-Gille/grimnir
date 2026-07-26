@@ -11,6 +11,16 @@ Model: `sonnet`. Arms: `before` = unmodified `AGENTS.md`, `after` = split. Raw J
 retained locally under `outputs/` and are **not** committed (18 MB); the per-run summaries below are
 the durable record.
 
+### Post-evidence evaluator hardening
+
+The retained runs predate the sandbox correction added during recovery of this PR. Their measured
+results remain historical evidence, not a claim that those original invocations were hermetic.
+Reruns now use project-only setting sources so each arm's project `CLAUDE.md`/`AGENTS.md` remains
+loaded while user `permissions.defaultMode="auto"` cannot widen the tool policy. They also use a
+strictly empty MCP configuration and explicitly deny command, mutation, network, and dispatch tools,
+leaving only `Read`, `Grep`, and `Glob`. `tests/scripts/test-instruction-eval-sandbox.sh`, wired into
+`make test`, pins those guards and the explicit `sonnet` default.
+
 ## Metrics
 
 - **doc-hit** — did the agent open the document that answers the question, read mechanically from

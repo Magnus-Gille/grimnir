@@ -34,6 +34,8 @@ the annotation, not only the filename.
   contract (issue #135)
 - `docs/github-actions-policy.md` — Central read-only fleet policy for immutable Action pins,
   release provenance, exact upstream runtime evidence, and owner-routed findings (issue #139)
+- `docs/github-actions-zero-step-recovery.md` — Read-only classification and owner recovery path for
+  GitHub Actions jobs that never reach a workflow step (issue #138)
 - `docs/deployment-source-binding.md` — Binding deploys to an explicit worktree + revision
 - `docs/systemd-runtime-rendering.md` — How systemd units are rendered at runtime
 - `docs/placement-validation.md` — Validating desired placement against explicit Brokkr

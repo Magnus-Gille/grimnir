@@ -75,6 +75,16 @@ gone), #90 (only `claude-config#11` outstanding). Closed **#69 as invalid** and 
 dates in `docs/skuld-trial-decision.md` (PR #147) — they were blank placeholders, so the day-28 gate
 could never come due.
 
+### Cross-fleet dependency sweep
+
+Issue **#16** was re-audited against each named repository's current `main` lockfile on 2026-07-26.
+The original all-dev/build-time premise was false: production audit findings remain in munin-memory,
+hugin, and verdandi. Roadmap-linked owning tickets are munin-memory#285, hugin#322, and verdandi#29.
+Heimdall's remediation PR #39 merged as `a02420f`, was deployed exactly, and its collector, live
+health revision, and remote production audit all verified clean. #16 remains open until the three
+remaining owner deliverables land. Mimir, Ratatoskr, Skuld, and Fortnox MCP have no production audit
+findings; their remaining findings are dev-only.
+
 ## Important incidents and learnings
 
 - **The deploy outage (grimnir#146).** The `/srv/grimnir` relocation is half-done: the owning repo

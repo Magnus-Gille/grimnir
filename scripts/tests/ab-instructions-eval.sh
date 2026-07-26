@@ -23,6 +23,9 @@ set -euo pipefail
 BEFORE_DIR=""
 AFTER_DIR=""
 REPS=3
+# The preserved 2026-07-25 evidence used Sonnet. Keep that as the explicit
+# default so a rerun is comparable; callers may deliberately override it with
+# --model, and the selected value is printed into the run log below.
 MODEL="sonnet"
 OUT=""
 PROBES=""
@@ -82,11 +85,18 @@ run_one() {
 
   raw="$RAW_DIR/${arm}-${probe_id}-r${rep}.jsonl"
 
-  # `command claude` bypasses the user's shell wrapper function so the run is
-  # reproducible and free of its side effects.
+  # `command claude` bypasses the user's shell wrapper function. Project-only
+  # settings still load the arm's CLAUDE.md/AGENTS.md instructions, which are
+  # the unit under test, while excluding user settings such as
+  # permissions.defaultMode="auto". MCP is strictly empty and every built-in
+  # mutation, network, or dispatch surface is denied explicitly. The remaining
+  # Read/Grep/Glob surface is sufficient for mechanical doc-hit scoring.
   if ! (cd "$dir" && timeout "$TIMEOUT_S" command claude -p "$prompt" \
         --output-format stream-json --verbose \
+        --setting-sources project \
+        --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
         --allowedTools "Read" "Grep" "Glob" \
+        --disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch Agent Task \
         --permission-mode dontAsk \
         --model "$MODEL") > "$raw" 2>"$raw.err"; then
     jq -n --arg arm "$arm" --arg id "$probe_id" --arg kind "$kind" --argjson rep "$rep" \
