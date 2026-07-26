@@ -6,10 +6,20 @@
 
 ## Trial record
 
-- **First successful briefing:** _record when observed_
-- **Day-28 review due:** _first successful briefing + 28 days_
+- **First successful briefing:** 2026-07-11 06:00 CEST
+- **Day-28 review due:** 2026-08-08
 - **Owner:** Magnus
 - **Outcome:** _pending — keep or cut_
+
+> **Verified live 2026-07-25.** Skuld is deployed and running: `skuld.timer` is active in **user
+> scope** on `huginmunin` (`systemctl --user`), last run 2026-07-25 06:01:36 CEST with
+> `Result=success`, `ExecMainStatus=0`, next run 06:03 the following day. `services.json` describes
+> it accurately, including `scope: user`. Dates above are sourced from the component-side ledger at
+> `skuld/docs/TRIAL-EVIDENCE.md`, which is the authoritative record of delivery; this file remains
+> authoritative for the keep/cut decision itself.
+>
+> A system-scope `systemctl` check reports zero units for Skuld and looks like absence. It is not —
+> see grimnir#69, which was filed on exactly that false negative.
 
 For each scheduled day, capture only:
 
