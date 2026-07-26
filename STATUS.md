@@ -5,9 +5,10 @@
 
 ## Current work
 
-- Grimnir #139 is implemented on `agent/issue-139-action-policy` pending review: a central,
-  read-only GitHub Actions pin/provenance/runtime audit with deterministic owner-routed findings,
-  fail-closed evidence classification, hermetic fixtures, and an owning-repo CI regression.
+- Grimnir #139's central read-only GitHub Actions pin/provenance/runtime policy is implemented with
+  deterministic owner routing, fail-closed evidence classification, hermetic fixtures, and an
+  owning-repo CI regression. Its first live fleet audit found 21 owner-routed policy findings and
+  zero evidence failures; cleanup remains with the owning repositories.
 
 ## The headline
 
