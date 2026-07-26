@@ -16,6 +16,7 @@ cat >"$TMP/gh" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
 endpoint="${2:-}"
+if [[ -n "${GH_STUB_CALLS:-}" ]]; then printf '%s\n' "$endpoint" >>"$GH_STUB_CALLS"; fi
 case "${GH_SCENARIO:?}:$endpoint" in
   zero:repos/Magnus-Gille/skuld/actions/runs/30180932068)
     printf '%s\n' '{"status":"completed","conclusion":"failure","pull_requests":[{"number":15}]}' ;;
@@ -41,7 +42,7 @@ chmod +x "$TMP/gh"
 
 run() {
   set +e
-  RESULT="$(GH_BIN="$TMP/gh" GH_SCENARIO="$1" "$SCRIPT" diagnose --repo Magnus-Gille/skuld --run 30180932068 --job 89737176794)"
+  RESULT="$(GH_BIN="$TMP/gh" GH_SCENARIO="$1" GH_STUB_CALLS="$TMP/calls-$1" "$SCRIPT" diagnose --repo Magnus-Gille/skuld --run 30180932068 --job 89737176794)"
   CODE=$?
   set -e
 }
@@ -73,6 +74,8 @@ assert_contains 'mismatched job is invalid evidence' "$RESULT" 'class=evidence_m
 run api
 assert_code 'API failure exits 13' 13 "$CODE"
 assert_contains 'API failure is distinct' "$RESULT" 'class=github_api_unavailable'
+assert_contains 'first API failure reports one attempted request' "$RESULT" 'api_attempts=1'
+assert_code 'first API failure makes one request' 1 "$(wc -l <"$TMP/calls-api" | tr -d '[:space:]')"
 
 echo "Results: $PASS passed, $FAIL failed"
 [[ "$FAIL" -eq 0 ]]

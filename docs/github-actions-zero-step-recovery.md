@@ -10,12 +10,14 @@ scripts/github-actions-zero-step-preflight.sh diagnose \
   --repo Magnus-Gille/skuld --run 30180932068 --job 89737176794
 ```
 
-The command makes exactly two GitHub API GETs (the nominated run and job), emits
+The command makes at most two GitHub API GETs (the nominated run and, only after
+that succeeds, the nominated job), emits
 one public-safe key/value alert record, and exits without a retry, poll, rerun,
 dispatch, comment, or any other GitHub mutation. Consumers deduplicate on the
 single `alert_key` field and emit that record once. In particular, they must not
 wrap it in a retry loop. `run_id`, `job_id`, and `affected_pr` occur once each so
-an owner can act on the exact evidence.
+an owner can act on the exact evidence. `api_attempts` reports the actual count:
+one when the run request fails, otherwise two.
 
 | Exit | Class | Meaning |
 | --- | --- | --- |
