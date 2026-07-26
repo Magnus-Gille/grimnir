@@ -1,10 +1,11 @@
 {
-  "stale_evidence": { "scenario_id": "negative", "fresh_observations": [{ "evidence_id": "old", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T09:59:59Z" }] },
-  "wrong_architecture": { "scenario_id": "negative", "plan": { "target_architecture": "x86_64" }, "fresh_observations": [{ "evidence_id": "obs", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T11:00:00Z", "architecture": "arm64" }] },
-  "missing_wifi_profile": { "scenario_id": "negative", "plan": { "requires_wifi_profile": true, "target_architecture": "arm64" }, "fresh_observations": [{ "evidence_id": "obs", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T11:00:00Z", "architecture": "arm64", "wifi_profile": "missing" }] },
-  "poor_transfer_window": { "scenario_id": "negative", "plan": { "transfer_window": "poor" } },
-  "absent_mount": { "scenario_id": "negative", "fresh_observations": [{ "evidence_id": "obs", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T11:00:00Z", "mount": "absent" }] },
-  "failed_health_hook": { "scenario_id": "negative", "service_verification": [{ "service": "fixture", "health": "failed", "hook": "failed" }] },
-  "monitoring_outage": { "scenario_id": "negative", "fresh_observations": [{ "evidence_id": "obs", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T11:00:00Z", "monitoring": "unavailable" }] },
-  "interrupted_apply": { "scenario_id": "negative", "lifecycle_result": { "interrupted_apply": true, "outcome": "promoted" } }
+  "stale_evidence": { "base_scenario_id": "example-nas-relocate", "expected_diagnostic": "stale evidence", "mutation": { "path": ["fresh_observations", 0, "valid_until"], "value": "2026-01-01T09:59:59Z" } },
+  "wrong_architecture": { "base_scenario_id": "example-nas-relocate", "expected_diagnostic": "wrong architecture", "mutation": { "path": ["plan", "target_architecture"], "value": "x86_64" } },
+  "missing_wifi_profile": { "base_scenario_id": "example-nas-relocate", "expected_diagnostic": "missing Wi-Fi profile", "mutation": { "path": ["fresh_observations", 0, "wifi_profile"], "value": "missing" } },
+  "poor_transfer_window": { "base_scenario_id": "example-nas-relocate", "expected_diagnostic": "poor transfer window", "mutation": { "path": ["plan", "transfer_window"], "value": "poor" } },
+  "absent_mount": { "base_scenario_id": "example-nas-relocate", "expected_diagnostic": "absent mount", "mutation": { "path": ["fresh_observations", 0, "mount"], "value": "absent" } },
+  "failed_health_hook": { "base_scenario_id": "example-nas-relocate", "expected_diagnostic": "failed health or hook", "mutation": { "path": ["service_verification", 0, "health"], "value": "failed" } },
+  "monitoring_outage": { "base_scenario_id": "example-nas-relocate", "expected_diagnostic": "monitoring outage", "mutation": { "path": ["fresh_observations", 0, "monitoring"], "value": "unavailable" } },
+  "interrupted_apply": { "base_scenario_id": "example-nas-relocate", "expected_diagnostic": "interrupted or invalid lifecycle result", "mutation": { "path": ["lifecycle_result", "interrupted_apply"], "value": true } },
+  "incomplete_evidence_promoted": { "base_scenario_id": "example-nas-relocate", "expected_diagnostic": "incomplete pilot evidence cannot promote", "mutation": { "path": ["lifecycle_result", "outcome"], "value": "historical_completed" } }
 }

@@ -1,8 +1,0 @@
-{
-  "record_id": "nas-failover-move-20260722",
-  "occurred_at": "2026-07-22T10:00:00Z",
-  "classification": "historical_evidence",
-  "provenance": "operator-recorded failover/move evidence",
-  "live_run_performed_by_harness": false,
-  "claim_kinds": ["transport", "configuration", "health", "copy_integrity", "restore"]
-}
