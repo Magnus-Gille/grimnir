@@ -31,6 +31,11 @@ assert_contains "has owner-first evolution rule" 'Owner-first, versioned change'
 assert_contains "has explicit consumer migration rule" 'Consumers migrate explicitly'
 assert_contains "requires proof before removal" 'Compatibility is proved before removal'
 assert_contains "fails closed for incompatible inputs" 'Fail closed at decision boundaries'
+assert_contains "requires consumer acceptance evidence before completion" 'actual acceptance rule'
+assert_contains "requires read-only real-data evidence before completion" 'read-only check against real data'
+assert_contains "requires historical-row compatibility evidence" 'historical.*row'
+assert_contains "rejects ignored cross-service input" 'cannot apply it must reject'
+assert_contains "warns on ignored cross-service input" 'warn on the ignored input'
 
 if [[ "$failures" -gt 0 ]]; then
   exit 1
