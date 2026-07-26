@@ -320,6 +320,9 @@ mustReject(() => { const x = resign(clone(journals[2])); x.entries[3].executor_i
 mustReject(() => { const x = resign(clone(journals[0])); x.entries[1].executor_identity = x.binding.watchdog_identity; return resign(x); }, "observer cannot actuate");
 mustReject(() => { const x = resign(clone(journals[0])); x.entries[1].command = "forbidden"; return resign(x); }, "commands are structurally rejected");
 mustReject(() => { const x = resign(clone(journals[0])); x.entries[1].content_refs = ["ref:private/locator"]; return resign(x); }, "private locators are rejected");
+mustReject(() => { const x = resign(clone(journals[0])); x.entries[1].content_refs = ["ref:"]; return resign(x); }, "empty opaque reference identities are rejected");
+mustReject(() => { const x = resign(clone(journals[0])); x.entries[1].content_refs = ["ref:1private"]; return resign(x); }, "opaque reference identities start with a lowercase letter");
+mustReject(() => { const x = resign(clone(journals[0])); x.entries[1].content_refs = ["ref:Private"]; return resign(x); }, "opaque reference identities remain lowercase");
 mustReject(() => { const x = resign(clone(journals[0])); x.entries[0].recorded_at = "2026-07-26T01:01:00Z"; return resign(x); }, "late prepare is rejected");
 mustReject(() => { const x = resign(clone(journals[0])); x.entries[1].recorded_at = "2026-07-26T01:01:00Z"; return resign(x); }, "late apply is rejected");
 mustReject(() => { const x = resign(clone(journals[0])); x.entries.at(-1).recorded_at = "2026-07-26T00:29:00Z"; return resign(x); }, "commit before watch completion is rejected");
@@ -333,6 +336,7 @@ mustReject(() => { const x = resign(clone(journals[0])); x.binding.admission_bin
 mustReject(() => { const x = resign(clone(journals[1])); x.entries.at(-1).coverage_transition.target_scope_digest = "sha256:9999999999999999999999999999999999999999999999999999999999999999"; return resign(x); }, "recovery cannot narrow another target");
 mustReject(() => { const x = resign(clone(journals[1])); x.entries.at(-1).coverage_transition.actor_identity = x.binding.controller_identity; return resign(x); }, "controller cannot forge recovery narrowing");
 mustReject(() => { const x = resign(clone(journals[1])); x.entries.at(-1).coverage_transition.to_state = "armed-fleet"; return resign(x); }, "recovery cannot widen or re-arm");
+mustReject(() => { const x = clone(journals[2]); x.entries = x.entries.filter((entry) => entry.phase !== "quarantine"); return resign(x); }, "R-forward recovery cannot disarm without active quarantine");
 { const x = clone(constitution); x.protected_lanes.pop(); x.constitution_digest = digest(x, "constitution_digest"); assert.throws(() => constitutionSemantics(x), "protected-lane substitution is rejected"); }
 { const x = clone(constitution); x.autonomous_classes.find((entry) => entry.class === "prompt").owner_scope = "fixed-component"; x.constitution_digest = digest(x, "constitution_digest"); assert.throws(() => constitutionSemantics(x), "generic owner scope cannot collapse to Hugin"); }
 { const x = clone(coverage); x.domains[0].coverage = "armed-canary"; x.registry_digest = digest(x, "registry_digest"); assert.throws(() => coverageSemantics(x, constitution, "w0"), "disarmed W0 cannot claim armed coverage"); }
@@ -353,6 +357,7 @@ mustReject(() => { const x = resign(clone(journals[1])); x.entries.at(-1).covera
   assert.equal(mayActuate(x, testAttestations, "prompt", "munin-memory", "munin-prompt-controller", prompt.bindings[0].target_scope_digest), true, "the attested configuration owner can actuate after separate arming");
   prompt.bindings[0].writer_owner = "hugin";
   prompt.bindings[0].configuration_owner = "hugin";
+  assert.equal(bindingAttested(prompt.bindings[0], "prompt", testAttestations), false, "self-relabelling fails the independent owner attestation directly");
   assert.equal(mayActuate(x, testAttestations, "prompt", "hugin", "munin-prompt-controller", prompt.bindings[0].target_scope_digest), false, "self-relabelling cannot replace the independent target-owner attestation");
 }
 {
