@@ -14,3 +14,6 @@ docs/full-architecture.md
 .deployed-commit
 # Claude Code session droppings (until hugin#139 workspace isolation is activated)
 .claude/
+
+# A/B eval raw streams and run summaries (see docs/instruction-ab-evidence-2026-07-25.md)
+outputs/
