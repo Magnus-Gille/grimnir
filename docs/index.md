@@ -36,6 +36,8 @@ the annotation, not only the filename.
   release provenance, exact upstream runtime evidence, and owner-routed findings (issue #139)
 - `docs/github-actions-zero-step-recovery.md` — Read-only classification and owner recovery path for
   GitHub Actions jobs that never reach a workflow step (issue #138)
+- `docs/validation-staleness-evidence-2026-07-26.md` — Measured Git sync staleness evidence and the
+  boundary between local validation results and current remote state (issue #2)
 - `docs/deployment-source-binding.md` — Binding deploys to an explicit worktree + revision
 - `docs/systemd-runtime-rendering.md` — How systemd units are rendered at runtime
 - `docs/placement-validation.md` — Validating desired placement against explicit Brokkr
