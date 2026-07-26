@@ -22,7 +22,11 @@
 # BOTH halves: that nothing can act, and that the skill still fires. Either one
 # alone can pass while the harness is worthless.
 #
-# Skipped when `claude` is unavailable (CI without credentials).
+# The live probe is opt-in. Its routing result depends on the current user-level
+# skill inventory and model availability, neither of which belongs to this repo;
+# the default test must remain hermetic. Run it deliberately with
+# RUN_LIVE_SKILL_SANDBOX_TEST=1 after confirming the live skill set contains
+# `deploy`.
 
 set -euo pipefail
 
@@ -37,8 +41,16 @@ grep -q -- '--strict-mcp-config' "$HARNESS" || \
   err "ab-skills-eval.sh lost --strict-mcp-config; MCP tools (hugin_submit, m5) would be live in skill bodies"
 grep -q -- '--allowedTools Skill' "$HARNESS" || \
   err "ab-skills-eval.sh lost --allowedTools Skill"
-grep -q -- '--disallowedTools Bash' "$HARNESS" || \
-  err "ab-skills-eval.sh lost --disallowedTools Bash"
+disallowed_line=$(grep -- '--disallowedTools' "$HARNESS" || true)
+for tool in Bash Edit Write NotebookEdit WebFetch WebSearch Agent Task; do
+  [[ "$disallowed_line" == *"$tool"* ]] || \
+    err "ab-skills-eval.sh no longer disallows $tool"
+done
+
+if [[ "${RUN_LIVE_SKILL_SANDBOX_TEST:-0}" != "1" ]]; then
+  echo "SKIP: live Claude routing probe is opt-in; ran static checks only"
+  exit "$fail"
+fi
 
 if ! command -v claude >/dev/null 2>&1; then
   echo "SKIP: claude CLI not available; ran static checks only"
