@@ -277,8 +277,8 @@ unit_rows() {
 }
 
 preflight_local_unit_sources() {
-  local local_path=$1 units_json=$2 fallback_name=$3 fallback_type=$4 fallback_scope=$5 render_enabled=${6:-false}
-  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file
+  local local_path=$1 units_json=$2 fallback_name=$3 fallback_type=$4 fallback_scope=$5 render_enabled=${6:-false} deploy_path=${7:-}
+  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file source
 
   rows="$(unit_rows "$units_json" "$fallback_name" "$fallback_type" "$fallback_scope")"
   while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics; do
@@ -287,13 +287,44 @@ preflight_local_unit_sources() {
     if ! preflight_local_install_ready_unit_source "$local_path" "$unit_file" true "$render_enabled"; then
       return 1
     fi
+    # Byte-for-byte units carry literal WorkingDirectory/EnvironmentFile
+    # paths (render_enabled units use <deploy-path>/<home> placeholders
+    # resolved and validated at render time instead). Refuse before any
+    # remote call when either contradicts this component's deploy_path
+    # (issue #146).
+    if [[ "$render_enabled" != "true" ]] && source=$(resolve_local_unit_source "$local_path" "$unit_file"); then
+      if ! preflight_unit_target_containment "$source" "$unit_file" "$deploy_path" "$fallback_name"; then
+        return 1
+      fi
+    fi
     if [[ "$unit_kind" == "timer" ]]; then
       companion_file="${unit_name}.service"
       if ! preflight_local_install_ready_unit_source "$local_path" "$companion_file" false "$render_enabled"; then
         return 1
       fi
+      if [[ "$render_enabled" != "true" ]] && source=$(resolve_local_unit_source "$local_path" "$companion_file"); then
+        if ! preflight_unit_target_containment "$source" "$companion_file" "$deploy_path" "$fallback_name"; then
+          return 1
+        fi
+      fi
     fi
   done <<< "$rows"
+}
+
+# Build the remote User/EnvironmentFile preflight + pre-overwrite backup
+# fragment for one byte-for-byte unit source (see
+# prepare_unit_target_preflight_and_backup_command). Returns empty when the
+# unit has no local source (an absent optional timer companion): rsync
+# mirrors deletions and git-pull mode pulls the identical commit, so remote
+# presence always matches local presence and there is nothing to guard.
+build_unit_target_guard() {
+  local local_path=$1 unit_file=$2 privileged=$3
+  local source WORKING_DIRECTORY ENV_FILES UNIT_USER
+
+  source=$(resolve_local_unit_source "$local_path" "$unit_file") || return 0
+  read_unit_service_directives "$source"
+  prepare_unit_target_preflight_and_backup_command "$privileged" "$unit_file" "$UNIT_USER" \
+    "${ENV_FILES[@]+"${ENV_FILES[@]}"}"
 }
 
 health_path_rows() {
@@ -428,15 +459,20 @@ deploy_service() {
     fi
     dirty_state="clean"
     echo "Source: ${local_path} (${branch} @ ${commit}, ${dirty_state})"
+  fi
 
-    # Central deploy installs declared units byte-for-byte. Reject a missing
-    # source or a component-owned template before build, marker invalidation,
-    # host resolution, or any remote mutation.
-    if ! preflight_local_unit_sources "$local_path" "$units_json" "$name" "$unit_type" "$unit_scope" "$render_enabled"; then
-      results+=("${RED}✗${NC} ${name}")
-      fail=$((fail + 1))
-      return
-    fi
+  # Central deploy installs declared units byte-for-byte. Reject a missing
+  # source, a component-owned template, or a unit whose WorkingDirectory /
+  # EnvironmentFile contradicts this component's registry deploy_path --
+  # before build, marker invalidation, host resolution, or any remote
+  # mutation, in both deploy modes. This is the ordering fix for issue #146:
+  # the incident stopped a healthy service and only then discovered the
+  # rsync-target vs. unit-target contradiction; the same check now runs
+  # before either target is ever touched.
+  if ! preflight_local_unit_sources "$local_path" "$units_json" "$name" "$unit_type" "$unit_scope" "$render_enabled" "$deploy_path"; then
+    results+=("${RED}✗${NC} ${name}")
+    fail=$((fail + 1))
+    return
   fi
 
   if ! remote_host=$(resolve_host "$host"); then
@@ -566,6 +602,7 @@ deploy_service() {
   local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file
   local timer_entry timer_name timer_semantics timer_next_check
   local q_unit_src q_unit_root q_user_dest q_system_dest q_unit_label unit_guard companion_guard
+  local unit_target_guard companion_target_guard
   local user_needs_reload=false system_needs_reload=false
   local user_services=() system_services=() user_timers=() system_timers=()
 
@@ -584,8 +621,11 @@ deploy_service() {
         cmd+="unit_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
         cmd+="[ -n \"\$unit_src\" ] || { printf 'ERROR: unit file missing: %s\\n' ${q_unit_label} >&2; exit 1; }; "
         unit_guard=$(prepare_remote_install_ready_unit_check_command unit_src "$unit_file")
+        unit_target_guard=$(build_unit_target_guard "$local_path" "$unit_file" false)
         cmd+="${unit_guard} && "
-        cmd+="install -D -m644 \"\$unit_src\" \"\$HOME\"/${q_user_dest} && "
+        cmd+="dest=\"\$HOME\"/${q_user_dest} && "
+        cmd+="${unit_target_guard}"
+        cmd+="install -D -m644 \"\$unit_src\" \"\$dest\" && "
       fi
       user_needs_reload=true
       if [[ "$unit_kind" == "service" ]]; then
@@ -596,9 +636,10 @@ deploy_service() {
           q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
           q_unit_root=$(posix_shell_quote "$companion_file")
           q_user_dest=$(posix_shell_quote ".config/systemd/user/${companion_file}")
+          companion_target_guard=$(build_unit_target_guard "$local_path" "$companion_file" false)
           cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
           companion_guard=$(prepare_remote_install_ready_unit_check_command companion_src "$companion_file")
-          cmd+="if [ -n \"\$companion_src\" ]; then ${companion_guard} && install -D -m644 \"\$companion_src\" \"\$HOME\"/${q_user_dest}; fi && "
+          cmd+="if [ -n \"\$companion_src\" ]; then dest=\"\$HOME\"/${q_user_dest} && ${companion_guard} && ${companion_target_guard}install -D -m644 \"\$companion_src\" \"\$dest\"; fi && "
         fi
         user_timers+=("${unit_name}|${unit_timer_semantics}")
       fi
@@ -607,8 +648,11 @@ deploy_service() {
         cmd+="unit_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && unit_src=\"\$f\" && break; done; "
         cmd+="[ -n \"\$unit_src\" ] || { printf 'ERROR: unit file missing: %s\\n' ${q_unit_label} >&2; exit 1; }; "
         unit_guard=$(prepare_remote_install_ready_unit_check_command unit_src "$unit_file")
+        unit_target_guard=$(build_unit_target_guard "$local_path" "$unit_file" true)
         cmd+="${unit_guard} && "
-        cmd+="sudo install -D -m644 \"\$unit_src\" ${q_system_dest} && "
+        cmd+="dest=${q_system_dest} && "
+        cmd+="${unit_target_guard}"
+        cmd+="sudo install -D -m644 \"\$unit_src\" \"\$dest\" && "
       fi
       system_needs_reload=true
       if [[ "$unit_kind" == "service" ]]; then
@@ -619,9 +663,10 @@ deploy_service() {
           q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
           q_unit_root=$(posix_shell_quote "$companion_file")
           q_system_dest=$(posix_shell_quote "/etc/systemd/system/${companion_file}")
+          companion_target_guard=$(build_unit_target_guard "$local_path" "$companion_file" true)
           cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
           companion_guard=$(prepare_remote_install_ready_unit_check_command companion_src "$companion_file")
-          cmd+="if [ -n \"\$companion_src\" ]; then ${companion_guard} && sudo install -D -m644 \"\$companion_src\" ${q_system_dest}; fi && "
+          cmd+="if [ -n \"\$companion_src\" ]; then dest=${q_system_dest} && ${companion_guard} && ${companion_target_guard}sudo install -D -m644 \"\$companion_src\" \"\$dest\"; fi && "
         fi
         system_timers+=("${unit_name}|${unit_timer_semantics}")
       fi

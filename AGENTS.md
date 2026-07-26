@@ -81,3 +81,10 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 | Skuld | `skuld` (grimnir-bot org) | Daily intelligence briefing |
 | Fortnox MCP | `fortnox-mcp` | Accounting CLI + MCP |
 | Brokkr | `brokkr` | Platform/substrate layer — hardware, OS, storage, backups (peer, not a service) |
+
+## Document index
+
+For the complete, categorised system-document and script index, read [`docs/index.md`](docs/index.md).
+It includes component decision records such as Skuld and Verdandi, plus every constraint-bearing
+annotation. Read it whenever the task may depend on system history, policy, an implementation
+contract, or a script outside this instruction file.

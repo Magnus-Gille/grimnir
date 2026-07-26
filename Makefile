@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -42,6 +42,9 @@ test-deploy-persistent-paths: ## Fail closed before rsync can delete an in-targe
 test-deploy-systemd-render: ## Render and preflight host-specific systemd runtime identity (issue #107)
 	@bash scripts/tests/deploy-systemd-render.test.sh
 
+test-deploy-unit-target-guard: ## Fail closed before restart when a unit's WorkingDirectory/EnvironmentFile contradicts deploy_path (issue #146)
+	@bash scripts/tests/deploy-unit-target-guard.test.sh
+
 test-failure-recovery-doc: ## Regression test: assert docs/failure-recovery.md defines the undo convention (issue #46)
 	@bash tests/scripts/test-failure-recovery-doc.sh
 
@@ -60,9 +63,6 @@ test-maintenance-policy-contract: ## Validate the maintenance-policy v1 schema, 
 test-maintenance-policy-contract-doc: ## Regression test: assert the maintenance-policy intent/DST/digest contract (issue #134)
 	@bash tests/scripts/test-maintenance-policy-contract-doc.sh
 
-test-doc-index: ## Regression test: assert docs/index.md stays reachable, complete, and constraint-preserving
-	@bash tests/scripts/test-doc-index.sh
-
 test-network-operating-model: ## Regression test: assert the NAS/control network operating policy (issue #12)
 	@bash scripts/tests/network-operating-model.test.sh
 
@@ -78,7 +78,22 @@ test-runtime-state: ## Desired runtime and deployment-state validation (issue #1
 test-worktree-hygiene: ## Unit + fixture tests for the worktree/deploy hygiene audit (issue #87)
 	@bash scripts/tests/worktree-hygiene.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-doc-index ## Run all test suites
+test-github-actions-policy: ## Enforce immutable Action pins, provenance, and approved runtimes (issue #139)
+	@node tests/scripts/test-github-actions-policy.mjs
+
+test-claude-capacity-preflight: ## Classify cheap Claude probe failures and preserve deterministic fallback (issue #136)
+	@bash scripts/tests/claude-capacity-preflight.test.sh
+
+test-github-project-preflight: ## Classify GitHub Project scopes, absence, and API failures (issue #135)
+	@bash scripts/tests/github-project-preflight.test.sh
+
+test-validate-exit: ## Unit tests for the audit exit-status contract (findings vs. audit failure)
+	@bash scripts/tests/validate-exit.test.sh
+
+test-doc-index: ## Guard progressive-disclosure index completeness and retained constraints (issue #143)
+	@bash tests/scripts/test-doc-index.sh
+
+test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-doc-index ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
