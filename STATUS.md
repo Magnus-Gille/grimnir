@@ -5,6 +5,11 @@
 
 ## Current work
 
+- **Grimnir #170 / PR #171** defines a W0-only, globally disarmed autonomy constitution. The
+  approved contract has seven exact classes: six L5 R-exact routing/configuration classes and one
+  L4 R-forward no-reboot security/bugfix-maintenance class. Its ADR-008 domain journals are
+  authoritative and Verdandi optional only for those classes; legacy actors retain mandatory
+  Verdandi and no automatic rollback. No controller, lane, or deployment is armed by this record.
 - **Skuld #14 / PR #16** is root-Codex + authenticated-M5 approved and passes 104 local tests, build,
   lint, and diff check. It cannot merge under the green-CI rule: GitHub Actions run `30187798237`
   failed twice with **zero executed steps**, including an explicit rerun. This is tracked in

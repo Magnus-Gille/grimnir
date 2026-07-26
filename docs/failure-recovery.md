@@ -34,13 +34,13 @@ actions Grimnir takes without a human in the loop at the moment of action.
 
 ## The convention
 
-For the bounded Level 4/5 autonomy program, [ADR-008](adr-008-autonomy-constitution.md) adds a
-digest-bound authoritative domain journal. `R-exact` restores an immutable baseline; `R-forward`
-is only a bounded, separately authorized compensating recovery. Unknown state fails closed into
-recovery and ends disarmed or terminally blocked. Verdandi is an optional projection, and Heimdall
-remains an observer rather than an admission or recovery actor.
+For the seven bounded Level 4/5 ADR-008 classes only, [ADR-008](adr-008-autonomy-constitution.md)
+adds a digest-bound authoritative domain journal. `R-exact` restores an immutable baseline;
+`R-forward` is only a bounded, separately authorized compensating recovery. Unknown state fails
+closed into recovery and controller disarm. Verdandi is an optional projection for those seven
+classes only, and Heimdall remains an observer rather than an admission or recovery actor.
 
-**Every autonomous mutation must leave two things behind:**
+**Every legacy autonomous mutation must leave two things behind:**
 
 1. A **reversal recipe** — machine-followable instructions for undoing the
    mutation, chosen from exactly three kinds (see below). Exactly one kind
@@ -48,8 +48,8 @@ remains an observer rather than an admission or recovery actor.
 2. A **Verdandi audit event** recording what happened and which reversal
    recipe covers it.
 
-If a mutation happens without both, it is a bug in the actor that made it,
-not an acceptable gap. Neither piece is optional — a mutation with an audit
+Outside ADR-008's seven closed classes, a mutation without both is a bug in the actor that made it,
+not an acceptable gap. Neither piece is optional — a legacy mutation with an audit
 event but no reversal recipe is exactly the gap this convention exists to
 close.
 
@@ -68,7 +68,7 @@ by pretending an unreversible action is reversible.
 
 ### The Verdandi audit event
 
-Every autonomous mutation emits one event to Verdandi (`POST /api/events`,
+Every legacy autonomous mutation emits one event to Verdandi (`POST /api/events`,
 per [`architecture.md`](architecture.md#verdandi--audit-log)) carrying the
 reversal recipe as structured data:
 
@@ -208,10 +208,12 @@ and does not yet write fixes) land as commits to a docs-only repo.
 - **No new service.** This is not a "Syn"-style rollback engine. It is a
   data shape (the reversal recipe) and a rule (emit it to Verdandi). Each
   owning repo implements it in its own mutation path.
-- **No automatic rollback execution.** The convention makes undo *possible
+- **No automatic rollback execution for legacy actors.** The convention makes undo *possible
   and visible*; it does not decide *when* to actually run a revert. That
   judgment call stays with a human (Phase 2-3) until trust accumulates
-  enough to automate it (a Phase 3-4 question, not this one).
+  enough to automate it (a Phase 3-4 question, not this one). ADR-008 is the narrow exception:
+  its separately armed classes use the authoritative journal and their explicit R-exact/R-forward
+  recovery branches; it does not alter this legacy rule.
 - **No retroactive backfill.** Mutations made before an actor adopts this
   convention are not audited retroactively. Adoption is forward-looking,
   tracked per-repo via tickets filed against the owning agent.

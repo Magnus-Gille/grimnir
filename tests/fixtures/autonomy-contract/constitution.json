@@ -1,87 +1,15 @@
 {
-  "kind": "autonomy-constitution",
-  "schema_version": "v1",
-  "constitution_id": "grimnir-autonomy-v1",
-  "issued_at": "2026-07-26T00:00:00Z",
-  "promotion_mode": "mechanical-for-covered-classes-only",
-  "protected_lanes": [
-    "credentials-and-auth",
-    "owner-policy",
-    "constitution-and-safety-gates",
-    "deployments-and-code",
-    "privacy-retention-and-erasure",
-    "firmware",
-    "remote-recovery",
-    "model-weight-training",
-    "irreversible-external-actions",
-    "package-downgrade"
-  ],
-  "safety_floors": {
-    "fail_closed": true,
-    "kill_switch": true,
-    "fresh_evidence": true,
-    "unique_identity": true,
-    "content_blind_journal": true,
-    "observer_cannot_actuate": true,
-    "unknown_disarms": true,
-    "protected_lanes_never_promote": true
-  },
+  "kind": "autonomy-constitution", "schema_version": "v1", "constitution_id": "grimnir-autonomy-v1", "issued_at": "2026-07-26T00:00:00Z", "promotion_mode": "mechanical-for-covered-classes-only",
+  "protected_lanes": ["credentials-and-auth", "owner-policy", "constitution-and-safety-gates", "deployments-and-code", "privacy-retention-and-erasure", "firmware", "remote-recovery", "model-weight-training", "irreversible-external-actions", "package-downgrade"],
+  "safety_floors": { "fail_closed": true, "kill_switch": true, "fresh_evidence": true, "unique_identity": true, "content_blind_journal": true, "observer_cannot_actuate": true, "unknown_disarms": true, "controller_disarm_separate": true, "protected_lanes_never_promote": true },
   "autonomous_classes": [
-    {
-      "class": "routing",
-      "level": "L5",
-      "admission": "mechanical-after-all-predicates",
-      "recovery_class": "R-exact",
-      "bounds": {
-        "max_concurrent_targets": 1,
-        "canary_only_until_armed_fleet": true,
-        "deadline_seconds": 3600,
-        "watch_seconds": 3600,
-        "max_attempts": 1
-      },
-      "identities": {
-        "executor": "routing-executor",
-        "recovery_worker": "routing-restore-worker"
-      },
-      "required_postconditions": [
-        "verifier-passes",
-        "canary-watch-complete",
-        "disarm-confirmed"
-      ],
-      "fault_injection_requirements": [
-        "executor-interruption",
-        "observer-cannot-actuate",
-        "recovery-path-proven"
-      ]
-    },
-    {
-      "class": "no-reboot-security-bugfix-maintenance",
-      "level": "L4",
-      "admission": "mechanical-after-all-predicates",
-      "recovery_class": "R-forward",
-      "bounds": {
-        "max_concurrent_targets": 1,
-        "canary_only_until_armed_fleet": true,
-        "deadline_seconds": 3600,
-        "watch_seconds": 3600,
-        "max_attempts": 1
-      },
-      "identities": {
-        "executor": "maintenance-executor",
-        "recovery_worker": "maintenance-recovery-worker"
-      },
-      "required_postconditions": [
-        "verifier-passes",
-        "canary-watch-complete",
-        "disarm-confirmed"
-      ],
-      "fault_injection_requirements": [
-        "executor-interruption",
-        "observer-cannot-actuate",
-        "recovery-path-proven"
-      ]
-    }
+    { "class": "micro-routing", "level": "L5", "owner": "gille-inference", "admission": "mechanical-after-all-predicates", "recovery_class": "R-exact", "bounds": { "max_concurrent_targets": 1, "canary_only_until_armed_fleet": true, "deadline_seconds": 3600, "watch_seconds": 3600, "max_attempts": 1 }, "identities": { "owner": "gille-owner", "controller": "micro-route-controller", "watchdog": "micro-route-watchdog", "kill_switch": "micro-route-kill-switch", "recovery_worker": "micro-route-revert-worker" }, "required_postconditions": ["verifier-passes", "canary-watch-complete", "micro-route-readback-matches-candidate", "baseline-digest-restored", "controller-disarm-confirmed"], "fault_injection_requirements": ["executor-interruption", "observer-cannot-actuate", "recovery-path-proven", "stale-evidence-rejected", "chain-tamper-rejected", "late-mutation-rejected", "kill-switch-rejected"] },
+    { "class": "macro-routing", "level": "L5", "owner": "hugin", "admission": "mechanical-after-all-predicates", "recovery_class": "R-exact", "bounds": { "max_concurrent_targets": 1, "canary_only_until_armed_fleet": true, "deadline_seconds": 3600, "watch_seconds": 3600, "max_attempts": 1 }, "identities": { "owner": "hugin-owner", "controller": "macro-route-controller", "watchdog": "macro-route-watchdog", "kill_switch": "macro-route-kill-switch", "recovery_worker": "macro-route-revert-worker" }, "required_postconditions": ["verifier-passes", "canary-watch-complete", "macro-route-readback-matches-candidate", "baseline-digest-restored", "controller-disarm-confirmed"], "fault_injection_requirements": ["executor-interruption", "observer-cannot-actuate", "recovery-path-proven", "stale-evidence-rejected", "chain-tamper-rejected", "late-mutation-rejected", "kill-switch-rejected"] },
+    { "class": "prompt", "level": "L5", "owner": "hugin", "admission": "mechanical-after-all-predicates", "recovery_class": "R-exact", "bounds": { "max_concurrent_targets": 1, "canary_only_until_armed_fleet": true, "deadline_seconds": 3600, "watch_seconds": 3600, "max_attempts": 1 }, "identities": { "owner": "prompt-owner", "controller": "prompt-controller", "watchdog": "prompt-watchdog", "kill_switch": "prompt-kill-switch", "recovery_worker": "prompt-revert-worker" }, "required_postconditions": ["verifier-passes", "canary-watch-complete", "prompt-config-readback-matches-candidate", "baseline-digest-restored", "controller-disarm-confirmed"], "fault_injection_requirements": ["executor-interruption", "observer-cannot-actuate", "recovery-path-proven", "stale-evidence-rejected", "chain-tamper-rejected", "late-mutation-rejected", "kill-switch-rejected"] },
+    { "class": "harness", "level": "L5", "owner": "hugin", "admission": "mechanical-after-all-predicates", "recovery_class": "R-exact", "bounds": { "max_concurrent_targets": 1, "canary_only_until_armed_fleet": true, "deadline_seconds": 3600, "watch_seconds": 3600, "max_attempts": 1 }, "identities": { "owner": "harness-owner", "controller": "harness-controller", "watchdog": "harness-watchdog", "kill_switch": "harness-kill-switch", "recovery_worker": "harness-revert-worker" }, "required_postconditions": ["verifier-passes", "canary-watch-complete", "harness-config-readback-matches-candidate", "baseline-digest-restored", "controller-disarm-confirmed"], "fault_injection_requirements": ["executor-interruption", "observer-cannot-actuate", "recovery-path-proven", "stale-evidence-rejected", "chain-tamper-rejected", "late-mutation-rejected", "kill-switch-rejected"] },
+    { "class": "tool-policy", "level": "L5", "owner": "hugin", "admission": "mechanical-after-all-predicates", "recovery_class": "R-exact", "bounds": { "max_concurrent_targets": 1, "canary_only_until_armed_fleet": true, "deadline_seconds": 3600, "watch_seconds": 3600, "max_attempts": 1 }, "identities": { "owner": "tool-policy-owner", "controller": "tool-policy-controller", "watchdog": "tool-policy-watchdog", "kill_switch": "tool-policy-kill-switch", "recovery_worker": "tool-policy-revert-worker" }, "required_postconditions": ["verifier-passes", "canary-watch-complete", "tool-policy-readback-matches-candidate", "baseline-digest-restored", "controller-disarm-confirmed"], "fault_injection_requirements": ["executor-interruption", "observer-cannot-actuate", "recovery-path-proven", "stale-evidence-rejected", "chain-tamper-rejected", "late-mutation-rejected", "kill-switch-rejected"] },
+    { "class": "served-model-roster", "level": "L5", "owner": "gille-inference", "admission": "mechanical-after-all-predicates", "recovery_class": "R-exact", "bounds": { "max_concurrent_targets": 1, "canary_only_until_armed_fleet": true, "deadline_seconds": 3600, "watch_seconds": 3600, "max_attempts": 1 }, "identities": { "owner": "roster-owner", "controller": "roster-controller", "watchdog": "roster-watchdog", "kill_switch": "roster-kill-switch", "recovery_worker": "roster-revert-worker" }, "required_postconditions": ["verifier-passes", "canary-watch-complete", "served-model-roster-readback-matches-candidate", "baseline-digest-restored", "controller-disarm-confirmed"], "fault_injection_requirements": ["executor-interruption", "observer-cannot-actuate", "recovery-path-proven", "stale-evidence-rejected", "chain-tamper-rejected", "late-mutation-rejected", "kill-switch-rejected"] },
+    { "class": "no-reboot-security-bugfix-maintenance", "level": "L4", "owner": "brokkr", "admission": "mechanical-after-all-predicates", "recovery_class": "R-forward", "bounds": { "max_concurrent_targets": 1, "canary_only_until_armed_fleet": true, "deadline_seconds": 3600, "watch_seconds": 3600, "max_attempts": 1 }, "identities": { "owner": "brokkr-owner", "controller": "maintenance-controller", "watchdog": "maintenance-watchdog", "kill_switch": "maintenance-kill-switch", "recovery_worker": "maintenance-recovery-worker" }, "required_postconditions": ["verifier-passes", "canary-watch-complete", "maintenance-safe-state-readback", "safe-state-verified", "controller-disarm-confirmed"], "fault_injection_requirements": ["executor-interruption", "observer-cannot-actuate", "recovery-path-proven", "stale-evidence-rejected", "chain-tamper-rejected", "canary-breach-quarantines", "late-mutation-rejected", "kill-switch-rejected"] }
   ],
-  "constitution_digest": "sha256:9e882dda92d93577c38131cff3f52bf1b178b4f754dd85bb1877ef64bae248f2",
-  "extensions": []
+  "constitution_digest": "sha256:e5428444bd5ef23d176cf87c260d93c625a8a9684c14322a391f16594058ad35", "extensions": []
 }

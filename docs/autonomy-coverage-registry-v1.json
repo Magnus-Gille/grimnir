@@ -1,108 +1,23 @@
 {
-  "kind": "autonomy-coverage-registry",
-  "schema_version": "v1",
-  "registry_id": "grimnir-autonomy-coverage",
-  "issued_at": "2026-07-26T00:00:00Z",
-  "constitution_digest": "sha256:9e882dda92d93577c38131cff3f52bf1b178b4f754dd85bb1877ef64bae248f2",
-  "global_state": "disarmed",
+  "kind": "autonomy-coverage-registry", "schema_version": "v1", "registry_id": "grimnir-autonomy-coverage", "issued_at": "2026-07-26T00:00:00Z", "constitution_digest": "sha256:e5428444bd5ef23d176cf87c260d93c625a8a9684c14322a391f16594058ad35", "global_state": "disarmed",
   "domains": [
-    {
-      "domain": "routing",
-      "level": "L5",
-      "owner": "gille-inference",
-      "recovery_class": "R-exact",
-      "coverage": "shadow",
-      "target_state": "armed-canary"
-    },
-    {
-      "domain": "no-reboot-security-bugfix-maintenance",
-      "level": "L4",
-      "owner": "brokkr",
-      "recovery_class": "R-forward",
-      "coverage": "shadow",
-      "target_state": "armed-canary"
-    },
-    {
-      "domain": "credentials-and-auth",
-      "level": "permanent",
-      "owner": "owner",
-      "recovery_class": "none",
-      "coverage": "protected",
-      "target_state": "never-mechanical"
-    },
-    {
-      "domain": "owner-policy",
-      "level": "permanent",
-      "owner": "owner",
-      "recovery_class": "none",
-      "coverage": "protected",
-      "target_state": "never-mechanical"
-    },
-    {
-      "domain": "constitution-and-safety-gates",
-      "level": "permanent",
-      "owner": "owner",
-      "recovery_class": "none",
-      "coverage": "protected",
-      "target_state": "never-mechanical"
-    },
-    {
-      "domain": "deployments-and-code",
-      "level": "permanent",
-      "owner": "owner",
-      "recovery_class": "none",
-      "coverage": "protected",
-      "target_state": "never-mechanical"
-    },
-    {
-      "domain": "privacy-retention-and-erasure",
-      "level": "permanent",
-      "owner": "owner",
-      "recovery_class": "none",
-      "coverage": "protected",
-      "target_state": "never-mechanical"
-    },
-    {
-      "domain": "firmware",
-      "level": "permanent",
-      "owner": "owner",
-      "recovery_class": "none",
-      "coverage": "protected",
-      "target_state": "never-mechanical"
-    },
-    {
-      "domain": "remote-recovery",
-      "level": "permanent",
-      "owner": "owner",
-      "recovery_class": "none",
-      "coverage": "protected",
-      "target_state": "never-mechanical"
-    },
-    {
-      "domain": "model-weight-training",
-      "level": "permanent",
-      "owner": "owner",
-      "recovery_class": "none",
-      "coverage": "protected",
-      "target_state": "never-mechanical"
-    },
-    {
-      "domain": "irreversible-external-actions",
-      "level": "permanent",
-      "owner": "owner",
-      "recovery_class": "none",
-      "coverage": "protected",
-      "target_state": "never-mechanical"
-    },
-    {
-      "domain": "package-downgrade",
-      "level": "permanent",
-      "owner": "owner",
-      "recovery_class": "none",
-      "coverage": "protected",
-      "target_state": "never-mechanical"
-    }
+    { "domain": "micro-routing", "level": "L5", "owner": "gille-inference", "recovery_class": "R-exact", "coverage": "shadow", "target_state": "armed-canary" },
+    { "domain": "macro-routing", "level": "L5", "owner": "hugin", "recovery_class": "R-exact", "coverage": "shadow", "target_state": "armed-canary" },
+    { "domain": "prompt", "level": "L5", "owner": "hugin", "recovery_class": "R-exact", "coverage": "shadow", "target_state": "armed-canary" },
+    { "domain": "harness", "level": "L5", "owner": "hugin", "recovery_class": "R-exact", "coverage": "shadow", "target_state": "armed-canary" },
+    { "domain": "tool-policy", "level": "L5", "owner": "hugin", "recovery_class": "R-exact", "coverage": "shadow", "target_state": "armed-canary" },
+    { "domain": "served-model-roster", "level": "L5", "owner": "gille-inference", "recovery_class": "R-exact", "coverage": "shadow", "target_state": "armed-canary" },
+    { "domain": "no-reboot-security-bugfix-maintenance", "level": "L4", "owner": "brokkr", "recovery_class": "R-forward", "coverage": "shadow", "target_state": "armed-canary" },
+    { "domain": "credentials-and-auth", "level": "permanent", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical" },
+    { "domain": "owner-policy", "level": "permanent", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical" },
+    { "domain": "constitution-and-safety-gates", "level": "permanent", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical" },
+    { "domain": "deployments-and-code", "level": "permanent", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical" },
+    { "domain": "privacy-retention-and-erasure", "level": "permanent", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical" },
+    { "domain": "firmware", "level": "permanent", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical" },
+    { "domain": "remote-recovery", "level": "permanent", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical" },
+    { "domain": "model-weight-training", "level": "permanent", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical" },
+    { "domain": "irreversible-external-actions", "level": "permanent", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical" },
+    { "domain": "package-downgrade", "level": "permanent", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical" }
   ],
-  "registry_digest": "sha256:1781b4967c913865dc77ce704154e542148f75fb478a3044930b58aaefc09a7e",
-  "extensions": []
+  "registry_digest": "sha256:ef1124edc2c1ad849cb790eebf6d3333069fce8fe6eae9e1230db13cd7960e30", "extensions": []
 }

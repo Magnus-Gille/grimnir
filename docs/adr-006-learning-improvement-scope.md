@@ -32,8 +32,9 @@ Historical note (superseded in a narrow scope): at ADR-006 acceptance, promotion
 manual: `promotion-ready` meant the evidence gate passed but did not authorize application. That
 preserved result provenance and remains true for protected lanes, code/deployments, irreversible
 actions, and model-weight training. [ADR-008](adr-008-autonomy-constitution.md) supersedes that
-per-change human-approval rule only for a future **armed, covered, digest-bound** routing or
-no-reboot security/bugfix-maintenance instance. It does not authorize Hugin/gateway code changes,
+per-change human-approval rule only for a future **armed, covered, digest-bound** micro-routing,
+macro-routing, prompt, harness, tool-policy, served-model-roster, or no-reboot
+security/bugfix-maintenance instance. It does not authorize Hugin/gateway code changes,
 protected-lane edits, training, or a currently disarmed W0 record.
 
 ## Gate for a future weight-training program

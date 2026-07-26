@@ -3,8 +3,8 @@
 - **Status:** accepted — W0 contract only; globally disarmed
 - **Date:** 2026-07-26
 - **Decision owner:** Grimnir system architecture
-- **Supersedes:** the manual promotion and mandatory-Verdandi-receipt posture only for the two
-  bounded classes below. It does not supersede owner control of protected lanes, software change,
+- **Supersedes:** the manual promotion and mandatory-Verdandi-receipt posture only for the seven
+  bounded ADR-008 classes below. It does not supersede owner control of protected lanes, software change,
   or the historical evidence records in ADR-006 and the recovery convention.
 
 ## Context
@@ -37,11 +37,17 @@ contains exactly these mechanically promotable classes:
 
 | Class | Level | Recovery | Permanent bound |
 |---|---:|---|---|
-| `routing` | L5 | `R-exact` | one canary target, one attempt, finite deadline/watch |
+| `micro-routing` | L5 | `R-exact` | one canary target, one attempt, finite deadline/watch |
+| `macro-routing` | L5 | `R-exact` | one canary target, one attempt, finite deadline/watch |
+| `prompt` | L5 | `R-exact` | one canary target, one attempt, finite deadline/watch |
+| `harness` | L5 | `R-exact` | one canary target, one attempt, finite deadline/watch |
+| `tool-policy` | L5 | `R-exact` | one canary target, one attempt, finite deadline/watch |
+| `served-model-roster` | L5 | `R-exact` | one canary target, one attempt, finite deadline/watch |
 | `no-reboot-security-bugfix-maintenance` | L4 | `R-forward` | non-pillar canary only, no reboot, one target/attempt, finite deadline/watch |
 
-Each class has closed bounds, distinct executor/recovery identities, required postconditions, and
-fault-injection requirements. The constitution also requires fail-closed admission, kill switch,
+Each class has closed bounds, distinct owner, controller, watchdog, kill-switch, and recovery-worker
+identities; class-specific readback/recovery postconditions; and fault-injection requirements. The
+constitution also requires fail-closed admission, kill switch,
 fresh evidence, unique identity, content-blind journaling, observer non-actuation, unknown-state
 disarm, and protected-lane non-promotion. A later class or field requires a new constitution
 version and owner decision; `extensions` is deliberately empty in v1.
@@ -59,7 +65,7 @@ be mistaken for permission.
 rows with the constitution, class level, owner, recovery class, current coverage, and target state.
 The only coverage states are `out-of-scope`, `protected`, `shadow`, `armed-canary`, and
 `armed-fleet`; target state is distinct from current state. Current W0 has global state `disarmed`
-and both autonomous classes at `shadow`, so it cannot claim a canary or fleet admission.
+and all seven autonomous classes at `shadow`, so it cannot claim a canary or fleet admission.
 
 A future controller may admit exactly one class only when global state is armed, that class has the
 matching armed coverage, every evidence/risk/canary predicate is fresh and true, the kill switch is
@@ -69,39 +75,43 @@ maintenance, and an observer cannot turn shadow evidence into admission.
 ### Authoritative content-blind journal
 
 Every future admitted mutation has one closed `autonomous-mutation-journal` envelope for one
-domain/mutation/attempt/idempotency key. Entries bind the constitution digest, immutable baseline,
-postcondition digest, deadline, one-target canary scope/watch deadline, executor identity,
-least-privilege recovery identity, risk scope, opaque reference identifiers, and a receipt hash
-chain. It intentionally contains no command, path, prompt, payload, secret, or target content;
-references are opaque `ref:<id>` handles. Verdict/audit projections may consume it but cannot
-replace it.
+domain/mutation/attempt/idempotency key. Its immutable binding carries the candidate, configuration,
+evidence, policy, baseline, postcondition, deadline, canary, recovery, and all five authority
+identities. Every entry receipt binds that immutable binding and opaque reference identifiers. It
+intentionally contains no command, path, prompt, payload, secret, or target content; references are
+opaque `ref:<id>` handles. Verdict/audit projections may consume it but cannot replace it.
 
-The state machine is `prepare → apply → verify → watch → commit → disarm` on success, with any
-uncertainty taking the fail-closed branch `… → unknown → recover → [quarantine] → disarm`.
-Sequence, time, baseline, postcondition, deadline, canary, risk scope, recovery class, and identity
-cannot change inside an envelope. Receipts are canonical-digest chained; replay, gap, tamper,
-deadline extension, canary expansion, recovery-worker impersonation, and `unknown → apply` are
-rejected. Every recovery worker disarms after acting; terminal outcomes are `disarmed` or
-`terminally-blocked`, never implicit retry/re-arm.
+The success state machine is `prepare → apply → verify → watch → commit → controller-disarm`.
+`commit` records the one mutation attempt; it is not controller disarm or permission to retain an
+armed state. Any uncertainty takes a fail-closed recovery branch: **R-exact** is
+`… → unknown → revert/reverted → controller-disarm`; **R-forward** is
+`… → unknown → recover/recovered → quarantine → controller-disarm`. Candidate/config/evidence/
+policy identity, baseline, postconditions, deadline, canary, recovery class, and authority identity
+cannot change inside an envelope. No mutation phase may be recorded after its deadline; detection,
+revert/recovery, quarantine, and controller disarm may occur after it. Receipts are canonical-digest
+chained; replay, gap, tamper, deadline extension, canary expansion, recovery-worker impersonation,
+and `unknown → apply` are rejected. Recovery never retries or re-arms.
 
-- **R-exact** restores the immutable recorded baseline and verifies its exact digest. It is the L5
-  routing target.
+- **R-exact** restores the immutable recorded baseline and verifies its exact digest. It applies to
+  all six L5 routing/configuration classes above.
 - **R-forward** makes only a predeclared, bounded compensating move to a named safe state. It is
   the L4 maintenance target, requires active quarantine after a breach, and then disarms.
 
-Heimdall is read-only and outside admission, mutation, recovery, rollback, and re-arm. Verdandi is
-an optional asynchronous projection: unavailable/rejected Verdandi must not weaken the authoritative
-journal or cause an unrecorded mutation. Its separate recovery/purpose gate remains in force.
+For these ADR-008 classes only, the domain journal is authoritative and Verdandi is an optional
+asynchronous projection: unavailable/rejected Verdandi must not weaken the journal or cause an
+unrecorded mutation. Heimdall is read-only and outside admission, mutation, recovery, rollback, and
+re-arm. Legacy actors retain mandatory Verdandi receipts and no automatic rollback; Verdandi's
+separate recovery/purpose gate remains in force for them.
 
 ## Consequences
 
-- Per-change human approval is removed only for a future, armed, fully covered instance of the two
+- Per-change human approval is removed only for a future, armed, fully covered instance of the seven
   classes above; all other changes retain owner control.
 - The owner retains the kill switch, protected lanes, software-development/PR review authority,
   and recovery/firmware/credential control.
 - A controller that sees incomplete, stale, malformed, unknown, or observer-only evidence must
   fail closed and leave/return the class disarmed; it may create a proposal but not a mutation.
-- Implementations belong in their owning repositories. W1 proves routing `R-exact`; W2 adds the
+- Implementations belong in their owning repositories. W1 proves one L5 `R-exact` class; W2 adds the
   Brokkr journal/recovery seam; W3 may seek one non-pillar L4 canary only after fault injection.
   W4/W5 each require their own review, CI, coverage, and deployment authorization.
 
@@ -118,10 +128,11 @@ journal or cause an unrecorded mutation. Its separate recovery/purpose gate rema
 
 ## Verification
 
-`make test-autonomy-contract` runs closed-schema validation plus positive R-exact/R-forward journal
-fixtures and adversarial mutations for protected-lane substitution, content injection, chain/timing
-identity drift, unknown-state re-arm, canary expansion, recovery-worker impersonation, and disarmed
-coverage claiming armed state. `make test-autonomy-contract-doc` retains the public boundary text.
+`make test-autonomy-contract` runs closed-schema validation plus happy commit, R-exact
+revert/reverted, and R-forward recover/recovered fixtures. Its adversarial mutations cover
+protected-lane substitution, content injection, binding identity drift, unknown-state re-arm, canary
+expansion, recovery-worker impersonation, late mutation, and disarmed coverage claiming armed state.
+`make test-autonomy-contract-doc` retains the public boundary text.
 
 ## Follow-up
 
