@@ -756,6 +756,61 @@ A weekly security scan runs across all Grimnir repos via `scripts/security-scan.
 
 ## Cross-Cutting Concerns
 
+### Cross-service contracts
+
+This section is the directory for stable **service-to-service** contracts. It is
+not a claim that every listed consumer, adapter, or regression test is already
+implemented. The owning repository remains authoritative for a contract's
+versioned schema, fixtures, and implementation detail; this document records
+the system-level boundary, owner, and minimum proof needed before a change can
+ship. It is distinct from the agent-to-substrate contract in
+[`tenant-contract.md`](tenant-contract.md), the learning-evidence seam in
+[`learning-task-contract.md`](learning-task-contract.md), and placement and
+maintenance contracts listed in [`authority.md`](authority.md).
+
+| Contract | Owner | Boundary and minimum semantics | Required regression evidence |
+|----------|-------|--------------------------------|------------------------------|
+| **Munin HTTP client contract** | **munin-memory** | A client authenticates with bearer credentials and uses the server's JSON-RPC 2.0 surface. It must apply the owner's documented retry and backoff behaviour for `429` and `5xx`, preserve a session-correlation header when supplied, and send/read classification fields according to the server schema. Hugin and Ratatoskr implementations are consumers, not protocol authorities. | In `munin-memory` CI, run an authenticated local-server round trip for `read`, `write`, `readBatch`, `query`, and `log`; cover `429`/`5xx` retry/backoff and classification propagation. Each consumer adapter must run the same owner fixtures or an owner-versioned compatibility fixture before it is changed. |
+| **Hugin task submission contract** | **hugin** | The accepted work-entry boundary under `tasks/*`: namespace/key, required task fields, allowed task types/runtimes, claimable state, and terminal result reporting. The illustrative task block in [Task schema](#task-schema) is a human-oriented summary; Hugin's versioned schema is authoritative. | In `hugin` CI, validate accepted and rejected task fixtures at submission and pickup, including required-field/type failures and terminal result reporting. All submitters keep a fixture for the Hugin schema version they emit. |
+| **Skuld fast-path versus fallback contract** | **munin-memory** | Skuld may use a specifically permitted, read-only SQLite fast path only for owner-defined reads. Any read outside that allowance uses the Munin HTTP client contract. The two paths must return equivalent public results for the same source state; direct SQLite access does not confer schema ownership. | In `skuld` CI, read representative `projects/*/status` data through the permitted SQLite path and HTTP fallback against one local Munin fixture, then assert equivalence. In `munin-memory` CI, retain the fixture/schema coverage that defines the permitted read shape. |
+| **Heimdall → Hugin self-heal contract** | **hugin** | A restricted sub-schema of the Hugin task submission contract used to enqueue recovery work: a Heimdall submission must identify the supported self-heal task type, required context and provenance, and the allowed result/reporting path. Heimdall cannot broaden Hugin's accepted task surface. | In `hugin` CI, construct the exact Heimdall self-heal fixture and prove the dispatcher accepts and processes it. In `heimdall` CI, validate its emitted payload against that Hugin-owned fixture; reject missing provenance or unsupported task types. |
+| **Verdandi event intake contract** | **verdandi** | The authenticated audit-event boundary: event envelope, component identity, allowed event taxonomy, redaction-before-persist behaviour, idempotency, and the success/error result that callers may rely on. Producers treat server-derived fields as authoritative. | In `verdandi` CI, exercise authenticated intake with valid, malformed, duplicate, and secret-bearing fixtures; assert redaction and server-authoritative fields. Each producer runs a versioned valid-event fixture and a rejected-event fixture against Verdandi's published schema. |
+
+#### Evolution, migration, and compatibility rules
+
+1. **Owner-first, versioned change.** The named owner publishes the changed
+   schema/fixture and compatibility statement in its repository before a
+   consumer relies on the change. A contract change states its version,
+   compatible predecessor versions, effective condition, and any required
+   migration. A prose-only consumer copy is never authoritative.
+2. **Consumers migrate explicitly.** The owner opens or requests a ticket in
+   each affected consumer repository, with `from:<owner>` attribution and a
+   link to the contract version. The consumer owner changes its adapter and
+   pins/adds the owner fixture; it does not silently reinterpret an old
+   payload. Grimnir tracks cross-repo sequencing but does not implement an
+   owning repository's change.
+3. **Compatibility is proved before removal.** Additive changes remain
+   backward-compatible until every identified consumer has passed its
+   compatibility fixture. Breaking changes require a replacement version,
+   consumer migration PRs, green owner-and-consumer regression evidence, and
+   an announced removal condition. The owner performs the final removal only
+   after those checks; consumers own their deployment and rollback.
+4. **Fail closed at decision boundaries.** An unknown version, malformed
+   payload, missing required provenance, or unsupported task/event type is a
+   rejected submission rather than an inferred compatible one. Retries are
+   limited to the Munin HTTP transport rules; they must not turn a rejected
+   contract payload into a second mutation.
+5. **Keep implementation pointers current.** Files implementing one of these
+   boundaries should name this section and the contract name in a header or
+   adjacent contract note. Update this directory when ownership or the
+   system-level boundary changes, and update the owner's versioned material
+   when wire semantics change.
+
+The initial execution plan and the three original integration-test priorities
+are recorded in [`ecosystem-review-plan.md`](ecosystem-review-plan.md). The
+matrix above is the acceptance floor for a change to the named boundary; it
+does not itself authorize deploying a consumer.
+
 ### The two-layer state model
 
 - **Local files** hold the full detail — source code, documents, build artifacts. Accessed directly by the runtime executing the work.

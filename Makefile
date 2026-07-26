@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -48,6 +48,9 @@ test-deploy-unit-target-guard: ## Fail closed before restart when a unit's Worki
 test-failure-recovery-doc: ## Regression test: assert docs/failure-recovery.md defines the undo convention (issue #46)
 	@bash tests/scripts/test-failure-recovery-doc.sh
 
+test-cross-service-contract-doc: ## Regression test: retain named cross-service contract owners and migration rules (issue #7)
+	@bash tests/scripts/test-cross-service-contract-doc.sh
+
 test-learning-task-contract-doc: ## Regression test: assert the learning seam and improvement-scope contract (issue #86)
 	@bash tests/scripts/test-learning-task-contract-doc.sh
 
@@ -93,7 +96,7 @@ test-github-actions-zero-step-preflight: ## Distinguish runner startup failures 
 test-validate-exit: ## Unit tests for the audit exit-status contract (findings vs. audit failure)
 	@bash scripts/tests/validate-exit.test.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
