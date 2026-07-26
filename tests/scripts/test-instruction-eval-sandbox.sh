@@ -22,7 +22,7 @@ grep -qF -- '--disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch A
   err "evaluator must retain the complete mutation, network, and dispatch deny-list"
 
 grep -q -- 'MODEL="sonnet"' "$HARNESS" || err "default evaluator model is no longer documented as sonnet"
-grep -q -- '--model "\$MODEL"' "$HARNESS" || err "evaluator no longer passes its documented model explicitly"
+grep -qF -- "--model \"\$MODEL\"" "$HARNESS" || err "evaluator no longer passes its documented model explicitly"
 
 if (( fail )); then
   echo "instruction evaluator sandbox checks failed" >&2
