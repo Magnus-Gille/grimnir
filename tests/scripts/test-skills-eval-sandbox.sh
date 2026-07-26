@@ -41,11 +41,8 @@ grep -q -- '--strict-mcp-config' "$HARNESS" || \
   err "ab-skills-eval.sh lost --strict-mcp-config; MCP tools (hugin_submit, m5) would be live in skill bodies"
 grep -q -- '--allowedTools Skill' "$HARNESS" || \
   err "ab-skills-eval.sh lost --allowedTools Skill"
-disallowed_line=$(grep -- '--disallowedTools' "$HARNESS" || true)
-for tool in Bash Edit Write NotebookEdit WebFetch WebSearch Agent Task; do
-  [[ "$disallowed_line" == *"$tool"* ]] || \
-    err "ab-skills-eval.sh no longer disallows $tool"
-done
+grep -qF -- '--disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch Agent Task' "$HARNESS" || \
+  err "ab-skills-eval.sh must retain the complete mutation, network, and dispatch deny-list"
 
 if [[ "${RUN_LIVE_SKILL_SANDBOX_TEST:-0}" != "1" ]]; then
   echo "SKIP: live Claude routing probe is opt-in; ran static checks only"
