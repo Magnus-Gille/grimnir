@@ -18,10 +18,8 @@ rg -q -F -- '--mcp-config '\''{"mcpServers":{}}'\''' "$HARNESS" || \
 rg -q -- '--allowedTools .*Read.*Grep.*Glob' "$HARNESS" || \
   err "evaluator must retain only the read-only tools needed for doc-hit scoring"
 
-disallowed_line=$(rg -- '--disallowedTools' "$HARNESS" || true)
-for tool in Bash Edit Write NotebookEdit WebFetch WebSearch Agent Task; do
-  [[ "$disallowed_line" == *"$tool"* ]] || err "evaluator no longer disallows $tool"
-done
+rg -q -F -- '--disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch Agent Task' "$HARNESS" || \
+  err "evaluator must retain the complete mutation, network, and dispatch deny-list"
 
 rg -q -- 'MODEL="sonnet"' "$HARNESS" || err "default evaluator model is no longer documented as sonnet"
 rg -q -- '--model "\$MODEL"' "$HARNESS" || err "evaluator no longer passes its documented model explicitly"
