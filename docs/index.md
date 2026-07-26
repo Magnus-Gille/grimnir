@@ -75,9 +75,11 @@ the annotation, not only the filename.
   constitution, `R-exact`/`R-forward` recovery, content-blind domain journal, protected lanes, and
   coverage states. W0 is disarmed; Heimdall is read-only and Verdandi is optional projection.
 - `docs/autonomy-constitution-v1.schema.json`, `docs/autonomous-mutation-journal-v1.schema.json`,
-  `docs/autonomy-coverage-registry-v1.schema.json`, and `docs/autonomy-coverage-registry-v1.json` —
-  W0 machine-readable constitution, journal shape, and
-  current coverage registry; fixtures/validator under `tests/fixtures/autonomy-contract/` and
+  `docs/autonomy-coverage-registry-v1.schema.json`, `docs/autonomy-coverage-registry-v1.json`,
+  `docs/autonomy-owner-attestation-registry-v1.schema.json`, and
+  `docs/autonomy-owner-attestation-registry-v1.json` — W0 machine-readable constitution, journal
+  shape, disarmed coverage registry, and independent target/configuration-owner root;
+  fixtures/validator under `tests/fixtures/autonomy-contract/` and
   `tests/scripts/validate-autonomy-contract.mjs`.
 - `docs/system-roi-ledger.md` — Monthly system ROI ledger template for grimnir#67: every value has
   an explicit provenance and is `unknown`, `estimate`, or `measured`; it does not invent a first

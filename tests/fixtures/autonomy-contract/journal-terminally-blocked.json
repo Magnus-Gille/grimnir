@@ -1,0 +1,115 @@
+{
+  "kind": "autonomous-mutation-journal",
+  "schema_version": "v1",
+  "journal_id": "micro-route-blocked-journal",
+  "domain": "micro-routing",
+  "constitution_digest": "sha256:76b0f28adca0046fad9f1d3d4b3a57046f9a1d11ee2ed232bbc495d2ab663bd0",
+  "binding": {
+    "mutation_id": "micro-blocked-mutation",
+    "attempt_id": "micro-blocked-attempt",
+    "recovery_disarm_id": "micro-blocked-disarm",
+    "idempotency_key": "micro-blocked-idem",
+    "writer_owner": "gille-inference",
+    "owner_authority_ref": "ref:gille-inference-owner-authority",
+    "owner_authority_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+    "configuration_owner": "gille-inference",
+    "configuration_owner_authority_ref": "ref:micro-route-config-owner-attestation",
+    "configuration_owner_authority_digest": "sha256:3ed685d4ec1fb679ecad660152391350fa0660966d843937a97d71b4d2ba9d0b",
+    "target_scope_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "admission_coverage_digest": "sha256:8fe1b7f1af383b1500f4cc89153f5d9db74ac3352abfc1ec476be4c70c71620a",
+    "admission_binding_state": "armed-canary",
+    "owner_identity": "gille-owner",
+    "controller_identity": "micro-route-controller",
+    "watchdog_identity": "micro-route-watchdog",
+    "kill_switch_identity": "micro-route-kill-switch",
+    "recovery_worker_identity": "micro-route-revert-worker",
+    "risk_scope": "micro-routing",
+    "candidate_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "config_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "evidence_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "policy_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "baseline_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "postconditions_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "deadline": "2026-07-26T01:00:00Z",
+    "canary": {
+      "scope_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "target_count": 1,
+      "watch_deadline": "2026-07-26T00:30:00Z"
+    },
+    "recovery": {
+      "class": "R-exact",
+      "worker_identity": "micro-route-revert-worker",
+      "descriptor_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "disarms_after_action": true
+    }
+  },
+  "binding_digest": "sha256:4344ba74abab6119c9a3be21193e2273987286066e350db8368b02c63f00c246",
+  "entries": [
+    {
+      "entry_id": "micro-blocked-prepare",
+      "sequence": 1,
+      "recorded_at": "2026-07-26T00:00:00Z",
+      "phase": "prepare",
+      "outcome": "prepared",
+      "executor_identity": "micro-route-controller",
+      "binding_digest": "sha256:4344ba74abab6119c9a3be21193e2273987286066e350db8368b02c63f00c246",
+      "quarantine": {
+        "state": "not-applicable",
+        "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "terminal_reason_digest": null,
+      "previous_receipt_digest": null,
+      "receipt_digest": "sha256:1f07e2e0b0f14a01fdf0296899d7b04660e6ae54265ed0cadd3bdf6a160e8356",
+      "content_refs": [
+        "ref:micro-blocked-candidate"
+      ],
+      "coverage_transition": null
+    },
+    {
+      "entry_id": "micro-blocked-unknown",
+      "sequence": 2,
+      "recorded_at": "2026-07-26T01:01:00Z",
+      "phase": "unknown",
+      "outcome": "unknown",
+      "executor_identity": "micro-route-watchdog",
+      "binding_digest": "sha256:4344ba74abab6119c9a3be21193e2273987286066e350db8368b02c63f00c246",
+      "quarantine": {
+        "state": "active",
+        "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "terminal_reason_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "previous_receipt_digest": "sha256:1f07e2e0b0f14a01fdf0296899d7b04660e6ae54265ed0cadd3bdf6a160e8356",
+      "receipt_digest": "sha256:5482d22966465ae060a7adb650fd884b8014fdedcf259937e7c6dc23fb1793bf",
+      "content_refs": [
+        "ref:micro-blocked-candidate"
+      ],
+      "coverage_transition": null
+    },
+    {
+      "entry_id": "micro-blocked-terminal",
+      "sequence": 3,
+      "recorded_at": "2026-07-26T01:02:00Z",
+      "phase": "terminally-blocked",
+      "outcome": "terminally-blocked",
+      "executor_identity": "micro-route-revert-worker",
+      "binding_digest": "sha256:4344ba74abab6119c9a3be21193e2273987286066e350db8368b02c63f00c246",
+      "quarantine": {
+        "state": "active",
+        "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "terminal_reason_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "previous_receipt_digest": "sha256:5482d22966465ae060a7adb650fd884b8014fdedcf259937e7c6dc23fb1793bf",
+      "receipt_digest": "sha256:9396619e1c342ec5a6ff77786dfd87370f7657424195374e0108d2094567ad2a",
+      "content_refs": [
+        "ref:micro-blocked-candidate"
+      ],
+      "coverage_transition": {
+        "from_state": "armed-canary",
+        "to_state": "shadow",
+        "target_scope_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "actor_identity": "micro-route-revert-worker"
+      }
+    }
+  ],
+  "extensions": []
+}
