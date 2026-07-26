@@ -137,6 +137,8 @@
 ## Validation
 
 The generator should warn on discrepancies it can detect:
+- Port, host, and repository columns in `docs/architecture.md`'s component overview vs
+  networked components in `services.json` (via `test-architecture-component-table.sh`)
 - Port in `services.json` vs port in component's source code / env config
 - Systemd units in `services.json` vs units actually present on the host
 - Component repos in `services.json` vs directories in `~/repos/`
