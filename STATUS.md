@@ -3,6 +3,13 @@
 **Last session:** 2026-07-25/26 (Claude) — monitoring correctness, deploy safety, and a backlog audit
 **Latest system revision:** grimnir `87dfc6f` (deploy unit-path guard)
 
+## Current work
+
+- Grimnir #139's central read-only GitHub Actions pin/provenance/runtime policy is implemented with
+  deterministic owner routing, fail-closed evidence classification, hermetic fixtures, and an
+  owning-repo CI regression. Its first live fleet audit found 21 owner-routed policy findings and
+  zero evidence failures; cleanup remains with the owning repositories.
+
 ## The headline
 
 Heimdall was the session's centre of gravity and its open alerts went from **9 of unknown truth to 5,

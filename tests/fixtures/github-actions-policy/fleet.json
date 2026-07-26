@@ -1,0 +1,102 @@
+{
+  "repositories": [
+    {
+      "repository": "Magnus-Gille/alpha",
+      "owner_repo": "Magnus-Gille/alpha",
+      "visibility": "private",
+      "snapshot_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "workflows": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "content": "name: fixture\n# SECRET_MARKER must never reach policy output\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4 # v4.2.2\n      - uses: actions/setup-node@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n      - uses: vendor/stale@cccccccccccccccccccccccccccccccccccccccc # v1.2.3\n      - uses: vendor/node20@eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee # v1.0.0\n      - uses: vendor/node24@ffffffffffffffffffffffffffffffffffffffff # v2.0.0\n      - uses: private/action@1111111111111111111111111111111111111111 # v3.0.0\n      - uses: vendor/transport@2222222222222222222222222222222222222222 # v1.0.0\n      - uses: vendor/unknown@3333333333333333333333333333333333333333 # v1.0.0\n      - uses: vendor/reusable/.github/workflows/reuse.yml@4444444444444444444444444444444444444444 # v1.0.0\n      - uses: docker://alpine:latest\n      - uses: ./local-action\n      - run: echo do-not-expose\n"
+        }
+      ],
+      "local_manifests": {
+        "local-action/action.yml": "name: local\nruns:\n  using: node24\n  main: index.js\n"
+      }
+    },
+    {
+      "repository": "Magnus-Gille/billing-repo",
+      "owner_repo": "Magnus-Gille/billing-repo",
+      "visibility": "private",
+      "inventory_error": {
+        "reason": "billing"
+      }
+    },
+    {
+      "repository": "Magnus-Gille/transport-repo",
+      "owner_repo": "Magnus-Gille/transport-repo",
+      "visibility": "private",
+      "inventory_error": {
+        "reason": "transport"
+      }
+    }
+  ],
+  "upstream": {
+    "actions/setup-node": {
+      "manifests": {
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": "name: setup-node\nruns:\n  using: node24\n  main: dist/index.js\n"
+      }
+    },
+    "vendor/stale": {
+      "tags": {
+        "v1.2.3": "dddddddddddddddddddddddddddddddddddddddd"
+      },
+      "manifests": {
+        "cccccccccccccccccccccccccccccccccccccccc": "name: stale\nruns:\n  using: node24\n  main: index.js\n"
+      }
+    },
+    "vendor/node20": {
+      "tags": {
+        "v1.0.0": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "manifests": {
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "name: node20\nruns:\n  using: node20\n  main: index.js\n"
+      }
+    },
+    "vendor/node24": {
+      "tags": {
+        "v2.0.0": "ffffffffffffffffffffffffffffffffffffffff"
+      },
+      "manifests": {
+        "ffffffffffffffffffffffffffffffffffffffff": "name: node24\nruns:\n  using: node24\n  main: index.js\n"
+      }
+    },
+    "private/action": {
+      "tags": {
+        "v3.0.0": "1111111111111111111111111111111111111111"
+      },
+      "manifest_errors": {
+        "1111111111111111111111111111111111111111": {
+          "reason": "billing"
+        }
+      }
+    },
+    "vendor/transport": {
+      "tag_errors": {
+        "v1.0.0": {
+          "reason": "transport"
+        }
+      },
+      "manifests": {
+        "2222222222222222222222222222222222222222": "name: transport\nruns:\n  using: node24\n  main: index.js\n"
+      }
+    },
+    "vendor/unknown": {
+      "tags": {
+        "v1.0.0": "3333333333333333333333333333333333333333"
+      },
+      "manifests": {
+        "3333333333333333333333333333333333333333": "name: unknown\nruns:\n  using: wasm\n  main: index.wasm\n"
+      }
+    },
+    "vendor/reusable": {
+      "tags": {
+        "v1.0.0": "4444444444444444444444444444444444444444"
+      },
+      "manifests": {
+        "4444444444444444444444444444444444444444": "name: reusable\non:\n  workflow_call:\n"
+      }
+    }
+  }
+}
