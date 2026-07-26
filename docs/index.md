@@ -42,6 +42,9 @@ the annotation, not only the filename.
 - `docs/systemd-runtime-rendering.md` — How systemd units are rendered at runtime
 - `docs/placement-validation.md` — Validating desired placement against explicit Brokkr
   observations; schema in `docs/placement-validation-v1.schema.json`
+- `docs/portability-acceptance-harness.md` — Synthetic, public-safe conformance harness for the NAS
+  and Hugin portability pilots; a green harness does not claim either pilot ran, and incomplete
+  operational evidence cannot promote
 - `docs/scheduled-tasks.md` — Scheduled task conventions
 - `docs/maintenance-policy-contract.md` — Versioned, intent-only `maintenance-policy`/`maintenance-decision`
   contract for unattended substrate upkeep (selectors, IANA timezone/DST, windows, missed-window/overdue/

@@ -1,0 +1,62 @@
+{
+  "contract": "grimnir.portability-acceptance/v1",
+  "fixture_set": "portability-acceptance-v1",
+  "fixture_scope": "synthetic_public_safe_conformance",
+  "scenarios": [
+    {
+      "scenario_id": "example-nas-relocate",
+      "mode": "conformance",
+      "synthetic_public_safe": true,
+      "operational_evidence": { "status": "absent", "reason": "No pre-existing public authoritative NAS move record was discovered." },
+      "shared_fixtures": [
+        { "repository": "grimnir", "path": "tests/fixtures/node-substrate-contract/positive.json", "record_kind": "node-capability", "fixture_digest": "sha256:fb86477f7588cc8598a29e0aa8f27d7e918640370ff642430469ad55eee929fe" },
+        { "repository": "grimnir", "path": "tests/fixtures/node-substrate-contract/positive.json", "record_kind": "workload-requirement", "fixture_digest": "sha256:5f70c730e6f3cf477942b16facb0b37978ba40cc9fb0549e43fb152940299ba0" },
+        { "repository": "grimnir", "path": "tests/fixtures/node-substrate-contract/positive.json", "record_kind": "placement-intent", "fixture_digest": "sha256:a3df03bc2d05b45caf00e56393facc4f7e5b9812004f66baeb91dd29250517c9" }
+      ],
+      "plan": { "plan_id": "example-nas-relocate-plan", "action": "relocate", "target_architecture": "arm64", "requires_wifi_profile": true, "transfer_window": "adequate", "reversal_recipe": "operator-restores-example-source-and-verifies-example-baseline" },
+      "fresh_observations": [
+        { "evidence_id": "example-nas-observation", "observed_at": "2026-01-01T10:00:00Z", "valid_until": "2026-01-01T11:00:00Z", "architecture": "arm64", "wifi_profile": "present", "mount": "present", "monitoring": "available" }
+      ],
+      "operator_checkpoints": [
+        { "checkpoint": "example-operator-approval", "status": "pending", "evidence_id": "example-nas-observation" }
+      ],
+      "lifecycle_result": { "attempt_id": "example-nas-conformance", "phase": "preflight", "outcome": "not_started", "interrupted_apply": false },
+      "service_verification": [
+        { "service": "example-service", "health": "not_run", "hook": "not_run" }
+      ],
+      "claims": [
+        { "kind": "transport", "status": "not_run", "evidence_id": "example-nas-observation" },
+        { "kind": "configuration", "status": "not_run", "evidence_id": "example-nas-observation" },
+        { "kind": "health", "status": "not_run", "evidence_id": "example-nas-observation" },
+        { "kind": "copy_integrity", "status": "not_run", "evidence_id": "example-nas-observation" },
+        { "kind": "restore", "status": "not_run", "evidence_id": "example-nas-observation" }
+      ]
+    },
+    {
+      "scenario_id": "example-hugin-relocate",
+      "mode": "dry_run",
+      "synthetic_public_safe": true,
+      "operational_evidence": { "status": "unverified", "reason": "No owner-approved operational migration evidence is bound to this conformance fixture." },
+      "shared_fixtures": [
+        { "repository": "grimnir", "path": "tests/fixtures/node-substrate-contract/positive.json", "record_kind": "placement-intent", "fixture_digest": "sha256:a3df03bc2d05b45caf00e56393facc4f7e5b9812004f66baeb91dd29250517c9" },
+        { "repository": "grimnir", "path": "tests/fixtures/node-substrate-contract/positive.json", "record_kind": "node-capability", "fixture_digest": "sha256:fb86477f7588cc8598a29e0aa8f27d7e918640370ff642430469ad55eee929fe" },
+        { "repository": "grimnir", "path": "tests/fixtures/node-substrate-contract/positive.json", "record_kind": "workload-requirement", "fixture_digest": "sha256:5f70c730e6f3cf477942b16facb0b37978ba40cc9fb0549e43fb152940299ba0" }
+      ],
+      "plan": { "plan_id": "hugin-m5-plan-dry-run", "action": "relocate", "target_architecture": "arm64", "requires_wifi_profile": false, "transfer_window": "adequate", "reversal_recipe": "component-owner-restores-pi-baseline-and-verifies-state-timers-and-tools" },
+      "operator_checkpoints": [
+        { "checkpoint": "production-mutation-approval", "status": "pending" }
+      ],
+      "lifecycle_result": { "attempt_id": "hugin-m5-dry-run", "phase": "preflight", "outcome": "not_started", "interrupted_apply": false },
+      "service_verification": [
+        { "service": "hugin", "health": "not_run", "hook": "not_run" }
+      ],
+      "claims": [
+        { "kind": "transport", "status": "not_run" },
+        { "kind": "configuration", "status": "not_run" },
+        { "kind": "health", "status": "not_run" },
+        { "kind": "copy_integrity", "status": "not_run" },
+        { "kind": "restore", "status": "not_run" }
+      ]
+    }
+  ]
+}
