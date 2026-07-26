@@ -27,7 +27,22 @@ host_label() {
   esac
 }
 
+# Capture the producer before iteration: a failing process substitution would
+# otherwise close its stdout and let the loop report a misleading clean pass.
+if ! component_rows="$(node -e '
+  const registry = require(process.argv[1]);
+  for (const component of registry.components) {
+    if (Number.isInteger(component.port)) {
+      console.log([component.repo, component.port, component.host].join("\t"));
+    }
+  }
+' "$REGISTRY")"; then
+  err "cannot read registry-backed component rows from $REGISTRY"
+  exit 1
+fi
+
 while IFS=$'\t' read -r repo port host; do
+  [[ -n "$repo" ]] || continue
   label="$(host_label "$host")" || {
     err "no architecture-table host label is declared for registry host $host ($repo)"
     continue
@@ -35,25 +50,21 @@ while IFS=$'\t' read -r repo port host; do
 
   # Match the whole row's authority-derived columns. Role and display name are
   # intentionally free-form, but the registry repo, port, and host must agree.
-  if ! awk -F'|' -v repo="$repo" -v port="$port" -v host="$label" '
+  row_count="$(awk -F'|' -v repo="$repo" -v port="$port" -v host="$label" '
     $0 ~ /^\|/ {
       for (i = 1; i <= NF; i++) {
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
       }
-      if ($4 == port && $5 == host && $6 == "`" repo "`") found = 1
+      if ($4 == port && $5 == host && $6 == "`" repo "`") matches += 1
     }
-    END { exit(found ? 0 : 1) }
-  ' "$ARCHITECTURE"; then
-    err "$repo must have an architecture overview row with port $port and host $label"
-  fi
-done < <(node -e '
-  const registry = require(process.argv[1]);
-  for (const component of registry.components) {
-    if (Number.isInteger(component.port)) {
-      console.log([component.repo, component.port, component.host].join("\t"));
-    }
-  }
-' "$REGISTRY")
+    END { print matches + 0 }
+  ' "$ARCHITECTURE")"
+  case "$row_count" in
+    1) ;;
+    0) err "$repo must have an architecture overview row with port $port and host $label" ;;
+    *) err "$repo has $row_count duplicate architecture overview rows with port $port and host $label" ;;
+  esac
+done <<< "$component_rows"
 
 if (( fail )); then
   exit 1
