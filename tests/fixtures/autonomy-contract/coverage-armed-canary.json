@@ -3,7 +3,7 @@
   "schema_version": "v1",
   "registry_id": "synthetic-armed-canary-coverage",
   "issued_at": "2026-07-26T00:00:00Z",
-  "constitution_digest": "sha256:76b0f28adca0046fad9f1d3d4b3a57046f9a1d11ee2ed232bbc495d2ab663bd0",
+  "constitution_digest": "sha256:51efdb78c4524780919649f285862543db8b38a6a3a07894f0fad8bdab40fc6c",
   "mutation_policy": "owner-widen-recovery-worker-narrow",
   "global_state": "armed",
   "domains": [
@@ -33,6 +33,6 @@
     { "domain": "irreversible-external-actions", "required_for_levels": ["permanent"], "owner_scope": "owner-only", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical", "bindings": [] },
     { "domain": "package-downgrade", "required_for_levels": ["permanent"], "owner_scope": "owner-only", "owner": "owner", "recovery_class": "none", "coverage": "protected", "target_state": "never-mechanical", "bindings": [] }
   ],
-  "registry_digest": "sha256:8fe1b7f1af383b1500f4cc89153f5d9db74ac3352abfc1ec476be4c70c71620a",
+  "registry_digest": "sha256:bab7f9befaed14ede60ff049ec85630c5ac0c6e99b48a5ca175101689ba8649a",
   "extensions": []
 }

@@ -3,7 +3,7 @@
   "schema_version": "v1",
   "journal_id": "macro-route-revert-journal",
   "domain": "macro-routing",
-  "constitution_digest": "sha256:76b0f28adca0046fad9f1d3d4b3a57046f9a1d11ee2ed232bbc495d2ab663bd0",
+  "constitution_digest": "sha256:51efdb78c4524780919649f285862543db8b38a6a3a07894f0fad8bdab40fc6c",
   "binding": {
     "mutation_id": "macro-revert-mutation",
     "attempt_id": "macro-revert-attempt",
@@ -16,7 +16,7 @@
     "configuration_owner_authority_ref": "ref:macro-route-config-owner-attestation",
     "configuration_owner_authority_digest": "sha256:928ee4f53dd66d9d0f1fa16f1d1479b923df23554c65891e39f4b3780a836b4d",
     "target_scope_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
-    "admission_coverage_digest": "sha256:8fe1b7f1af383b1500f4cc89153f5d9db74ac3352abfc1ec476be4c70c71620a",
+    "admission_coverage_digest": "sha256:bab7f9befaed14ede60ff049ec85630c5ac0c6e99b48a5ca175101689ba8649a",
     "admission_binding_state": "armed-canary",
     "owner_identity": "hugin-owner",
     "controller_identity": "macro-route-controller",
@@ -43,7 +43,7 @@
       "disarms_after_action": true
     }
   },
-  "binding_digest": "sha256:e860b02563f8cea87066ab5a6ac7a3aab2c499544fac7f56f3f0f1d56a9e85aa",
+  "binding_digest": "sha256:c72583c4c119a232d9eabcc278600633c464af7de3a463ac474fa5ef8ec755a5",
   "entries": [
     {
       "entry_id": "macro-revert-prepare",
@@ -52,14 +52,14 @@
       "phase": "prepare",
       "outcome": "prepared",
       "executor_identity": "macro-route-controller",
-      "binding_digest": "sha256:e860b02563f8cea87066ab5a6ac7a3aab2c499544fac7f56f3f0f1d56a9e85aa",
+      "binding_digest": "sha256:c72583c4c119a232d9eabcc278600633c464af7de3a463ac474fa5ef8ec755a5",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
       "previous_receipt_digest": null,
-      "receipt_digest": "sha256:fbae147a6e769148da41711bb55286f65aabcdc9692158fe7f48d2a5ca7a3018",
+      "receipt_digest": "sha256:a73d53535ed93dc4426240dc2bd265b75fcf1e856563c7ba49b8359c5672bad6",
       "content_refs": [
         "ref:macro-revert-candidate"
       ],
@@ -72,14 +72,14 @@
       "phase": "apply",
       "outcome": "applied",
       "executor_identity": "macro-route-controller",
-      "binding_digest": "sha256:e860b02563f8cea87066ab5a6ac7a3aab2c499544fac7f56f3f0f1d56a9e85aa",
+      "binding_digest": "sha256:c72583c4c119a232d9eabcc278600633c464af7de3a463ac474fa5ef8ec755a5",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
-      "previous_receipt_digest": "sha256:fbae147a6e769148da41711bb55286f65aabcdc9692158fe7f48d2a5ca7a3018",
-      "receipt_digest": "sha256:b9283a6ec9f5ffd93ff6112880fab39ab80eb9cef43788ba1d3bd8e7152e74c1",
+      "previous_receipt_digest": "sha256:a73d53535ed93dc4426240dc2bd265b75fcf1e856563c7ba49b8359c5672bad6",
+      "receipt_digest": "sha256:c126729a9d9c2a9744c5fbdb98711d3030a0534274d8fbf11e1c103100a1083f",
       "content_refs": [
         "ref:macro-revert-candidate"
       ],
@@ -92,14 +92,14 @@
       "phase": "unknown",
       "outcome": "unknown",
       "executor_identity": "macro-route-controller",
-      "binding_digest": "sha256:e860b02563f8cea87066ab5a6ac7a3aab2c499544fac7f56f3f0f1d56a9e85aa",
+      "binding_digest": "sha256:c72583c4c119a232d9eabcc278600633c464af7de3a463ac474fa5ef8ec755a5",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
-      "previous_receipt_digest": "sha256:b9283a6ec9f5ffd93ff6112880fab39ab80eb9cef43788ba1d3bd8e7152e74c1",
-      "receipt_digest": "sha256:41329e156c90fdc033d3bd4fa22fb8db54a753f3e7b13ee54b08f63a4f4b20ff",
+      "previous_receipt_digest": "sha256:c126729a9d9c2a9744c5fbdb98711d3030a0534274d8fbf11e1c103100a1083f",
+      "receipt_digest": "sha256:a1f0219fa1c73f3508a5feab8b0a2f5a8e3b03a6944b6457b95ec5241b632244",
       "content_refs": [
         "ref:macro-revert-candidate"
       ],
@@ -112,14 +112,14 @@
       "phase": "revert",
       "outcome": "reverted",
       "executor_identity": "macro-route-revert-worker",
-      "binding_digest": "sha256:e860b02563f8cea87066ab5a6ac7a3aab2c499544fac7f56f3f0f1d56a9e85aa",
+      "binding_digest": "sha256:c72583c4c119a232d9eabcc278600633c464af7de3a463ac474fa5ef8ec755a5",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
-      "previous_receipt_digest": "sha256:41329e156c90fdc033d3bd4fa22fb8db54a753f3e7b13ee54b08f63a4f4b20ff",
-      "receipt_digest": "sha256:e25998b4bdbd459d3e3baa8c70c38a08fb63eec5041131bdbf19246f80896bb8",
+      "previous_receipt_digest": "sha256:a1f0219fa1c73f3508a5feab8b0a2f5a8e3b03a6944b6457b95ec5241b632244",
+      "receipt_digest": "sha256:7919604d7d0031b4278774f2185b4ef95e2f2d9a52e1ad84cc6c20009c2d814f",
       "content_refs": [
         "ref:macro-revert-candidate"
       ],
@@ -132,14 +132,14 @@
       "phase": "disarm",
       "outcome": "disarmed",
       "executor_identity": "macro-route-revert-worker",
-      "binding_digest": "sha256:e860b02563f8cea87066ab5a6ac7a3aab2c499544fac7f56f3f0f1d56a9e85aa",
+      "binding_digest": "sha256:c72583c4c119a232d9eabcc278600633c464af7de3a463ac474fa5ef8ec755a5",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
-      "previous_receipt_digest": "sha256:e25998b4bdbd459d3e3baa8c70c38a08fb63eec5041131bdbf19246f80896bb8",
-      "receipt_digest": "sha256:c916a7d9ff3ea6cc72fb1890f4a36b0a3c76352baf87240287e1f7579e78e137",
+      "previous_receipt_digest": "sha256:7919604d7d0031b4278774f2185b4ef95e2f2d9a52e1ad84cc6c20009c2d814f",
+      "receipt_digest": "sha256:a6b357d5c3da225d2c47666aa0d32e804351e0d5d6f48539555abf4d56e524d3",
       "content_refs": [
         "ref:macro-revert-candidate"
       ],

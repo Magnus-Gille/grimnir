@@ -81,6 +81,25 @@ the annotation, not only the filename.
   shape, disarmed coverage registry, and independent target/configuration-owner root;
   fixtures/validator under `tests/fixtures/autonomy-contract/` and
   `tests/scripts/validate-autonomy-contract.mjs`.
+- `docs/autonomy-owner-authorization-v1.schema.json` and
+  `docs/autonomy-runtime-narrowing-v1.schema.json` — W0.1's independently pinned Ed25519 owner
+  authorization root and recovery-worker-only narrowing contract. Production remains deliberately
+  unconfigured and disarmed until the owner provisions the public key and detached signature.
+- `docs/autonomy-constitution-v1.json`, `docs/autonomy-owner-authorization-v1.json`,
+  `docs/autonomy-recovery-worker-registry-v1.json`, and `docs/autonomy-runtime-narrowing-v1.json`
+  — production contract instances; all are intentionally unconfigured/disarmed at W0.1.
+- `docs/autonomy-owner-authorization-checkpoint-v1.example.json` — externally protected current
+  authorization checkpoint format; this is an example, never a controller-writable authority.
+- `docs/autonomy-owner-authorization-v1.schema.json`,
+  `docs/autonomy-recovery-worker-registry-v1.schema.json`, and
+  `docs/autonomy-runtime-narrowing-v1.schema.json` — closed JSON contracts for the owner root,
+  recovery key registry, and monotonic narrowing ledger.
+- `docs/autonomy-journal-conformance-v1.md` — W1/W2 consumer interface for the shared journal
+  vocabulary and authorization verification gate.
+- `docs/autonomy-owner-signing-ceremony.md` — owner-run public-key preparation, detached signing,
+  protected checkpoint installation, verification, and key-rotation procedure.
+- `scripts/prepare-autonomy-owner-authorization-checkpoint.mjs` — public-only canonical checkpoint
+  derivation from a signed manifest; it is not a signature verifier or an authority installer.
 - `docs/system-roi-ledger.md` — Monthly system ROI ledger template for grimnir#67: every value has
   an explicit provenance and is `unknown`, `estimate`, or `measured`; it does not invent a first
   month, and service/system decisions remain `keep`, `fix`, `cut`, or `revisit` only when reviewed.

@@ -3,7 +3,7 @@
   "schema_version": "v1",
   "journal_id": "micro-route-happy-journal",
   "domain": "micro-routing",
-  "constitution_digest": "sha256:76b0f28adca0046fad9f1d3d4b3a57046f9a1d11ee2ed232bbc495d2ab663bd0",
+  "constitution_digest": "sha256:51efdb78c4524780919649f285862543db8b38a6a3a07894f0fad8bdab40fc6c",
   "binding": {
     "mutation_id": "micro-happy-mutation",
     "attempt_id": "micro-happy-attempt",
@@ -16,7 +16,7 @@
     "configuration_owner_authority_ref": "ref:micro-route-config-owner-attestation",
     "configuration_owner_authority_digest": "sha256:3ed685d4ec1fb679ecad660152391350fa0660966d843937a97d71b4d2ba9d0b",
     "target_scope_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-    "admission_coverage_digest": "sha256:8fe1b7f1af383b1500f4cc89153f5d9db74ac3352abfc1ec476be4c70c71620a",
+    "admission_coverage_digest": "sha256:bab7f9befaed14ede60ff049ec85630c5ac0c6e99b48a5ca175101689ba8649a",
     "admission_binding_state": "armed-canary",
     "owner_identity": "gille-owner",
     "controller_identity": "micro-route-controller",
@@ -43,7 +43,7 @@
       "disarms_after_action": true
     }
   },
-  "binding_digest": "sha256:f57ebd62a1560b99c4e5506998cdff500b45eb4852d5b5a2a4f118fdd0746d7b",
+  "binding_digest": "sha256:1fd13b0f87e6ba635f6abe9ab6add9b49c2d37f7ca6cd59841f437b545de56cb",
   "entries": [
     {
       "entry_id": "micro-happy-prepare",
@@ -52,14 +52,14 @@
       "phase": "prepare",
       "outcome": "prepared",
       "executor_identity": "micro-route-controller",
-      "binding_digest": "sha256:f57ebd62a1560b99c4e5506998cdff500b45eb4852d5b5a2a4f118fdd0746d7b",
+      "binding_digest": "sha256:1fd13b0f87e6ba635f6abe9ab6add9b49c2d37f7ca6cd59841f437b545de56cb",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
       "previous_receipt_digest": null,
-      "receipt_digest": "sha256:5fe90cbbcc2112acabd79250bcc68394365e3d9fb16d41b53c757a46001acfaa",
+      "receipt_digest": "sha256:bfba7d324942d69a2af1d32126e1f4daa15c8e9f40c9cf1cf02f18b5a359d8bd",
       "content_refs": [
         "ref:micro-happy-candidate"
       ],
@@ -72,14 +72,14 @@
       "phase": "apply",
       "outcome": "applied",
       "executor_identity": "micro-route-controller",
-      "binding_digest": "sha256:f57ebd62a1560b99c4e5506998cdff500b45eb4852d5b5a2a4f118fdd0746d7b",
+      "binding_digest": "sha256:1fd13b0f87e6ba635f6abe9ab6add9b49c2d37f7ca6cd59841f437b545de56cb",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
-      "previous_receipt_digest": "sha256:5fe90cbbcc2112acabd79250bcc68394365e3d9fb16d41b53c757a46001acfaa",
-      "receipt_digest": "sha256:d9767b5294aeb908069def891e198f44c9d5e88908035d6a377a2ec7bf4a964d",
+      "previous_receipt_digest": "sha256:bfba7d324942d69a2af1d32126e1f4daa15c8e9f40c9cf1cf02f18b5a359d8bd",
+      "receipt_digest": "sha256:32f700435c4732c61ed380a075a2397aa864e88b95835bb14f5d270ffba8bc20",
       "content_refs": [
         "ref:micro-happy-candidate"
       ],
@@ -92,14 +92,14 @@
       "phase": "verify",
       "outcome": "verified",
       "executor_identity": "micro-route-controller",
-      "binding_digest": "sha256:f57ebd62a1560b99c4e5506998cdff500b45eb4852d5b5a2a4f118fdd0746d7b",
+      "binding_digest": "sha256:1fd13b0f87e6ba635f6abe9ab6add9b49c2d37f7ca6cd59841f437b545de56cb",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
-      "previous_receipt_digest": "sha256:d9767b5294aeb908069def891e198f44c9d5e88908035d6a377a2ec7bf4a964d",
-      "receipt_digest": "sha256:b59db31912b28df884a7ba572377cf28a39f0fcedd97d5ebd0121d8665d93671",
+      "previous_receipt_digest": "sha256:32f700435c4732c61ed380a075a2397aa864e88b95835bb14f5d270ffba8bc20",
+      "receipt_digest": "sha256:31059c4c271ebf9891686699ea3caa46c9ab5bcd77e4b63deb505b0fc4ffb6bf",
       "content_refs": [
         "ref:micro-happy-candidate"
       ],
@@ -112,14 +112,14 @@
       "phase": "watch",
       "outcome": "watching",
       "executor_identity": "micro-route-controller",
-      "binding_digest": "sha256:f57ebd62a1560b99c4e5506998cdff500b45eb4852d5b5a2a4f118fdd0746d7b",
+      "binding_digest": "sha256:1fd13b0f87e6ba635f6abe9ab6add9b49c2d37f7ca6cd59841f437b545de56cb",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
-      "previous_receipt_digest": "sha256:b59db31912b28df884a7ba572377cf28a39f0fcedd97d5ebd0121d8665d93671",
-      "receipt_digest": "sha256:8cfaa69fe3abcd44f4c533117ff294a5e596e715bdbb8d9c9ecb78727b2e10ba",
+      "previous_receipt_digest": "sha256:31059c4c271ebf9891686699ea3caa46c9ab5bcd77e4b63deb505b0fc4ffb6bf",
+      "receipt_digest": "sha256:0df6dcb18755293b8393c561c556efab77c7219c042d01c3b487e1269d8af59d",
       "content_refs": [
         "ref:micro-happy-candidate"
       ],
@@ -132,14 +132,14 @@
       "phase": "commit",
       "outcome": "committed",
       "executor_identity": "micro-route-controller",
-      "binding_digest": "sha256:f57ebd62a1560b99c4e5506998cdff500b45eb4852d5b5a2a4f118fdd0746d7b",
+      "binding_digest": "sha256:1fd13b0f87e6ba635f6abe9ab6add9b49c2d37f7ca6cd59841f437b545de56cb",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
-      "previous_receipt_digest": "sha256:8cfaa69fe3abcd44f4c533117ff294a5e596e715bdbb8d9c9ecb78727b2e10ba",
-      "receipt_digest": "sha256:28e09521ed3a980c77e646a83a772c8e65e5232e92bde46dacffc364b95079e3",
+      "previous_receipt_digest": "sha256:0df6dcb18755293b8393c561c556efab77c7219c042d01c3b487e1269d8af59d",
+      "receipt_digest": "sha256:a7da41598860e18a616196d983567d48b7e55cf3932b4a1efb3c2ed8b03f77bb",
       "content_refs": [
         "ref:micro-happy-candidate"
       ],

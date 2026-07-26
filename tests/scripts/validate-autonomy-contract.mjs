@@ -70,14 +70,25 @@ const constitutionSchema = read("docs/autonomy-constitution-v1.schema.json");
 const journalSchema = read("docs/autonomous-mutation-journal-v1.schema.json");
 const coverageSchema = read("docs/autonomy-coverage-registry-v1.schema.json");
 const ownerAttestationSchema = read("docs/autonomy-owner-attestation-registry-v1.schema.json");
+const ownerAuthorizationSchema = read("docs/autonomy-owner-authorization-v1.schema.json");
+const runtimeNarrowingSchema = read("docs/autonomy-runtime-narrowing-v1.schema.json");
+const recoveryWorkerRegistrySchema = read("docs/autonomy-recovery-worker-registry-v1.schema.json");
 const constitutionShape = schemaChecker(constitutionSchema);
 const journalShape = schemaChecker(journalSchema);
 const coverageShape = schemaChecker(coverageSchema);
 const ownerAttestationShape = schemaChecker(ownerAttestationSchema);
-const constitution = read("tests/fixtures/autonomy-contract/constitution.json");
+const ownerAuthorizationShape = schemaChecker(ownerAuthorizationSchema);
+const runtimeNarrowingShape = schemaChecker(runtimeNarrowingSchema);
+const recoveryWorkerRegistryShape = schemaChecker(recoveryWorkerRegistrySchema);
+const constitution = read("docs/autonomy-constitution-v1.json");
+const constitutionFixture = read("tests/fixtures/autonomy-contract/constitution.json");
 const coverage = read("docs/autonomy-coverage-registry-v1.json");
 const armedCoverage = read("tests/fixtures/autonomy-contract/coverage-armed-canary.json");
 const ownerAttestations = read("docs/autonomy-owner-attestation-registry-v1.json");
+const productionAuthorization = read("docs/autonomy-owner-authorization-v1.json");
+const runtimeNarrowing = read("docs/autonomy-runtime-narrowing-v1.json");
+const recoveryWorkerRegistry = read("docs/autonomy-recovery-worker-registry-v1.json");
+const conformanceText = fs.readFileSync(path.join(root, "docs/autonomy-journal-conformance-v1.md"), "utf8");
 const journalPaths = [
   "tests/fixtures/autonomy-contract/journal-happy-commit.json",
   "tests/fixtures/autonomy-contract/journal-r-exact-revert.json",
@@ -109,6 +120,7 @@ function constitutionSemantics(record) {
     const policy = classes[entry.class];
     assert.deepEqual([entry.required_for_levels, entry.owner_scope, entry.owner, entry.recovery_class], [policy.levels, policy.ownerScope, policy.owner, policy.recovery], `${entry.class} has approved levels, owner scope, owner, and recovery class`);
     assert.deepEqual([...entry.required_identity_roles].sort(), [...roles].sort(), `${entry.class} requires separated authority roles`);
+    assert.deepEqual([entry.bounds.min_seconds_between_attempts, entry.bounds.max_attempts_per_window, entry.bounds.attempt_window_seconds, entry.bounds.max_silence_seconds, entry.bounds.trusted_watchdog_time_required], [3600, 1, 86400, 900, true], `${entry.class} has a trusted-clock attempt and watchdog floor`);
     assert.deepEqual([...entry.success_postconditions].sort(), ["verifier-passes", "canary-watch-complete", policy.readback].sort(), `${entry.class} success keeps only candidate/readback conditions`);
     const recoveryPostconditions = policy.recovery === "R-exact"
       ? ["baseline-digest-restored", "coverage-demoted-to-shadow", "recovery-worker-disarm-confirmed"]
@@ -117,6 +129,18 @@ function constitutionSemantics(record) {
     for (const requirement of commonFaults) assert.ok(entry.fault_injection_requirements.includes(requirement), `${entry.class} proves ${requirement}`);
     if (policy.recovery === "R-forward") assert.ok(entry.fault_injection_requirements.includes("canary-breach-quarantines"), "R-forward proves quarantine");
   }
+}
+
+function runtimeNarrowingSemantics(record) {
+  runtimeNarrowingShape.valid(record, "runtime narrowing ledger");
+  assert.deepEqual(record.entries, [], "W0.1 carries no runtime narrowing records");
+  assert.equal(record.owner_authorization_digest, "sha256:0000000000000000000000000000000000000000000000000000000000000000", "unconfigured owner authorization cannot imply runtime authority");
+}
+
+function recoveryWorkerRegistrySemantics(record) {
+  recoveryWorkerRegistryShape.valid(record, "recovery worker registry");
+  assert.equal(record.registry_digest, digest(record, "registry_digest"), "recovery worker registry is digest-bound");
+  assert.deepEqual(record.entries, [], "W0.1 provisions no recovery worker key in production");
 }
 
 function ownerAttestationSemantics(record) {
@@ -176,11 +200,22 @@ function coverageSemantics(record, c, mode, attestationRegistry = ownerAttestati
   assert.equal(new Set(allIdentities).size, allIdentities.length, "authority identities cannot alias across W0 bindings");
 }
 
-function mayActuate(record, attestationRegistry, domain, writerOwner, controllerIdentity, targetScopeDigest) {
+const eligibleAdmission = Object.freeze({ ownerAuthorizationVerified: true, effectiveTargetState: "armed-canary", killSwitchSafe: true, evidenceFreshEligible: true, journalHealthy: true, journalTerminal: false, trustedWatchdogTime: true, silenceBreached: false, attemptIntervalAllowed: true, attemptWindowAllowed: true });
+function mayActuate(record, attestationRegistry, domain, writerOwner, controllerIdentity, targetScopeDigest, admission) {
   ownerAttestationSemantics(attestationRegistry);
   const row = record.domains.find((entry) => entry.domain === domain);
   const binding = row?.bindings.find((entry) => entry.target_scope_digest === targetScopeDigest);
-  return record.global_state === "armed"
+  return admission?.ownerAuthorizationVerified === true
+    && ["armed-canary", "armed-fleet"].includes(admission.effectiveTargetState)
+    && admission.killSwitchSafe === true
+    && admission.evidenceFreshEligible === true
+    && admission.journalHealthy === true
+    && admission.journalTerminal === false
+    && admission.trustedWatchdogTime === true
+    && admission.silenceBreached === false
+    && admission.attemptIntervalAllowed === true
+    && admission.attemptWindowAllowed === true
+    && record.global_state === "armed"
     && ["armed-canary", "armed-fleet"].includes(row?.coverage)
     && ["armed-canary", "armed-fleet"].includes(binding?.state)
     && binding?.writer_owner === writerOwner
@@ -309,6 +344,11 @@ function mustReject(mutator, message) {
 constitutionSemantics(constitution);
 ownerAttestationSemantics(ownerAttestations);
 coverageSemantics(coverage, constitution, "w0");
+assert.deepEqual(constitution, constitutionFixture, "production constitution is the authority; the fixture is byte-equivalent test data");
+ownerAuthorizationShape.valid(productionAuthorization, "unconfigured production owner authorization");
+runtimeNarrowingSemantics(runtimeNarrowing);
+recoveryWorkerRegistrySemantics(recoveryWorkerRegistry);
+assert.match(conformanceText, /verifier-derived\nproofs, never caller-supplied claims/, "admission facts are not caller claims");
 coverageSemantics(armedCoverage, constitution, "armed-fixture");
 // Positive fixtures are canonical serialized receipts, not templates. Consumers validate the exact
 // checked-in bytes without filling, resigning, or otherwise mutating them first.
@@ -353,12 +393,12 @@ mustReject(() => { const x = clone(journals[2]); x.entries = x.entries.filter((e
   const targetScope = "sha256:9999999999999999999999999999999999999999999999999999999999999999";
   const muninAttestation = addOwnerAttestation(testAttestations, { attestation_id: "munin-prompt-config-owner-attestation", domain: "prompt", target_scope_digest: targetScope, configuration_owner: "munin-memory", issued_at: "2026-07-26T00:00:00Z" });
   prompt.bindings.push({ writer_owner: "munin-memory", owner_authority_ref: "ref:munin-memory-owner-authority", owner_authority_digest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", configuration_owner: "munin-memory", configuration_owner_authority_ref: `ref:${muninAttestation.attestation_id}`, configuration_owner_authority_digest: muninAttestation.attestation_digest, target_scope_digest: targetScope, state: "armed-canary", identities: { owner: "munin-owner", controller: "munin-prompt-controller", watchdog: "munin-prompt-watchdog", kill_switch: "munin-prompt-kill-switch", recovery_worker: "munin-prompt-revert-worker" } });
-  assert.equal(mayActuate(x, testAttestations, "prompt", "hugin", "munin-prompt-controller", prompt.bindings[0].target_scope_digest), false, "Hugin cannot actuate another owner's prompt binding");
-  assert.equal(mayActuate(x, testAttestations, "prompt", "munin-memory", "munin-prompt-controller", prompt.bindings[0].target_scope_digest), true, "the attested configuration owner can actuate after separate arming");
+  assert.equal(mayActuate(x, testAttestations, "prompt", "hugin", "munin-prompt-controller", prompt.bindings[0].target_scope_digest, eligibleAdmission), false, "Hugin cannot actuate another owner's prompt binding");
+  assert.equal(mayActuate(x, testAttestations, "prompt", "munin-memory", "munin-prompt-controller", prompt.bindings[0].target_scope_digest, eligibleAdmission), true, "the attested configuration owner can actuate after separate arming");
   prompt.bindings[0].writer_owner = "hugin";
   prompt.bindings[0].configuration_owner = "hugin";
   assert.equal(bindingAttested(prompt.bindings[0], "prompt", testAttestations), false, "self-relabelling fails the independent owner attestation directly");
-  assert.equal(mayActuate(x, testAttestations, "prompt", "hugin", "munin-prompt-controller", prompt.bindings[0].target_scope_digest), false, "self-relabelling cannot replace the independent target-owner attestation");
+  assert.equal(mayActuate(x, testAttestations, "prompt", "hugin", "munin-prompt-controller", prompt.bindings[0].target_scope_digest, eligibleAdmission), false, "self-relabelling cannot replace the independent target-owner attestation");
 }
 {
   const x = clone(coverage);
@@ -396,6 +436,9 @@ mustReject(() => { const x = clone(journals[2]); x.entries = x.entries.filter((e
   maintenance.coverage = "shadow";
   maintenance.bindings[0].state = "shadow";
   assert.equal(levelReady(x, constitution, "L4"), false, "partial class coverage does not claim aggregate L4 maturity");
-  assert.equal(mayActuate(x, ownerAttestations, "micro-routing", "gille-inference", "micro-route-controller", micro.bindings[0].target_scope_digest), true, "an independently approved class may canary before aggregate maturity is complete");
+  assert.equal(mayActuate(x, ownerAttestations, "micro-routing", "gille-inference", "micro-route-controller", micro.bindings[0].target_scope_digest, eligibleAdmission), true, "an independently approved class may canary before aggregate maturity is complete");
+  for (const [field, value] of [["ownerAuthorizationVerified", false], ["effectiveTargetState", "shadow"], ["killSwitchSafe", false], ["evidenceFreshEligible", false], ["journalHealthy", false], ["journalTerminal", true], ["trustedWatchdogTime", false], ["silenceBreached", true], ["attemptIntervalAllowed", false], ["attemptWindowAllowed", false]]) {
+    assert.equal(mayActuate(x, ownerAttestations, "micro-routing", "gille-inference", "micro-route-controller", micro.bindings[0].target_scope_digest, { ...eligibleAdmission, [field]: value }), false, `${field} blocks admission`);
+  }
 }
 console.log("autonomy-contract validation passed");
