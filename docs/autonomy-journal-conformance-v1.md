@@ -31,3 +31,8 @@ The current owner-authorization digest/sequence checkpoint and the recovery
 ledger tail checkpoint must live in an owner- or recovery-append-only store,
 respectively, outside controller write access. Controllers may read them to
 verify admission; they may not replace either checkpoint, registry, or ledger.
+For a recovery demotion, append and durably verify the signed narrowing entry
+first, then advance the protected tail checkpoint. A crash or disagreement
+between those steps is fail-closed: retain shadow/disarmed behavior, repair by
+replaying the signed append from the recovery store, and only then advance the
+checkpoint. Never reconstruct a tail from controller-visible files.

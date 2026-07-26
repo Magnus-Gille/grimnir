@@ -7,7 +7,7 @@ if (![manifestPath, constitutionPath, coveragePath, attestationsPath, recoveryRe
   console.error("usage: verify-autonomy-owner-authorization.mjs MANIFEST CONSTITUTION COVERAGE_INTENT ATTESTATIONS RECOVERY_WORKER_REGISTRY EXPECTED_OWNER_PUBLIC_KEY EXPECTED_AUTHORIZATION_CHECKPOINT");
   process.exit(64);
 }
-const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
+const read = (file) => { const raw = fs.readFileSync(file, "utf8"); if (Buffer.byteLength(raw) > 1_000_000) fail("input exceeds 1 MiB"); const value = JSON.parse(raw); let nodes = 0; const walk = (v, depth = 0) => { if (++nodes > 10_000 || depth > 64) fail("input exceeds structural limits"); if (v && typeof v === "object") for (const child of Object.values(v)) walk(child, depth + 1); }; walk(value); return value; };
 const plain = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const canonical = (value) => plain(value) ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}` : Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : JSON.stringify(value);
 const digest = (value, omit) => { const copy = structuredClone(value); if (omit) delete copy[omit]; return `sha256:${crypto.createHash("sha256").update(canonical(copy)).digest("hex")}`; };

@@ -68,4 +68,9 @@ fi
 if verify "$root/docs/autonomy-owner-authorization-v1.json" "$root/docs/autonomy-constitution-v1.json" "$root/docs/autonomy-coverage-registry-v1.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$root/docs/autonomy-recovery-worker-registry-v1.json" "$fixture/test-owner-ed25519-public.pem" "$checkpoint" >/dev/null 2>&1; then
   echo "unconfigured production authorization was accepted" >&2; exit 1
 fi
+node - "$work/oversized.json" "$work/deep.json" <<'NODE'
+const fs = require("fs"); fs.writeFileSync(process.argv[2], " ".repeat(1_000_001)); let x = 0; for (let i = 0; i < 65; i++) x = [x]; fs.writeFileSync(process.argv[3], JSON.stringify(x));
+NODE
+if verify "$work/oversized.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$checkpoint" >/dev/null 2>&1; then echo "oversized authorization input was accepted" >&2; exit 1; fi
+if verify "$work/deep.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$checkpoint" >/dev/null 2>&1; then echo "deep authorization input was accepted" >&2; exit 1; fi
 echo "autonomy owner authorization tests passed"
