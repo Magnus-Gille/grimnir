@@ -2,6 +2,8 @@
   "kind": "autonomy-owner-authorization",
   "schema_version": "v1",
   "authorization_id": "test-owner-authorization",
+  "authorization_sequence": 1,
+  "previous_authorization_digest": null,
   "issued_at": "2026-07-26T00:00:00Z",
   "authority": {
     "key_id": "test-owner-ed25519",
@@ -15,5 +17,5 @@
     "owner_attestation_registry_digest": "sha256:17000ba6f8a4344d0ddfb3515932fa67b69c226edcf67f3743e111a53730d067",
     "recovery_worker_registry_digest": "sha256:dae24ae00175afb1dd8450aa9aad62296965ba67b3e4937b94696eebc56edd28"
   },
-  "signature": { "algorithm": "Ed25519", "value_base64": "IX/X27gIylPc710GWSanX3Hm0QfLil2a3PtAqKcb4FXdHX+uv4sF3tbt0HC3iqdzo3frmEElOm65TskC1qSyAw==" }
+  "signature": { "algorithm": "Ed25519", "value_base64": "WiPbKMyHdYbRgKb7SEEmV6LmzJ514W6ZKSx1xXQcpQsixNII3WxFVLwOPgoNtt0oujEXvW8DZDlSctYzh+06Aw==" }
 }

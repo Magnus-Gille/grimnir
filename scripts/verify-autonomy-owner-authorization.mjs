@@ -2,9 +2,9 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 
-const [manifestPath, constitutionPath, coveragePath, attestationsPath, recoveryRegistryPath, expectedPublicKeyPath] = process.argv.slice(2);
-if (![manifestPath, constitutionPath, coveragePath, attestationsPath, recoveryRegistryPath, expectedPublicKeyPath].every(Boolean)) {
-  console.error("usage: verify-autonomy-owner-authorization.mjs MANIFEST CONSTITUTION COVERAGE_INTENT ATTESTATIONS RECOVERY_WORKER_REGISTRY EXPECTED_OWNER_PUBLIC_KEY");
+const [manifestPath, constitutionPath, coveragePath, attestationsPath, recoveryRegistryPath, expectedPublicKeyPath, checkpointPath] = process.argv.slice(2);
+if (![manifestPath, constitutionPath, coveragePath, attestationsPath, recoveryRegistryPath, expectedPublicKeyPath, checkpointPath].every(Boolean)) {
+  console.error("usage: verify-autonomy-owner-authorization.mjs MANIFEST CONSTITUTION COVERAGE_INTENT ATTESTATIONS RECOVERY_WORKER_REGISTRY EXPECTED_OWNER_PUBLIC_KEY EXPECTED_AUTHORIZATION_CHECKPOINT");
   process.exit(64);
 }
 const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
@@ -13,17 +13,24 @@ const canonical = (value) => plain(value) ? `{${Object.keys(value).sort().map((k
 const digest = (value, omit) => { const copy = structuredClone(value); if (omit) delete copy[omit]; return `sha256:${crypto.createHash("sha256").update(canonical(copy)).digest("hex")}`; };
 const fail = (message) => { throw new Error(`owner authorization rejected: ${message}`); };
 const exactKeys = (value, keys) => value && Object.keys(value).sort().join(",") === [...keys].sort().join(",");
+const digestPattern = /^sha256:[a-f0-9]{64}$/;
+const idPattern = /^[a-z][a-z0-9-]{2,62}$/;
+const utc = (value) => typeof value === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(value) && new Date(value).toISOString().replace(".000Z", "Z") === value;
 try {
   const manifest = read(manifestPath);
   const constitution = read(constitutionPath);
   const coverage = read(coveragePath);
   const attestations = read(attestationsPath);
   const recoveryRegistry = read(recoveryRegistryPath);
-  if (!exactKeys(manifest, ["kind", "schema_version", "authorization_id", "issued_at", "authority", "bindings", "signature"]) || !exactKeys(manifest.authority, ["key_id", "algorithm", "public_key_pem", "public_key_fingerprint"]) || !exactKeys(manifest.bindings, ["constitution_digest", "coverage_intent_digest", "owner_attestation_registry_digest", "recovery_worker_registry_digest"]) || !exactKeys(manifest.signature, ["algorithm", "value_base64"])) fail("invalid closed manifest shape");
+  const checkpoint = read(checkpointPath);
+  if (!exactKeys(manifest, ["kind", "schema_version", "authorization_id", "authorization_sequence", "previous_authorization_digest", "issued_at", "authority", "bindings", "signature"]) || !exactKeys(manifest.authority, ["key_id", "algorithm", "public_key_pem", "public_key_fingerprint"]) || !exactKeys(manifest.bindings, ["constitution_digest", "coverage_intent_digest", "owner_attestation_registry_digest", "recovery_worker_registry_digest"]) || !exactKeys(manifest.signature, ["algorithm", "value_base64"])) fail("invalid closed manifest shape");
+  if (!exactKeys(checkpoint, ["kind", "schema_version", "authorization_digest", "minimum_sequence"]) || checkpoint.kind !== "autonomy-owner-authorization-checkpoint" || checkpoint.schema_version !== "v1" || !digestPattern.test(checkpoint.authorization_digest) || !Number.isInteger(checkpoint.minimum_sequence)) fail("invalid externally protected authorization checkpoint");
+  if (!idPattern.test(manifest.authorization_id) || !idPattern.test(manifest.authority.key_id) || !utc(manifest.issued_at) || !Number.isInteger(manifest.authorization_sequence) || manifest.authorization_sequence < checkpoint.minimum_sequence || (manifest.previous_authorization_digest !== null && !digestPattern.test(manifest.previous_authorization_digest))) fail("invalid authorization identity, time, or sequence");
   if (manifest.kind !== "autonomy-owner-authorization" || manifest.schema_version !== "v1") fail("unsupported manifest");
   if (manifest.authority.algorithm !== "Ed25519" || manifest.signature.algorithm !== "Ed25519") fail("non-Ed25519 authority");
   const key = crypto.createPublicKey(manifest.authority.public_key_pem);
   const expectedKey = crypto.createPublicKey(fs.readFileSync(expectedPublicKeyPath, "utf8"));
+  if (key.asymmetricKeyType !== "ed25519" || expectedKey.asymmetricKeyType !== "ed25519") fail("owner key is not Ed25519");
   if (!key.export({ type: "spki", format: "der" }).equals(expectedKey.export({ type: "spki", format: "der" }))) fail("manifest key is not the independently pinned owner key");
   const fingerprint = `sha256:${crypto.createHash("sha256").update(key.export({ type: "spki", format: "der" })).digest("hex")}`;
   if (fingerprint !== manifest.authority.public_key_fingerprint) fail("public key fingerprint mismatch");
@@ -33,5 +40,16 @@ try {
   if (manifest.bindings.coverage_intent_digest !== digest(coverage, "registry_digest")) fail("coverage intent digest mismatch");
   if (manifest.bindings.owner_attestation_registry_digest !== digest(attestations, "registry_digest")) fail("owner attestation digest mismatch");
   if (manifest.bindings.recovery_worker_registry_digest !== digest(recoveryRegistry, "registry_digest")) fail("recovery worker registry digest mismatch");
+  if (constitution.constitution_digest !== digest(constitution, "constitution_digest") || coverage.registry_digest !== digest(coverage, "registry_digest") || attestations.registry_digest !== digest(attestations, "registry_digest") || recoveryRegistry.registry_digest !== digest(recoveryRegistry, "registry_digest")) fail("embedded artifact self-digest mismatch");
+  const recoveryKeys = new Set();
+  for (const entry of recoveryRegistry.entries ?? []) {
+    if (!exactKeys(entry, ["domain", "target_scope_digest", "recovery_worker_identity", "public_key_pem", "public_key_fingerprint"]) || !idPattern.test(entry.domain) || !idPattern.test(entry.recovery_worker_identity) || !digestPattern.test(entry.target_scope_digest)) fail("invalid recovery binding");
+    const recoveryKey = crypto.createPublicKey(entry.public_key_pem);
+    const recoveryFingerprint = `sha256:${crypto.createHash("sha256").update(recoveryKey.export({ type: "spki", format: "der" })).digest("hex")}`;
+    if (recoveryKey.asymmetricKeyType !== "ed25519" || recoveryFingerprint !== entry.public_key_fingerprint) fail("invalid recovery key");
+    const identity = `${entry.domain}:${entry.target_scope_digest}:${entry.recovery_worker_identity}`;
+    if (recoveryKeys.has(identity)) fail("ambiguous recovery binding"); recoveryKeys.add(identity);
+  }
+  if (checkpoint.authorization_digest !== digest(manifest)) fail("authorization is not the independently protected current authorization");
   console.log(JSON.stringify({ ok: true, authorization_digest: digest(manifest), key_id: manifest.authority.key_id }));
 } catch (error) { console.error(error.message); process.exit(1); }

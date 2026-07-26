@@ -2,8 +2,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
-const [ledgerPath, registryPath, manifestPath, constitutionPath, coveragePath, attestationsPath, expectedOwnerKeyPath] = process.argv.slice(2);
-if (![ledgerPath, registryPath, manifestPath, constitutionPath, coveragePath, attestationsPath, expectedOwnerKeyPath].every(Boolean)) { console.error("usage: verify-autonomy-runtime-narrowing.mjs LEDGER RECOVERY_WORKER_REGISTRY OWNER_AUTHORIZATION CONSTITUTION COVERAGE ATTESTATIONS EXPECTED_OWNER_KEY"); process.exit(64); }
+const [ledgerPath, registryPath, manifestPath, constitutionPath, coveragePath, attestationsPath, expectedOwnerKeyPath, checkpointPath, tailCheckpointPath] = process.argv.slice(2);
+if (![ledgerPath, registryPath, manifestPath, constitutionPath, coveragePath, attestationsPath, expectedOwnerKeyPath, checkpointPath, tailCheckpointPath].every(Boolean)) { console.error("usage: verify-autonomy-runtime-narrowing.mjs LEDGER RECOVERY_WORKER_REGISTRY OWNER_AUTHORIZATION CONSTITUTION COVERAGE ATTESTATIONS EXPECTED_OWNER_KEY EXPECTED_AUTHORIZATION_CHECKPOINT EXPECTED_NARROWING_TAIL_CHECKPOINT"); process.exit(64); }
 const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 const plain = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const canonical = (v) => plain(v) ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical(v[k])}`).join(",")}}` : Array.isArray(v) ? `[${v.map(canonical).join(",")}]` : JSON.stringify(v);
@@ -12,9 +12,10 @@ const exactKeys = (value, keys) => Object.keys(value).sort().join(",") === [...k
 try {
   const ledger = read(ledgerPath), registry = read(registryPath);
   const auth = read(manifestPath);
+  const tailCheckpoint = read(tailCheckpointPath);
   if (!exactKeys(ledger, ["kind", "schema_version", "ledger_id", "owner_authorization_digest", "entries", "extensions"]) || ledger.kind !== "autonomy-runtime-narrowing" || ledger.schema_version !== "v1" || !Array.isArray(ledger.entries) || !Array.isArray(ledger.extensions) || ledger.extensions.length) throw new Error("invalid closed runtime ledger shape");
   if (!exactKeys(registry, ["kind", "schema_version", "registry_id", "entries", "registry_digest", "extensions"]) || registry.kind !== "autonomy-recovery-worker-registry" || registry.schema_version !== "v1" || !Array.isArray(registry.entries) || !Array.isArray(registry.extensions) || registry.extensions.length || registry.registry_digest !== digest(registry, "registry_digest")) throw new Error("invalid closed recovery registry shape");
-  const ownerCheck = spawnSync(process.execPath, [new URL("./verify-autonomy-owner-authorization.mjs", import.meta.url).pathname, manifestPath, constitutionPath, coveragePath, attestationsPath, registryPath, expectedOwnerKeyPath], { encoding: "utf8" });
+  const ownerCheck = spawnSync(process.execPath, [new URL("./verify-autonomy-owner-authorization.mjs", import.meta.url).pathname, manifestPath, constitutionPath, coveragePath, attestationsPath, registryPath, expectedOwnerKeyPath, checkpointPath], { encoding: "utf8" });
   if (ownerCheck.status !== 0) throw new Error(`owner authorization failed: ${ownerCheck.stderr.trim()}`);
   if (ledger.owner_authorization_digest !== digest(auth)) throw new Error("ledger is not bound to the verified owner authorization");
   let previous = null;
@@ -30,5 +31,6 @@ try {
     if (entry.entry_digest !== digest(digestInput)) throw new Error("entry digest mismatch");
     previous = entry.entry_digest;
   });
+  if (!exactKeys(tailCheckpoint, ["kind", "schema_version", "owner_authorization_digest", "ledger_tail_digest", "minimum_entries"]) || tailCheckpoint.kind !== "autonomy-runtime-narrowing-checkpoint" || tailCheckpoint.schema_version !== "v1" || tailCheckpoint.owner_authorization_digest !== ledger.owner_authorization_digest || !Number.isInteger(tailCheckpoint.minimum_entries) || tailCheckpoint.minimum_entries < 0 || ledger.entries.length < tailCheckpoint.minimum_entries || tailCheckpoint.ledger_tail_digest !== previous) throw new Error("ledger does not match independently protected tail checkpoint");
   console.log(JSON.stringify({ ok: true, entries: ledger.entries.length }));
 } catch (error) { console.error(`runtime narrowing rejected: ${error.message}`); process.exit(1); }

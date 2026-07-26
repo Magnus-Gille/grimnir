@@ -26,3 +26,8 @@ external-pin verifier; effective target state is owner intent minus verified
 signed narrowing; and evidence, journal health, rate/window, silence, and
 trusted watchdog time come from their authoritative stores and clocks. A
 consumer must fail closed if it cannot independently derive any one of them.
+
+The current owner-authorization digest/sequence checkpoint and the recovery
+ledger tail checkpoint must live in an owner- or recovery-append-only store,
+respectively, outside controller write access. Controllers may read them to
+verify admission; they may not replace either checkpoint, registry, or ledger.

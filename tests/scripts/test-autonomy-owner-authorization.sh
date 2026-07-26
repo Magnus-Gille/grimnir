@@ -7,8 +7,15 @@ trap 'rm -rf "$work"' EXIT
 verify() {
   node "$root/scripts/verify-autonomy-owner-authorization.mjs" "$@"
 }
-verify "$fixture/test-owner-authorization.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" >/dev/null
-runtime_args=("$fixture/test-runtime-narrowing.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-authorization.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-owner-ed25519-public.pem")
+checkpoint="$fixture/test-owner-authorization-checkpoint.json"
+verify "$fixture/test-owner-authorization.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$checkpoint" >/dev/null
+node - "$checkpoint" "$work/newer-authorization-checkpoint.json" <<'NODE'
+const fs = require("fs"); const x = JSON.parse(fs.readFileSync(process.argv[2])); x.authorization_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"; x.minimum_sequence = 2; fs.writeFileSync(process.argv[3], JSON.stringify(x));
+NODE
+if verify "$fixture/test-owner-authorization.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$work/newer-authorization-checkpoint.json" >/dev/null 2>&1; then
+  echo "replayed older signed authorization was accepted" >&2; exit 1
+fi
+runtime_args=("$fixture/test-runtime-narrowing.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-authorization.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-owner-ed25519-public.pem" "$checkpoint" "$fixture/test-runtime-narrowing-checkpoint.json")
 node "$root/scripts/verify-autonomy-runtime-narrowing.mjs" "${runtime_args[@]}" >/dev/null
 if node "$root/scripts/verify-autonomy-runtime-narrowing.mjs" "$fixture/test-runtime-narrowing.json" "$root/docs/autonomy-recovery-worker-registry-v1.json" "${runtime_args[@]:2}" >/dev/null 2>&1; then
   echo "substituted recovery registry was accepted" >&2; exit 1
@@ -18,6 +25,12 @@ const fs = require("fs"); const x = JSON.parse(fs.readFileSync(process.argv[2]))
 NODE
 if node "$root/scripts/verify-autonomy-runtime-narrowing.mjs" "$work/forged-narrowing.json" "${runtime_args[@]:1}" >/dev/null 2>&1; then
   echo "recovery widening was accepted" >&2; exit 1
+fi
+node - "$fixture/test-runtime-narrowing.json" "$work/truncated-narrowing.json" <<'NODE'
+const fs = require("fs"); const x = JSON.parse(fs.readFileSync(process.argv[2])); x.entries = []; fs.writeFileSync(process.argv[3], JSON.stringify(x));
+NODE
+if node "$root/scripts/verify-autonomy-runtime-narrowing.mjs" "$work/truncated-narrowing.json" "${runtime_args[@]:1}" >/dev/null 2>&1; then
+  echo "truncated signed narrowing ledger was accepted" >&2; exit 1
 fi
 
 # An editor may recompute a self-digest, but cannot repair the detached owner authorization.
@@ -30,7 +43,7 @@ const canonical = (v) => plain(v) ? `{${Object.keys(v).sort().map((k) => `${JSON
 delete x.registry_digest; x.registry_digest = `sha256:${crypto.createHash("sha256").update(canonical(x)).digest("hex")}`;
 fs.writeFileSync(process.argv[3], JSON.stringify(x));
 NODE
-if verify "$fixture/test-owner-authorization.json" "$root/docs/autonomy-constitution-v1.json" "$work/redigested-coverage.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" >/dev/null 2>&1; then
+if verify "$fixture/test-owner-authorization.json" "$root/docs/autonomy-constitution-v1.json" "$work/redigested-coverage.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$checkpoint" >/dev/null 2>&1; then
   echo "re-digested unsigned coverage was accepted" >&2; exit 1
 fi
 
@@ -47,12 +60,12 @@ x.authority.public_key_fingerprint = `sha256:${crypto.createHash("sha256").updat
 delete x.signature; x.signature = { algorithm: "Ed25519", value_base64: crypto.sign(null, Buffer.from(canonical(x)), fs.readFileSync(process.argv[3])).toString("base64") };
 fs.writeFileSync(process.argv[5], JSON.stringify(x));
 NODE
-if verify "$work/attacker.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" >/dev/null 2>&1; then
+if verify "$work/attacker.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$checkpoint" >/dev/null 2>&1; then
   echo "attacker key replacement was accepted" >&2; exit 1
 fi
 
 # The intentionally unconfigured production placeholder cannot be admitted under any expected key.
-if verify "$root/docs/autonomy-owner-authorization-v1.json" "$root/docs/autonomy-constitution-v1.json" "$root/docs/autonomy-coverage-registry-v1.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$root/docs/autonomy-recovery-worker-registry-v1.json" "$fixture/test-owner-ed25519-public.pem" >/dev/null 2>&1; then
+if verify "$root/docs/autonomy-owner-authorization-v1.json" "$root/docs/autonomy-constitution-v1.json" "$root/docs/autonomy-coverage-registry-v1.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$root/docs/autonomy-recovery-worker-registry-v1.json" "$fixture/test-owner-ed25519-public.pem" "$checkpoint" >/dev/null 2>&1; then
   echo "unconfigured production authorization was accepted" >&2; exit 1
 fi
 echo "autonomy owner authorization tests passed"
