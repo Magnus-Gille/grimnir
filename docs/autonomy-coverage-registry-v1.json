@@ -1,0 +1,11 @@
+{
+  "kind": "autonomy-coverage-registry", "schema_version": "v1", "registry_id": "grimnir-autonomy-coverage", "issued_at": "2026-07-26T00:00:00Z", "state": "disarmed",
+  "domains": [
+    { "domain": "routing", "level": "L5", "coverage": "shadow", "owner": "gille-inference", "recovery_class": "R-exact" },
+    { "domain": "no-reboot-security-bugfix-maintenance", "level": "L4", "coverage": "shadow", "owner": "brokkr", "recovery_class": "R-forward" },
+    { "domain": "credentials-and-auth", "level": "permanent", "coverage": "protected", "owner": "owner", "recovery_class": "none" },
+    { "domain": "deployments-and-code", "level": "permanent", "coverage": "protected", "owner": "owner", "recovery_class": "none" },
+    { "domain": "privacy-retention-and-erasure", "level": "permanent", "coverage": "protected", "owner": "owner", "recovery_class": "none" },
+    { "domain": "firmware-and-remote-recovery", "level": "permanent", "coverage": "out-of-scope", "owner": "owner", "recovery_class": "none" }
+  ], "registry_digest": "sha256:5891142bd6b30fc9d7f9a7f41b3656a456319e88e63ad99cf2b7d6beeb219003", "extensions": []
+}

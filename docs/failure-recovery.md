@@ -34,6 +34,12 @@ actions Grimnir takes without a human in the loop at the moment of action.
 
 ## The convention
 
+For the bounded Level 4/5 autonomy program, [ADR-008](adr-008-autonomy-constitution.md) adds a
+digest-bound authoritative domain journal. `R-exact` restores an immutable baseline; `R-forward`
+is only a bounded, separately authorized compensating recovery. Unknown state fails closed into
+recovery and ends disarmed or terminally blocked. Verdandi is an optional projection, and Heimdall
+remains an observer rather than an admission or recovery actor.
+
 **Every autonomous mutation must leave two things behind:**
 
 1. A **reversal recipe** — machine-followable instructions for undoing the

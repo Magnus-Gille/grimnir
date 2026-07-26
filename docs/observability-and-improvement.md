@@ -215,6 +215,10 @@ Today the controller is armed at Tier 0, so no proposal can auto-adopt until the
 predicate is satisfied. Software changes, protected-lane policy, and irreversible actions remain
 owner-controlled; see [the autonomous-improvement design](autonomous-improvement-design.md).
 
+ADR-008 now supplies the cross-domain supervision floor: mechanical promotion is only for an
+explicitly covered, digest-bound class with a domain journal and a disarming recovery worker.
+Heimdall is read-only and Verdandi is an optional receipt projection; neither can admit or actuate.
+
 ## Delivered core loop and remaining maturity
 
 | Capability | State | Remaining boundary |

@@ -1,0 +1,6 @@
+{
+  "kind": "autonomy-constitution", "schema_version": "v1", "constitution_id": "grimnir-autonomy-v1", "issued_at": "2026-07-26T00:00:00Z", "promotion_mode": "mechanical",
+  "protected_lanes": ["credentials-and-auth", "deployments-and-code", "privacy-retention-and-erasure", "firmware-and-remote-recovery", "constitution-and-safety-gates"],
+  "autonomous_classes": ["routing", "no-reboot-security-bugfix-maintenance"], "required_identities": ["least-privilege-restore-worker", "least-privilege-recovery-worker"],
+  "required_postconditions": ["verifier-passes", "watch-window-recorded", "disarm-confirmed"], "fault_injection_requirements": ["recovery-path-proven", "observer-cannot-actuate"], "constitution_digest": "sha256:843b0e6980421869ccf73473e2b1f95e7d00c4d3f5c258d97615bece6d7b380a", "extensions": []
+}
