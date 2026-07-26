@@ -1,0 +1,66 @@
+{
+  "contract": "grimnir.portability-acceptance/v1",
+  "fixture_set": "portability-acceptance-v1",
+  "scenarios": [
+    {
+      "scenario_id": "nas-pi-t7-house-move",
+      "mode": "historical_evidence",
+      "evidence_date": "2026-07-22",
+      "historical_evidence": { "path": "nas-2026-07-22-evidence.json", "digest": "sha256:3636b0c61047ddd8d4e615cecdad4f23b78fc0e8e051c64ce1644bd29e7472cd" },
+      "shared_fixtures": [
+        { "repository": "grimnir", "path": "tests/fixtures/node-substrate-contract/positive.json", "record_kind": "node-capability", "fixture_digest": "sha256:fb86477f7588cc8598a29e0aa8f27d7e918640370ff642430469ad55eee929fe" },
+        { "repository": "brokkr", "path": "fixtures/node-substrate-contract/positive.json", "record_kind": "node-capability", "fixture_digest": "sha256:fb86477f7588cc8598a29e0aa8f27d7e918640370ff642430469ad55eee929fe" },
+        { "repository": "mimir", "path": "fixtures/node-substrate-contract/positive.json", "record_kind": "workload-requirement", "fixture_digest": "sha256:5f70c730e6f3cf477942b16facb0b37978ba40cc9fb0549e43fb152940299ba0" },
+        { "repository": "munin-memory", "path": "fixtures/node-substrate-contract/positive.json", "record_kind": "workload-requirement", "fixture_digest": "sha256:5f70c730e6f3cf477942b16facb0b37978ba40cc9fb0549e43fb152940299ba0" },
+        { "repository": "heimdall", "path": "fixtures/node-substrate-contract/positive.json", "record_kind": "workload-requirement", "fixture_digest": "sha256:5f70c730e6f3cf477942b16facb0b37978ba40cc9fb0549e43fb152940299ba0" }
+      ],
+      "plan": { "plan_id": "nas-move-plan-20260722", "action": "relocate", "target_architecture": "arm64", "requires_wifi_profile": true, "transfer_window": "adequate", "reversal_recipe": "operator-restores-previous-location-and-verifies-baseline" },
+      "fresh_observations": [
+        { "evidence_id": "nas-observation-20260722", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T11:00:00Z", "architecture": "arm64", "wifi_profile": "present", "mount": "present", "monitoring": "available" }
+      ],
+      "operator_checkpoints": [
+        { "checkpoint": "physical-move", "status": "completed", "evidence_id": "nas-observation-20260722" }
+      ],
+      "lifecycle_result": { "attempt_id": "nas-attempt-20260722", "phase": "verify", "outcome": "historical_completed", "interrupted_apply": false },
+      "service_verification": [
+        { "service": "mimir", "health": "verified", "hook": "verified" },
+        { "service": "munin-memory", "health": "verified", "hook": "verified" },
+        { "service": "heimdall", "health": "verified", "hook": "verified" }
+      ],
+      "claims": [
+        { "kind": "transport", "status": "recorded", "evidence_id": "nas-observation-20260722" },
+        { "kind": "configuration", "status": "recorded", "evidence_id": "nas-observation-20260722" },
+        { "kind": "health", "status": "recorded", "evidence_id": "nas-observation-20260722" },
+        { "kind": "copy_integrity", "status": "recorded", "evidence_id": "nas-observation-20260722" },
+        { "kind": "restore", "status": "recorded", "evidence_id": "nas-observation-20260722" }
+      ]
+    },
+    {
+      "scenario_id": "hugin-pi-to-m5",
+      "mode": "dry_run",
+      "shared_fixtures": [
+        { "repository": "grimnir", "path": "tests/fixtures/node-substrate-contract/positive.json", "record_kind": "placement-intent", "fixture_digest": "sha256:a3df03bc2d05b45caf00e56393facc4f7e5b9812004f66baeb91dd29250517c9" },
+        { "repository": "brokkr", "path": "fixtures/node-substrate-contract/positive.json", "record_kind": "node-capability", "fixture_digest": "sha256:fb86477f7588cc8598a29e0aa8f27d7e918640370ff642430469ad55eee929fe" },
+        { "repository": "hugin", "path": "fixtures/node-substrate-contract/positive.json", "record_kind": "workload-requirement", "fixture_digest": "sha256:5f70c730e6f3cf477942b16facb0b37978ba40cc9fb0549e43fb152940299ba0" }
+      ],
+      "plan": { "plan_id": "hugin-m5-plan-dry-run", "action": "relocate", "target_architecture": "arm64", "requires_wifi_profile": false, "transfer_window": "adequate", "reversal_recipe": "component-owner-restores-pi-baseline-and-verifies-state-timers-and-tools" },
+      "fresh_observations": [
+        { "evidence_id": "hugin-m5-observation-dry-run", "observed_at": "2026-07-23T10:00:00Z", "valid_until": "2026-07-23T11:00:00Z", "architecture": "arm64", "wifi_profile": "not_applicable", "mount": "present", "monitoring": "available" }
+      ],
+      "operator_checkpoints": [
+        { "checkpoint": "production-mutation-approval", "status": "pending", "evidence_id": "hugin-m5-observation-dry-run" }
+      ],
+      "lifecycle_result": { "attempt_id": "hugin-m5-dry-run", "phase": "preflight", "outcome": "not_started", "interrupted_apply": false },
+      "service_verification": [
+        { "service": "hugin", "health": "not_run", "hook": "not_run" }
+      ],
+      "claims": [
+        { "kind": "transport", "status": "not_run", "evidence_id": "hugin-m5-observation-dry-run" },
+        { "kind": "configuration", "status": "not_run", "evidence_id": "hugin-m5-observation-dry-run" },
+        { "kind": "health", "status": "not_run", "evidence_id": "hugin-m5-observation-dry-run" },
+        { "kind": "copy_integrity", "status": "not_run", "evidence_id": "hugin-m5-observation-dry-run" },
+        { "kind": "restore", "status": "not_run", "evidence_id": "hugin-m5-observation-dry-run" }
+      ]
+    }
+  ]
+}

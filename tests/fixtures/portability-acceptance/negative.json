@@ -1,0 +1,10 @@
+{
+  "stale_evidence": { "scenario_id": "negative", "fresh_observations": [{ "evidence_id": "old", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T09:59:59Z" }] },
+  "wrong_architecture": { "scenario_id": "negative", "plan": { "target_architecture": "x86_64" }, "fresh_observations": [{ "evidence_id": "obs", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T11:00:00Z", "architecture": "arm64" }] },
+  "missing_wifi_profile": { "scenario_id": "negative", "plan": { "requires_wifi_profile": true, "target_architecture": "arm64" }, "fresh_observations": [{ "evidence_id": "obs", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T11:00:00Z", "architecture": "arm64", "wifi_profile": "missing" }] },
+  "poor_transfer_window": { "scenario_id": "negative", "plan": { "transfer_window": "poor" } },
+  "absent_mount": { "scenario_id": "negative", "fresh_observations": [{ "evidence_id": "obs", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T11:00:00Z", "mount": "absent" }] },
+  "failed_health_hook": { "scenario_id": "negative", "service_verification": [{ "service": "fixture", "health": "failed", "hook": "failed" }] },
+  "monitoring_outage": { "scenario_id": "negative", "fresh_observations": [{ "evidence_id": "obs", "observed_at": "2026-07-22T10:00:00Z", "valid_until": "2026-07-22T11:00:00Z", "monitoring": "unavailable" }] },
+  "interrupted_apply": { "scenario_id": "negative", "lifecycle_result": { "interrupted_apply": true, "outcome": "promoted" } }
+}
