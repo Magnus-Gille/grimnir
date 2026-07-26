@@ -86,6 +86,9 @@ the annotation, not only the filename.
   `AGENTS.md` → `docs/index.md` split (grimnir#143): method, per-run results, the confabulation and
   partial-enumeration findings, and the harness defect found mid-flight. Harness
   `scripts/tests/ab-instructions-eval.sh`, probes under `tests/fixtures/instruction-probes/`.
+- `docs/skill-ab-evidence-2026-07-25.md` — Measured skill-description routing evidence
+  (grimnir#145): frozen trigger/control probes, token results, sandbox corrections, and limits.
+  Harness `scripts/tests/ab-skills-eval.sh`, probes under `tests/fixtures/skill-probes/`.
 
 ## Vision and superseded plans
 
@@ -132,7 +135,9 @@ the annotation, not only the filename.
 | `scripts/worktree-hygiene-audit.sh` | Read-only audit of stale/dirty/orphaned worktrees, canonical-checkout drift, and deploy-target role violations across owned repos | `scripts/worktree-hygiene-audit.sh` (also wired into `scripts/generate-architecture.sh --validate`); tests via `make test-worktree-hygiene` |
 | `scripts/tests/ab-instructions-eval.sh` | A/B a change to the agent-instruction files against a frozen retrieval probe set | `scripts/tests/ab-instructions-eval.sh --before DIR --after DIR` |
 | `scripts/tests/ab-rescore.sh` | Recompute A/B verdicts from retained raw streams after a detector fix, instead of re-running the eval | `scripts/tests/ab-rescore.sh RAW_DIR` |
+| `scripts/tests/ab-skills-eval.sh` | A/B skill-description routing against frozen trigger, control, and negative probes | Run with isolated before/after skill directories and `--i-understand-global-swap` |
 | `tests/scripts/test-doc-index.sh` | Guard: fails when a doc exists but is not indexed here, when a required constraint annotation is dropped, or when a behavioural rule leaves `AGENTS.md` | `make test` |
+| `tests/scripts/test-skills-eval-sandbox.sh` | Static guard for empty MCP and denied mutation/dispatch tools; optional live routing probe | `make test-skills-eval-sandbox` |
 
 > OS patching (`setup-host-patching.sh`) and maintenance reports (`maintenance-report.sh`) have moved
 > to the `brokkr` repo. Use `make patching` / `make maintenance-os` / `make maintenance-deps` from

@@ -1,0 +1,405 @@
+{
+ "summary": {
+  "before": {
+   "runs": 50,
+   "trigger_correct": 31,
+   "trigger_runs": 40,
+   "control_correct": 10,
+   "control_runs": 10,
+   "mean_prompt_tokens": 31338,
+   "total_cost_usd": 13.813115100000003,
+   "errors": 2
+  },
+  "after": {
+   "runs": 50,
+   "trigger_correct": 30,
+   "trigger_runs": 40,
+   "control_correct": 10,
+   "control_runs": 10,
+   "mean_prompt_tokens": 30584.4,
+   "total_cost_usd": 13.072616400000001,
+   "errors": 2
+  }
+ },
+ "per_probe": [
+  {
+   "probe": "CONTROL-arithmetic",
+   "kind": "control",
+   "expect": null,
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    null
+   ],
+   "after_fired": [
+    null
+   ]
+  },
+  {
+   "probe": "CONTROL-definition",
+   "kind": "control",
+   "expect": null,
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    null
+   ],
+   "after_fired": [
+    null
+   ]
+  },
+  {
+   "probe": "CONTROL-explain",
+   "kind": "control",
+   "expect": null,
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    null
+   ],
+   "after_fired": [
+    null
+   ]
+  },
+  {
+   "probe": "NEGATIVE-deploy-talk",
+   "kind": "negative",
+   "expect": null,
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    null
+   ],
+   "after_fired": [
+    null
+   ]
+  },
+  {
+   "probe": "NEGATIVE-email-talk",
+   "kind": "negative",
+   "expect": null,
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    null
+   ],
+   "after_fired": [
+    null
+   ]
+  },
+  {
+   "probe": "capture",
+   "kind": "trigger",
+   "expect": "capture",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "capture"
+   ],
+   "after_fired": [
+    "capture"
+   ]
+  },
+  {
+   "probe": "check-calendar",
+   "kind": "trigger",
+   "expect": "check-calendar",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "check-calendar"
+   ],
+   "after_fired": [
+    "check-calendar"
+   ]
+  },
+  {
+   "probe": "check-email",
+   "kind": "trigger",
+   "expect": "check-email",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "check-email"
+   ],
+   "after_fired": [
+    "check-email"
+   ]
+  },
+  {
+   "probe": "check-tasks",
+   "kind": "trigger",
+   "expect": "check-tasks",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "check-tasks"
+   ],
+   "after_fired": [
+    "check-tasks"
+   ]
+  },
+  {
+   "probe": "close",
+   "kind": "trigger",
+   "expect": "close",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "close"
+   ],
+   "after_fired": [
+    "close"
+   ]
+  },
+  {
+   "probe": "debate",
+   "kind": "trigger",
+   "expect": "debate",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 1,
+   "after_runs": 2,
+   "before_fired": [
+    "debate"
+   ],
+   "after_fired": [
+    null,
+    "debate"
+   ]
+  },
+  {
+   "probe": "delegate",
+   "kind": "trigger",
+   "expect": "delegate",
+   "before_correct": 0,
+   "before_runs": 2,
+   "after_correct": 0,
+   "after_runs": 2,
+   "before_fired": [
+    null
+   ],
+   "after_fired": [
+    null
+   ]
+  },
+  {
+   "probe": "deploy",
+   "kind": "trigger",
+   "expect": "deploy",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "deploy"
+   ],
+   "after_fired": [
+    "deploy"
+   ]
+  },
+  {
+   "probe": "draft-email",
+   "kind": "trigger",
+   "expect": "draft-email",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 0,
+   "after_runs": 2,
+   "before_fired": [
+    "draft-email"
+   ],
+   "after_fired": [
+    "check-calendar"
+   ]
+  },
+  {
+   "probe": "email-triage",
+   "kind": "trigger",
+   "expect": "email-triage",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "email-triage"
+   ],
+   "after_fired": [
+    "email-triage"
+   ]
+  },
+  {
+   "probe": "find-skills",
+   "kind": "trigger",
+   "expect": "find-skills",
+   "before_correct": 0,
+   "before_runs": 2,
+   "after_correct": 0,
+   "after_runs": 2,
+   "before_fired": [
+    null,
+    "none"
+   ],
+   "after_fired": [
+    null
+   ]
+  },
+  {
+   "probe": "friction-triage",
+   "kind": "trigger",
+   "expect": "friction-triage",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "friction-triage"
+   ],
+   "after_fired": [
+    "friction-triage"
+   ]
+  },
+  {
+   "probe": "index-artifacts",
+   "kind": "trigger",
+   "expect": "index-artifacts",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "index-artifacts"
+   ],
+   "after_fired": [
+    "index-artifacts"
+   ]
+  },
+  {
+   "probe": "issues",
+   "kind": "trigger",
+   "expect": "issues",
+   "before_correct": 1,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    null,
+    "issues"
+   ],
+   "after_fired": [
+    "issues"
+   ]
+  },
+  {
+   "probe": "m365-auth",
+   "kind": "trigger",
+   "expect": "m365-auth",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "m365-auth"
+   ],
+   "after_fired": [
+    "m365-auth"
+   ]
+  },
+  {
+   "probe": "magnus-security-review",
+   "kind": "trigger",
+   "expect": null,
+   "before_correct": 0,
+   "before_runs": 2,
+   "after_correct": 0,
+   "after_runs": 2,
+   "before_fired": [
+    null
+   ],
+   "after_fired": [
+    null
+   ]
+  },
+  {
+   "probe": "research-spike",
+   "kind": "trigger",
+   "expect": "research-spike",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "research-spike"
+   ],
+   "after_fired": [
+    "research-spike"
+   ]
+  },
+  {
+   "probe": "review-pr-codex",
+   "kind": "trigger",
+   "expect": "review-pr-codex",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "review-pr-codex"
+   ],
+   "after_fired": [
+    "review-pr-codex"
+   ]
+  },
+  {
+   "probe": "share",
+   "kind": "trigger",
+   "expect": "share",
+   "before_correct": 0,
+   "before_runs": 2,
+   "after_correct": 1,
+   "after_runs": 2,
+   "before_fired": [
+    null
+   ],
+   "after_fired": [
+    null,
+    "share"
+   ]
+  },
+  {
+   "probe": "submit-task",
+   "kind": "trigger",
+   "expect": "submit-task",
+   "before_correct": 2,
+   "before_runs": 2,
+   "after_correct": 2,
+   "after_runs": 2,
+   "before_fired": [
+    "submit-task"
+   ],
+   "after_fired": [
+    "submit-task"
+   ]
+  }
+ ]
+}
