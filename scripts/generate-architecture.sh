@@ -170,6 +170,19 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   FAIL=0
   RESULTS=""
 
+  # The curated architecture overview repeats only a small, reader-facing
+  # projection of services.json. Check its mechanical port/host/repository
+  # columns here so the scheduled validator reports a real discrepancy rather
+  # than relying on a later human noticing it (grimnir#5). Roles and other
+  # semantic prose deliberately remain outside this deterministic check.
+  if bash "$GRIMNIR_DIR/tests/scripts/test-architecture-component-table.sh"; then
+    RESULTS+="✅ architecture-component-table: registry-derived overview facts match\n"
+    PASS=$((PASS + 1))
+  else
+    RESULTS+="❌ architecture-component-table: registry-derived overview facts drifted; run make test-architecture-component-table\n"
+    FAIL=$((FAIL + 1))
+  fi
+
   # Read host-aware registry data. Captured (not piped via process
   # substitution) so a registry.js failure — malformed services.json, node
   # crash — is an explicit AUDIT_ERROR instead of silently yielding zero rows

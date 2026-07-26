@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test-validation-staleness-evidence-doc test-doc-index test-instruction-eval-sandbox test-skills-eval-sandbox test-telemetry-strategy-doc test
+.PHONY: docs clean security security-dry deploy test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test-validation-staleness-evidence-doc test-doc-index test-architecture-component-table test-architecture-component-table-regression test-instruction-eval-sandbox test-skills-eval-sandbox test-telemetry-strategy-doc test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -99,6 +99,12 @@ test-validate-exit: ## Unit tests for the audit exit-status contract (findings v
 test-doc-index: ## Guard progressive-disclosure index completeness and retained constraints (issue #143)
 	@bash tests/scripts/test-doc-index.sh
 
+test-architecture-component-table: ## Keep the architecture overview's registry-derived facts current (issue #5)
+	@bash tests/scripts/test-architecture-component-table.sh
+
+test-architecture-component-table-regression: ## Keep the architecture overview guard fail-closed (issue #5)
+	@bash tests/scripts/test-architecture-component-table-regression.sh
+
 test-instruction-eval-sandbox: ## Pin the read-only Claude evaluator sandbox (issue #143)
 	@bash tests/scripts/test-instruction-eval-sandbox.sh
 
@@ -111,7 +117,7 @@ test-skills-eval-sandbox: ## Pin the skill-description evaluator sandbox (issue 
 test-telemetry-strategy-doc: ## Preserve the telemetry boundary and legacy journal-analysis retirement path (issue #6)
 	@bash tests/scripts/test-telemetry-strategy-doc.sh
 
-test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test-validation-staleness-evidence-doc test-doc-index test-instruction-eval-sandbox test-skills-eval-sandbox test-telemetry-strategy-doc ## Run all test suites
+test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test-validation-staleness-evidence-doc test-doc-index test-architecture-component-table test-architecture-component-table-regression test-instruction-eval-sandbox test-skills-eval-sandbox test-telemetry-strategy-doc ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
