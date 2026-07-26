@@ -9,20 +9,20 @@ fail=0
 
 err() { echo "FAIL: $*" >&2; fail=1; }
 
-rg -q -- '--setting-sources project' "$HARNESS" || \
+grep -q -- '--setting-sources project' "$HARNESS" || \
   err "evaluator must ignore user settings while retaining project instructions"
-rg -q -- '--strict-mcp-config' "$HARNESS" || \
+grep -q -- '--strict-mcp-config' "$HARNESS" || \
   err "evaluator must use strict MCP configuration"
-rg -q -F -- '--mcp-config '\''{"mcpServers":{}}'\''' "$HARNESS" || \
+grep -qF -- '--mcp-config '\''{"mcpServers":{}}'\''' "$HARNESS" || \
   err "evaluator must supply an explicitly empty MCP configuration"
-rg -q -- '--allowedTools .*Read.*Grep.*Glob' "$HARNESS" || \
+grep -Eq -- '--allowedTools .*Read.*Grep.*Glob' "$HARNESS" || \
   err "evaluator must retain only the read-only tools needed for doc-hit scoring"
 
-rg -q -F -- '--disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch Agent Task' "$HARNESS" || \
+grep -qF -- '--disallowedTools Bash Edit Write NotebookEdit WebFetch WebSearch Agent Task' "$HARNESS" || \
   err "evaluator must retain the complete mutation, network, and dispatch deny-list"
 
-rg -q -- 'MODEL="sonnet"' "$HARNESS" || err "default evaluator model is no longer documented as sonnet"
-rg -q -- '--model "\$MODEL"' "$HARNESS" || err "evaluator no longer passes its documented model explicitly"
+grep -q -- 'MODEL="sonnet"' "$HARNESS" || err "default evaluator model is no longer documented as sonnet"
+grep -qF -- "--model \"\$MODEL\"" "$HARNESS" || err "evaluator no longer passes its documented model explicitly"
 
 if (( fail )); then
   echo "instruction evaluator sandbox checks failed" >&2
