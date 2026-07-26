@@ -96,6 +96,8 @@ the annotation, not only the filename.
   recovery key registry, and monotonic narrowing ledger.
 - `docs/autonomy-journal-conformance-v1.md` — W1/W2 consumer interface for the shared journal
   vocabulary and authorization verification gate.
+- `docs/autonomy-owner-signing-ceremony.md` — owner-run public-key preparation, detached signing,
+  protected checkpoint installation, verification, and key-rotation procedure.
 - `docs/system-roi-ledger.md` — Monthly system ROI ledger template for grimnir#67: every value has
   an explicit provenance and is `unknown`, `estimate`, or `measured`; it does not invent a first
   month, and service/system decisions remain `keep`, `fix`, `cut`, or `revisit` only when reviewed.

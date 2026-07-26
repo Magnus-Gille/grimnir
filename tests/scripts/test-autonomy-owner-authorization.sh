@@ -8,6 +8,16 @@ verify() {
   node "$root/scripts/verify-autonomy-owner-authorization.mjs" "$@"
 }
 checkpoint="$fixture/test-owner-authorization-checkpoint.json"
+node "$root/scripts/prepare-autonomy-owner-authorization.mjs" "$fixture/test-owner-ed25519-public.pem" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" 1 >"$work/prepared.json"
+signature=$(bash "$root/scripts/sign-autonomy-owner-authorization.sh" "$fixture/test-owner-ed25519-private.pem" "$work/prepared.json")
+node - "$work/prepared.json" "$signature" "$work/prepared-signed.json" "$work/prepared-checkpoint.json" <<'NODE'
+const crypto = require("crypto"), fs = require("fs"); const x = JSON.parse(fs.readFileSync(process.argv[2])); x.signature.value_base64 = process.argv[3];
+const plain = (v) => v !== null && typeof v === "object" && !Array.isArray(v); const canonical = (v) => plain(v) ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical(v[k])}`).join(",")}}` : Array.isArray(v) ? `[${v.map(canonical).join(",")}]` : JSON.stringify(v);
+const digest = `sha256:${crypto.createHash("sha256").update(canonical(x)).digest("hex")}`; fs.writeFileSync(process.argv[4], JSON.stringify(x)); fs.writeFileSync(process.argv[5], JSON.stringify({ kind: "autonomy-owner-authorization-checkpoint", schema_version: "v1", authorization_digest: digest, minimum_sequence: 1 }));
+NODE
+verify "$work/prepared-signed.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$work/prepared-checkpoint.json" >/dev/null
+if node "$root/scripts/prepare-autonomy-owner-authorization.mjs" "$fixture/test-owner-ed25519-public.pem" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" 0 >/dev/null 2>&1; then echo "unsafe authorization sequence was prepared" >&2; exit 1; fi
+if node "$root/scripts/prepare-autonomy-owner-authorization.mjs" "$fixture/test-owner-ed25519-public.pem" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" 2 bad-digest >/dev/null 2>&1; then echo "invalid previous digest was prepared" >&2; exit 1; fi
 verify "$fixture/test-owner-authorization.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$checkpoint" >/dev/null
 node - "$checkpoint" "$work/newer-authorization-checkpoint.json" <<'NODE'
 const fs = require("fs"); const x = JSON.parse(fs.readFileSync(process.argv[2])); x.authorization_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"; x.minimum_sequence = 2; fs.writeFileSync(process.argv[3], JSON.stringify(x));
