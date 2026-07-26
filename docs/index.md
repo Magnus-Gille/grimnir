@@ -98,6 +98,8 @@ the annotation, not only the filename.
   vocabulary and authorization verification gate.
 - `docs/autonomy-owner-signing-ceremony.md` — owner-run public-key preparation, detached signing,
   protected checkpoint installation, verification, and key-rotation procedure.
+- `scripts/prepare-autonomy-owner-authorization-checkpoint.mjs` — public-only canonical checkpoint
+  derivation from a signed manifest; it is not a signature verifier or an authority installer.
 - `docs/system-roi-ledger.md` — Monthly system ROI ledger template for grimnir#67: every value has
   an explicit provenance and is `unknown`, `estimate`, or `measured`; it does not invent a first
   month, and service/system decisions remain `keep`, `fix`, `cut`, or `revisit` only when reviewed.

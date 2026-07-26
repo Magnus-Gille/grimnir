@@ -23,10 +23,17 @@ and outside controller write access.
    ```
 
    Insert the returned Base64 value into `authorization.json.signature.value_base64`.
-4. Derive the canonical authorization digest mechanically with the verifier's
-   successful JSON result; install that digest plus the sequence in the
-   owner-protected authorization checkpoint. Install the recovery-tail
-   checkpoint in the recovery append-only store. Do not hand-hash JSON.
+4. Derive the canonical authorization checkpoint mechanically, before
+   verification (the helper validates shape only; it does not claim signature
+   validity):
+
+   ```sh
+   scripts/prepare-autonomy-owner-authorization-checkpoint.mjs authorization.json
+   ```
+
+   The owner decides whether to install that emitted checkpoint in the
+   protected lane. Install the recovery-tail checkpoint in the recovery
+   append-only store. Do not hand-hash JSON.
 5. Supply the independent public-key pin and protected checkpoints to the
    verifiers. An absent, stale, malformed, or mismatched checkpoint is
    disarmed/fail-closed.
