@@ -41,8 +41,7 @@
       "persistent_paths": ["/home/magnus/workspace", "/home/magnus/.hugin"],
       "needs_build": true,
       "systemd_units": [
-        { "name": "hugin", "type": "service", "scope": "user" },
-        { "name": "hugin-daily-analysis", "type": "timer" }
+        { "name": "hugin", "type": "service", "scope": "user" }
       ]
     },
     {

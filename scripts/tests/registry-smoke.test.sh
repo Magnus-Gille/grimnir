@@ -558,10 +558,8 @@ assert_clean_failure "null entry in nodes" "$TMP_DIR/null-node.json"
 
 # ── registry.js structured deploy-query invariant (#43 / #33) ──────────────
 # The JSON Lines `deploy` projection derives each component's primary unit_type/scope from
-# systemd_units[0]. hugin must stay a user-scoped rsync service even after a
-# system-scoped `hugin-daily-analysis` timer was appended to its systemd_units —
-# appending units must never change the deploy row. Pin the real services.json
-# plus the ordering contract on a synthetic fixture.
+# systemd_units[0]. Pin Hugin's surviving user-scoped service after retirement
+# of the legacy system timer, plus the ordering contract on a synthetic fixture.
 REGISTRY_JS="$SCRIPT_DIR/../lib/registry.js"
 repository_authority_rows="$(
   REGISTRY_PATH="$REPO_REGISTRY" QUERY=repository-authority \
@@ -595,8 +593,8 @@ assert_eq "real services.json: hugin primary unit remains service" "service" \
   "$(deploy_field "$REPO_REGISTRY" hugin unit_type)"
 assert_eq "real services.json: hugin deploy scope remains user" "user" \
   "$(deploy_field "$REPO_REGISTRY" hugin unit_scope)"
-assert_eq "real services.json: hugin structured units include appended timer" \
-  '[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-analysis","type":"timer"}]' \
+assert_eq "real services.json: hugin declares only its user service after legacy timer retirement" \
+  '[{"name":"hugin","type":"service","scope":"user"}]' \
   "$(deploy_field "$REPO_REGISTRY" hugin systemd_units)"
 
 assert_eq "real services.json: Heimdall deploy refreshes boot-check timer companion" \

@@ -58,18 +58,25 @@ All scheduled tasks run on Pi 1 (huginmunin) via systemd timers, except where no
 | **Output** | Munin: `briefings/daily/{date}` and `briefings/latest`; Heimdall renders `/briefing` |
 | **Why it exists** | Morning orientation — what's on today, what changed overnight, what needs attention |
 
-### Hugin Daily Journal Analysis
+### Retired: Hugin Daily Journal Analysis
 
-| Field | Value |
-|-------|-------|
-| **Schedule** | Daily 07:00 UTC (+5 min jitter) |
-| **Unit** | `hugin-daily-analysis.timer` / `hugin-daily-analysis.service` |
-| **Repo** | `hugin` |
-| **Script** | `scripts/submit-daily-analysis.sh` |
-| **Purpose** | Summarize Hugin's invocation journal from the last 24h — task counts, success rates, durations, costs, anomalies |
-| **Runtime** | ollama (`qwen2.5:3b`) with Claude fallback |
-| **Output** | Munin task: `tasks/{id}-daily-analysis` |
-| **Why it exists** | Daily canary for the ollama runtime pipeline + operational visibility into Hugin activity |
+The legacy LLM journal-summary workload was retired by
+[hugin#325](https://github.com/Magnus-Gille/hugin/pull/325), merged as Hugin `a782c6b`. On
+2026-07-26 the system-scope units were disabled and stopped on `huginmunin`, both unit files were
+removed, and systemd was reloaded. Post-change evidence was:
+
+- `systemctl is-enabled hugin-daily-analysis.timer` → `not-found`
+- `systemctl is-active hugin-daily-analysis.timer` → `inactive`
+- timer file: absent (`/etc/systemd/system/hugin-daily-analysis.timer`)
+- service file: absent (`/etc/systemd/system/hugin-daily-analysis.service`)
+
+Grimnir now omits the timer from `services.json`; the matching placement fixtures describe only the
+surviving Hugin service. This retirement closes the owner action filed as
+[hugin#324](https://github.com/Magnus-Gille/hugin/issues/324). The workload was not a telemetry
+aggregation or self-improvement mechanism: structured operational health belongs to Heimdall, while
+governed task and inference evidence follows
+[`observability-and-improvement.md`](observability-and-improvement.md) and the
+LearningTaskContract.
 
 ### Security Scan
 

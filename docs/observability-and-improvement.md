@@ -1,7 +1,7 @@
 # Grimnir — Observability and the Self-Improving Loop
 
 > Architectural status and roadmap for evidence-driven task delegation.
-> Last updated: 2026-07-19.
+> Last updated: 2026-07-26.
 
 ## Purpose
 
@@ -10,9 +10,61 @@ harness, and tool policy produces useful outcomes for a bounded task. The normat
 join is [LearningTaskContract v1](learning-task-contract.md); the meaning of “improve models” is
 settled by [ADR-006](adr-006-learning-improvement-scope.md).
 
-This document replaces the older assumption that all components already participated in one generic
-`trace → score → reflection → few-shot/routing` pipeline. The implemented system has three evidence
-planes and important gaps between them.
+This document replaces the older assumption that all components participated in one generic
+`trace → score → reflection → few-shot/routing` pipeline. The core Hugin↔`gille-inference` loop is
+implemented and has been exercised, while producer coverage, ground-truth breadth, and operating
+cadence still have explicit maturity gaps.
+
+## Telemetry strategy
+
+Grimnir uses four deliberately separate record classes. A shared identifier can correlate them, but
+storage or visualization does not transfer authority:
+
+| Record class | Authoritative producer and facts | Aggregation and consumers | Current boundary |
+|---|---|---|---|
+| **Operational telemetry** | Each service owns its application health, latency, queue, throughput, and error facts; systemd owns unit lifecycle; Brokkr owns substrate observations. | Heimdall collects derived health time series and alerts for the operator. Skuld may consume an explicitly derived health summary, not raw logs or a new verdict. | Basic host/service/backup and Hugin task-health collection exists. Queue depth, Munin request rates, model-load timing, and cross-service throughput trends remain uneven or absent. |
+| **Task and product evidence** | Hugin owns task/source identity, attempt lifecycle, execution/repository/publication outcomes, Quality Receipts, corrections, and macro-routing experiments. | Munin stores and exposes some Hugin records; Heimdall may render task status; governed evaluators, the autonomy controller, and the operator consume complete Hugin-owned facts. | The append-only all-outcome registry, native-v2 correction path, proposer, candidate packager, controlled experiments, and cadence tick are implemented. Product labels and certified intake coverage remain uneven across task surfaces. |
+| **Capability evidence** | `gille-inference` owns gateway request/exposure identity, effective model/runtime configuration, verifier results, the capability ledger, and micro-routing. | The gateway ledger aggregates per-model capability facts. Hugin and the autonomy controller may consume only compatible, independently verified evidence through the LearningTaskContract seam. | Authenticated stamp/echo, exposure/accounting, experiment import, routing lifecycle, watchdog, calibration, and autonomy controller are implemented. Refreshed served-model evidence and final production-shaped reviewer evidence remain open. |
+| **Consequential-mutation receipts** | The mutating component or authoritative external system owns intent, observed outcome, final-state reference, and reversal evidence. A future accepted Verdandi receipt may bind those references without replacing them. | The operator, incident review, and autonomous-action gate consume minimal receipts and source references. This is accountability, not health monitoring or model evaluation. | Reversal conventions and some component provenance exist, but Verdandi production is recovery-gated and its narrow receipt purpose remains proposed. Do not claim a live fleet-wide receipt path. |
+
+### Purpose and data flow
+
+| Purpose | Producer → aggregator/joiner → consumer | Rule |
+|---|---|---|
+| **Debug — what went wrong?** | Owning service/systemd/Hugin attempt record → owner-local logs or an on-demand correlation view → operator and owning-repo maintainer | Preserve exit status, duration, bounded diagnostic context, and last known activity at the source. A dashboard summary links back; it does not become the forensic authority. |
+| **Monitor — is the system healthy?** | Service and Brokkr health signals → Heimdall → operator, alerts, and an explicitly bounded Skuld summary | Calculate uptime, rates, counts, percentiles, backlog, resource use, and staleness deterministically. Alert correctness and collection freshness are themselves monitored. |
+| **Governed improvement — what should change?** | Hugin task/product facts plus `gille-inference` capability facts → versioned LearningTaskContract join/evaluator → autonomy controller, operator, and owning route/prompt/harness policy | A complete, governed, independently verified bundle may support an experiment and a mechanically gated proposal or adoption. The armed controller is at Tier 0, so it currently records proposals but auto-adopts nothing. Operational correlation alone never becomes a capability or product verdict. |
+| **Accountability — what consequential mutation occurred and how is it reversed?** | Mutating authority plus authoritative readback → minimal receipt binding when implemented → operator, recovery tooling, and policy gate | Receipts reference action authority, observed effect, and reversal evidence; they do not ingest generic tool, session, or telemetry streams. |
+
+**Structured calculation comes first.** Counters, rates, averages, percentiles, durations, threshold
+comparisons, and joins are computed by deterministic code over typed records. An LLM may interpret
+the resulting bounded summary and propose an investigation or experiment, but that interpretation is
+advisory: it cannot fabricate missing facts, change a producer verdict, close an evidence gap, or
+authorize a mutation. The retired Hugin daily journal-prose experiment is not an aggregation layer.
+
+**Correlation is by reference, not payload replication.** Propagate opaque task, attempt, receipt,
+and trace identifiers across allowed boundaries. Derived views do not copy prompts, outputs,
+documents, or raw error payloads merely to make a join convenient. Keep sensitive diagnostics in
+their authoritative store, expose the minimum bounded summary needed by the consumer, and remember
+that a content hash is not anonymization. Classification, correction, erasure, and expiry follow
+[the data lifecycle map](data-lifecycle.md); this strategy does not create another retention policy.
+
+**No new generic observability service.** The system already has authoritative producers, Heimdall
+for operational health aggregation, Munin for some task-record storage/discovery, the M5 capability
+ledger, and narrowly scoped accountability work. The missing work is instrumentation, typed
+contracts, correlation, trustworthy joins, retention enforcement, and consumers that act on the
+result. Another database or prose-analysis daemon would duplicate storage while weakening ownership.
+
+**Current gaps:** operational coverage is uneven; some desired metrics have no owning emitter;
+Heimdall does not supply learning verdicts; certified external Codex/Pi producer rollout remains
+incomplete under [#90](https://github.com/Magnus-Gille/grimnir/issues/90) and
+`claude-config#11`; refreshed served-model identity (`gille-inference#11`) and reviewed
+production-shaped ground truth (`gille-inference#13`) remain open; and the consequential-receipt
+path is not live. The core Hugin↔gateway join is live, but uncovered task paths fail closed instead
+of being counted as complete evidence. **Future work** stays in the owning repositories: services
+add bounded emitters, Heimdall adds health collectors/views, external surfaces complete certified
+adapters, the Tier-0 controller accumulates the required healthy-cycle record, and Verdandi remains
+unavailable until its recovery and purpose gates are separately satisfied.
 
 ## The three evidence planes
 
@@ -28,11 +80,11 @@ may visualize these planes; it does not create their verdicts.
 ## The actual loop
 
 ```text
-Hugin task + raw-task identity
+Hugin task + canonical raw-task identity
        |
        +--> execution/repository/publication outcome
        |             |
-       |             +--> immutable Quality Receipt / correction (manual today)
+       |             +--> immutable Quality Receipt / correction
        |
        +--> authenticated request stamp <--> gateway echo
                          |
@@ -43,13 +95,16 @@ Hugin task + raw-task identity
 joined, governed candidate
        --> independent verifier + frozen sample
        --> one-axis champion/challenger experiment
-       --> reviewed reject or promotion-ready decision
-       --> owning repo applies exact change and records rollback
+       --> mechanically gated reject, proposal, or adoption
+       --> exact reversible change + canary/watchdog
        --> subsequent production evidence checks the result
 ```
 
-The middle join and candidate-to-experiment path are future work. Therefore the loop is not yet
-operationally closed, even though substantial evidence capture and experiment machinery exists.
+The core path has completed one live human-approved routing adoption, and the autonomous controller
+is armed on M5 at **Tier 0** with its kill switch off. Tier 0 proposes and records only; Tier 1
+self-unlocks after the configured healthy-cycle predicate. This proves the Hugin↔gateway loop, not
+universal fleet coverage: direct external surfaces, raw loopback, unsupported task types, and
+missing/stale producer evidence remain uncovered and fail closed.
 
 ## Evidence maturity vocabulary
 
@@ -70,18 +125,15 @@ local terms explicitly until adoption:
 
 | Mechanism | State | Boundary |
 |---|---|---|
-| Hugin task/result and managed-repository evidence | Implemented | Captures execution facts; successful completion is not product quality. |
-| Hugin Quality Receipt v1 | Implemented mechanism; manual use; concurrency partial | Native v1 has a content-derived receipt id, task/result/repository binding, text reason, and optional retries; it has no attempt/rubric and rejects a second verdict by the same reviewer/binding. The contract therefore preserves the exact v1 artifact and labels attempt/rubric as future normalized-v2 facts. Same-reviewer corrections require a new native-v2 capability. The current task-embedded summary can also still lose the first pair: two concurrent first writers can both observe no feedback, pass `current?.updated_at` as undefined, and perform unconditional Munin writes. |
-| Hugin daily candidate factory | Implemented | Content-blind, rolling candidate snapshot only; not a sealed holdout, durable registry, evaluation, or promotion path. |
-| Hugin controlled experiment ledger/evaluator | Implemented | One-axis matched evaluation and champion lineage; current reusable runner is narrow. |
-| M5 task exposure registry | Implemented | Observed events exist for declared lanes. A contract negative-coverage query is a separate bounded assertion over exactly chat, mcp-ask, delegate, delegate-disagreement, delegate-shadow, and code-loop; direct loopback calls and incomplete history remain explicit. |
-| M5 capability ledger and deterministic verifiers | Implemented | Sole node/model/task capability truth; unverified evidence cannot be promoted by Hugin. |
-| M5 organic judge and delegate policy | Shadow | Must remain non-authoritative until representative human calibration, independent evidence, and versioned admission policy pass. |
-| Hugin↔M5 authenticated preflight/stamp/echo | Future | Hugin currently sends one unstamped request and the gateway does not yet expose the authenticated versioned preflight or return the exact join echo required by v1. Preflight/read-only compatibility precedes any v1 send. |
-| Immutable pipeline accounting | Future | v1 requires natural-keyed append-only capture/join/direct-exposure/evaluation, trusted boundary declarations, retry, delivery-ordinal emission, and aggregate closes verified against an authoritative ledger partition/high-water proof. A partial/empty load never certifies completeness. |
-| Product rating, candidate approval, verifier approval, change deployment | Manual | Human-reviewed by design in v1. |
-| Durable all-outcome registry and candidate packager | Future | Required to connect ordinary failures/successes to experiments. |
-| Verified Hugin-experiment import and guarded route reload | Future | Required to turn reviewed evidence into operational micro-routing. |
+| Hugin task/outcome registry and managed-repository evidence | Implemented | Append-only attempts, outcomes, failures, publication recovery, corrections, and period closes are durable; successful completion is still not product quality. |
+| Hugin Quality Receipts v1/v2 | Implemented | Concurrency-safe receipts preserve v1 artifacts and support native-v2 attempt/rubric/correction binding. Human review remains supported but is not required by the operating controller. |
+| Hugin proposer, candidate packager, experiment store, and cadence | Implemented | Qualified candidates can enter frozen one-axis experiments; the reusable corpus and certified producer coverage are not universal. |
+| M5 exposure registry and cross-owner accounting | Implemented; coverage partial | Declared gateway lanes and authenticated external receipt intake fail closed. Direct loopback and the still-incomplete Codex/Pi adapters under #90 remain outside complete coverage. |
+| M5 capability ledger, verifiers, and experiment import | Implemented; ground truth partial | Capability truth and admissible Hugin imports are live. Served-model refresh (`gille-inference#11`) and reviewer adoption evidence (`gille-inference#13`) remain. |
+| M5 organic-judge calibration | Implemented, mechanically gated | Verifier-anchored rolling calibration controls admissibility; stale or below-threshold evidence holds automatically and cannot affect routing. |
+| Hugin↔M5 authenticated preflight/stamp/echo | Implemented and exercised | A live joint smoke passed the authenticated five-gate path. Unstamped or incompatible traffic fails closed rather than joining post hoc. |
+| Immutable pipeline accounting | Implemented on both owners | Hugin and `gille-inference` own append-only registries, natural keys, retries, complete partitions, and fail-closed period closes. This does not prove every external task emitted a receipt. |
+| Routing lifecycle, watchdog, and autonomy controller | Implemented; armed Tier 0 | Reviewed lifecycle, durable adoption, canary, auto-revert/quarantine, protected lanes, kill switch, and tier ladder are live. Tier 0 auto-adopts nothing while healthy-cycle evidence accumulates. |
 | Model-weight training | Future, outside v1 | Requires the separate gates in ADR-006. |
 
 ## What a trustworthy observation requires
@@ -116,13 +168,15 @@ uncalibrated judge does not fill an owner-controlled product or capability verdi
 
 ## Evaluation and improvement rules
 
-### Deterministic and human evidence first
+### Deterministic and anchored evidence first
 
 Use deterministic verifiers where a bounded task has a real oracle. Human product review provides
-the highest-value correction signal. Store a governed correction/successor reference, not merely a
-score. LLM judges are advisory until a representative, versioned human calibration set clears the
-predeclared reliability gate. Capability admission additionally requires an independent passing
-verifier and a versioned policy epoch; policy changes append/regrade rather than rewrite history.
+valuable optional correction evidence, but it is not required by the operating loop. Store a
+governed correction/successor reference, not merely a score. LLM judgments affect routing only while
+the family-diverse adjudicator's rolling agreement with deterministic/verifier anchors clears the
+versioned automatic calibration gate; otherwise they remain held. Capability admission additionally
+requires an independent passing verifier and a versioned policy epoch; policy changes append/regrade
+rather than rewrite history.
 
 ### Late reviews append; they do not patch observations
 
@@ -152,30 +206,30 @@ affected holdout window incomplete until routed through a declared lane. Monthly
 epoch restarts, incomplete duration, raw-loopback detections, `exposure-incomplete` exclusions, and
 candidate-starvation rate rather than claiming the holdout is contamination-proof.
 
-### Promotion is reviewed and reversible
+### Promotion is mechanical and reversible
 
-`promotion-ready` is an evidence state. The owning repository's human operator applies the exact
-reviewed prompt/harness/route/roster/config reference, advances the champion, observes the declared
-window, and retains a rollback. Neither Hugin nor `gille-inference` may silently deploy a candidate
-in v1.
+The operating controller adopts only reversible route/roster/prompt/harness changes after every
+admissibility, confidence, risk-budget, protected-lane, canary, and tier predicate passes. Every
+adoption holds an exact rollback and enters a watchdog window with automatic revert/quarantine.
+Today the controller is armed at Tier 0, so no proposal can auto-adopt until the Tier-1 healthy-cycle
+predicate is satisfied. Software changes, protected-lane policy, and irreversible actions remain
+owner-controlled; see [the autonomous-improvement design](autonomous-improvement-design.md).
 
-## Roadmap to a closed loop
+## Delivered core loop and remaining maturity
 
-| Order | Owning repo | Deliverable | Exit evidence |
-|---:|---|---|---|
-| 1 | Grimnir + both reviewers | Adopt v1 seam and immutable shared fixtures | Hugin and `gille-inference` owner reviews recorded; both consumer suites accept the same fixture. |
-| 2 | Hugin + `gille-inference` | Authenticated preflight, stamp/echo, canonical raw/exposure identity, and immutable accounting | Preflight revision/features/freshness fail closed; real Hugin stamp is exactly echoed; request/delivery retries are accounting events; six-lane negative query is separate from observed events. |
-| 3 | Hugin + `gille-inference` | Three-stage prompt and reproducible effective-serving provenance | Captured Hugin, gateway, runtime, manifest, runtime-config, and sampling sources recompute to the exported digests. |
-| 4 | Both producers | Complete governance/erasure projections and validation-context distribution | Direct-owner authority is cryptographically/out-of-band verified; unavailable policy denies; counter owners issue denominator-membership tokens; all stores and backup expiry produce readback receipts. |
-| 5 | Hugin | Close receipt first-create concurrency; add native-v2 correction identity; append immutable review records and durable all-outcome registry | Parallel first receipts are preserved; a correction mints a new native id/group without pretending v1 supports it; failures/no-ops/publication failures and late labels stay joinable without mutating observations. |
-| 6 | Hugin | Independent candidate packager | A governed production candidate is rechecked, frozen, joined with the complete evidence bundle, independently verified, and imported into a one-axis experiment. |
-| 7 | `gille-inference` | Versioned capability admission and verified experiment import | Only independent calibrated passing evidence affects capability state. |
-| 8 | `gille-inference` | Reviewed routing-table lifecycle | Generate, diff, approve, deploy/reload, canary, and rollback are demonstrated without silent promotion. |
-| 9 | Hugin | Read-only next-experiment proposals | Proposals cite evidence and require human approval; they do not mutate prompts/routes/config. |
+| Capability | State | Remaining boundary |
+|---|---|---|
+| LearningTaskContract seam, canonical identity, authenticated stamp/echo | Implemented and live-smoked | Compatibility and missing evidence still fail closed; this is not proof of every producer path. |
+| Hugin receipts, all-outcome registry, corrections, candidate packaging, experiments | Implemented | Product-review and task-type breadth depend on available verifier/label evidence. |
+| Gateway exposure/accounting, capability import, routing lifecycle | Implemented and exercised | Exact served-model refresh and final ground-truth reviewer work remain under `gille-inference#11/#13`. |
+| Experiment/sampling cadence and autonomy controller | Implemented and armed at Tier 0 | Tier 1 waits for the configured healthy-cycle record; later tiers require their own operating evidence. |
+| External Codex App/CLI and Pi producers | Partial | Hugin/gateway intake exists, but installed/certified adapters remain open under #90 and `claude-config#11`. |
+| Consequential-mutation receipts | Future/recovery-gated | Verdandi cannot be claimed live until its separate recovery and purpose gates pass. |
 
-The measurable definitions of continuous capture, evaluation, learning, and baseline improvement
-live in the contract. Until their rolling gates pass, use the narrower current state—implemented
-capture plus manual/shadow evaluation—rather than “continuous self-improvement.”
+The core loop is closed and exercised, and the autonomous controller is armed. “Continuous” remains
+a measured coverage/cadence claim: incomplete producer epochs, insufficient eligible candidates,
+ground-truth gaps, or failed tier predicates are reported as such rather than promoted into evidence
+of continuous improvement.
 
 ## Per-component signals outside the delegation loop
 
@@ -201,7 +255,8 @@ those signals do not automatically enter the task-delegation learning contract.
 5. **Store correction lineage.** A product verdict without the corrective successor cannot support
    the strongest forms of learning.
 6. **Independent verification beats model prose.** Self-reported success is never its own oracle.
-7. **Manual promotion in v1.** Automation may gather and propose; a human applies consequential
-   configuration changes.
+7. **Mechanical, reversible operating promotion.** The tiered controller may adopt only after every
+   proof and rollback gate passes; Tier 0 currently auto-adopts nothing. Code, protected lanes, and
+   irreversible actions remain owner-controlled.
 8. **No hidden model training.** Evaluation/routing data is not a training dataset; ADR-006 governs
    any future exception.
