@@ -71,6 +71,11 @@ the annotation, not only the filename.
 - `docs/autonomous-improvement-design.md` — Design v0.1 for removing the human approval step from
   the operating loop (owner decision 2026-07-20): reversibility axiom, mechanical promotion
   predicates, verifier-anchored auto-calibration, watchdog/auto-revert, protected lanes, tier ladder
+- `docs/system-roi-ledger.md` — Monthly system ROI ledger template for grimnir#67: every value has
+  an explicit provenance and is `unknown`, `estimate`, or `measured`; it does not invent a first
+  month, and service/system decisions remain `keep`, `fix`, `cut`, or `revisit` only when reviewed.
+  Machine shape: `docs/system-roi-ledger-v1.schema.json`; validator:
+  `scripts/validate-system-roi-ledger.mjs`.
 
 ## Security, trust, and lifecycle
 
