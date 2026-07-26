@@ -13,13 +13,18 @@ the durable record.
 
 ### Post-evidence evaluator hardening
 
-The retained runs predate the sandbox correction added during recovery of this PR. Their measured
-results remain historical evidence, not a claim that those original invocations were hermetic.
-Reruns now use project-only setting sources so each arm's project `CLAUDE.md`/`AGENTS.md` remains
-loaded while user `permissions.defaultMode="auto"` cannot widen the tool policy. They also use a
-strictly empty MCP configuration and explicitly deny command, mutation, network, and dispatch tools,
-leaving only `Read`, `Grep`, and `Glob`. `tests/scripts/test-instruction-eval-sandbox.sh`, wired into
-`make test`, pins those guards and the explicit `sonnet` default.
+The reported runs predate the sandbox correction added during recovery of this PR. They ran with
+user settings active, where `permissions.defaultMode="auto"` meant their `--allowedTools` argument
+was not actually a hermetic boundary, and MCP remained available. The retained raw streams were
+checked during recovery: they contain shell, read-only GitHub/Munin queries, and read-only SSH
+inspection, but no repository, service, or external-system mutation was observed. The runs were not
+repeated, so their results remain historical measurement evidence—not sandbox-verified evidence.
+
+The committed harness now uses project-only setting sources so each arm's project
+`CLAUDE.md`/`AGENTS.md` remains loaded while user policy cannot widen the tool surface. It also uses
+a strictly empty MCP configuration and explicitly denies command, mutation, network, and dispatch
+tools, leaving only `Read`, `Grep`, and `Glob`. `tests/scripts/test-instruction-eval-sandbox.sh`,
+wired into `make test`, pins those guards and the explicit `sonnet` default for future runs.
 
 ## Metrics
 
