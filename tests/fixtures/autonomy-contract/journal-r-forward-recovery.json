@@ -3,7 +3,7 @@
   "schema_version": "v1",
   "journal_id": "maintenance-recovery-journal",
   "domain": "no-reboot-security-bugfix-maintenance",
-  "constitution_digest": "sha256:76b0f28adca0046fad9f1d3d4b3a57046f9a1d11ee2ed232bbc495d2ab663bd0",
+  "constitution_digest": "sha256:51efdb78c4524780919649f285862543db8b38a6a3a07894f0fad8bdab40fc6c",
   "binding": {
     "mutation_id": "maintenance-recovery-mutation",
     "attempt_id": "maintenance-recovery-attempt",
@@ -16,7 +16,7 @@
     "configuration_owner_authority_ref": "ref:maintenance-config-owner-attestation",
     "configuration_owner_authority_digest": "sha256:1882a6274747dc248d9ea4d180e576fdba0463a2781a9dcbf864904887806ac2",
     "target_scope_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
-    "admission_coverage_digest": "sha256:8fe1b7f1af383b1500f4cc89153f5d9db74ac3352abfc1ec476be4c70c71620a",
+    "admission_coverage_digest": "sha256:bab7f9befaed14ede60ff049ec85630c5ac0c6e99b48a5ca175101689ba8649a",
     "admission_binding_state": "armed-canary",
     "owner_identity": "brokkr-owner",
     "controller_identity": "maintenance-controller",
@@ -43,7 +43,7 @@
       "disarms_after_action": true
     }
   },
-  "binding_digest": "sha256:5376346693dbf745fc63eaa371035162a125aff4f026afc277822184e7064ef9",
+  "binding_digest": "sha256:38929f96924e53d37c671812d326b4be0edc4a35227c2171fff121d27cc0bb7d",
   "entries": [
     {
       "entry_id": "maintenance-prepare",
@@ -52,14 +52,14 @@
       "phase": "prepare",
       "outcome": "prepared",
       "executor_identity": "maintenance-controller",
-      "binding_digest": "sha256:5376346693dbf745fc63eaa371035162a125aff4f026afc277822184e7064ef9",
+      "binding_digest": "sha256:38929f96924e53d37c671812d326b4be0edc4a35227c2171fff121d27cc0bb7d",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
       "previous_receipt_digest": null,
-      "receipt_digest": "sha256:ba2a77be00adf4fa51a18d27f7f43840664cebd0a9d0adec791d6d23d3c7fdfa",
+      "receipt_digest": "sha256:2882e4cbdce245b6fd6ad4f400350dedb1201da90601a6d7a54c7382728fc929",
       "content_refs": [
         "ref:maintenance-recovery-candidate"
       ],
@@ -72,14 +72,14 @@
       "phase": "apply",
       "outcome": "applied",
       "executor_identity": "maintenance-controller",
-      "binding_digest": "sha256:5376346693dbf745fc63eaa371035162a125aff4f026afc277822184e7064ef9",
+      "binding_digest": "sha256:38929f96924e53d37c671812d326b4be0edc4a35227c2171fff121d27cc0bb7d",
       "quarantine": {
         "state": "not-applicable",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
-      "previous_receipt_digest": "sha256:ba2a77be00adf4fa51a18d27f7f43840664cebd0a9d0adec791d6d23d3c7fdfa",
-      "receipt_digest": "sha256:a1c56d0181c9c833d5e3ef9cbe236c1613101a4fffd53da534d64d4aad1284b1",
+      "previous_receipt_digest": "sha256:2882e4cbdce245b6fd6ad4f400350dedb1201da90601a6d7a54c7382728fc929",
+      "receipt_digest": "sha256:2f8d8383b3f2f97b421bf058ef8fd029a94512b4661b52a4bb017b32cf7cfbba",
       "content_refs": [
         "ref:maintenance-recovery-candidate"
       ],
@@ -92,14 +92,14 @@
       "phase": "unknown",
       "outcome": "unknown",
       "executor_identity": "maintenance-controller",
-      "binding_digest": "sha256:5376346693dbf745fc63eaa371035162a125aff4f026afc277822184e7064ef9",
+      "binding_digest": "sha256:38929f96924e53d37c671812d326b4be0edc4a35227c2171fff121d27cc0bb7d",
       "quarantine": {
         "state": "active",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
-      "previous_receipt_digest": "sha256:a1c56d0181c9c833d5e3ef9cbe236c1613101a4fffd53da534d64d4aad1284b1",
-      "receipt_digest": "sha256:b79e4b4caf3144c8830431f5f285a3f0f80b6e43e7a1deb4f275a73cdbe1fb39",
+      "previous_receipt_digest": "sha256:2f8d8383b3f2f97b421bf058ef8fd029a94512b4661b52a4bb017b32cf7cfbba",
+      "receipt_digest": "sha256:b0bba0160615bd09243a8d2e5bbad7a6610e952c9c775586014372dc7da0030a",
       "content_refs": [
         "ref:maintenance-recovery-candidate"
       ],
@@ -112,14 +112,14 @@
       "phase": "recover",
       "outcome": "recovered",
       "executor_identity": "maintenance-recovery-worker",
-      "binding_digest": "sha256:5376346693dbf745fc63eaa371035162a125aff4f026afc277822184e7064ef9",
+      "binding_digest": "sha256:38929f96924e53d37c671812d326b4be0edc4a35227c2171fff121d27cc0bb7d",
       "quarantine": {
         "state": "active",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
-      "previous_receipt_digest": "sha256:b79e4b4caf3144c8830431f5f285a3f0f80b6e43e7a1deb4f275a73cdbe1fb39",
-      "receipt_digest": "sha256:b7b893baca97c19f9955127344ff63a1f4b83edf22ece655eb0dff1fad0be534",
+      "previous_receipt_digest": "sha256:b0bba0160615bd09243a8d2e5bbad7a6610e952c9c775586014372dc7da0030a",
+      "receipt_digest": "sha256:fef0225c839459196e71b02151d2be2aadb802eabcb302522c8ddd0cc637450c",
       "content_refs": [
         "ref:maintenance-recovery-candidate"
       ],
@@ -132,14 +132,14 @@
       "phase": "quarantine",
       "outcome": "quarantined",
       "executor_identity": "maintenance-recovery-worker",
-      "binding_digest": "sha256:5376346693dbf745fc63eaa371035162a125aff4f026afc277822184e7064ef9",
+      "binding_digest": "sha256:38929f96924e53d37c671812d326b4be0edc4a35227c2171fff121d27cc0bb7d",
       "quarantine": {
         "state": "active",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": null,
-      "previous_receipt_digest": "sha256:b7b893baca97c19f9955127344ff63a1f4b83edf22ece655eb0dff1fad0be534",
-      "receipt_digest": "sha256:956cdc564178863df6eed692eae02de12abc72942ea90ce521899d038f365aa8",
+      "previous_receipt_digest": "sha256:fef0225c839459196e71b02151d2be2aadb802eabcb302522c8ddd0cc637450c",
+      "receipt_digest": "sha256:b426d9bd4b2ba8b6724774618c2b08423d5fad8d099fca39ede1333a7ae709a2",
       "content_refs": [
         "ref:maintenance-recovery-candidate"
       ],
@@ -152,14 +152,14 @@
       "phase": "disarm",
       "outcome": "disarmed",
       "executor_identity": "maintenance-recovery-worker",
-      "binding_digest": "sha256:5376346693dbf745fc63eaa371035162a125aff4f026afc277822184e7064ef9",
+      "binding_digest": "sha256:38929f96924e53d37c671812d326b4be0edc4a35227c2171fff121d27cc0bb7d",
       "quarantine": {
         "state": "active",
         "reason_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
       },
       "terminal_reason_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
-      "previous_receipt_digest": "sha256:956cdc564178863df6eed692eae02de12abc72942ea90ce521899d038f365aa8",
-      "receipt_digest": "sha256:574dc84c9dfe64afe4c67771f3eba378c7d739a044235c7bb20dcf55debbcb61",
+      "previous_receipt_digest": "sha256:b426d9bd4b2ba8b6724774618c2b08423d5fad8d099fca39ede1333a7ae709a2",
+      "receipt_digest": "sha256:72536df6c727b9b8eeaa4a9cbbbef3961883c0a833e7a4730e1767e35dc02bdc",
       "content_refs": [
         "ref:maintenance-recovery-candidate"
       ],

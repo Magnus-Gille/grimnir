@@ -78,6 +78,23 @@ be mistaken for permission.
 
 ### Coverage and admission
 
+W0.1 adds an authentication floor to this integrity contract. A controller
+must verify a detached Ed25519 owner authorization with an **independently
+pinned** owner public key (not merely the editable key bundled in a manifest).
+That authorization binds exact canonical digests for the production
+constitution, owner arming/coverage intent, configuration-owner attestations,
+and recovery-worker verification-key registry. The owner's private key remains
+outside Git. The checked-in production authorization is deliberately
+unconfigured and cannot admit anything. Key rotation or revocation is a new,
+owner-signed successor authorization in the permanent owner-policy lane.
+
+Runtime demotion is separate from owner intent: an append-only narrowing ledger
+can only record an exact `armed-canary|armed-fleet → shadow` transition. Each
+entry is signed by the recovery worker's key that the owner-bound registry
+assigns to that precise domain and target scope. A controller identity string,
+digest rewrite, or replacement recovery registry is therefore insufficient to
+impersonate recovery.
+
 `autonomy-coverage-registry-v1.schema.json` is also closed and digest-bound
 (`autonomy-coverage-registry-digest-jcs-v1`, same canonical convention). It aligns unique domain
 rows with the constitution, required levels, owner scope, recovery class, current coverage, target
