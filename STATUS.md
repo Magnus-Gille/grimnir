@@ -1,29 +1,54 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-26 (Codex) — autonomous fleet ticket sweep, review, merge, deploy, and publish
-**Latest system revision:** grimnir `ba6c5ed` (refreshed cross-service seam evidence)
+**Last session:** 2026-07-26 (Codex) — autonomous fleet sweep follow-up, production rollout, and evidence
+**Latest deployment-controller revision:** grimnir `22b3900`
 
 ## Current work
 
-- **Brokkr #51** has a merged restricted storage-probe contract (PR #52), but the persistent
-  production SSH identity is not configured and its creation requires explicit owner approval.
-  Heimdall's fail-closed code half is also merged but intentionally not deployed.
-- **Brokkr #53** owns the newly verified topology gap: Time Machine moved off NAS, so the NAS probe
-  can restore disk/Munin/Mimir evidence but cannot prove Time Machine freshness on M5.
+- **Mimir #35** is the remaining authenticated storage-observability seam: expose bounded
+  backup/sync freshness to the existing restricted Heimdall NAS probe. Its owning-repository PR is
+  in progress.
 - **Skuld #14 / PR #16** is root-Codex + authenticated-M5 approved and passes 104 local tests, build,
   lint, and diff check. It cannot merge under the green-CI rule: GitHub Actions run `30187798237`
   failed twice with **zero executed steps**, including an explicit rerun. This is tracked in
-  Grimnir #140.
-- **Grimnir #140, #146, and Brokkr #44** need owner decisions: private-repo CI funding/runner
-  posture, authoritative Munin unit path, and whether the deploy-profile acceptance may name its
-  non-secret private locators.
+  Grimnir #140. No AI model is required for CI; restore hosted Actions or use an isolated disposable
+  Linux runner with no production credentials. Do not execute pull-request code on production M5.
+- **Brokkr #35** remains the next substrate-autonomy contract: privileged adapter, workload/reboot
+  lifecycle, retry-journal binding, and executable forward recovery.
 - **Grimnir #79** remains open for fleet-wide enforcement. PR #166 completed the bounded named-seam
   refresh: Ratatoskr → Heimdall is verified; no active Verdandi emitter or grounded service-owned
   Munin status-shape defect was found, so no owner ticket was fabricated.
 - Grimnir #139's central read-only GitHub Actions policy remains implemented. Its live fleet
   findings are routed to owning repositories.
 
-## Autonomous fleet sweep — 2026-07-26
+## Approved-decision follow-up — 2026-07-26
+
+All four approved production decisions were executed behind exact-source, rollback, Codex-review,
+direct authenticated M5-review, and green-CI gates.
+
+| repo | PR | merge | production outcome |
+|---|---:|---|---|
+| munin-memory | #294 | `408a9ea` | `/home` unit contract deployed; service healthy, same DB inode, 9,445 entries, SQLite `quick_check=ok` |
+| brokkr | #55 | `2d2a111` | public-safe control-node overlay deployed; three timers present and active |
+| brokkr | #57, #61 | `ed8c285`, `e68e65c` | dedicated NAS identity deployed with password/interactive login denied, fixed command, and root-owned group-readable authorization |
+| heimdall | #44 | `10686f1` | exact deployment completed; restricted NAS collection reads 19 sections and reports storage healthy |
+| brokkr | #56, #62 | `262b2e5`, `acc7f97` | bounded M5 Time Machine destination telemetry deployed; timer active, 535 bands observed, authenticated Heimdall state `pass` |
+| brokkr | #63 | `c62a882` | M5 operational checkout reconciled to the owning public repository; exact `origin/main` verified and prior locator preserved owner-only for rollback |
+
+Three production-shape failures were allowed to fail closed and were corrected rather than bypassed:
+PAM rejected the locked dedicated account, OpenSSH privilege-dropping could not read root-only
+authorization, and the real Time Machine path contained whitespace. Consumer verification also
+found a stale public-key companion after the private key itself had been verified. Each failed
+attempt removed its managed artifacts before the corrected exact revision was installed.
+
+Brokkr #54, #58, #59, and #60 are closed. Roadmap items #58–#60 are Done. Heimdall now has grounded
+disk, Munin, and Time Machine storage evidence; Mimir backup/sync freshness remains explicit unknown
+until Mimir #35 completes.
+
+## Autonomous fleet sweep — initial snapshot
+
+The sections below preserve the earlier 2026-07-26 sweep evidence. Where deployment state differs,
+the approved-decision follow-up above is authoritative.
 
 ### Accepted, merged, and published
 
@@ -186,39 +211,30 @@ findings; their remaining findings are dev-only.
 
 ## Next steps (priority order)
 
-1. **Brokkr #51 / Heimdall #23** — after explicit owner approval, create and roll out the dedicated
-   NAS probe credential with merged Brokkr PR #52, verify disk/Munin/Mimir readback, then deploy
-   Heimdall PR #44's code.
-2. **Brokkr #53** — add M5-local Time Machine telemetry through a least-authority existing
-   substrate/fleet path; the NAS probe cannot observe a backup that moved to another node.
-3. **Skuld PR #16 / Grimnir #140** — choose private-repo CI funding or an isolated self-hosted
+1. **Mimir #35 / Heimdall #23** — merge and deploy the bounded Mimir backup/sync freshness surface,
+   connect it to the existing restricted NAS probe, and verify the fourth normalized storage signal
+   at the Heimdall consumer.
+2. **Skuld PR #16 / Grimnir #140** — choose private-repo CI funding or an isolated self-hosted
    runner; merge only after a check actually executes and passes.
-4. **Grimnir #146** — choose `/home` or `/srv` as the authoritative Munin unit path, then deploy
-   merged Munin PRs #289–#292 from exact revisions.
-5. **Brokkr #44** — approve the exact non-secret locator policy or revise acceptance to a committed
-   schema/example plus untracked host overlay.
-6. **Brokkr #35** — finish the privileged adapter, workload/reboot lifecycle, retry-journal binding,
+3. **Brokkr #35** — finish the privileged adapter, workload/reboot lifecycle, retry-journal binding,
    and executable forward recovery.
-7. **Gille #96/#98** — resolve provider pricing/billing and dedicated key/quota/rotation policy;
+4. **Mechanical promotion and rollback** — use the now-authenticated storage and service evidence as
+   promotion predicates, then extend unattended maintenance only where immutable journals and
+   watchdog rollback are in place.
+5. **Gille #96/#98** — resolve provider pricing/billing and dedicated key/quota/rotation policy;
    continue the #85 watchdog only after its observation window has real samples.
-8. **Time-gated trials** — reassess Grimnir #159 after 28 immutable validator runs and Hugin #165
+6. **Time-gated trials** — reassess Grimnir #159 after 28 immutable validator runs and Hugin #165
    on 2026-08-22; do not manufacture early conclusions.
 
 ## Blockers / owner input
 
 - **Private-repo GitHub Actions** still fails before any step executes. Grimnir #140 is explicitly an
-  owner decision; no agent may install a self-hosted runner on M5 without approval.
-- **Munin deploy authority** is contradictory (`/home` versus `/srv`); Grimnir #146 needs an owner
-  direction before the merged queue can deploy.
-- **Brokkr #44** needs owner approval for the exact non-secret locator treatment or a revised
-  acceptance contract.
-- **Brokkr #51 / Heimdall #23** needs explicit approval to create the persistent dedicated
-  production SSH credential. Code and rollback contract are merged; no identity or host mutation
-  was performed.
-- **Brokkr #53** confirms the NAS probe cannot restore Time Machine visibility after that source
-  moved to M5; a separate least-authority M5 producer is required.
-- **Time Machine migration** was still incomplete in the prior session and was not re-verified here.
-  Do not remove the NAS destination based on this file.
+  owner infrastructure choice. CI needs compute, not an inference model. Preferred: restore hosted
+  Actions. Alternative: an isolated disposable Linux VM with no production credentials.
+- **Mimir #35** is implementation work, not an owner-decision blocker. Keep Mimir freshness
+  explicit unknown until the owner-repo PR, deployment, and Heimdall consumer proof are complete.
+- All production authority decisions supplied for this follow-up are resolved: the NAS identity,
+  `/home` Munin path, public-safe Brokkr overlay, and M5-local Time Machine producer are live.
 
 ## Verification at close
 
