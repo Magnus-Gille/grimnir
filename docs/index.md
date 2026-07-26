@@ -74,7 +74,8 @@ the annotation, not only the filename.
 - `docs/system-roi-ledger.md` — Monthly system ROI ledger template for grimnir#67: every value has
   an explicit provenance and is `unknown`, `estimate`, or `measured`; it does not invent a first
   month, and service/system decisions remain `keep`, `fix`, `cut`, or `revisit` only when reviewed.
-  Machine shape: `docs/system-roi-ledger-v1.schema.json`; validator:
+  Template: `docs/system-roi-ledger-template.json`. Machine shape:
+  `docs/system-roi-ledger-v1.schema.json`; validator:
   `scripts/validate-system-roi-ledger.mjs`.
 
 ## Security, trust, and lifecycle

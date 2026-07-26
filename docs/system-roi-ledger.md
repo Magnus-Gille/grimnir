@@ -40,6 +40,9 @@ an unreviewed service as kept.
 
 Set `system_decision` only after the owner review. Its choices are the same four decisions. The
 empty template uses `null` plus `unknown`, so it makes no claim that the system should be kept.
+When `review_status` is `reviewed`, the system decision must have a non-unknown evidence status,
+a compatible provenance source, and a short `rationale`. When it is `not_reviewed`, no service
+or substantive system decision is permitted.
 
 ## First real ledger: owner inputs needed
 
@@ -61,5 +64,6 @@ review has happened.
 
 [`system-roi-ledger-v1.schema.json`](system-roi-ledger-v1.schema.json) describes the portable
 record shape. The dependency-free validator rejects missing provenance, a numeric value marked
-`unknown`, and a decision without evidence. `make test-system-roi-ledger` exercises the blank
-template and adversarial fixtures; `make test` includes it.
+`unknown`, incompatible decision provenance, and a decision without evidence or rationale.
+`make test-system-roi-ledger` exercises the blank template and adversarial fixtures; `make test`
+includes it.

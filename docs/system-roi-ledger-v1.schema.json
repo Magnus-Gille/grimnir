@@ -1,22 +1,105 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://grimnir.local/schemas/system-roi-ledger-v1.schema.json",
+  "$id": "https://grimnir.gille.ai/contracts/system-roi-ledger/v1/schema.json",
   "title": "System ROI ledger v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "period", "review_status", "metrics", "service_decisions", "system_decision"],
   "properties": {
     "version": { "const": "system-roi-ledger-v1" },
-    "period": { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" },
+    "period": {
+      "oneOf": [
+        { "const": "YYYY-MM" },
+        { "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$" }
+      ]
+    },
     "review_status": { "enum": ["not_reviewed", "reviewed"] },
     "metrics": { "type": "array", "items": { "$ref": "#/$defs/evidence_value" } },
     "service_decisions": { "type": "array", "items": { "$ref": "#/$defs/service_decision" } },
     "system_decision": { "$ref": "#/$defs/system_decision" }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "review_status": { "const": "not_reviewed" } } },
+      "then": {
+        "properties": {
+          "service_decisions": { "maxItems": 0 },
+          "system_decision": { "$ref": "#/$defs/unreviewed_system_decision" }
+        }
+      },
+      "else": {
+        "properties": {
+          "system_decision": { "$ref": "#/$defs/reviewed_system_decision" }
+        }
+      }
+    }
+  ],
   "$defs": {
-    "provenance": { "type": "object", "additionalProperties": false, "required": ["kind", "reference"], "properties": { "kind": { "enum": ["measurement", "estimate_method", "owner_statement", "owner_input_required", "incident_record"] }, "reference": { "type": "string", "minLength": 1 } } },
-    "evidence_value": { "type": "object", "additionalProperties": false, "required": ["name", "unit", "evidence_status", "value", "provenance"], "properties": { "name": { "type": "string", "minLength": 1 }, "unit": { "type": "string", "minLength": 1 }, "evidence_status": { "enum": ["unknown", "estimate", "measured"] }, "value": { "type": ["number", "string", "null"] }, "provenance": { "$ref": "#/$defs/provenance" } } },
-    "service_decision": { "type": "object", "additionalProperties": false, "required": ["service", "decision", "evidence_status", "evidence", "provenance"], "properties": { "service": { "type": "string", "minLength": 1 }, "decision": { "enum": ["keep", "fix", "cut", "revisit"] }, "evidence_status": { "enum": ["estimate", "measured"] }, "evidence": { "type": "string", "minLength": 1 }, "provenance": { "$ref": "#/$defs/provenance" } } },
-    "system_decision": { "type": "object", "additionalProperties": false, "required": ["value", "evidence_status", "provenance"], "properties": { "value": { "enum": ["keep", "fix", "cut", "revisit", null] }, "evidence_status": { "enum": ["unknown", "estimate", "measured"] }, "provenance": { "$ref": "#/$defs/provenance" } } }
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference"],
+      "properties": {
+        "kind": { "enum": ["measurement", "estimate_method", "owner_statement", "owner_input_required", "incident_record"] },
+        "reference": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "unit", "evidence_status", "value", "provenance"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "evidence_status": { "enum": ["unknown", "estimate", "measured"] },
+        "value": { "type": ["number", "string", "null"] },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "service_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service", "decision", "evidence_status", "evidence", "provenance"],
+      "properties": {
+        "service": { "type": "string", "minLength": 1 },
+        "decision": { "enum": ["keep", "fix", "cut", "revisit"] },
+        "evidence_status": { "enum": ["estimate", "measured"] },
+        "evidence": { "type": "string", "minLength": 1 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      },
+      "oneOf": [
+        { "properties": { "evidence_status": { "const": "estimate" }, "provenance": { "properties": { "kind": { "const": "estimate_method" } } } } },
+        { "properties": { "evidence_status": { "const": "measured" }, "provenance": { "properties": { "kind": { "enum": ["measurement", "incident_record"] } } } } }
+      ]
+    },
+    "system_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "evidence_status", "provenance"],
+      "properties": {
+        "value": { "enum": ["keep", "fix", "cut", "revisit", null] },
+        "evidence_status": { "enum": ["unknown", "estimate", "measured"] },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "unreviewed_system_decision": {
+      "allOf": [
+        { "$ref": "#/$defs/system_decision" },
+        { "properties": { "value": { "const": null }, "evidence_status": { "const": "unknown" }, "provenance": { "properties": { "kind": { "const": "owner_input_required" } } } } }
+      ]
+    },
+    "reviewed_system_decision": {
+      "allOf": [
+        { "$ref": "#/$defs/system_decision" },
+        { "required": ["rationale"], "properties": { "value": { "enum": ["keep", "fix", "cut", "revisit"] }, "evidence_status": { "enum": ["estimate", "measured"] } } },
+        {
+          "oneOf": [
+            { "properties": { "evidence_status": { "const": "estimate" }, "provenance": { "properties": { "kind": { "const": "estimate_method" } } } } },
+            { "properties": { "evidence_status": { "const": "measured" }, "provenance": { "properties": { "kind": { "enum": ["measurement", "incident_record"] } } } } }
+          ]
+        }
+      ]
+    }
   }
 }

@@ -25,10 +25,19 @@ for (const service of ledger.service_decisions) {
   if (typeof service.service !== "string" || !new Set(["keep", "fix", "cut", "revisit"]).has(service.decision)) fail("service decisions must be keep, fix, cut, or revisit");
   if (!new Set(["estimate", "measured"]).has(service.evidence_status) || typeof service.evidence !== "string" || !service.evidence.trim()) fail(`service ${service.service}: decision requires non-unknown evidence`);
   checkProvenance(service.provenance, `service ${service.service}`);
+  if (service.evidence_status === "estimate" && service.provenance.kind !== "estimate_method") fail(`service ${service.service}: estimate requires estimate_method provenance`);
+  if (service.evidence_status === "measured" && !new Set(["measurement", "incident_record"]).has(service.provenance.kind)) fail(`service ${service.service}: measured requires measurement or incident_record provenance`);
 }
 const system = ledger.system_decision;
 if (!system || !statuses.has(system.evidence_status) || !Object.hasOwn(system, "value")) fail("system_decision is invalid");
 checkProvenance(system.provenance, "system decision");
-if (system.evidence_status === "unknown" && system.value !== null) fail("unknown system decision must use null value");
-if (system.evidence_status !== "unknown" && !new Set(["keep", "fix", "cut", "revisit"]).has(system.value)) fail("reviewed system decision must be keep, fix, cut, or revisit");
+if (ledger.review_status === "not_reviewed") {
+  if (ledger.service_decisions.length !== 0) fail("not_reviewed ledger cannot contain service decisions");
+  if (system.evidence_status !== "unknown" || system.value !== null || system.provenance.kind !== "owner_input_required") fail("not_reviewed ledger must retain an unknown/null owner-input-required system decision");
+} else {
+  if (!new Set(["estimate", "measured"]).has(system.evidence_status) || !new Set(["keep", "fix", "cut", "revisit"]).has(system.value)) fail("reviewed system decision must be keep, fix, cut, or revisit with estimate/measured evidence");
+  if (typeof system.rationale !== "string" || !system.rationale.trim()) fail("reviewed system decision requires a rationale");
+  if (system.evidence_status === "estimate" && system.provenance.kind !== "estimate_method") fail("estimated system decision requires estimate_method provenance");
+  if (system.evidence_status === "measured" && !new Set(["measurement", "incident_record"]).has(system.provenance.kind)) fail("measured system decision requires measurement or incident_record provenance");
+}
 console.log(`PASS: ${file}`);
