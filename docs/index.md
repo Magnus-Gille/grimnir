@@ -10,6 +10,7 @@ the annotation, not only the filename.
 ## Architecture and conventions
 
 - `docs/architecture.md` — Full system architecture guide (topology, components, security, data flow)
+- `docs/fleet-seam-audit-2026-07-26.md` — Bounded source-level audit for grimnir#79 of Ratatoskr→Heimdall alerts, Verdandi events, and the identifiable Munin document consumer; records evidence limits and remaining owner work without claiming live verification
 - `docs/full-architecture.md` — Ignored, auto-generated comprehensive doc (run `make docs` or
   `scripts/generate-architecture.sh` on the Pi to regenerate a local snapshot)
 - `docs/conventions.md` — Naming, GitHub ownership, service patterns
