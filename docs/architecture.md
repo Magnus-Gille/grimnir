@@ -805,6 +805,23 @@ maintenance contracts listed in [`authority.md`](authority.md).
    adjacent contract note. Update this directory when ownership or the
    system-level boundary changes, and update the owner's versioned material
    when wire semantics change.
+6. **Completion evidence follows the payload to its consumer.** Before calling
+   a change to a cross-service payload complete, the producing repository
+   records evidence that its fixture is accepted by the consumer's **actual acceptance rule**,
+   not merely by a producer-local shape assertion. For a data-reading feature,
+   also perform a bounded, read-only check against real data and inspect the
+   result. The evidence must cover representative
+   historical rows whenever a prior producer bug, migration, or optional field
+   could make old data differ from newly written data; prefer an identity or
+   embedded field that survived the earlier defect over a convenient derived
+   field that did not. This is a completion requirement for the changed seam,
+   not a claim that every fleet seam has been audited.
+7. **Ignored input is observable.** A consumer that receives a supported
+   cross-service payload field, filter, or row and cannot apply it must reject
+   or warn on the ignored input through the contract's observable result. It
+   must not silently return a plausible success or empty result. Unknown or
+   unsupported inputs remain subject to rule 4; an owner ticket and a
+   compatibility fixture are required when correcting an established seam.
 
 The initial execution plan and the three original integration-test priorities
 are recorded in [`ecosystem-review-plan.md`](ecosystem-review-plan.md). The
