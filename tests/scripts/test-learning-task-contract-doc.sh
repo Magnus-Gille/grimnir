@@ -176,9 +176,10 @@ assert_contains "$ADR" "future privacy gate" 'Privacy and lifecycle'
 assert_contains "$ADR" "future dataset split gate" 'Splits and leakage'
 assert_contains "$ADR" "future rollback gate" 'Deployment and rollback'
 assert_contains "$OBS" "three-plane architecture" 'three evidence planes'
-assert_contains "$OBS" "manual promotion boundary" 'Promotion is reviewed and reversible'
-assert_contains "$OBS" "first-receipt CAS gap remains" 'current\?\.updated_at.*undefined.*unconditional Munin writes'
-assert_contains "$OBS" "current unstamped transport gap is explicit" 'currently sends one unstamped request'
+assert_contains "$OBS" "mechanical promotion boundary" 'Promotion is mechanical and reversible'
+assert_contains "$OBS" "native-v2 receipt correction is implemented" 'Quality Receipts v1/v2.*Implemented'
+assert_contains "$OBS" "authenticated stamp echo is live" 'authenticated preflight/stamp/echo.*Implemented and exercised'
+assert_contains "$OBS" "autonomy controller is armed at tier zero" 'armed at Tier 0'
 assert_contains "$OBS" "immutable late reviews are roadmap facts" 'Late reviews append; they do not patch observations'
 
 echo ""

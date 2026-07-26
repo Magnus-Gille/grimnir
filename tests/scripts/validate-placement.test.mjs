@@ -78,7 +78,7 @@ assert.equal(proposed.compliant, true, "proposed Hugin-to-M5 placement can be ev
 
 const drifted = run(path.join(root, "services.json"), path.join(fixtures, "drift.json"));
 assert.equal(drifted.compliant, false, "drift fixture fails closed");
-assert.deepEqual([...new Set(drifted.drift.map((item) => item.category))], ["incompatible-capability", "extra-live-unit", "missing-live-unit", "missing-workload", "stale-evidence", "missing-evidence", "deployment-state", "running-state", "health-state"], "drift categories are separate and deterministic");
+assert.deepEqual([...new Set(drifted.drift.map((item) => item.category))], ["incompatible-capability", "extra-live-unit", "missing-workload", "stale-evidence", "missing-evidence", "deployment-state", "running-state", "health-state"], "drift categories are separate and deterministic");
 assert.deepEqual(drifted.drift.filter((item) => item.category === "extra-live-unit").map((item) => item.unit_id), ["hugin-2", "hugin-10"], "numeric identifiers sort numerically");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "grimnir-placement-"));
@@ -157,10 +157,10 @@ try {
 
   const missingUnit = fixture("current.json");
   const huginObservation = missingUnit.workloads.find((workload) => workload.workload_id === "workload-hugin");
-  huginObservation.units = huginObservation.units.filter((unit) => unit !== "hugin-daily-analysis");
+  huginObservation.units = huginObservation.units.filter((unit) => unit !== "hugin");
   seal(missingUnit);
   const missingUnitResult = run(path.join(root, "services.json"), writeFixture(tmp, "missing-unit.json", missingUnit));
-  assert.ok(missingUnitResult.drift.some((item) => item.category === "missing-live-unit" && item.workload_id === "workload-hugin" && item.unit_id === "hugin-daily-analysis"), "declared units absent from observation are explicit symmetric drift");
+  assert.ok(missingUnitResult.drift.some((item) => item.category === "missing-live-unit" && item.workload_id === "workload-hugin" && item.unit_id === "hugin"), "declared units absent from observation are explicit symmetric drift");
 
   const unknownNode = fixture("current.json");
   unknownNode.workloads[0].node_id = "node-unknown";
