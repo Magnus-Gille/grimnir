@@ -94,6 +94,9 @@ reviews**, cut or archive it before the next review. A low-use service may stay 
 pillar-protection role is named explicitly; habit and sunk cost are not reasons. Record each outcome
 as `keep`, `fix`, `cut`, or `revisit` with the evidence that drove it.
 
+The supervision floor for any such improvement is constitutional and mechanical: no ROI or cadence
+claim can promote a protected lane or an uncovered domain. See ADR-008.
+
 ---
 
 ## The Arc

@@ -441,7 +441,7 @@ The schema's `x-grimnir-field-owners` map is normative. Important decisions are:
 | Direct-exposure accounting | `gille-inference` |
 | Record-delivery accounting | Producer delivering the record |
 | Classification/use/retention/erasure | Direct subject content owner; producer enforces and copies |
-| Applying a reviewed prompt/harness/route/roster/config | Human operator of the owning repository |
+| Applying a prompt/harness/route/roster/config | Owning controller only after ADR-008's armed, covered, digest-bound mechanical admission; otherwise the human operator of the owning repository |
 
 Storage does not transfer authority. Extensions are accepted only beneath
 `extensions.<producer.component>` and cannot alter v1 decisions.
