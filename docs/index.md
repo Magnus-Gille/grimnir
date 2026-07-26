@@ -137,7 +137,6 @@ the annotation, not only the filename.
 | `scripts/tests/ab-rescore.sh` | Recompute A/B verdicts from retained raw streams after a detector fix, instead of re-running the eval | `scripts/tests/ab-rescore.sh RAW_DIR` |
 | `scripts/tests/ab-skills-eval.sh` | A/B skill-description routing against frozen trigger, control, and negative probes | Run with isolated before/after skill directories and `--i-understand-global-swap` |
 | `tests/scripts/test-doc-index.sh` | Guard: fails when a doc exists but is not indexed here, when a required constraint annotation is dropped, or when a behavioural rule leaves `AGENTS.md` | `make test` |
-| `tests/scripts/test-instruction-eval-sandbox.sh` | Static guard for project-only settings, empty MCP, and read-only instruction-eval tools | `make test-instruction-eval-sandbox` |
 | `tests/scripts/test-skills-eval-sandbox.sh` | Static guard for empty MCP and denied mutation/dispatch tools; optional live routing probe | `make test-skills-eval-sandbox` |
 
 > OS patching (`setup-host-patching.sh`) and maintenance reports (`maintenance-report.sh`) have moved

@@ -102,11 +102,11 @@ test-doc-index: ## Guard progressive-disclosure index completeness and retained 
 test-instruction-eval-sandbox: ## Pin the read-only Claude evaluator sandbox (issue #143)
 	@bash tests/scripts/test-instruction-eval-sandbox.sh
 
-test-skills-eval-sandbox: ## Pin the skill-description evaluator sandbox (issue #145)
-	@bash tests/scripts/test-skills-eval-sandbox.sh
-
 test-validation-staleness-evidence-doc: ## Preserve the evidence boundary for Git sync cadence (issue #2)
 	@bash tests/scripts/test-validation-staleness-evidence-doc.sh
+
+test-skills-eval-sandbox: ## Pin the skill-description evaluator sandbox (issue #145)
+	@bash tests/scripts/test-skills-eval-sandbox.sh
 
 test: test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test-validation-staleness-evidence-doc test-doc-index test-instruction-eval-sandbox test-skills-eval-sandbox ## Run all test suites
 
