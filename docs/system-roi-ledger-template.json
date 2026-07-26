@@ -1,0 +1,14 @@
+{
+  "version": "system-roi-ledger-v1",
+  "period": "YYYY-MM",
+  "review_status": "not_reviewed",
+  "metrics": [
+    { "name": "ops_minutes", "unit": "minutes", "evidence_status": "unknown", "value": null, "provenance": { "kind": "owner_input_required", "reference": "Owner has not supplied the month's operator-maintenance time." } },
+    { "name": "frontier_spend_usd", "unit": "USD", "evidence_status": "unknown", "value": null, "provenance": { "kind": "owner_input_required", "reference": "Owner has not supplied actual frontier-model spend." } },
+    { "name": "local_inference_value_usd", "unit": "USD", "evidence_status": "unknown", "value": null, "provenance": { "kind": "owner_input_required", "reference": "No priced, quality-adjusted M5-routing evidence was supplied." } },
+    { "name": "human_hours_saved", "unit": "hours", "evidence_status": "unknown", "value": null, "provenance": { "kind": "owner_input_required", "reference": "Owner has not supplied a savings estimate and its method." } },
+    { "name": "incidents_detected_or_prevented", "unit": "count", "evidence_status": "unknown", "value": null, "provenance": { "kind": "owner_input_required", "reference": "No incident records were selected for this review." } }
+  ],
+  "service_decisions": [],
+  "system_decision": { "value": null, "evidence_status": "unknown", "provenance": { "kind": "owner_input_required", "reference": "No monthly owner review has occurred." } }
+}
