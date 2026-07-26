@@ -8,11 +8,14 @@ DOC="$REPO_ROOT/docs/fleet-seam-audit-2026-07-26.md"
 for pattern in \
   '^# Fleet seam audit — 2026-07-26$' \
   'Ratatoskr.*Heimdall' \
-  'consumer-contract test is absent' \
-  'Verdandi.*no live emitter' \
-  'not live-verified' \
+  'byte-pinned copy of Heimdall' \
+  'matching active count `0 → 1`' \
+  'Verdandi.*Not an active producer' \
+  'actual acceptance rule' \
+  'historical rows' \
+  'silently accepted' \
   'Munin project status.*Heimdall' \
-  'real-data evidence' \
+  'No actionable defect' \
   'grimnir#79'; do
   if ! grep -Eqi "$pattern" "$DOC"; then
     echo "FAIL: audit record is missing: $pattern" >&2
