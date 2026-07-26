@@ -47,7 +47,7 @@ function inspectSchema(node, at, currentName, refs) {
     }
   });
   if (node.type !== undefined &&
-      ['object', 'array', 'string', 'integer', 'boolean', 'null'].indexOf(node.type) === -1) {
+      ['object', 'array', 'string', 'integer', 'number', 'boolean', 'null'].indexOf(node.type) === -1) {
     throw new Error('unsupported JSON Schema type at ' + at);
   }
   if (node.$ref !== undefined) {
@@ -112,6 +112,7 @@ function typeMatches(type, value) {
     array: Array.isArray(value),
     string: typeof value === 'string',
     integer: Number.isInteger(value),
+    number: typeof value === 'number' && Number.isFinite(value),
     boolean: typeof value === 'boolean',
     null: value === null
   }[type];
