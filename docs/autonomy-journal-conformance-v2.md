@@ -35,6 +35,13 @@ later because uncertainty at the deadline must still be recoverable. All
 comparisons are millisecond-precise. Equality at 300/3600/300/4200 seconds is
 valid; one millisecond outside any bound fails closed.
 
+The 900-second `max_silence_seconds` bound is enforced against a separately
+authenticated, out-of-band watchdog heartbeat surface. A normal 3600-second
+watch does not add synthetic journal phases. The heartbeat binds the attempt,
+watchdog identity, and protected-clock observation, is outside controller write
+access, and cannot reset or shorten the watch. Missing, stale, or unverifiable
+heartbeat state makes the attempt unknown and enters recovery.
+
 Before either implementation is admissible it must also call
 `verify-autonomy-owner-authorization.mjs` with an independently pinned owner
 public key, and verify the signed runtime-narrowing ledger. An owner signature
@@ -44,6 +51,12 @@ Ed25519 key is bound by that signed recovery registry and it narrows its exact
 target from an armed state to `shadow`; it cannot widen, re-arm, or address a
 different target. Production remains disarmed until those artifacts are
 provisioned by the owner.
+
+The owner-authorization manifest, checkpoint, owner-attestation registry,
+recovery-worker registry, and runtime-narrowing ledger retain their existing
+`schema_version: v1` envelope formats while binding v2 constitution and
+coverage digests. Their format version does not select the contract epoch; the
+fixed canonical constitution and coverage schemas do.
 
 The checked-in W0 fixtures provide both R-exact and R-forward examples for
 consumer conformance. They are test vectors, not deployed authorization.

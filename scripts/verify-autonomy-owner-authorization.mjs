@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
 import fs from "node:fs";
+import autonomyEpoch from "./lib/autonomy-contract-epoch.js";
 
 const [manifestPath, constitutionPath, coveragePath, attestationsPath, recoveryRegistryPath, expectedPublicKeyPath, checkpointPath] = process.argv.slice(2);
 if (![manifestPath, constitutionPath, coveragePath, attestationsPath, recoveryRegistryPath, expectedPublicKeyPath, checkpointPath].every(Boolean)) {
@@ -19,8 +20,11 @@ const utc = (value) => typeof value === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:
 const domains = new Set(["micro-routing", "macro-routing", "prompt", "harness", "tool-policy", "served-model-roster", "no-reboot-security-bugfix-maintenance"]);
 try {
   const manifest = read(manifestPath);
-  const constitution = read(constitutionPath);
-  const coverage = read(coveragePath);
+  let epoch;
+  try { epoch = autonomyEpoch.loadAutonomyContractEpoch(constitutionPath, coveragePath); }
+  catch (error) { fail(error.message); }
+  const constitution = epoch.constitution;
+  const coverage = epoch.coverage;
   const attestations = read(attestationsPath);
   const recoveryRegistry = read(recoveryRegistryPath);
   const checkpoint = read(checkpointPath);
@@ -44,7 +48,6 @@ try {
   if (manifest.bindings.owner_attestation_registry_digest !== digest(attestations, "registry_digest")) fail("owner attestation digest mismatch");
   if (manifest.bindings.recovery_worker_registry_digest !== digest(recoveryRegistry, "registry_digest")) fail("recovery worker registry digest mismatch");
   if (constitution.constitution_digest !== digest(constitution, "constitution_digest") || coverage.registry_digest !== digest(coverage, "registry_digest") || attestations.registry_digest !== digest(attestations, "registry_digest") || recoveryRegistry.registry_digest !== digest(recoveryRegistry, "registry_digest")) fail("embedded artifact self-digest mismatch");
-  if (coverage.constitution_digest !== constitution.constitution_digest || coverage.schema_version !== constitution.schema_version) fail("constitution and coverage are from different contract epochs");
   const recoveryKeys = new Set(), fingerprints = new Set();
   for (const entry of recoveryRegistry.entries ?? []) {
     if (!exactKeys(entry, ["domain", "target_scope_digest", "recovery_worker_identity", "public_key_pem", "public_key_fingerprint"]) || !domains.has(entry.domain) || !idPattern.test(entry.recovery_worker_identity) || !digestPattern.test(entry.target_scope_digest)) fail("invalid recovery binding");

@@ -1,7 +1,7 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-27 (Codex) — ADR-008 reachable timing epoch prepared; still disarmed
-**Latest status revision before this handoff:** grimnir `3798758`
+**Last session:** 2026-07-27 (Codex) — ADR-008 timing epoch corrected and verified; still disarmed
+**Latest status revision before this handoff:** grimnir `2985269`
 
 ## Current work
 

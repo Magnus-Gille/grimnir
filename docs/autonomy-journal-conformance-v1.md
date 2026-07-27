@@ -1,5 +1,9 @@
 # ADR-008 journal conformance v1
 
+> **Historical recovery only.** Do not start or authorize a new v1 attempt.
+> Attempts already prepared under the v1 constitution digest must finish or
+> recover with these immutable v1 rules and must never migrate in place.
+
 W1 (gille-inference) and W2 (Brokkr) export one `autonomous-mutation-journal`
 envelope per attempted mutation and validate it with Grimnir's
 [`autonomous-mutation-journal-v1.schema.json`](autonomous-mutation-journal-v1.schema.json)

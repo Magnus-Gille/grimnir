@@ -27,6 +27,13 @@ and outside controller write access.
    verifying or recovering an attempt that was already prepared under v1;
    never use them to authorize a new attempt.
 
+   The authorization manifest and checkpoint themselves remain the closed v1
+   envelope format, as do the shared owner-attestation, recovery-worker, and
+   runtime-narrowing formats. That envelope version is independent of the
+   contract epoch: its signed bindings carry the complete v2 constitution and
+   coverage digests, and both preparation and verification validate those
+   artifacts against the fixed canonical v2 schemas before accepting them.
+
 3. Sign it locally, with the explicit owner-held private key:
 
    ```sh

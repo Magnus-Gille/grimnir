@@ -87,10 +87,11 @@ from the longer evidence watch described here. Protected watchdog time allows
 at most 300 seconds from prepare through apply/readback/verify and the durable
 authenticated watch receipt; that receipt starts a minimum 3600-second
 post-mutation watch, followed by at most 300 seconds of commit grace inside a
-4200-second total attempt. The deadline is derived from the durable receipt,
-not prebound before apply. Longer class-specific evidence windows (for example
-W hours or T tasks) remain additional promotion evidence and cannot shorten
-this constitutional floor.
+4200-second total attempt. The durable receipt derives watch completion and the
+earliest valid commit instant; the immutable attempt deadline remains prebound
+and may be no later than 4200 seconds after prepare. Longer class-specific
+evidence windows (for example W hours or T tasks) remain additional promotion
+evidence and cannot shorten this constitutional floor.
 
 ## 5. Protected lanes — the loop must not improve away its own brakes
 

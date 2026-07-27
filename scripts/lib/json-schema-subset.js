@@ -3,9 +3,9 @@
 var path = require('path');
 
 var SUPPORTED = new Set([
-  '$schema', '$id', '$defs', '$ref', 'title', 'description', 'oneOf',
-  'const', 'enum', 'type', 'minLength', 'pattern', 'format', 'minimum',
-  'minItems', 'uniqueItems', 'items', 'required', 'properties',
+  '$schema', '$id', '$defs', '$ref', 'title', 'description', 'oneOf', 'allOf',
+  'const', 'enum', 'type', 'minLength', 'pattern', 'format', 'minimum', 'maximum',
+  'minItems', 'maxItems', 'uniqueItems', 'items', 'required', 'properties',
   'additionalProperties'
 ]);
 
@@ -25,17 +25,11 @@ function canonical(value) {
 
 function realDateTime(value) {
   var match = typeof value === 'string' &&
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z$/.exec(value);
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/.exec(value);
   if (!match) return false;
   var parsed = Date.parse(value);
   if (Number.isNaN(parsed)) return false;
-  var date = new Date(parsed);
-  return date.getUTCFullYear() === Number(match[1]) &&
-    date.getUTCMonth() + 1 === Number(match[2]) &&
-    date.getUTCDate() === Number(match[3]) &&
-    date.getUTCHours() === Number(match[4]) &&
-    date.getUTCMinutes() === Number(match[5]) &&
-    date.getUTCSeconds() === Number(match[6]);
+  return new Date(parsed).toISOString().replace('.000Z', 'Z') === value;
 }
 
 function inspectSchema(node, at, currentName, refs) {
@@ -78,6 +72,9 @@ function inspectSchema(node, at, currentName, refs) {
   if (node.oneOf !== undefined && !Array.isArray(node.oneOf)) {
     throw new Error('oneOf must be an array at ' + at);
   }
+  if (node.allOf !== undefined && !Array.isArray(node.allOf)) {
+    throw new Error('allOf must be an array at ' + at);
+  }
   if (node.enum !== undefined && !Array.isArray(node.enum)) {
     throw new Error('enum must be an array at ' + at);
   }
@@ -85,10 +82,16 @@ function inspectSchema(node, at, currentName, refs) {
     if (typeof node.pattern !== 'string') throw new Error('pattern must be a string at ' + at);
     try { new RegExp(node.pattern); } catch (error) { throw new Error('invalid pattern at ' + at); }
   }
-  ['minLength', 'minimum', 'minItems'].forEach(function (keyword) {
+  ['minLength', 'minItems', 'maxItems'].forEach(function (keyword) {
     if (node[keyword] !== undefined &&
         (!Number.isInteger(node[keyword]) || node[keyword] < 0)) {
       throw new Error(keyword + ' must be a non-negative integer at ' + at);
+    }
+  });
+  ['minimum', 'maximum'].forEach(function (keyword) {
+    if (node[keyword] !== undefined &&
+        (typeof node[keyword] !== 'number' || !Number.isFinite(node[keyword]))) {
+      throw new Error(keyword + ' must be a finite number at ' + at);
     }
   });
   if (node.uniqueItems !== undefined && typeof node.uniqueItems !== 'boolean') {
@@ -103,6 +106,9 @@ function inspectSchema(node, at, currentName, refs) {
   if (node.items !== undefined) inspectSchema(node.items, at + '.items', currentName, refs);
   (node.oneOf || []).forEach(function (child, index) {
     inspectSchema(child, at + '.oneOf[' + index + ']', currentName, refs);
+  });
+  (node.allOf || []).forEach(function (child, index) {
+    inspectSchema(child, at + '.allOf[' + index + ']', currentName, refs);
   });
 }
 
@@ -187,6 +193,11 @@ function createValidator(options) {
         errors.push(at + ': expected exactly one schema branch');
       }
     }
+    if (node.allOf) {
+      node.allOf.forEach(function (child) {
+        errors.push.apply(errors, errorsFor(child, value, at, currentName));
+      });
+    }
     if (Object.prototype.hasOwnProperty.call(node, 'const') &&
         canonical(value) !== canonical(node.const)) errors.push(at + ': const mismatch');
     if (node.enum && !node.enum.some(function (candidate) {
@@ -200,11 +211,13 @@ function createValidator(options) {
       if (node.pattern && !new RegExp(node.pattern).test(value)) errors.push(at + ': pattern');
       if (node.format === 'date-time' && !realDateTime(value)) errors.push(at + ': invalid date-time');
     }
-    if (typeof value === 'number' && node.minimum !== undefined && value < node.minimum) {
-      errors.push(at + ': minimum');
+    if (typeof value === 'number') {
+      if (node.minimum !== undefined && value < node.minimum) errors.push(at + ': minimum');
+      if (node.maximum !== undefined && value > node.maximum) errors.push(at + ': maximum');
     }
     if (Array.isArray(value)) {
       if (node.minItems !== undefined && value.length < node.minItems) errors.push(at + ': minItems');
+      if (node.maxItems !== undefined && value.length > node.maxItems) errors.push(at + ': maxItems');
       if (node.uniqueItems &&
           new Set(value.map(canonical)).size !== value.length) errors.push(at + ': duplicate items');
       if (node.items) value.forEach(function (item, index) {

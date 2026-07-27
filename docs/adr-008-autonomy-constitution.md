@@ -170,6 +170,10 @@ revert/recovery, quarantine, recovery-worker disarm, and terminal blocking may o
 commit cannot precede the complete watch window. Receipts are canonical-digest
 chained; replay, gap, tamper, deadline extension, canary expansion, recovery-worker impersonation,
 and `unknown → apply` are rejected. Recovery never retries or re-arms.
+The 900-second maximum-silence bound is measured on an authenticated
+out-of-band watchdog heartbeat surface bound to the attempt and protected
+clock, not by inserting synthetic phases into the journal. Heartbeats cannot
+reset or shorten the watch, and missing or stale heartbeat state fails closed.
 
 Every `disarm` or `terminally-blocked` receipt also binds the prior armed state, the exact target
 scope, the recovery-worker identity, and the only permitted destination (`shadow`). Non-terminal
@@ -233,7 +237,7 @@ separate recovery/purpose gate remains in force for them.
 revert/disarm, R-forward recover/quarantine/disarm, and terminally-blocked fixtures. Its adversarial
 mutations cover protected-lane substitution, commands/private locators, binding identity drift,
 unknown-state re-arm, canary expansion, recovery-worker impersonation, observer actuation,
-real clock advancement, exact and one-millisecond timing boundaries, excessive
+distinct advancing fixture instants, exact and one-millisecond timing boundaries, excessive
 apply duration, short watch, excess commit grace, total-deadline overflow,
 invalid calendar instants, cross-owner actuation, forged or
 widening recovery transitions, duplicate coverage, owner misalignment, aggregate L4/L5 readiness,

@@ -363,7 +363,7 @@ assert.deepEqual(constitution, constitutionFixture, "production constitution is 
 ownerAuthorizationShape.valid(productionAuthorization, "unconfigured production owner authorization");
 runtimeNarrowingSemantics(runtimeNarrowing);
 recoveryWorkerRegistrySemantics(recoveryWorkerRegistry);
-assert.match(conformanceText, /verifier-derived\nproofs, never caller-supplied claims/, "admission facts are not caller claims");
+assert.match(conformanceText, /verifier-derived\s+proofs, never caller-supplied claims/, "admission facts are not caller claims");
 coverageSemantics(armedCoverage, constitution, "armed-fixture");
 // Positive fixtures are canonical serialized receipts, not templates. Consumers validate the exact
 // checked-in bytes without filling, resigning, or otherwise mutating them first.

@@ -92,9 +92,12 @@ the annotation, not only the filename.
   `tests/fixtures/autonomy-contract-v2/` and
   `tests/scripts/validate-autonomy-contract-v2.mjs`.
 - `docs/autonomy-owner-authorization-v1.schema.json` and
-  `docs/autonomy-runtime-narrowing-v1.schema.json` — W0.1's independently pinned Ed25519 owner
-  authorization root and recovery-worker-only narrowing contract. Production remains deliberately
-  unconfigured and disarmed until the owner provisions the public key and detached signature.
+  `docs/autonomy-runtime-narrowing-v1.schema.json` — shared closed envelope
+  formats for the independently pinned Ed25519 owner authorization root and
+  recovery-worker-only narrowing contract. Their envelope version remains v1
+  when bindings select the v2 constitution/coverage epoch. Production remains
+  deliberately unconfigured and disarmed until the owner provisions the public
+  key and detached signature.
 - `docs/autonomy-constitution-v1.json` (historical), `docs/autonomy-owner-authorization-v1.json`,
   `docs/autonomy-recovery-worker-registry-v1.json`, and `docs/autonomy-runtime-narrowing-v1.json`
   — production contract instances; all are intentionally unconfigured/disarmed at W0.1.
