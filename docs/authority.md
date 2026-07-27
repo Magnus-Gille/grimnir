@@ -26,7 +26,7 @@
 | **Cross-component data flow** | `docs/architecture.md` | generator (may diagram) |
 | **Learning-task seam, field/decision ownership & compatibility rules** | `docs/learning-task-contract.md` plus `docs/learning-task-contract-v1.schema.json` | Hugin and `gille-inference` producer/consumer schemas and fixtures |
 | **Self-improvement mechanism state & delivery sequence** | `docs/observability-and-improvement.md` | `docs/architecture.md`, component plans and Roadmap issues |
-| **Autonomy floors, protected lanes, recovery admission and Level 4/5 coverage** | `docs/adr-008-autonomy-constitution.md` plus the v1 constitution/journal schemas and coverage registry | Owning executors; Heimdall may observe only |
+| **Autonomy floors, protected lanes, recovery admission and Level 4/5 coverage** | `docs/adr-008-autonomy-constitution.md` plus the v2 constitution/journal schemas and v2 coverage registry; v1 is historical-attempt recovery only | Owning executors; Heimdall may observe only |
 | **Improvement scope (routing/configuration vs model weights)** | `docs/adr-006-learning-improvement-scope.md` | learning docs, Hugin and `gille-inference` |
 | **Hugin task/product facts** | Hugin's versioned task, result, receipt and experiment schemas | LearningTaskContract projection, Heimdall |
 | **M5 exposure, served-model, capability & micro-routing facts** | `gille-inference` versioned schemas and ledger | LearningTaskContract projection, Hugin, Heimdall |

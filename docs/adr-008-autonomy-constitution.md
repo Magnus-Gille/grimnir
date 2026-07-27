@@ -1,7 +1,7 @@
 # ADR-008 — Constitutional, journaled autonomy for Levels 4 and 5
 
-- **Status:** accepted — W0 contract only; globally disarmed
-- **Date:** 2026-07-26
+- **Status:** accepted — W0.2 v2 contract; globally disarmed
+- **Date:** 2026-07-27
 - **Decision owner:** Grimnir system architecture
 - **Supersedes:** the manual promotion and mandatory-Verdandi-receipt posture only for the seven
   bounded ADR-008 classes below. It does not supersede owner control of protected lanes, software change,
@@ -21,29 +21,53 @@ postconditions, canary, deadline, recovery, and append-only state transition. It
 safe if an executor dies midway, an observer is compromised, a receipt is replayed, or the current
 state cannot be established.
 
+Review of the first W1/W2/W4 adapters found that v1's 3600-second total
+deadline and 3600-second watch left no protected-clock time for apply,
+readback, verification, or commit scheduling. V1 could pass frozen-clock tests
+while no real successful attempt was reachable. V2 is the owner-approved
+successor timing epoch; v1 remains immutable historical evidence.
+
 ## Decision
 
 Mechanical promotion is permitted only when a future owner implementation validates all of this
-ADR's v1 artifacts and every class predicate. **W0 is disarmed**: it supplies no executor, policy
+ADR's v2 artifacts and every class predicate. **W0.2 is disarmed**: it supplies no executor, policy
 service, worker, deployment path, credentials, Heimdall actuator, or Verdandi dependency. A schema
 or fixture is not authorization to mutate anything.
 
 ### Closed constitution and permanent floors
 
-`autonomy-constitution-v1.schema.json` is closed at every v1 object. Its digest uses the existing
+`autonomy-constitution-v2.schema.json` is closed at every v2 object. Its digest uses the existing
 maintenance-policy convention: canonical JSON with lexicographically sorted object keys and the
-self-referential digest field omitted (`autonomy-constitution-digest-jcs-v1`). The constitution
+self-referential digest field omitted (`autonomy-constitution-digest-jcs-v1`; the canonicalization
+algorithm is stable across contract epochs). The constitution
 contains exactly these mechanically promotable classes:
 
 | Class | Required for | Owner scope | Recovery | Permanent bound |
 |---|---|---|---|---|
-| `micro-routing` | L4 + L5 | fixed: `gille-inference` | `R-exact` | one canary target, one attempt, finite deadline/watch |
-| `macro-routing` | L5 | fixed: `hugin` | `R-exact` | one canary target, one attempt, finite deadline/watch |
-| `prompt` | L5 | owning component | `R-exact` | one canary target, one attempt, finite deadline/watch |
-| `harness` | L5 | owning component | `R-exact` | one canary target, one attempt, finite deadline/watch |
-| `tool-policy` | L5 | owning component | `R-exact` | one canary target, one attempt, finite deadline/watch |
-| `served-model-roster` | L5 | fixed: `gille-inference` | `R-exact` | one canary target, one attempt, finite deadline/watch |
-| `no-reboot-security-bugfix-maintenance` | L4 | fixed: `brokkr` | `R-forward` | non-pillar canary only, no reboot, one target/attempt, finite deadline/watch |
+| `micro-routing` | L4 + L5 | fixed: `gille-inference` | `R-exact` | one target/attempt; 300/3600/300/4200 timing |
+| `macro-routing` | L5 | fixed: `hugin` | `R-exact` | one target/attempt; 300/3600/300/4200 timing |
+| `prompt` | L5 | owning component | `R-exact` | one target/attempt; 300/3600/300/4200 timing |
+| `harness` | L5 | owning component | `R-exact` | one target/attempt; 300/3600/300/4200 timing |
+| `tool-policy` | L5 | owning component | `R-exact` | one target/attempt; 300/3600/300/4200 timing |
+| `served-model-roster` | L5 | fixed: `gille-inference` | `R-exact` | one target/attempt; 300/3600/300/4200 timing |
+| `no-reboot-security-bugfix-maintenance` | L4 | fixed: `brokkr` | `R-forward` | non-pillar, no reboot; 300/3600/300/4200 timing |
+
+The four timing values are, respectively: maximum prepare-through-durable-watch
+receipt budget, minimum post-receipt watch, maximum commit grace, and maximum
+total attempt duration, all in seconds and measured with protected watchdog
+time.
+
+#### Epoch provenance
+
+| Epoch | Constitution ID / digest | Coverage registry / digest | Journal |
+|---|---|---|---|
+| historical v1 | `grimnir-autonomy-v1` / `sha256:51efdb78c4524780919649f285862543db8b38a6a3a07894f0fad8bdab40fc6c` | `grimnir-autonomy-coverage` / `sha256:379b4d274d93d7c6bd0eda88fd24c35977511565c13967e5467174354286cd90` | `autonomous-mutation-journal-v1`, historical attempts only |
+| current W0.2 v2 | `grimnir-autonomy-v2` / `sha256:836aba8abbc48e05294dac301354ec6b1aa21307b992db78202342ce29aa8dc1` | `grimnir-autonomy-coverage-v2` / `sha256:b7303c8f02b03b7330a0fc49cd685428a28ddd2d6306e0c47a7fd24e5c0c3cbd` | `autonomous-mutation-journal-v2`, new attempts after separate arming only |
+
+The synthetic armed-canary v2 fixture has registry digest
+`sha256:24c6b51064797b4434b5d1b11b0d7dd22a9dc5eec4dd8ef40ab79d9d5b9f1863`;
+it is test provenance, never production authority. The v1 files and validator
+are preserved byte-for-byte.
 
 Each class has closed bounds and requires distinct owner, controller, watchdog, kill-switch, and
 recovery-worker identities. Concrete identities, writer owner, authority reference plus digest,
@@ -68,7 +92,7 @@ either exact baseline restoration or the predeclared safe state, followed by rec
 disarm. The constitution also requires fail-closed admission, kill switch, fresh evidence, unique
 identity, content-blind journaling, observer non-actuation, unknown-state disarm, success-state
 arming preservation, and protected-lane non-promotion. A later class or field requires a new
-constitution version and owner decision; `extensions` is deliberately empty in v1.
+constitution version and owner decision; `extensions` is deliberately empty in v2.
 
 These permanent protected lanes may be proposed but never mechanically promoted: credentials and
 authentication; owner policy; constitution/safety gates; deployments/code; privacy/retention/
@@ -95,12 +119,12 @@ assigns to that precise domain and target scope. A controller identity string,
 digest rewrite, or replacement recovery registry is therefore insufficient to
 impersonate recovery.
 
-`autonomy-coverage-registry-v1.schema.json` is also closed and digest-bound
+`autonomy-coverage-registry-v2.schema.json` is also closed and digest-bound
 (`autonomy-coverage-registry-digest-jcs-v1`, same canonical convention). It aligns unique domain
 rows with the constitution, required levels, owner scope, recovery class, current coverage, target
 state, and zero or more concrete owner bindings.
 The only coverage states are `out-of-scope`, `protected`, `shadow`, `armed-canary`, and
-`armed-fleet`; target state is distinct from current state. Current W0 has global state `disarmed`
+`armed-fleet`; target state is distinct from current state. Current W0.2 has global state `disarmed`
 and all seven autonomous classes at `shadow`, so it cannot claim a canary or fleet admission.
 
 A future controller may admit exactly one class only when global state is armed, that class and
@@ -134,9 +158,16 @@ branch: **R-exact** is `… → unknown → revert/reverted → disarm`; **R-for
 postconditions, the recovery worker records a reason-bound `terminally-blocked` state. Both
 `disarm` and `terminally-blocked` mean the class cannot re-arm mechanically. Candidate/config/evidence/
 policy identity, baseline, postconditions, deadline, canary, recovery class, and authority identity
-cannot change inside an envelope. No mutation phase may be recorded after its deadline; detection,
+cannot change inside an envelope. V2 does not prebind a `watch_deadline`.
+Prepare, apply, candidate readback, verification, and an authenticated durable
+watch receipt must complete within 300 seconds. Only after the append boundary
+authenticates the bound controller, persists and reads back the chained receipt,
+and verifies protected watchdog time does the 3600-second post-mutation watch
+begin. The earliest valid commit is derived from that receipt timestamp; commit
+has at most 300 seconds of grace. Every success-path mutation phase and the
+immutable deadline stay within 4200 seconds of prepare. No mutation phase may be recorded after its deadline; detection,
 revert/recovery, quarantine, recovery-worker disarm, and terminal blocking may occur after it. The
-watch begins no later than its bound and commit cannot precede the complete watch window. Receipts are canonical-digest
+commit cannot precede the complete watch window. Receipts are canonical-digest
 chained; replay, gap, tamper, deadline extension, canary expansion, recovery-worker impersonation,
 and `unknown → apply` are rejected. Recovery never retries or re-arms.
 
@@ -170,6 +201,15 @@ separate recovery/purpose gate remains in force for them.
   and recovery/firmware/credential control.
 - A controller that sees incomplete, stale, malformed, unknown, or observer-only evidence must
   fail closed and leave/return the class disarmed; it may create a proposal but not a mutation.
+- V1 schemas, fixtures, and validator remain byte-stable for historical attempts.
+  A v1 attempt finishes or recovers under its original digest; it is never
+  rewritten as v2. New consumers pin the entire v2 constitution/coverage/journal
+  bundle, and any cross-epoch mixture fails closed.
+- The v2 production coverage registry is globally disarmed and the production
+  owner authorization remains unconfigured. Contract publication changes no
+  runtime authority. Reversal before downstream migration is a normal Git
+  revert; after migration, consumers must repin v1 only for historical recovery,
+  never to resume new v1 promotion.
 - Implementations belong in their owning repositories. W1 proves the L4 configuration plane and
   the micro-routing axis of L5; W2 adds the Brokkr journal/recovery seam; W3 may seek one non-pillar
   L4 maintenance canary only after fault injection.
@@ -188,11 +228,14 @@ separate recovery/purpose gate remains in force for them.
 
 ## Verification
 
-`make test-autonomy-contract` runs closed-schema validation plus byte-valid happy commit, R-exact
+`make test-autonomy-contract` retains the immutable v1 regression lane.
+`make test-autonomy-contract-v2` runs closed-schema validation plus byte-valid happy commit, R-exact
 revert/disarm, R-forward recover/quarantine/disarm, and terminally-blocked fixtures. Its adversarial
 mutations cover protected-lane substitution, commands/private locators, binding identity drift,
 unknown-state re-arm, canary expansion, recovery-worker impersonation, observer actuation,
-late prepare/apply, invalid calendar instants, early commit, cross-owner actuation, forged or
+real clock advancement, exact and one-millisecond timing boundaries, excessive
+apply duration, short watch, excess commit grace, total-deadline overflow,
+invalid calendar instants, cross-owner actuation, forged or
 widening recovery transitions, duplicate coverage, owner misalignment, aggregate L4/L5 readiness,
 and disarmed coverage claiming armed state.
 `make test-autonomy-contract-doc` retains the public boundary text.

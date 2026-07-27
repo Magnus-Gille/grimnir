@@ -2,6 +2,7 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 fixture="$root/tests/fixtures/autonomy-contract"
+fixture_v2="$root/tests/fixtures/autonomy-contract-v2"
 work=$(mktemp -d "${TMPDIR:-/tmp}/grimnir-owner-auth.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 verify() {
@@ -15,6 +16,32 @@ const fs = require("fs"); const x = JSON.parse(fs.readFileSync(process.argv[2]))
 NODE
 node "$root/scripts/prepare-autonomy-owner-authorization-checkpoint.mjs" "$work/prepared-signed.json" >"$work/prepared-checkpoint.json"
 verify "$work/prepared-signed.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$work/prepared-checkpoint.json" >/dev/null
+
+# The current owner ceremony signs the complete v2 constitution/coverage epoch.
+node "$root/scripts/prepare-autonomy-owner-authorization.mjs" "$fixture/test-owner-ed25519-public.pem" "$root/docs/autonomy-constitution-v2.json" "$fixture_v2/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" 1 >"$work/prepared-v2.json"
+signature_v2=$(bash "$root/scripts/sign-autonomy-owner-authorization.sh" "$fixture/test-owner-ed25519-private.pem" "$work/prepared-v2.json")
+node - "$work/prepared-v2.json" "$signature_v2" "$work/prepared-v2-signed.json" <<'NODE'
+const fs = require("fs"); const x = JSON.parse(fs.readFileSync(process.argv[2])); x.signature.value_base64 = process.argv[3]; fs.writeFileSync(process.argv[4], JSON.stringify(x));
+NODE
+node "$root/scripts/prepare-autonomy-owner-authorization-checkpoint.mjs" "$work/prepared-v2-signed.json" >"$work/prepared-v2-checkpoint.json"
+verify "$work/prepared-v2-signed.json" "$root/docs/autonomy-constitution-v2.json" "$fixture_v2/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$work/prepared-v2-checkpoint.json" >/dev/null
+if verify "$work/prepared-v2-signed.json" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$work/prepared-v2-checkpoint.json" >/dev/null 2>&1; then
+  echo "v2 owner authorization accepted a mixed historical v1 bundle" >&2; exit 1
+fi
+if node "$root/scripts/prepare-autonomy-owner-authorization.mjs" "$fixture/test-owner-ed25519-public.pem" "$root/docs/autonomy-constitution-v2.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" 1 >/dev/null 2>&1; then
+  echo "owner preparation accepted a mixed v2 constitution and v1 coverage epoch" >&2; exit 1
+fi
+node - "$work/prepared-v2.json" "$fixture/coverage-armed-canary.json" "$work/mixed-epoch.json" <<'NODE'
+const fs = require("fs"); const x = JSON.parse(fs.readFileSync(process.argv[2])); const coverage = JSON.parse(fs.readFileSync(process.argv[3])); x.bindings.coverage_intent_digest = coverage.registry_digest; fs.writeFileSync(process.argv[4], JSON.stringify(x));
+NODE
+mixed_signature=$(bash "$root/scripts/sign-autonomy-owner-authorization.sh" "$fixture/test-owner-ed25519-private.pem" "$work/mixed-epoch.json")
+node - "$work/mixed-epoch.json" "$mixed_signature" <<'NODE'
+const fs = require("fs"); const x = JSON.parse(fs.readFileSync(process.argv[2])); x.signature.value_base64 = process.argv[3]; fs.writeFileSync(process.argv[2], JSON.stringify(x));
+NODE
+node "$root/scripts/prepare-autonomy-owner-authorization-checkpoint.mjs" "$work/mixed-epoch.json" >"$work/mixed-epoch-checkpoint.json"
+if verify "$work/mixed-epoch.json" "$root/docs/autonomy-constitution-v2.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" "$fixture/test-owner-ed25519-public.pem" "$work/mixed-epoch-checkpoint.json" >/dev/null 2>&1; then
+  echo "verifier accepted an owner-signed mixed v2 constitution and v1 coverage epoch" >&2; exit 1
+fi
 if node "$root/scripts/prepare-autonomy-owner-authorization.mjs" "$fixture/test-owner-ed25519-public.pem" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" 0 >/dev/null 2>&1; then echo "unsafe authorization sequence was prepared" >&2; exit 1; fi
 if node "$root/scripts/prepare-autonomy-owner-authorization.mjs" "$fixture/test-owner-ed25519-public.pem" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" 2 bad-digest >/dev/null 2>&1; then echo "invalid previous digest was prepared" >&2; exit 1; fi
 if node "$root/scripts/prepare-autonomy-owner-authorization.mjs" "$fixture/test-owner-ed25519-public.pem" "$root/docs/autonomy-constitution-v1.json" "$fixture/coverage-armed-canary.json" "$root/docs/autonomy-owner-attestation-registry-v1.json" "$fixture/test-recovery-worker-registry.json" 2 >/dev/null 2>&1; then echo "chainless successor was prepared" >&2; exit 1; fi

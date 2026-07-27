@@ -82,6 +82,16 @@ the changed routes against the pre-adoption ledger baseline.
 - Watch-window state is durable across restarts and deploys (the gi#44 discipline:
   runtime state never lives where a deploy can clobber it).
 
+ADR-008 v2 makes the short mechanical promotion watch reachable and separate
+from the longer evidence watch described here. Protected watchdog time allows
+at most 300 seconds from prepare through apply/readback/verify and the durable
+authenticated watch receipt; that receipt starts a minimum 3600-second
+post-mutation watch, followed by at most 300 seconds of commit grace inside a
+4200-second total attempt. The deadline is derived from the durable receipt,
+not prebound before apply. Longer class-specific evidence windows (for example
+W hours or T tasks) remain additional promotion evidence and cannot shorten
+this constitutional floor.
+
 ## 5. Protected lanes — the loop must not improve away its own brakes
 
 Hard deny-list, never auto-mutated: auth/keys, owner-priority policy, the safety-gate

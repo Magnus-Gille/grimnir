@@ -1,10 +1,18 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-26 (Codex) — authenticated storage loop closed and production-verified
+**Last session:** 2026-07-27 (Codex) — ADR-008 reachable timing epoch prepared; still disarmed
 **Latest status revision before this handoff:** grimnir `3798758`
 
 ## Current work
 
+- **Grimnir #174** adds an explicit W0.2 v2 contract epoch after review proved
+  v1's 3600-second watch was unreachable inside its 3600-second total deadline.
+  V2 uses protected-clock 300/3600/300/4200 bounds, derives watch completion
+  from the durable authenticated post-verify receipt, rejects mixed-epoch owner
+  authorization, and preserves v1 artifacts for historical recovery. Production
+  v2 coverage and owner authorization remain disarmed/unconfigured. After merge,
+  gille-inference W1, Brokkr W2, and Hugin W4 must repin v2 before any separate
+  arming decision.
 - **Grimnir #170 / PR #171** defines a W0-only, globally disarmed autonomy constitution. The
   approved contract has seven exact classes: six R-exact routing/configuration classes (with
   micro-routing required for both L4 and L5) and one L4 R-forward no-reboot
