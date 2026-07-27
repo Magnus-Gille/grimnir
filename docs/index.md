@@ -73,19 +73,32 @@ the annotation, not only the filename.
   predicates, verifier-anchored auto-calibration, watchdog/auto-revert, protected lanes, tier ladder
 - `docs/adr-008-autonomy-constitution.md` — Normative Level 4/5 autonomy floor: digest-bound
   constitution, `R-exact`/`R-forward` recovery, content-blind domain journal, protected lanes, and
-  coverage states. W0 is disarmed; Heimdall is read-only and Verdandi is optional projection.
+  coverage states. W0.2 is disarmed; Heimdall is read-only and Verdandi is optional projection.
 - `docs/autonomy-constitution-v1.schema.json`, `docs/autonomous-mutation-journal-v1.schema.json`,
   `docs/autonomy-coverage-registry-v1.schema.json`, `docs/autonomy-coverage-registry-v1.json`,
   `docs/autonomy-owner-attestation-registry-v1.schema.json`, and
-  `docs/autonomy-owner-attestation-registry-v1.json` — W0 machine-readable constitution, journal
-  shape, disarmed coverage registry, and independent target/configuration-owner root;
+  `docs/autonomy-owner-attestation-registry-v1.json` — historical W0/W0.1 machine-readable
+  constitution, journal shape, disarmed coverage registry, and shared independent
+  target/configuration-owner root;
   fixtures/validator under `tests/fixtures/autonomy-contract/` and
   `tests/scripts/validate-autonomy-contract.mjs`.
+- `docs/autonomy-constitution-v2.schema.json`, `docs/autonomy-constitution-v2.json`,
+  `docs/autonomous-mutation-journal-v2.schema.json`,
+  `docs/autonomy-coverage-registry-v2.schema.json`, and
+  `docs/autonomy-coverage-registry-v2.json` — current W0.2 contract epoch:
+  explicit 300-second apply/readback/verify budget, durable-receipt-anchored
+  3600-second watch, 300-second commit grace, and 4200-second total deadline.
+  Production coverage remains disarmed; fixtures/validator live under
+  `tests/fixtures/autonomy-contract-v2/` and
+  `tests/scripts/validate-autonomy-contract-v2.mjs`.
 - `docs/autonomy-owner-authorization-v1.schema.json` and
-  `docs/autonomy-runtime-narrowing-v1.schema.json` — W0.1's independently pinned Ed25519 owner
-  authorization root and recovery-worker-only narrowing contract. Production remains deliberately
-  unconfigured and disarmed until the owner provisions the public key and detached signature.
-- `docs/autonomy-constitution-v1.json`, `docs/autonomy-owner-authorization-v1.json`,
+  `docs/autonomy-runtime-narrowing-v1.schema.json` — shared closed envelope
+  formats for the independently pinned Ed25519 owner authorization root and
+  recovery-worker-only narrowing contract. Their envelope version remains v1
+  when bindings select the v2 constitution/coverage epoch. Production remains
+  deliberately unconfigured and disarmed until the owner provisions the public
+  key and detached signature.
+- `docs/autonomy-constitution-v1.json` (historical), `docs/autonomy-owner-authorization-v1.json`,
   `docs/autonomy-recovery-worker-registry-v1.json`, and `docs/autonomy-runtime-narrowing-v1.json`
   — production contract instances; all are intentionally unconfigured/disarmed at W0.1.
 - `docs/autonomy-owner-authorization-checkpoint-v1.example.json` — externally protected current
@@ -94,8 +107,11 @@ the annotation, not only the filename.
   `docs/autonomy-recovery-worker-registry-v1.schema.json`, and
   `docs/autonomy-runtime-narrowing-v1.schema.json` — closed JSON contracts for the owner root,
   recovery key registry, and monotonic narrowing ledger.
-- `docs/autonomy-journal-conformance-v1.md` — W1/W2 consumer interface for the shared journal
-  vocabulary and authorization verification gate.
+- `docs/autonomy-journal-conformance-v1.md` — historical W1/W2 v1 consumer
+  interface; retained for old-attempt recovery only.
+- `docs/autonomy-journal-conformance-v2.md` — current interface for every
+  ADR-008 owning adapter, including W1/W2/W4, with protected timing and
+  fail-closed epoch migration.
 - `docs/autonomy-owner-signing-ceremony.md` — owner-run public-key preparation, detached signing,
   protected checkpoint installation, verification, and key-rotation procedure.
 - `scripts/prepare-autonomy-owner-authorization-checkpoint.mjs` — public-only canonical checkpoint

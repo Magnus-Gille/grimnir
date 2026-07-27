@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
 import fs from "node:fs";
+import autonomyEpoch from "./lib/autonomy-contract-epoch.js";
 
 const [manifestPath, constitutionPath, coveragePath, attestationsPath, recoveryRegistryPath, expectedPublicKeyPath, checkpointPath] = process.argv.slice(2);
 if (![manifestPath, constitutionPath, coveragePath, attestationsPath, recoveryRegistryPath, expectedPublicKeyPath, checkpointPath].every(Boolean)) {
@@ -19,8 +20,11 @@ const utc = (value) => typeof value === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:
 const domains = new Set(["micro-routing", "macro-routing", "prompt", "harness", "tool-policy", "served-model-roster", "no-reboot-security-bugfix-maintenance"]);
 try {
   const manifest = read(manifestPath);
-  const constitution = read(constitutionPath);
-  const coverage = read(coveragePath);
+  let epoch;
+  try { epoch = autonomyEpoch.loadAutonomyContractEpoch(constitutionPath, coveragePath); }
+  catch (error) { fail(error.message); }
+  const constitution = epoch.constitution;
+  const coverage = epoch.coverage;
   const attestations = read(attestationsPath);
   const recoveryRegistry = read(recoveryRegistryPath);
   const checkpoint = read(checkpointPath);
