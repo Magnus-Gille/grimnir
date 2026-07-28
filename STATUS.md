@@ -1,18 +1,55 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-27 (Codex) — ADR-008 timing epoch corrected and verified; still disarmed
-**Latest status revision before this handoff:** grimnir `2985269`
+**Last session:** 2026-07-28 (Codex) — W0–W5 software runway complete; ADR-008 mutation remains globally disarmed
+**Latest status revision before this handoff:** grimnir `16edee0`
+
+## Autonomy runway update — 2026-07-28
+
+- The approved ADR-008 constitution and owner-authorization/timing corrections are merged in
+  Grimnir PRs #171, #173, and #175. The six R-exact configuration classes and the R-forward
+  no-reboot maintenance class remain globally disarmed.
+- Disarmed implementation seams are merged across gille-inference PRs #111, #114, #116, and #118;
+  Hugin PRs #334, #335, #337, and #338; Brokkr PRs #71, #75, #77, and #79; and Heimdall
+  PR #45.
+- Brokkr #77 closed W2c with exact-path supervised evidence: one clean scenario and all ten required
+  fault scenarios passed. Its source-bound installer publishes disabled units only and was not run
+  against a production target. No trust root, target binding, service enablement, package mutation,
+  live canary, deployment, or autonomy arming occurred.
+- W3's circular producer/consumer dependency is resolved. Brokkr PR #79 supplies the software-only
+  `maintenance-execution-result/v1` contract, pure journal projection, eight-fixture corpus, and
+  permanently disabled delivery adapter. Heimdall PR #45 consumes it through a dedicated fail-closed
+  token, bounded monotonic SQLite projection, and separate read-only card.
+- Heimdall #45 merged as `3838f18` after independent Codex/Sol review, root review, green CI, 1,149
+  Node tests, 44 Python tests, and 18 focused observer tests. It was deployed through Grimnir's
+  exact-source gate; dependency audit reported zero vulnerabilities and the deployment health gate
+  passed. This deployment configured neither the dedicated observer token nor Brokkr delivery.
+- M5 was dogfooded on Brokkr #79 and Heimdall #45. Its observations were validated rather than
+  accepted mechanically; grounded false positives were recorded on gille-inference #25 as learning
+  evidence.
+
+### Current phase
+
+The architecture is at **L4 ceremony-ready, mutation globally disarmed**. Repository code now
+establishes bounded admission, exact source/config identity, watchdog/recovery paths, deterministic
+promotion predicates, fault-injection proof, and deployed read-only observation. It does not yet
+establish live mutation evidence. L5
+continuous-improvement plumbing exists for proposal/admission/recovery, but evidence-driven policy
+changes are not proven safe in production.
+
+### Exact next steps
+
+1. Stop for the separate owner ceremony that binds exact revisions, private targets, trust roots,
+   and delegated budget before any install, enablement, arming, or live canary.
+2. Run Brokkr #69 and #70 live canary/windows/drills only after that ceremony, then use their real
+   evidence—not fixtures or merge state—to decide whether promotion remains blocked.
+3. Enter L5 only after L4 production evidence proves that measurement, hold/disarm, watchdog, and
+   R-forward recovery claims survive real operating windows.
 
 ## Current work
 
-- **Grimnir #174** adds an explicit W0.2 v2 contract epoch after review proved
-  v1's 3600-second watch was unreachable inside its 3600-second total deadline.
-  V2 uses protected-clock 300/3600/300/4200 bounds, derives watch completion
-  from the durable authenticated post-verify receipt, rejects mixed-epoch owner
-  authorization, and preserves v1 artifacts for historical recovery. Production
-  v2 coverage and owner authorization remain disarmed/unconfigured. After merge,
-  gille-inference W1, Brokkr W2, and Hugin W4 must repin v2 before any separate
-  arming decision.
+- **W0–W5** are now merged across 16 PRs in five owning repositories. W3's read-only Heimdall
+  observer is deployed; all mutation lanes, Brokkr delivery, promotion, and the first canary remain
+  disarmed behind Brokkr #69's separate owner ceremony.
 - **Grimnir #170 / PR #171** defines a W0-only, globally disarmed autonomy constitution. The
   approved contract has seven exact classes: six R-exact routing/configuration classes (with
   micro-routing required for both L4 and L5) and one L4 R-forward no-reboot
