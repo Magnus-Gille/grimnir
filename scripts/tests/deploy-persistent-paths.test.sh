@@ -464,7 +464,7 @@ cat > "$TMP_DIR/repos/companion-template/systemd/alpha.timer" << 'EOF'
 [Timer]
 OnCalendar=daily
 EOF
-cat > "$TMP_DIR/repos/companion-template/systemd/alpha.service" << 'EOF'
+cat > "$TMP_DIR/repos/companion-template/systemd/alpha-worker.service" << 'EOF'
 [Service]
 WorkingDirectory=/home/<user>/alpha
 EOF
@@ -476,13 +476,13 @@ cat > "$TMP_DIR/companion-template.json" << 'EOF'
       "name": "alpha", "repo": "companion-template", "host": "h1", "port": null,
       "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
       "persistent_paths": [], "needs_build": true,
-      "systemd_units": [{ "name": "alpha", "type": "timer" }]
+      "systemd_units": [{ "name": "alpha", "type": "timer", "service_name": "alpha-worker" }]
     }
   ]
 }
 EOF
 assert_rejected_before_remote "present timer companion template" "$TMP_DIR/companion-template.json" \
-  "systemd/alpha.service (unit alpha.service contains unresolved placeholder <user>)"
+  "systemd/alpha-worker.service (unit alpha-worker.service contains unresolved placeholder <user>)"
 
 cat > "$TMP_DIR/safe.json" << 'EOF'
 {
@@ -495,6 +495,7 @@ cat > "$TMP_DIR/safe.json" << 'EOF'
       "systemd_units": [
         { "name": "alpha", "type": "service" },
         { "name": "heimdall-boot-check", "type": "timer" },
+        { "name": "alpha-custom", "type": "timer", "service_name": "alpha-custom-worker" },
         { "name": "alpha-once", "type": "timer", "timer_semantics": "one-shot" },
         { "name": "alpha-recurring", "type": "timer" },
         { "name": "alpha-user-recurring", "type": "timer", "scope": "user" }
@@ -517,13 +518,17 @@ cat > "$TMP_DIR/repos/alpha/alpha.service" << 'EOF'
 [Service]
 User=<ignored-root-template>
 EOF
-for timer in heimdall-boot-check alpha-once alpha-recurring alpha-user-recurring; do
+for timer in heimdall-boot-check alpha-custom alpha-once alpha-recurring alpha-user-recurring; do
   cat > "$TMP_DIR/repos/alpha/${timer}.timer" << EOF
 [Timer]
 OnCalendar=daily
 EOF
 done
 cat > "$TMP_DIR/repos/alpha/alpha-recurring.service" << 'EOF'
+[Service]
+ExecStart=/bin/true
+EOF
+cat > "$TMP_DIR/repos/alpha/alpha-custom-worker.service" << 'EOF'
 [Service]
 ExecStart=/bin/true
 EOF
@@ -585,6 +590,13 @@ if grep -Fq -- "heimdall-boot-check.timer" "$SSH_CAPTURE" &&
   pass "boot-check timer and companion service are refreshed"
 else
   fail "boot-check timer and companion service must both be refreshed"
+fi
+if grep -Fq -- "alpha-custom.timer" "$SSH_CAPTURE" &&
+   grep -Fq -- "alpha-custom-worker.service" "$SSH_CAPTURE" &&
+   ! grep -Fq -- "alpha-custom.service" "$SSH_CAPTURE"; then
+  pass "custom timer companion is preflighted and installed by declared service_name"
+else
+  fail "custom timer companion must use declared service_name, not timer base name"
 fi
 # shellcheck disable=SC2016 # literal remote-shell fragments expected in capture
 if grep -Fq -- "for f in 'systemd/alpha.service' 'alpha.service'" "$SSH_CAPTURE" &&

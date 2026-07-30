@@ -361,6 +361,27 @@ cat > "$TMP_DIR/service-timer-semantics.json" << 'EOF'
 EOF
 assert_eq "timer semantics on service -> exit 1" "1" "$(run_validator "$TMP_DIR/service-timer-semantics.json")"
 
+# ── Timer companion overrides are bounded and timer-only ───────────────────
+cat > "$TMP_DIR/service-name-on-service.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": null, "port": null, "deploy": false, "scan": true, "needs_build": false,
+      "systemd_units": [{ "name": "alpha", "type": "service", "service_name": "alpha-worker" }] }
+  ]
+}
+EOF
+assert_eq "service_name on service -> exit 1" "1" "$(run_validator "$TMP_DIR/service-name-on-service.json")"
+
+cat > "$TMP_DIR/bad-timer-service-name.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": null, "port": null, "deploy": false, "scan": true, "needs_build": false,
+      "systemd_units": [{ "name": "alpha", "type": "timer", "service_name": "alpha;worker" }] }
+  ]
+}
+EOF
+assert_eq "unsafe timer service_name -> exit 1" "1" "$(run_validator "$TMP_DIR/bad-timer-service-name.json")"
+
 # ── Registry strings crossing deploy shell boundaries must be strict ───────
 cat > "$TMP_DIR/unsafe-component-strings.json" << 'EOF'
 {

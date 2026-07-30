@@ -270,7 +270,8 @@ unit_rows() {
           u.name,
           u.type || "service",
           u.scope || "system",
-          u.type === "timer" ? (u.timer_semantics || "recurring") : ""
+          u.type === "timer" ? (u.timer_semantics || "recurring") : "",
+          u.type === "timer" ? (u.service_name || u.name) : ""
         ].join("|") + "\n");
       });
     '
@@ -278,10 +279,10 @@ unit_rows() {
 
 preflight_local_unit_sources() {
   local local_path=$1 units_json=$2 fallback_name=$3 fallback_type=$4 fallback_scope=$5 render_enabled=${6:-false} deploy_path=${7:-}
-  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file source
+  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_file companion_file source
 
   rows="$(unit_rows "$units_json" "$fallback_name" "$fallback_type" "$fallback_scope")"
-  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics; do
+  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name; do
     [[ -n "$unit_name" ]] || continue
     unit_file="${unit_name}.${unit_kind}"
     if ! preflight_local_install_ready_unit_source "$local_path" "$unit_file" true "$render_enabled"; then
@@ -298,7 +299,7 @@ preflight_local_unit_sources() {
       fi
     fi
     if [[ "$unit_kind" == "timer" ]]; then
-      companion_file="${unit_name}.service"
+      companion_file="${unit_service_name:-$unit_name}.service"
       if ! preflight_local_install_ready_unit_source "$local_path" "$companion_file" false "$render_enabled"; then
         return 1
       fi
@@ -599,7 +600,7 @@ deploy_service() {
   fi
 
   local cmd="cd ${q_deploy_path} && "
-  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file
+  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_file companion_file
   local timer_entry timer_name timer_semantics timer_next_check
   local q_unit_src q_unit_root q_user_dest q_system_dest q_unit_label unit_guard companion_guard
   local unit_target_guard companion_target_guard
@@ -607,7 +608,7 @@ deploy_service() {
   local user_services=() system_services=() user_timers=() system_timers=()
 
   rows="$(unit_rows "$units_json" "$name" "$unit_type" "$unit_scope")"
-  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics; do
+  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name; do
     [[ -n "$unit_name" ]] || continue
     unit_file="${unit_name}.${unit_kind}"
     q_unit_src=$(posix_shell_quote "systemd/${unit_file}")
@@ -632,7 +633,7 @@ deploy_service() {
         user_services+=("$unit_name")
       elif [[ "$unit_kind" == "timer" ]]; then
         if [[ "$render_enabled" != "true" ]]; then
-          companion_file="${unit_name}.service"
+          companion_file="${unit_service_name:-$unit_name}.service"
           q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
           q_unit_root=$(posix_shell_quote "$companion_file")
           q_user_dest=$(posix_shell_quote ".config/systemd/user/${companion_file}")
@@ -659,7 +660,7 @@ deploy_service() {
         system_services+=("$unit_name")
       elif [[ "$unit_kind" == "timer" ]]; then
         if [[ "$render_enabled" != "true" ]]; then
-          companion_file="${unit_name}.service"
+          companion_file="${unit_service_name:-$unit_name}.service"
           q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
           q_unit_root=$(posix_shell_quote "$companion_file")
           q_system_dest=$(posix_shell_quote "/etc/systemd/system/${companion_file}")

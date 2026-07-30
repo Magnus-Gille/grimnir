@@ -158,7 +158,7 @@
       "deploy_mode": "git-pull",
       "systemd_units": [
         { "name": "grimnir-security-scan", "type": "timer" },
-        { "name": "grimnir-validate", "type": "timer" }
+        { "name": "grimnir-validate", "type": "timer", "service_name": "grimnir-validate-timer" }
       ]
     },
     {
