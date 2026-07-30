@@ -123,6 +123,37 @@ else
   pass "private environment values stay outside the rendered unit"
 fi
 
+# A rendered runtime must honor the same registry-declared timer companion
+# override as the byte-for-byte deploy path.
+cat > "$DEPLOY_TARGET/systemd/alpha-custom.timer" << 'EOF'
+[Timer]
+OnCalendar=daily
+Unit=alpha-custom-worker.service
+EOF
+cat > "$DEPLOY_TARGET/systemd/alpha-custom-worker.service" << EOF
+[Service]
+User=<user>
+WorkingDirectory=<deploy-path>
+EnvironmentFile=<home>/state/env
+ExecStart=$EXEC_SYMLINK <deploy-path>/server.sh
+ReadWritePaths=<home>/state
+ReadOnlyPaths=<home>/cross-component
+EOF
+custom_timer_units_json='[{"name":"alpha-custom","type":"timer","scope":"system","service_name":"alpha-custom-worker"}]'
+CUSTOM_TIMER_ROOT="$TMP_DIR/custom-timer-systemd"
+mkdir -p "$CUSTOM_TIMER_ROOT"
+if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
+    SYSTEMD_SYSTEM_ROOT="$CUSTOM_TIMER_ROOT" \
+    bash "$RENDER_HELPER" "$DEPLOY_TARGET" "$runtime_json" \
+      "$custom_timer_units_json" "$persistent_json" &&
+    [[ -f "$CUSTOM_TIMER_ROOT/alpha-custom.timer" &&
+       -f "$CUSTOM_TIMER_ROOT/alpha-custom-worker.service" &&
+       ! -e "$CUSTOM_TIMER_ROOT/alpha-custom.service" ]]; then
+  pass "rendered timer installs its declared custom companion"
+else
+  fail "rendered timer must install service_name companion, not timer base name"
+fi
+
 VERIFY_FAIL_ROOT="$TMP_DIR/verify-fail-systemd"
 mkdir -p "$VERIFY_FAIL_ROOT"
 printf '%s\n' 'OLD-VERIFIED-UNIT' > "$VERIFY_FAIL_ROOT/alpha.service"
