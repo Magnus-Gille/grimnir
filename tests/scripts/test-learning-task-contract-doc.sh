@@ -179,8 +179,18 @@ assert_contains "$OBS" "three-plane architecture" 'three evidence planes'
 assert_contains "$OBS" "mechanical promotion boundary" 'Promotion is mechanical and reversible'
 assert_contains "$OBS" "native-v2 receipt correction is implemented" 'Quality Receipts v1/v2.*Implemented'
 assert_contains "$OBS" "authenticated stamp echo is live" 'authenticated preflight/stamp/echo.*Implemented and exercised'
-assert_contains "$OBS" "autonomy controller is armed at tier zero" 'armed at Tier 0'
+assert_contains "$OBS" "autonomy controller is globally disarmed" 'Routing lifecycle, watchdog, and autonomy controller.*Implemented; globally disarmed'
+assert_contains "$OBS" "owner ceremony precedes armed canary" 'owner ceremony.*precede.*`armed-canary`'
+assert_contains "$OBS" "canary evidence gates wider promotion" 'then precede promotion beyond'
 assert_contains "$OBS" "immutable late reviews are roadmap facts" 'Late reviews append; they do not patch observations'
+
+if grep -qiE 'armed at Tier 0|Implemented; armed Tier 0' "$OBS"; then
+  echo "  FAIL: retired Tier-0 arming claim remains in ${OBS#"$REPO_ROOT"/}"
+  FAIL=$((FAIL+1))
+else
+  echo "  PASS: retired Tier-0 arming claim is absent"
+  PASS=$((PASS+1))
+fi
 
 echo ""
 if [[ "$FAIL" -eq 0 ]]; then

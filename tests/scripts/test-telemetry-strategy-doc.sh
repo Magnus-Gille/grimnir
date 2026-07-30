@@ -37,12 +37,18 @@ require "$OBS" "Future work"
 require "$OBS" "core Hugin↔gateway join is live"
 require "$OBS" "authenticated preflight/stamp/echo | Implemented and exercised"
 require "$OBS" "Immutable pipeline accounting | Implemented on both owners"
-require "$OBS" "Routing lifecycle, watchdog, and autonomy controller | Implemented; armed Tier 0"
+require "$OBS" "Routing lifecycle, watchdog, and autonomy controller | Implemented; globally disarmed"
 require "$OBS" "External Codex App/CLI and Pi producers | Partial"
 require "$OBS" "claude-config#11"
 require "$OBS" "gille-inference#11/#13"
 require "$OBS" "Heimdall may visualize these planes; it does not create their verdicts."
-require "$OBS" "Tier 0 auto-adopts nothing"
+require "$OBS" "The owner ceremony must precede an exact ADR-008 \`armed-canary\` class"
+require "$OBS" "real canary/watch/recovery evidence must then precede promotion beyond it"
+
+if grep -Eq 'armed at Tier 0|Implemented; armed Tier 0' "$OBS"; then
+  echo "retired Tier-0 arming claim remains in ${OBS#"$ROOT"/}" >&2
+  exit 1
+fi
 require "$SCHEDULE" "hugin#325"
 require "$SCHEDULE" "a782c6b"
 require "$SCHEDULE" "not-found"
