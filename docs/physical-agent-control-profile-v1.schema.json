@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://grimnir.gille.ai/contracts/physical-agent-control/profile/v1/schema.json",
-  "title": "Grimnir physical agent control profile v1",
-  "description": "Owner-reviewed local control bindings. The profile digest is SHA-256 over RFC 8785 canonical bytes of this object with profile_digest omitted.",
+  "title": "Grimnir physical agent console profile v1",
+  "description": "Owner-reviewed Stream Deck bindings and local-only EP-2350 capture policy. The profile digest is SHA-256 over RFC 8785 canonical bytes of this object with profile_digest omitted.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,6 +21,7 @@
     "profile_version": { "$ref": "#/$defs/version" },
     "digest_algorithm": { "const": "profile-jcs-sha256-v1" },
     "profile_digest": { "$ref": "#/$defs/digest" },
+    "voice_capture": { "$ref": "#/$defs/voice-capture" },
     "bindings": {
       "type": "array",
       "minItems": 1,
@@ -63,28 +64,54 @@
           "type": "string",
           "pattern": "^(key|dial)-[a-z0-9-]{1,48}$"
         },
-        "gesture": { "enum": ["press", "hold", "double-press"] }
+        "gesture": { "enum": ["press", "release", "hold", "double-press"] }
       }
     },
-    "tx6-selector": {
+    "voice-capture": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["device", "transport", "midi_channel", "cc", "gesture"],
+      "required": [
+        "device_claim",
+        "transport",
+        "identity_assurance",
+        "capture_source_ref",
+        "coreaudio_uid_ref",
+        "interface_generation_ref",
+        "channel_set",
+        "activation",
+        "transcription_boundary",
+        "network_access",
+        "stt_engine_ref",
+        "stt_engine_version",
+        "stt_model_ref",
+        "stt_model_version",
+        "raw_audio_retention",
+        "max_capture_seconds",
+        "transcript_retention_seconds",
+        "sample_token_mode",
+        "effect_semantics"
+      ],
       "properties": {
-        "device": { "const": "tx-6" },
-        "transport": { "enum": ["usb-midi", "ble-midi"] },
-        "midi_channel": { "const": 1 },
-        "cc": { "type": "integer", "minimum": 1, "maximum": 37 },
-        "gesture": {
-          "enum": ["absolute", "relative", "press", "release", "hold"]
-        }
+        "device_claim": { "const": "ep-2350-ting" },
+        "transport": { "const": "analog-line-out-via-audio-interface" },
+        "identity_assurance": { "const": "operator-configured" },
+        "capture_source_ref": { "$ref": "#/$defs/id" },
+        "coreaudio_uid_ref": { "$ref": "#/$defs/id" },
+        "interface_generation_ref": { "$ref": "#/$defs/id" },
+        "channel_set": { "$ref": "#/$defs/id" },
+        "activation": { "const": "stream-deck-ptt" },
+        "transcription_boundary": { "const": "workstation-local" },
+        "network_access": { "const": "disabled" },
+        "stt_engine_ref": { "$ref": "#/$defs/id" },
+        "stt_engine_version": { "$ref": "#/$defs/version" },
+        "stt_model_ref": { "$ref": "#/$defs/id" },
+        "stt_model_version": { "$ref": "#/$defs/version" },
+        "raw_audio_retention": { "const": "memory-only-delete-after-transcription" },
+        "max_capture_seconds": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "transcript_retention_seconds": { "type": "integer", "minimum": 1, "maximum": 900 },
+        "sample_token_mode": { "const": "disabled" },
+        "effect_semantics": { "const": "none" }
       }
-    },
-    "source-selector": {
-      "oneOf": [
-        { "$ref": "#/$defs/stream-deck-selector" },
-        { "$ref": "#/$defs/tx6-selector" }
-      ]
     },
     "simple-action": {
       "type": "object",
@@ -96,11 +123,10 @@
             "refresh-local-state",
             "open-session",
             "focus-session",
-            "set-notification-level",
-            "set-effort",
-            "set-verbosity",
-            "set-display-detail",
-            "set-delegation-preference",
+            "begin-voice-capture",
+            "end-voice-capture",
+            "open-voice-draft",
+            "discard-voice-draft",
             "request-status-turn",
             "request-read-only-review",
             "interrupt",
@@ -130,7 +156,7 @@
       "required": ["binding_id", "source", "target", "action"],
       "properties": {
         "binding_id": { "$ref": "#/$defs/id" },
-        "source": { "$ref": "#/$defs/source-selector" },
+        "source": { "$ref": "#/$defs/stream-deck-selector" },
         "target": { "$ref": "#/$defs/target" },
         "action": { "$ref": "#/$defs/bound-action" }
       }

@@ -11,7 +11,7 @@
     "workflow": "working",
     "workflow_evidence": { "kind": "adapter-event", "event_ref": "codex-event-001" },
     "freshness": "fresh",
-    "trace_id": "control-trace-010",
+    "trace_id": "control-trace-013",
     "extensions": []
   },
   {
@@ -30,7 +30,7 @@
       "report_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     },
     "freshness": "fresh",
-    "trace_id": "control-trace-011",
+    "trace_id": "control-trace-014",
     "extensions": []
   },
   {
@@ -45,7 +45,7 @@
     "workflow": "unknown",
     "workflow_evidence": { "kind": "none" },
     "freshness": "stale",
-    "trace_id": "control-trace-012",
+    "trace_id": "control-trace-015",
     "extensions": []
   }
 ]

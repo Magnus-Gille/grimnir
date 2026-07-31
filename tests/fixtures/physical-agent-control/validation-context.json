@@ -1,21 +1,89 @@
 {
   "intent_evaluated_at": {
     "streamdeck-refresh-001": "2026-07-31T10:00:01Z",
-    "tx6-notification-001": "2026-07-31T10:00:02Z",
-    "tx6-effort-001": "2026-07-31T10:00:04Z",
-    "tx6-encoder-001": "2026-07-31T10:00:06Z",
-    "tx6-focus-001": "2026-07-31T10:00:08Z",
-    "streamdeck-status-001": "2026-07-31T10:00:06Z",
-    "streamdeck-review-001": "2026-07-31T10:00:11Z",
-    "streamdeck-task-001": "2026-07-31T10:00:16Z",
-    "streamdeck-interrupt-001": "2026-07-31T10:00:21Z",
-    "tx6-interrupt-001": "2026-07-31T10:00:10Z"
+    "streamdeck-ptt-begin-001": "2026-07-31T10:00:05Z",
+    "streamdeck-ptt-end-001": "2026-07-31T10:00:15Z",
+    "streamdeck-draft-open-001": "2026-07-31T10:00:18Z",
+    "streamdeck-ptt-begin-002": "2026-07-31T10:00:20Z",
+    "streamdeck-ptt-end-002": "2026-07-31T10:00:28Z",
+    "streamdeck-draft-discard-001": "2026-07-31T10:00:43Z",
+    "streamdeck-status-001": "2026-07-31T10:00:46Z",
+    "streamdeck-review-001": "2026-07-31T10:00:51Z",
+    "streamdeck-task-001": "2026-07-31T10:00:56Z",
+    "streamdeck-pause-001": "2026-07-31T10:01:01Z",
+    "streamdeck-interrupt-001": "2026-07-31T10:01:06Z",
+    "streamdeck-ptt-begin-watchdog-001": "2026-07-31T10:01:10Z",
+    "streamdeck-ptt-begin-004": "2026-07-31T10:01:41Z",
+    "streamdeck-ptt-end-004": "2026-07-31T10:01:45Z"
+  },
+  "cancellation_evaluated_at": {
+    "voice-cancel-watchdog-001": "2026-07-31T10:01:40Z"
+  },
+  "voice_draft_evaluated_at": {
+    "voice-draft-pending-001": "2026-07-31T10:00:41Z",
+    "voice-draft-reviewed-001": "2026-07-31T10:00:41Z"
   },
   "state_evaluated_at": "2026-07-31T10:01:00Z",
   "freshness_seconds": {
     "fresh_through": 300,
     "aging_through": 3600
   },
+  "capture_sources": [
+    {
+      "capture_source_ref": "line-input-ting-001",
+      "coreaudio_uid_ref": "coreaudio-interface-001",
+      "interface_generation_ref": "audio-generation-001",
+      "channel_set": "channels-1-2",
+      "available": true
+    }
+  ],
+  "stt_runtimes": [
+    {
+      "engine_ref": "offline-stt",
+      "engine_version": "v1",
+      "model_ref": "local-speech-model",
+      "model_version": "v1",
+      "boundary": "workstation-local",
+      "network_access": "disabled",
+      "available": true
+    }
+  ],
+  "native_sessions": [
+    {
+      "harness": "codex",
+      "session_ref": "slot-1",
+      "ownership": "adapter-owned",
+      "snapshot_ref": "native-target-snapshot-001",
+      "snapshot_digest": "sha256:79293cf072ccf5af536879814a60aefddffe62360d4c37157ad149724c5ddfe4",
+      "adapter_instance_ref": "codex-adapter-001",
+      "native_session_ref": "codex-thread-001",
+      "project_ref": "project-grimnir",
+      "worktree_ref": "worktree-physical-control",
+      "runtime_at_capture": "idle"
+    }
+  ],
+  "volatile_contents": [
+    {
+      "draft_id": "voice-draft-pending-001",
+      "content_ref": "volatile-transcript-001",
+      "content_binding": "hmac-sha256:7391688bbb4d59173c2d65c077db124f74c3d074e7537d3ef1aa2ae50c048fa9",
+      "transcript_version": 1,
+      "utf8_bytes": 50,
+      "content_utf8": "Summarize the current diff and show me the result.",
+      "hmac_key_hex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+      "available": true
+    },
+    {
+      "draft_id": "voice-draft-reviewed-001",
+      "content_ref": "volatile-transcript-002",
+      "content_binding": "hmac-sha256:1ad66a20f67a98a67bb8577ff7683e43590c25b3abec4ff392b252c2cf7c800f",
+      "transcript_version": 2,
+      "utf8_bytes": 51,
+      "content_utf8": "Open the reviewed draft in the exact Codex session.",
+      "hmac_key_hex": "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100",
+      "available": true
+    }
+  ],
   "native_sources": [
     { "adapter": "codex-app-server", "source_ref": "codex-thread-001", "harness": "codex", "session_ref": "slot-1" },
     { "adapter": "claude-stream-json", "source_ref": "claude-session-001", "harness": "claude-code", "session_ref": "slot-2" },

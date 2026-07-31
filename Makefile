@@ -72,7 +72,7 @@ test-maintenance-policy-contract: ## Validate the maintenance-policy v1 schema, 
 test-maintenance-policy-contract-doc: ## Regression test: assert the maintenance-policy intent/DST/digest contract (issue #134)
 	@bash tests/scripts/test-maintenance-policy-contract-doc.sh
 
-test-physical-agent-control: ## Validate the physical-control v1 schema and adversarial fixtures (issue #179)
+test-physical-agent-control: ## Validate Stream Deck controls and EP-2350 voice draft/cancellation metadata (issue #179)
 	@node tests/scripts/validate-physical-agent-control.mjs
 
 test-physical-agent-control-doc: ## Preserve the physical-control authority and safety boundary (issue #179)

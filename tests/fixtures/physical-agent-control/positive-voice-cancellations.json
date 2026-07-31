@@ -1,0 +1,28 @@
+[
+  {
+    "kind": "physical-agent-voice-capture-cancellation",
+    "schema_version": "v1",
+    "cancellation_id": "voice-cancel-watchdog-001",
+    "capture_ref": "voice-capture-watchdog-001",
+    "occurred_at": "2026-07-31T10:01:40Z",
+    "gate": {
+      "profile_id": "desk-main",
+      "profile_version": "v1",
+      "profile_digest": "sha256:afd8d4f33662260487c30653ef50253e6e1a79a957d076b721ec79e855ca3ea0",
+      "begin_intent_id": "streamdeck-ptt-begin-watchdog-001",
+      "begin_binding_id": "deck-ptt-begin-codex",
+      "stream_id": "deck-start-001",
+      "control": "key-2-1",
+      "adapter_instance_ref": "codex-adapter-001",
+      "target_snapshot_ref": "native-target-snapshot-001",
+      "target_snapshot_digest": "sha256:79293cf072ccf5af536879814a60aefddffe62360d4c37157ad149724c5ddfe4"
+    },
+    "reason": "watchdog",
+    "outcome": {
+      "audio_deleted": true,
+      "draft_created": false
+    },
+    "trace_id": "voice-cancel-trace-001",
+    "extensions": []
+  }
+]
