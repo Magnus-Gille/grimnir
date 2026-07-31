@@ -1,7 +1,30 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-28 (Codex) — W0–W5 software runway complete; ADR-008 mutation remains globally disarmed
-**Latest status revision before this handoff:** grimnir `16edee0`
+**Last session:** 2026-07-31 (Codex) — physical agent-control v1 proposed; ADR-008 mutation remains globally disarmed
+**Latest status revision before this handoff:** grimnir `beb6282`
+
+## Physical agent control center — 2026-07-31
+
+- **Grimnir #179** now tracks a proposed local Stream Deck + Teenage Engineering TX–6 control
+  center for Codex, Claude Code, and the Pi coding agent.
+- Branch `codex/physical-ai-control-center` defines the system boundary, authority map, closed
+  `physical-control-intent` / derived `physical-control-state` schema, positive/adversarial
+  fixtures, and documentation guards. Focused checks and the full `make test` suite pass.
+- The design reuses `emollick/codex-stream-deck` as the Codex starting point. Hugin remains the
+  durable consequential-task gate; hardware cannot carry raw prompts, answer approvals, increase
+  permissions, alter autonomy, or become a second orchestration plane.
+- Private M5 `qwen3-coder-next-80b` classified the contract and independently reviewed the staged
+  diff in shadow/unverified mode. Six grounded findings covering trusted evaluation time, complete
+  source binding, canonical profile digests, replay disposition and expiry precedence, and native
+  state/report provenance were fixed with adversarial tests; bounded re-review approved the result.
+  Pi/node conflation was rejected.
+- **Hugin #339** now owns the separately discovered Pi worker defect: its one-shot executor does
+  not carry or verify the selected worktree/cwd. The console design does not use that path as an
+  interactive-session seam.
+- No hardware presence was established. No plugin, adapter repository, service, profile,
+  credential, deployment, or autonomy state was created or changed.
+- **Next decision:** choose the implementation repository/fork and its initial visibility, then
+  implement the Codex-only simulated/Stream Deck slice before binding real TX–6 hardware.
 
 ## Autonomy runway update — 2026-07-28
 

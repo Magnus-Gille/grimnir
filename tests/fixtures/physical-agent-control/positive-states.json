@@ -1,0 +1,51 @@
+[
+  {
+    "kind": "physical-control-state",
+    "schema_version": "v1",
+    "state_id": "codex-state-001",
+    "observed_at": "2026-07-31T10:01:00Z",
+    "updated_at": "2026-07-31T10:00:58Z",
+    "producer": { "adapter": "codex-app-server", "source_ref": "codex-thread-001", "authority": "derived-display" },
+    "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-owned" },
+    "runtime": "active",
+    "workflow": "working",
+    "workflow_evidence": { "kind": "adapter-event", "event_ref": "codex-event-001" },
+    "freshness": "fresh",
+    "trace_id": "control-trace-010",
+    "extensions": []
+  },
+  {
+    "kind": "physical-control-state",
+    "schema_version": "v1",
+    "state_id": "claude-state-001",
+    "observed_at": "2026-07-31T10:01:00Z",
+    "updated_at": "2026-07-31T09:59:00Z",
+    "producer": { "adapter": "claude-stream-json", "source_ref": "claude-session-001", "authority": "derived-display" },
+    "target": { "harness": "claude-code", "session_ref": "slot-2", "ownership": "adapter-observed" },
+    "runtime": "idle",
+    "workflow": "done",
+    "workflow_evidence": {
+      "kind": "structured-report",
+      "report_ref": "claude-report-001",
+      "report_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "freshness": "fresh",
+    "trace_id": "control-trace-011",
+    "extensions": []
+  },
+  {
+    "kind": "physical-control-state",
+    "schema_version": "v1",
+    "state_id": "pi-state-001",
+    "observed_at": "2026-07-31T10:01:00Z",
+    "updated_at": "2026-07-31T08:00:00Z",
+    "producer": { "adapter": "pi-rpc", "source_ref": "pi-session-001", "authority": "derived-display" },
+    "target": { "harness": "pi", "session_ref": "slot-3", "ownership": "adapter-observed" },
+    "runtime": "idle",
+    "workflow": "unknown",
+    "workflow_evidence": { "kind": "none" },
+    "freshness": "stale",
+    "trace_id": "control-trace-012",
+    "extensions": []
+  }
+]

@@ -30,6 +30,11 @@
 | **Improvement scope (routing/configuration vs model weights)** | `docs/adr-006-learning-improvement-scope.md` | learning docs, Hugin and `gille-inference` |
 | **Hugin task/product facts** | Hugin's versioned task, result, receipt and experiment schemas | LearningTaskContract projection, Heimdall |
 | **M5 exposure, served-model, capability & micro-routing facts** | `gille-inference` versioned schemas and ledger | LearningTaskContract projection, Hugin, Heimdall |
+| **Physical control intent/state envelope, profile envelope/digest procedure, closed actions, and safety semantics** | `docs/physical-agent-control-contract.md`, `docs/physical-agent-control-v1.schema.json`, and `docs/physical-agent-control-profile-v1.schema.json` | Local control adapter and Codex/Claude Code/Pi adapters |
+| **Physical device mapping, local profile content, debounce, IPC, and active profile selection** | Owning local control-adapter repository | Stream Deck/TX–6 adapters |
+| **Physical-control native session identity, action execution, and runtime/workflow truth** | Owning Codex, Claude Code, or Pi adapter plus its native harness | Derived display projection |
+| **Physical-control consequential task admission, execution, result, and idempotency** | Hugin's versioned task contracts | Local control adapter and derived display projection |
+| **Physical-control mutation outcome and audit evidence** | Existing owning mutation boundary | Hugin/Heimdall presentation; never the hardware event |
 | **Desired node topology, workload placement and cross-component substrate policy** | `services.json` and [ADR-007](adr-007-node-substrate-contract.md) | Brokkr planning, workload contracts, Heimdall presentation |
 | **Observed node capability, location/network/storage realization and substrate reconciliation evidence** | Brokkr's versioned observation/evidence contract | Grimnir drift view, component preflight, Heimdall presentation |
 | **Workload requirements, drain/verify hooks, service-data migration and workload rollback** | Owning component repository's versioned contract | Brokkr lifecycle adapter, Grimnir planning, Heimdall presentation |
@@ -134,6 +139,13 @@
     nonexistent time, `skip_occurrence`) DST policy, an unknown field, an invalid duration, or an
     unsafe update class/source all fail closed. See
     [`docs/maintenance-policy-contract.md`](maintenance-policy-contract.md).
+
+19. **Physical control is an input seam, never identity or authority.** Grimnir owns the closed
+    envelope and safety semantics; the local adapter owns device/profile interpretation; each
+    harness owns native session truth; and Hugin owns consequential task admission. An expired,
+    replayed, unknown-profile, unowned-target, or authority-increasing intent fails closed.
+    Derived display state cannot certify completion or mutation. Hardware may open an approval in
+    its owning client but cannot answer it.
 
 ## Validation
 

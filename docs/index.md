@@ -21,6 +21,12 @@ the annotation, not only the filename.
 - `docs/node-substrate-contract.md` and `docs/adr-007-node-substrate-contract.md` — The node↔substrate
   contract and the ADR behind it; machine-readable schema in
   `docs/node-substrate-contract-v1.schema.json`
+- `docs/physical-agent-control-contract.md` — Proposed local Stream Deck + Teenage Engineering
+  TX–6 control-center boundary for Codex, Claude Code, and the Pi coding agent: reuse the
+  `emollick/codex-stream-deck` harness layer, keep consequential work Hugin-gated, reject raw
+  prompts/approvals/authority increases, and treat hardware state as a derived display projection;
+  machine-readable closed union in `docs/physical-agent-control-v1.schema.json` and canonical
+  owner-reviewed profile envelope in `docs/physical-agent-control-profile-v1.schema.json`
 
 ## Roles, deployment, and hygiene
 

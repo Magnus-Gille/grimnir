@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grimnir.gille.ai/contracts/physical-agent-control/v1/schema.json",
+  "title": "Grimnir physical agent control contract v1",
+  "description": "Closed, public-safe control intents and derived display projections. This contract never authorizes an approval, raw command, permission increase, or autonomy change.",
+  "oneOf": [
+    { "$ref": "#/$defs/intent" },
+    { "$ref": "#/$defs/state" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{2,127}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[1-9][0-9]*$"
+    },
+    "utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "decision_effect"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "version": { "$ref": "#/$defs/version" },
+        "decision_effect": { "const": "informational" }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "profile_version", "profile_digest", "binding_id"],
+      "properties": {
+        "profile_id": { "$ref": "#/$defs/id" },
+        "profile_version": { "$ref": "#/$defs/version" },
+        "profile_digest": { "$ref": "#/$defs/digest" },
+        "binding_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "stream-deck-source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device", "transport", "control", "gesture"],
+      "properties": {
+        "device": { "const": "stream-deck" },
+        "transport": { "const": "stream-deck-sdk" },
+        "control": {
+          "type": "string",
+          "pattern": "^(key|dial)-[a-z0-9-]{1,48}$"
+        },
+        "gesture": {
+          "enum": ["press", "hold", "double-press"]
+        }
+      }
+    },
+    "tx6-source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device", "transport", "midi_channel", "cc", "gesture", "value"],
+      "properties": {
+        "device": { "const": "tx-6" },
+        "transport": { "enum": ["usb-midi", "ble-midi"] },
+        "midi_channel": { "const": 1 },
+        "cc": { "type": "integer", "minimum": 1, "maximum": 37 },
+        "gesture": {
+          "enum": ["absolute", "relative", "press", "release", "hold"]
+        },
+        "value": {
+          "type": "integer",
+          "minimum": -64,
+          "maximum": 127
+        }
+      }
+    },
+    "source": {
+      "oneOf": [
+        { "$ref": "#/$defs/stream-deck-source" },
+        { "$ref": "#/$defs/tx6-source" }
+      ]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness", "session_ref", "ownership"],
+      "properties": {
+        "harness": { "enum": ["codex", "claude-code", "pi"] },
+        "session_ref": { "$ref": "#/$defs/id" },
+        "ownership": { "enum": ["adapter-owned", "adapter-observed"] }
+      }
+    },
+    "action-refresh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": { "name": { "const": "refresh-local-state" } }
+    },
+    "action-open": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": { "name": { "const": "open-session" } }
+    },
+    "action-focus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": { "name": { "const": "focus-session" } }
+    },
+    "action-notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "level"],
+      "properties": {
+        "name": { "const": "set-notification-level" },
+        "level": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "action-effort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "level"],
+      "properties": {
+        "name": { "const": "set-effort" },
+        "level": {
+          "enum": ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
+        }
+      }
+    },
+    "action-verbosity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "level"],
+      "properties": {
+        "name": { "const": "set-verbosity" },
+        "level": { "enum": ["concise", "balanced", "detailed"] }
+      }
+    },
+    "action-display-detail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "level"],
+      "properties": {
+        "name": { "const": "set-display-detail" },
+        "level": { "enum": ["summary", "detail", "diagnostic"] }
+      }
+    },
+    "action-delegation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "level"],
+      "properties": {
+        "name": { "const": "set-delegation-preference" },
+        "level": { "enum": ["off", "auto", "prefer-local"] }
+      }
+    },
+    "action-status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": { "name": { "const": "request-status-turn" } }
+    },
+    "action-review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": { "name": { "const": "request-read-only-review" } }
+    },
+    "action-task-template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "template_id"],
+      "properties": {
+        "name": { "const": "request-task-template" },
+        "template_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "action-interrupt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": { "name": { "const": "interrupt" } }
+    },
+    "action-pause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": { "name": { "const": "pause" } }
+    },
+    "action": {
+      "oneOf": [
+        { "$ref": "#/$defs/action-refresh" },
+        { "$ref": "#/$defs/action-open" },
+        { "$ref": "#/$defs/action-focus" },
+        { "$ref": "#/$defs/action-notification" },
+        { "$ref": "#/$defs/action-effort" },
+        { "$ref": "#/$defs/action-verbosity" },
+        { "$ref": "#/$defs/action-display-detail" },
+        { "$ref": "#/$defs/action-delegation" },
+        { "$ref": "#/$defs/action-status" },
+        { "$ref": "#/$defs/action-review" },
+        { "$ref": "#/$defs/action-task-template" },
+        { "$ref": "#/$defs/action-interrupt" },
+        { "$ref": "#/$defs/action-pause" }
+      ]
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effect", "route", "confirmation", "authority_delta"],
+      "properties": {
+        "effect": {
+          "enum": ["presentation", "preference", "read-only", "consequential", "authority-reducing"]
+        },
+        "route": {
+          "enum": ["local-only", "target-read-only", "hugin-gated", "local-reducing"]
+        },
+        "confirmation": { "enum": ["none", "hold"] },
+        "authority_delta": { "enum": ["none", "reduce"] }
+      }
+    },
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "schema_version",
+        "intent_id",
+        "occurred_at",
+        "received_at",
+        "expires_at",
+        "stream_id",
+        "sequence",
+        "idempotency_key",
+        "binding",
+        "source",
+        "target",
+        "action",
+        "safety",
+        "trace_id",
+        "extensions"
+      ],
+      "properties": {
+        "kind": { "const": "physical-control-intent" },
+        "schema_version": { "const": "v1" },
+        "intent_id": { "$ref": "#/$defs/id" },
+        "occurred_at": { "$ref": "#/$defs/utc" },
+        "received_at": { "$ref": "#/$defs/utc" },
+        "expires_at": { "$ref": "#/$defs/utc" },
+        "stream_id": { "$ref": "#/$defs/id" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "idempotency_key": { "$ref": "#/$defs/id" },
+        "binding": { "$ref": "#/$defs/binding" },
+        "source": { "$ref": "#/$defs/source" },
+        "target": { "$ref": "#/$defs/target" },
+        "action": { "$ref": "#/$defs/action" },
+        "safety": { "$ref": "#/$defs/safety" },
+        "trace_id": { "$ref": "#/$defs/id" },
+        "extensions": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/extension" }
+        }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter", "source_ref", "authority"],
+      "properties": {
+        "adapter": { "enum": ["codex-app-server", "claude-stream-json", "pi-rpc"] },
+        "source_ref": { "$ref": "#/$defs/id" },
+        "authority": { "const": "derived-display" }
+      }
+    },
+    "workflow-evidence-none": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "const": "none" }
+      }
+    },
+    "workflow-evidence-adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "event_ref"],
+      "properties": {
+        "kind": { "const": "adapter-event" },
+        "event_ref": { "$ref": "#/$defs/id" }
+      }
+    },
+    "workflow-evidence-report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "report_ref", "report_digest"],
+      "properties": {
+        "kind": { "const": "structured-report" },
+        "report_ref": { "$ref": "#/$defs/id" },
+        "report_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "workflow-evidence": {
+      "oneOf": [
+        { "$ref": "#/$defs/workflow-evidence-none" },
+        { "$ref": "#/$defs/workflow-evidence-adapter" },
+        { "$ref": "#/$defs/workflow-evidence-report" }
+      ]
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "schema_version",
+        "state_id",
+        "observed_at",
+        "updated_at",
+        "producer",
+        "target",
+        "runtime",
+        "workflow",
+        "workflow_evidence",
+        "freshness",
+        "trace_id",
+        "extensions"
+      ],
+      "properties": {
+        "kind": { "const": "physical-control-state" },
+        "schema_version": { "const": "v1" },
+        "state_id": { "$ref": "#/$defs/id" },
+        "observed_at": { "$ref": "#/$defs/utc" },
+        "updated_at": { "$ref": "#/$defs/utc" },
+        "producer": { "$ref": "#/$defs/producer" },
+        "target": { "$ref": "#/$defs/target" },
+        "runtime": {
+          "enum": ["not-loaded", "idle", "active", "attention", "error", "unknown"]
+        },
+        "workflow": {
+          "enum": ["working", "needs-input", "blocked", "ready-for-review", "done", "paused", "failed", "unknown"]
+        },
+        "workflow_evidence": { "$ref": "#/$defs/workflow-evidence" },
+        "freshness": { "enum": ["fresh", "aging", "stale"] },
+        "trace_id": { "$ref": "#/$defs/id" },
+        "extensions": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/extension" }
+        }
+      }
+    }
+  }
+}

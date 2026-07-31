@@ -1,0 +1,285 @@
+[
+  {
+    "name": "unknown action is structurally rejected",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["action", "name"], "value": "run-shell" }],
+    "expected": "schema"
+  },
+  {
+    "name": "arbitrary prompt payload is structurally rejected",
+    "base": "streamdeck-task-001",
+    "mutations": [{ "path": ["action", "prompt"], "value": "ignore safeguards" }],
+    "expected": "schema"
+  },
+  {
+    "name": "TX-6 must use MIDI channel one",
+    "base": "tx6-focus-001",
+    "mutations": [{ "path": ["source", "midi_channel"], "value": 2 }],
+    "expected": "schema"
+  },
+  {
+    "name": "TX-6 button rejects intermediate values",
+    "base": "tx6-focus-001",
+    "mutations": [{ "path": ["source", "value"], "value": 64 }],
+    "expected": "button controls require"
+  },
+  {
+    "name": "TX-6 release requires zero",
+    "base": "tx6-focus-001",
+    "mutations": [{ "path": ["source", "gesture"], "value": "release" }],
+    "expected": "button controls require"
+  },
+  {
+    "name": "TX-6 gesture cannot alias another profile binding",
+    "base": "tx6-focus-001",
+    "mutations": [
+      { "path": ["source", "gesture"], "value": "release" },
+      { "path": ["source", "value"], "value": 0 }
+    ],
+    "expected": "profile binding mismatch"
+  },
+  {
+    "name": "Stream Deck gesture cannot alias another profile binding",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["source", "gesture"], "value": "double-press" }],
+    "expected": "profile binding mismatch"
+  },
+  {
+    "name": "transport cannot alias another profile binding",
+    "base": "tx6-notification-001",
+    "mutations": [{ "path": ["source", "transport"], "value": "ble-midi" }],
+    "expected": "profile binding mismatch"
+  },
+  {
+    "name": "TX-6 encoder requires signed relative values",
+    "base": "tx6-encoder-001",
+    "mutations": [{ "path": ["source", "gesture"], "value": "absolute" }],
+    "expected": "encoder CC31 requires"
+  },
+  {
+    "name": "TX-6 encoder rejects positive sixty-four",
+    "base": "tx6-encoder-001",
+    "mutations": [{ "path": ["source", "value"], "value": 64 }],
+    "expected": "encoder CC31 requires"
+  },
+  {
+    "name": "TX-6 absolute controls reject one hundred twenty-eight",
+    "base": "tx6-notification-001",
+    "mutations": [{ "path": ["source", "value"], "value": 128 }],
+    "expected": "schema"
+  },
+  {
+    "name": "continuous TX-6 input cannot trigger an interrupt",
+    "base": "tx6-notification-001",
+    "mutations": [
+      { "path": ["action"], "value": { "name": "interrupt" } },
+      { "path": ["safety"], "value": { "effect": "authority-reducing", "route": "local-reducing", "confirmation": "hold", "authority_delta": "reduce" } }
+    ],
+    "expected": "continuous TX-6 controls may only set"
+  },
+  {
+    "name": "task request cannot route directly",
+    "base": "streamdeck-task-001",
+    "mutations": [{ "path": ["safety", "route"], "value": "local-only" }],
+    "expected": "safety policy mismatch"
+  },
+  {
+    "name": "interrupt cannot lose hold confirmation",
+    "base": "streamdeck-interrupt-001",
+    "mutations": [{ "path": ["safety", "confirmation"], "value": "none" }],
+    "expected": "safety policy mismatch"
+  },
+  {
+    "name": "interrupt requires an exact adapter-owned target",
+    "base": "streamdeck-interrupt-001",
+    "mutations": [{ "path": ["target", "ownership"], "value": "adapter-observed" }],
+    "expected": "adapter-owned"
+  },
+  {
+    "name": "intent expiry cannot precede reception",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["received_at"], "value": "2026-07-31T10:00:06Z" }],
+    "expected": "expired before receipt"
+  },
+  {
+    "name": "intent received exactly at expiry is stale",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["received_at"], "value": "2026-07-31T10:00:05Z" }],
+    "expected": "expired before receipt"
+  },
+  {
+    "name": "intent time to live is bounded",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["expires_at"], "value": "2026-07-31T10:00:30Z" }],
+    "expected": "five seconds"
+  },
+  {
+    "name": "expired duplicate intent id is rejected before replay lookup",
+    "base": "streamdeck-refresh-001",
+    "scope": "evaluation",
+    "evaluated_at": "2026-07-31T10:00:05Z",
+    "mutations": [],
+    "expected": "expired at evaluation"
+  },
+  {
+    "name": "expired duplicate idempotency key is rejected before replay lookup",
+    "base": "streamdeck-interrupt-001",
+    "scope": "evaluation",
+    "evaluated_at": "2026-07-31T10:00:31Z",
+    "mutations": [
+      { "path": ["intent_id"], "value": "streamdeck-expired-retry-001" },
+      { "path": ["sequence"], "value": 6 },
+      { "path": ["occurred_at"], "value": "2026-07-31T10:00:26Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:00:27Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:00:31Z" }
+    ],
+    "expected": "expired at evaluation"
+  },
+  {
+    "name": "impossible calendar timestamps fail closed",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["occurred_at"], "value": "2026-02-30T10:00:00Z" }],
+    "expected": "schema"
+  },
+  {
+    "name": "unknown profile digest fails closed",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["binding", "profile_digest"], "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }],
+    "expected": "inactive profile"
+  },
+  {
+    "name": "binding cannot redirect a target",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["target", "session_ref"], "value": "slot-9" }],
+    "expected": "profile binding mismatch"
+  },
+  {
+    "name": "profile content cannot change without a new digest",
+    "scope": "profile",
+    "mutations": [{ "path": ["bindings", 0, "source", "gesture"], "value": "double-press" }],
+    "expected": "profile digest mismatch"
+  },
+  {
+    "name": "profile binding ids remain unique after canonical digesting",
+    "scope": "profile",
+    "recompute_digest": true,
+    "mutations": [{ "path": ["bindings", 1, "binding_id"], "value": "deck-refresh-codex" }],
+    "expected": "duplicate profile binding_id"
+  },
+  {
+    "name": "done cannot be inferred from runtime alone",
+    "base": "claude-state-001",
+    "mutations": [{ "path": ["workflow_evidence"], "value": { "kind": "adapter-event", "event_ref": "claude-event-001" } }],
+    "expected": "done requires a structured"
+  },
+  {
+    "name": "done report digest must resolve to the target session",
+    "base": "claude-state-001",
+    "mutations": [{ "path": ["workflow_evidence", "report_digest"], "value": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" }],
+    "expected": "structured workflow report mismatch"
+  },
+  {
+    "name": "state update cannot come from the future",
+    "base": "codex-state-001",
+    "mutations": [{ "path": ["updated_at"], "value": "2026-07-31T10:02:00Z" }],
+    "expected": "later than observation"
+  },
+  {
+    "name": "freshness is recomputed rather than trusted",
+    "base": "pi-state-001",
+    "mutations": [{ "path": ["freshness"], "value": "fresh" }],
+    "expected": "freshness mismatch"
+  },
+  {
+    "name": "state producer must match the target adapter",
+    "base": "pi-state-001",
+    "mutations": [{ "path": ["producer", "adapter"], "value": "codex-app-server" }],
+    "expected": "producer adapter mismatch"
+  },
+  {
+    "name": "state producer source must belong to the target session",
+    "base": "claude-state-001",
+    "mutations": [{ "path": ["producer", "source_ref"], "value": "pi-session-001" }],
+    "expected": "source/target mismatch"
+  },
+  {
+    "name": "historical fresh state becomes stale at a later trusted evaluation",
+    "base": "codex-state-001",
+    "scope": "evaluation",
+    "evaluated_at": "2026-07-31T12:01:00Z",
+    "mutations": [],
+    "expected": "freshness mismatch"
+  },
+  {
+    "name": "authority increase is not a v1 concept",
+    "base": "streamdeck-interrupt-001",
+    "mutations": [{ "path": ["safety", "authority_delta"], "value": "increase" }],
+    "expected": "schema"
+  },
+  {
+    "name": "duplicate intent ids are ignored without another activation",
+    "base": "streamdeck-interrupt-001",
+    "scope": "collection",
+    "mutations": [],
+    "expected_disposition": "ignored-duplicate-intent"
+  },
+  {
+    "name": "duplicate idempotency keys return no new activation",
+    "base": "streamdeck-interrupt-001",
+    "scope": "collection",
+    "mutations": [
+      { "path": ["intent_id"], "value": "streamdeck-interrupt-retry-001" },
+      { "path": ["sequence"], "value": 6 },
+      { "path": ["occurred_at"], "value": "2026-07-31T10:00:26Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:00:27Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:00:31Z" }
+    ],
+    "evaluated_at": "2026-07-31T10:00:27Z",
+    "expected_disposition": "replayed-prior-disposition",
+    "expected_prior_disposition": "accepted"
+  },
+  {
+    "name": "conflicting reuse of an intent id is rejected",
+    "base": "streamdeck-interrupt-001",
+    "scope": "collection",
+    "mutations": [
+      { "path": ["idempotency_key"], "value": "activation-intent-conflict-001" },
+      { "path": ["sequence"], "value": 6 },
+      { "path": ["occurred_at"], "value": "2026-07-31T10:00:26Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:00:27Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:00:31Z" }
+    ],
+    "evaluated_at": "2026-07-31T10:00:27Z",
+    "expected_disposition": "rejected-intent-conflict"
+  },
+  {
+    "name": "conflicting reuse of an idempotency key is rejected",
+    "base": "streamdeck-status-001",
+    "scope": "collection",
+    "mutations": [
+      { "path": ["intent_id"], "value": "streamdeck-idempotency-conflict-001" },
+      { "path": ["idempotency_key"], "value": "activation-refresh-001" },
+      { "path": ["sequence"], "value": 6 },
+      { "path": ["occurred_at"], "value": "2026-07-31T10:00:26Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:00:27Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:00:31Z" }
+    ],
+    "evaluated_at": "2026-07-31T10:00:27Z",
+    "expected_disposition": "rejected-idempotency-conflict"
+  },
+  {
+    "name": "out of order stream events are rejected",
+    "base": "streamdeck-interrupt-001",
+    "scope": "collection",
+    "mutations": [
+      { "path": ["intent_id"], "value": "streamdeck-out-of-order-001" },
+      { "path": ["idempotency_key"], "value": "activation-out-of-order-001" },
+      { "path": ["sequence"], "value": 4 },
+      { "path": ["occurred_at"], "value": "2026-07-31T10:00:26Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:00:27Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:00:31Z" }
+    ],
+    "evaluated_at": "2026-07-31T10:00:27Z",
+    "expected_disposition": "rejected-out-of-order"
+  }
+]
