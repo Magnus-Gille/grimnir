@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grimnir.gille.ai/contracts/physical-agent-voice-capture-cancellation/v1/schema.json",
+  "title": "Grimnir physical agent voice capture cancellation v1",
+  "description": "Public-safe evidence that a local EP-2350 capture ended without a draft and its audio was deleted. This record carries no audio, transcript, action, or authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema_version",
+    "cancellation_id",
+    "capture_ref",
+    "occurred_at",
+    "gate",
+    "reason",
+    "outcome",
+    "trace_id",
+    "extensions"
+  ],
+  "properties": {
+    "kind": { "const": "physical-agent-voice-capture-cancellation" },
+    "schema_version": { "const": "v1" },
+    "cancellation_id": { "$ref": "#/$defs/id" },
+    "capture_ref": { "$ref": "#/$defs/id" },
+    "occurred_at": { "$ref": "#/$defs/utc" },
+    "gate": { "$ref": "#/$defs/gate" },
+    "reason": { "enum": ["watchdog", "focus-loss", "source-loss", "adapter-failure"] },
+    "outcome": { "$ref": "#/$defs/outcome" },
+    "trace_id": { "$ref": "#/$defs/id" },
+    "extensions": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/extension" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{2,127}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[1-9][0-9]*$"
+    },
+    "utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "decision_effect"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "version": { "$ref": "#/$defs/version" },
+        "decision_effect": { "const": "informational" }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "profile_version",
+        "profile_digest",
+        "begin_intent_id",
+        "begin_binding_id",
+        "stream_id",
+        "control",
+        "adapter_instance_ref",
+        "target_snapshot_ref",
+        "target_snapshot_digest"
+      ],
+      "properties": {
+        "profile_id": { "$ref": "#/$defs/id" },
+        "profile_version": { "$ref": "#/$defs/version" },
+        "profile_digest": { "$ref": "#/$defs/digest" },
+        "begin_intent_id": { "$ref": "#/$defs/id" },
+        "begin_binding_id": { "$ref": "#/$defs/id" },
+        "stream_id": { "$ref": "#/$defs/id" },
+        "control": { "type": "string", "pattern": "^key-[a-z0-9-]{1,48}$" },
+        "adapter_instance_ref": { "$ref": "#/$defs/id" },
+        "target_snapshot_ref": { "$ref": "#/$defs/id" },
+        "target_snapshot_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["audio_deleted", "draft_created"],
+      "properties": {
+        "audio_deleted": { "const": true },
+        "draft_created": { "const": false }
+      }
+    }
+  }
+}

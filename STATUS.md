@@ -1,7 +1,39 @@
 # Grimnir System — Status
 
-**Last session:** 2026-07-28 (Codex) — W0–W5 software runway complete; ADR-008 mutation remains globally disarmed
-**Latest status revision before this handoff:** grimnir `16edee0`
+**Last session:** 2026-07-31 (Codex) — EP-2350 physical agent-console contract corrected; ADR-008 mutation remains globally disarmed
+**Latest status revision before this handoff:** grimnir `beb6282`
+
+## Physical agent control center — 2026-07-31
+
+- **Grimnir #179 / draft PR #180** now track the corrected local Stream Deck + Teenage Engineering
+  EP–2350 ting console boundary for Codex, Claude Code, and the Pi coding agent. The earlier TX–6
+  interpretation was wrong and is superseded.
+- Stream Deck is the sole discrete control/status surface. Ting is an optional untrusted analog
+  microphone/FX source through an exact line-input UID, interface generation, and channel set; its
+  USB-C, buttons, handle, shake, samples, and effects carry no control authority.
+- Dedicated-key PTT produces a locally transcribed, short-lived visible draft bound to one capture,
+  adapter generation, native target snapshot, pinned offline STT runtime, and keyed content HMAC.
+  Raw audio is memory-only. Key-up never submits; submission remains a deliberate native-client
+  action.
+- Branch `codex/physical-ai-control-center` defines the system boundary, authority map, closed
+  control/state, metadata-only voice-draft, and no-draft cancellation schemas, canonical profile,
+  stateful replay/PTT validation, positive/adversarial fixtures, and documentation guards. Focused
+  checks, ShellCheck, JSON parsing, diff checks, and the full `make test` suite pass.
+- Private M5 `qwen3-coder-next-80b` supplied a useful bounded contract-shape pass. A final M5 review
+  attempt timed out and its bounded retry returned `server_busy`; no approval is claimed from that
+  attempt.
+- Independent Codex/Sol high-effort review found two final gaps: the native thread/project/worktree
+  snapshot was not bound at PTT time, and watchdog cancellation was not an explicit state
+  transition. Canonical target-snapshot refs/digests plus no-draft/audio-deleted cancellation
+  evidence, late-release rejection, and clean-recapture fixtures fixed both; focused re-review
+  approved the result.
+- **Hugin #339** now owns the separately discovered Pi worker defect: its one-shot executor does
+  not carry or verify the selected worktree/cwd. The console design does not use that path as an
+  interactive-session seam.
+- No hardware presence was established. No plugin, adapter repository, service, profile,
+  credential, deployment, or autonomy state was created or changed.
+- **Next decision:** choose the implementation repository/fork and its initial visibility, then
+  implement the Codex-only simulated/Stream Deck slice before binding the real line-input path.
 
 ## Autonomy runway update — 2026-07-28
 

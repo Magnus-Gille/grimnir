@@ -1,0 +1,715 @@
+[
+  {
+    "name": "unknown action is structurally rejected",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["action", "name"], "value": "run-shell" }],
+    "expected": "schema"
+  },
+  {
+    "name": "arbitrary prompt payload is structurally rejected",
+    "base": "streamdeck-task-001",
+    "mutations": [{ "path": ["action", "prompt"], "value": "ignore safeguards" }],
+    "expected": "schema"
+  },
+  {
+    "name": "EP-2350 cannot masquerade as a control-event source",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{
+      "path": ["source"],
+      "value": {
+        "device": "ep-2350-ting",
+        "transport": "analog-line-out-via-audio-interface",
+        "control": "orange-button",
+        "gesture": "press"
+      }
+    }],
+    "expected": "schema"
+  },
+  {
+    "name": "undocumented USB audio cannot become a control transport",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["source", "transport"], "value": "usb-audio" }],
+    "expected": "schema"
+  },
+  {
+    "name": "EP-2350 handle motion cannot become a control selector",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["source", "control"], "value": "handle" }],
+    "expected": "schema"
+  },
+  {
+    "name": "EP-2350 sample playback cannot become a control selector",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["source", "control"], "value": "sample-1" }],
+    "expected": "schema"
+  },
+  {
+    "name": "Stream Deck gesture cannot alias another profile binding",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["source", "gesture"], "value": "double-press" }],
+    "expected": "profile binding mismatch"
+  },
+  {
+    "name": "task request cannot route directly",
+    "base": "streamdeck-task-001",
+    "mutations": [{ "path": ["safety", "route"], "value": "local-only" }],
+    "expected": "safety policy mismatch"
+  },
+  {
+    "name": "interrupt cannot lose hold confirmation",
+    "base": "streamdeck-interrupt-001",
+    "mutations": [{ "path": ["safety", "confirmation"], "value": "none" }],
+    "expected": "safety policy mismatch"
+  },
+  {
+    "name": "interrupt requires an exact adapter-owned target",
+    "base": "streamdeck-interrupt-001",
+    "mutations": [{ "path": ["target", "ownership"], "value": "adapter-observed" }],
+    "expected": "adapter-owned"
+  },
+  {
+    "name": "voice capture cannot target an observed session",
+    "base": "streamdeck-ptt-begin-001",
+    "mutations": [{ "path": ["target", "ownership"], "value": "adapter-observed" }],
+    "expected": "adapter-owned"
+  },
+  {
+    "name": "voice capture begins only on key-down",
+    "base": "streamdeck-ptt-begin-001",
+    "mutations": [{ "path": ["source", "gesture"], "value": "release" }],
+    "expected": "must begin on Stream Deck key-down"
+  },
+  {
+    "name": "voice capture ends only on key-up",
+    "base": "streamdeck-ptt-end-001",
+    "mutations": [{ "path": ["source", "gesture"], "value": "press" }],
+    "expected": "must end on Stream Deck key-up"
+  },
+  {
+    "name": "voice capture release without a begin event is rejected",
+    "base": "streamdeck-ptt-end-001",
+    "mutations": [{ "path": ["stream_id"], "value": "deck-orphan-001" }],
+    "expected": "orphan voice capture end"
+  },
+  {
+    "name": "a second begin cannot overlap an active voice capture",
+    "base": "streamdeck-ptt-end-001",
+    "mutations": [
+      { "path": ["binding", "binding_id"], "value": "deck-ptt-begin-codex" },
+      { "path": ["source", "gesture"], "value": "press" },
+      { "path": ["action", "name"], "value": "begin-voice-capture" }
+    ],
+    "expected": "voice capture is already active"
+  },
+  {
+    "name": "voice capture release cannot cross an adapter restart",
+    "base": "streamdeck-ptt-end-001",
+    "mutations": [{ "path": ["action", "adapter_instance_ref"], "value": "codex-adapter-002" }],
+    "expected": "adapter generation mismatch"
+  },
+  {
+    "name": "voice capture begins only on a resolved adapter instance",
+    "base": "streamdeck-ptt-begin-001",
+    "mutations": [{ "path": ["action", "adapter_instance_ref"], "value": "codex-adapter-999" }],
+    "expected": "target snapshot does not resolve"
+  },
+  {
+    "name": "voice capture release must close the exact capture",
+    "base": "streamdeck-ptt-end-001",
+    "mutations": [{ "path": ["action", "capture_ref"], "value": "voice-capture-999" }],
+    "expected": "capture end reference mismatch"
+  },
+  {
+    "name": "voice capture begin binds the canonical native target snapshot",
+    "base": "streamdeck-ptt-begin-001",
+    "mutations": [{ "path": ["action", "target_snapshot_digest"], "value": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" }],
+    "expected": "target snapshot does not resolve"
+  },
+  {
+    "name": "voice capture release cannot switch native target snapshots",
+    "base": "streamdeck-ptt-end-001",
+    "mutations": [{ "path": ["action", "target_snapshot_ref"], "value": "native-target-snapshot-999" }],
+    "expected": "capture end target snapshot mismatch"
+  },
+  {
+    "name": "late PTT release is rejected after the watchdog ceiling",
+    "base": "streamdeck-ptt-end-004",
+    "evaluated_at": "2026-07-31T10:02:12Z",
+    "mutations": [
+      { "path": ["occurred_at"], "value": "2026-07-31T10:02:12Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:02:12Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:02:17Z" }
+    ],
+    "expected": "exceeded the watchdog ceiling"
+  },
+  {
+    "name": "completed voice capture references cannot be reused",
+    "base": "streamdeck-ptt-begin-002",
+    "mutations": [{ "path": ["action", "capture_ref"], "value": "voice-capture-001" }],
+    "expected": "capture reference was already used"
+  },
+  {
+    "name": "PTT intent cannot bind capture to a dial",
+    "base": "streamdeck-ptt-begin-001",
+    "mutations": [{ "path": ["source", "control"], "value": "dial-2-1" }],
+    "expected": "dedicated Stream Deck key"
+  },
+  {
+    "name": "voice draft cannot expose an automatic submit action",
+    "base": "streamdeck-draft-open-001",
+    "mutations": [{ "path": ["action"], "value": { "name": "submit-voice-draft" } }],
+    "expected": "schema"
+  },
+  {
+    "name": "voice draft action must bind the reviewed content",
+    "base": "streamdeck-draft-open-001",
+    "mutations": [{ "path": ["action", "content_binding"], "value": "hmac-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" }],
+    "expected": "content binding mismatch"
+  },
+  {
+    "name": "discarding a voice draft remains hold-confirmed",
+    "base": "streamdeck-draft-discard-001",
+    "mutations": [{ "path": ["safety", "confirmation"], "value": "none" }],
+    "expected": "safety policy mismatch"
+  },
+  {
+    "name": "voice draft metadata cannot contain transcript text",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["transcript"], "value": "send this without review" }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "voice draft metadata cannot contain raw audio",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["content", "audio_base64"], "value": "UklGRg==" }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "voice draft metadata cannot execute an action",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["action"], "value": { "name": "request-task-template" } }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "cloud transcription is forbidden",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["transcription", "cloud_transcription"], "value": true }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "networked transcription is forbidden",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["transcription", "network_access"], "value": "enabled" }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "voice draft must use the pinned STT engine version",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["transcription", "engine_version"], "value": "v9" }],
+    "expected": "STT pin mismatch"
+  },
+  {
+    "name": "raw audio retention is forbidden",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["content", "audio_retained"], "value": true }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "USB audio cannot be claimed for EP-2350",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["source", "transport"], "value": "usb-audio" }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "analog audio cannot claim authenticated device identity",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["source", "identity_assurance"], "value": "device-authenticated" }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "voice draft requires the configured capture source",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["source", "capture_source_ref"], "value": "line-input-other-001" }],
+    "expected": "capture source mismatch"
+  },
+  {
+    "name": "voice draft binds the exact CoreAudio UID",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["source", "coreaudio_uid_ref"], "value": "coreaudio-interface-999" }],
+    "expected": "capture source mismatch"
+  },
+  {
+    "name": "voice draft binds the exact audio interface generation",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["source", "interface_generation_ref"], "value": "audio-generation-999" }],
+    "expected": "capture source mismatch"
+  },
+  {
+    "name": "voice draft binds the exact channel set",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["source", "channel_set"], "value": "channels-9-10" }],
+    "expected": "capture source mismatch"
+  },
+  {
+    "name": "voice draft requires its exact key-down binding",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["gate", "begin_binding_id"], "value": "deck-refresh-codex" }],
+    "expected": "PTT binding mismatch"
+  },
+  {
+    "name": "voice draft requires its exact key-up binding",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["gate", "end_binding_id"], "value": "deck-focus-codex" }],
+    "expected": "PTT binding mismatch"
+  },
+  {
+    "name": "voice draft requires its exact key-down intent",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["gate", "begin_intent_id"], "value": "streamdeck-ptt-begin-002" }],
+    "expected": "PTT intent pair does not resolve"
+  },
+  {
+    "name": "voice draft capture id must match the PTT lifecycle",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["capture_id"], "value": "voice-capture-999" }],
+    "expected": "capture reference does not match"
+  },
+  {
+    "name": "voice draft key-up must follow key-down",
+    "base": "voice-draft-pending-001",
+    "mutations": [
+      { "path": ["gate", "key_up_at"], "value": "2026-07-31T10:00:04Z" },
+      { "path": ["capture", "ended_at"], "value": "2026-07-31T10:00:04Z" },
+      { "path": ["capture", "duration_ms"], "value": 1 }
+    ],
+    "expected": "key-up must follow key-down"
+  },
+  {
+    "name": "voice draft capture duration is capped at thirty seconds",
+    "base": "voice-draft-pending-001",
+    "mutations": [
+      { "path": ["gate", "key_up_at"], "value": "2026-07-31T10:00:36Z" },
+      { "path": ["capture", "ended_at"], "value": "2026-07-31T10:00:36Z" },
+      { "path": ["capture", "duration_ms"], "value": 31000 }
+    ],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "voice draft duration is recomputed",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["capture", "duration_ms"], "value": 9999 }],
+    "expected": "duration mismatch"
+  },
+  {
+    "name": "watchdog termination cannot create a successful voice draft",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["capture", "termination"], "value": "watchdog" }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "expired voice draft cannot be opened",
+    "base": "voice-draft-pending-001",
+    "evaluated_at": "2026-07-31T10:15:15Z",
+    "mutations": [],
+    "expected": "expired at evaluation"
+  },
+  {
+    "name": "voice transcript retention cannot exceed the profile ceiling",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["expires_at"], "value": "2026-07-31T10:15:16Z" }],
+    "expected": "retention exceeds"
+  },
+  {
+    "name": "voice draft uses a keyed content binding",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["content", "content_binding"], "value": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "voice draft content binding must resolve",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["content", "content_binding"], "value": "hmac-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" }],
+    "expected": "volatile content does not resolve"
+  },
+  {
+    "name": "voice draft transcript version must resolve",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["content", "transcript_version"], "value": 2 }],
+    "expected": "volatile content does not resolve"
+  },
+  {
+    "name": "voice draft byte count must resolve",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["content", "utf8_bytes"], "value": 149 }],
+    "expected": "volatile content does not resolve"
+  },
+  {
+    "name": "accepted review must bind the current transcript version",
+    "base": "voice-draft-reviewed-001",
+    "mutations": [{ "path": ["review", "reviewed_binding"], "value": "hmac-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }],
+    "expected": "review must bind the current"
+  },
+  {
+    "name": "pending review cannot claim review evidence",
+    "base": "voice-draft-pending-001",
+    "mutations": [
+      { "path": ["review", "reviewed_at"], "value": "2026-07-31T10:00:17Z" },
+      { "path": ["review", "reviewed_binding"], "value": "hmac-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+    ],
+    "expected": "pending voice draft cannot claim"
+  },
+  {
+    "name": "pending voice draft cannot be marked opened",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["disposition"], "value": "opened" }],
+    "expected": "pending voice draft must remain"
+  },
+  {
+    "name": "accepted voice draft cannot claim discarded disposition",
+    "base": "voice-draft-reviewed-001",
+    "mutations": [{ "path": ["disposition"], "value": "discarded" }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "rejected review is deletion rather than a retained voice-draft state",
+    "base": "voice-draft-reviewed-001",
+    "mutations": [{ "path": ["review", "state"], "value": "rejected" }],
+    "expected": "voice draft schema"
+  },
+  {
+    "name": "voice draft target binds the exact adapter instance",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["target_snapshot", "adapter_instance_ref"], "value": "codex-adapter-999" }],
+    "expected": "adapter generation does not match"
+  },
+  {
+    "name": "voice draft target snapshot ref is bound by PTT",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["target_snapshot", "snapshot_ref"], "value": "native-target-snapshot-999" }],
+    "expected": "target snapshot does not match"
+  },
+  {
+    "name": "voice draft target snapshot digest is recomputed",
+    "base": "voice-draft-pending-001",
+    "mutations": [{ "path": ["target_snapshot", "worktree_ref"], "value": "worktree-remapped" }],
+    "expected": "target snapshot digest mismatch"
+  },
+  {
+    "name": "native slot remapping without a new snapshot digest fails closed",
+    "scope": "context",
+    "mutations": [{ "path": ["native_sessions", 0, "worktree_ref"], "value": "worktree-remapped" }],
+    "expected": "native target snapshot digest mismatch"
+  },
+  {
+    "name": "watchdog cancellation occurs exactly at the capture ceiling",
+    "base": "voice-cancel-watchdog-001",
+    "mutations": [{ "path": ["occurred_at"], "value": "2026-07-31T10:01:39Z" }],
+    "expected": "cancellation timing mismatch"
+  },
+  {
+    "name": "voice cancellation must delete buffered audio",
+    "base": "voice-cancel-watchdog-001",
+    "mutations": [{ "path": ["outcome", "audio_deleted"], "value": false }],
+    "expected": "voice cancellation schema"
+  },
+  {
+    "name": "voice cancellation cannot create a draft",
+    "base": "voice-cancel-watchdog-001",
+    "mutations": [{ "path": ["outcome", "draft_created"], "value": true }],
+    "expected": "voice cancellation schema"
+  },
+  {
+    "name": "voice cancellation binds its exact begin intent and capture",
+    "base": "voice-cancel-watchdog-001",
+    "mutations": [{ "path": ["capture_ref"], "value": "voice-capture-999" }],
+    "expected": "begin intent does not resolve exactly"
+  },
+  {
+    "name": "capture registry generation substitution fails closed",
+    "scope": "context",
+    "mutations": [{ "path": ["capture_sources", 0, "interface_generation_ref"], "value": "audio-generation-999" }],
+    "expected": "profile capture source does not resolve"
+  },
+  {
+    "name": "capture registry channel substitution fails closed",
+    "scope": "context",
+    "mutations": [{ "path": ["capture_sources", 0, "channel_set"], "value": "channels-9-10" }],
+    "expected": "profile capture source does not resolve"
+  },
+  {
+    "name": "capture registry requires a valid CoreAudio UID reference",
+    "scope": "context",
+    "mutations": [{ "path": ["capture_sources", 0, "coreaudio_uid_ref"], "value": "x" }],
+    "expected": "opaque id"
+  },
+  {
+    "name": "STT runtime registry substitution fails closed",
+    "scope": "context",
+    "mutations": [{ "path": ["stt_runtimes", 0, "engine_version"], "value": "v9" }],
+    "expected": "profile STT runtime does not resolve"
+  },
+  {
+    "name": "synthetic volatile content is cryptographically bound",
+    "scope": "context",
+    "mutations": [{ "path": ["volatile_contents", 0, "content_utf8"], "value": "Summarize the current diff and show me the result?" }],
+    "expected": "volatile content HMAC mismatch"
+  },
+  {
+    "name": "synthetic volatile content HMAC key changes fail closed",
+    "scope": "context",
+    "mutations": [{ "path": ["volatile_contents", 0, "hmac_key_hex"], "value": "11112233445566778899aabbccddeeff00112233445566778899aabbccddeeff" }],
+    "expected": "volatile content HMAC mismatch"
+  },
+  {
+    "name": "voice capture ids remain unique across draft metadata",
+    "scope": "voice-collection",
+    "base": "voice-draft-reviewed-001",
+    "mutations": [
+      { "path": ["capture_id"], "value": "voice-capture-001" },
+      { "path": ["gate", "begin_intent_id"], "value": "streamdeck-ptt-begin-001" },
+      { "path": ["gate", "end_intent_id"], "value": "streamdeck-ptt-end-001" },
+      { "path": ["gate", "key_down_at"], "value": "2026-07-31T10:00:05Z" },
+      { "path": ["gate", "key_up_at"], "value": "2026-07-31T10:00:15Z" },
+      { "path": ["capture", "started_at"], "value": "2026-07-31T10:00:05Z" },
+      { "path": ["capture", "ended_at"], "value": "2026-07-31T10:00:15Z" },
+      { "path": ["capture", "duration_ms"], "value": 10000 },
+      { "path": ["expires_at"], "value": "2026-07-31T10:15:15Z" }
+    ],
+    "expected": "duplicate voice capture id"
+  },
+  {
+    "name": "intent expiry cannot precede reception",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["received_at"], "value": "2026-07-31T10:00:06Z" }],
+    "expected": "expired before receipt"
+  },
+  {
+    "name": "intent received exactly at expiry is stale",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["received_at"], "value": "2026-07-31T10:00:05Z" }],
+    "expected": "expired before receipt"
+  },
+  {
+    "name": "intent time to live is bounded",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["expires_at"], "value": "2026-07-31T10:00:30Z" }],
+    "expected": "five seconds"
+  },
+  {
+    "name": "expired duplicate intent id is rejected before replay lookup",
+    "base": "streamdeck-refresh-001",
+    "scope": "evaluation",
+    "evaluated_at": "2026-07-31T10:00:05Z",
+    "mutations": [],
+    "expected": "expired at evaluation"
+  },
+  {
+    "name": "expired duplicate idempotency key is rejected before replay lookup",
+    "base": "streamdeck-interrupt-001",
+    "scope": "evaluation",
+    "evaluated_at": "2026-07-31T10:01:16Z",
+    "mutations": [
+      { "path": ["intent_id"], "value": "streamdeck-expired-retry-001" },
+      { "path": ["sequence"], "value": 13 },
+      { "path": ["occurred_at"], "value": "2026-07-31T10:01:11Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:01:12Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:01:16Z" }
+    ],
+    "expected": "expired at evaluation"
+  },
+  {
+    "name": "impossible calendar timestamps fail closed",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["occurred_at"], "value": "2026-02-30T10:00:00Z" }],
+    "expected": "schema"
+  },
+  {
+    "name": "unknown profile digest fails closed",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["binding", "profile_digest"], "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }],
+    "expected": "inactive profile"
+  },
+  {
+    "name": "binding cannot redirect a target",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["target", "session_ref"], "value": "slot-9" }],
+    "expected": "profile binding mismatch"
+  },
+  {
+    "name": "profile content cannot change without a new digest",
+    "scope": "profile",
+    "mutations": [{ "path": ["bindings", 0, "source", "gesture"], "value": "double-press" }],
+    "expected": "profile digest mismatch"
+  },
+  {
+    "name": "profile binding ids remain unique after canonical digesting",
+    "scope": "profile",
+    "recompute_digest": true,
+    "mutations": [{ "path": ["bindings", 1, "binding_id"], "value": "deck-refresh-codex" }],
+    "expected": "duplicate profile binding_id"
+  },
+  {
+    "name": "profile source selectors remain unique",
+    "scope": "profile",
+    "recompute_digest": true,
+    "mutations": [{
+      "path": ["bindings", 1, "source"],
+      "value": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-1-1", "gesture": "press" }
+    }],
+    "expected": "duplicate profile source selector"
+  },
+  {
+    "name": "profile cannot bind EP-2350 as a control selector",
+    "scope": "profile",
+    "recompute_digest": true,
+    "mutations": [{ "path": ["bindings", 0, "source", "device"], "value": "ep-2350-ting" }],
+    "expected": "profile schema"
+  },
+  {
+    "name": "profile must keep sample tokens disabled",
+    "scope": "profile",
+    "recompute_digest": true,
+    "mutations": [{ "path": ["voice_capture", "sample_token_mode"], "value": "enabled" }],
+    "expected": "profile schema"
+  },
+  {
+    "name": "profile cannot give EP-2350 effects semantic authority",
+    "scope": "profile",
+    "recompute_digest": true,
+    "mutations": [{ "path": ["voice_capture", "effect_semantics"], "value": "command-mode" }],
+    "expected": "profile schema"
+  },
+  {
+    "name": "profile requires paired PTT bindings",
+    "scope": "profile",
+    "recompute_digest": true,
+    "mutations": [{ "path": ["bindings", 4, "action", "name"], "value": "refresh-local-state" }],
+    "expected": "paired key-down and key-up"
+  },
+  {
+    "name": "profile PTT cannot bind to a dial",
+    "scope": "profile",
+    "recompute_digest": true,
+    "mutations": [
+      { "path": ["bindings", 3, "source", "control"], "value": "dial-2-1" },
+      { "path": ["bindings", 4, "source", "control"], "value": "dial-2-1" }
+    ],
+    "expected": "dedicated Stream Deck key"
+  },
+  {
+    "name": "done cannot be inferred from runtime alone",
+    "base": "claude-state-001",
+    "mutations": [{ "path": ["workflow_evidence"], "value": { "kind": "adapter-event", "event_ref": "claude-event-001" } }],
+    "expected": "done requires a structured"
+  },
+  {
+    "name": "done report digest must resolve to the target session",
+    "base": "claude-state-001",
+    "mutations": [{ "path": ["workflow_evidence", "report_digest"], "value": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" }],
+    "expected": "structured workflow report mismatch"
+  },
+  {
+    "name": "state update cannot come from the future",
+    "base": "codex-state-001",
+    "mutations": [{ "path": ["updated_at"], "value": "2026-07-31T10:02:00Z" }],
+    "expected": "later than observation"
+  },
+  {
+    "name": "freshness is recomputed rather than trusted",
+    "base": "pi-state-001",
+    "mutations": [{ "path": ["freshness"], "value": "fresh" }],
+    "expected": "freshness mismatch"
+  },
+  {
+    "name": "state producer must match the target adapter",
+    "base": "pi-state-001",
+    "mutations": [{ "path": ["producer", "adapter"], "value": "codex-app-server" }],
+    "expected": "producer adapter mismatch"
+  },
+  {
+    "name": "state producer source must belong to the target session",
+    "base": "claude-state-001",
+    "mutations": [{ "path": ["producer", "source_ref"], "value": "pi-session-001" }],
+    "expected": "source/target mismatch"
+  },
+  {
+    "name": "historical fresh state becomes stale at a later trusted evaluation",
+    "base": "codex-state-001",
+    "scope": "evaluation",
+    "evaluated_at": "2026-07-31T12:01:00Z",
+    "mutations": [],
+    "expected": "freshness mismatch"
+  },
+  {
+    "name": "authority increase is not a v1 concept",
+    "base": "streamdeck-interrupt-001",
+    "mutations": [{ "path": ["safety", "authority_delta"], "value": "increase" }],
+    "expected": "schema"
+  },
+  {
+    "name": "duplicate intent ids are ignored without another activation",
+    "base": "streamdeck-interrupt-001",
+    "scope": "collection",
+    "mutations": [],
+    "expected_disposition": "ignored-duplicate-intent"
+  },
+  {
+    "name": "duplicate idempotency keys return no new activation",
+    "base": "streamdeck-interrupt-001",
+    "scope": "collection",
+    "mutations": [
+      { "path": ["intent_id"], "value": "streamdeck-interrupt-retry-001" },
+      { "path": ["sequence"], "value": 13 },
+      { "path": ["occurred_at"], "value": "2026-07-31T10:01:11Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:01:12Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:01:16Z" }
+    ],
+    "evaluated_at": "2026-07-31T10:01:12Z",
+    "expected_disposition": "replayed-prior-disposition",
+    "expected_prior_disposition": "accepted"
+  },
+  {
+    "name": "conflicting reuse of an intent id is rejected",
+    "base": "streamdeck-interrupt-001",
+    "scope": "collection",
+    "mutations": [
+      { "path": ["idempotency_key"], "value": "activation-intent-conflict-001" },
+      { "path": ["sequence"], "value": 13 },
+      { "path": ["occurred_at"], "value": "2026-07-31T10:01:11Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:01:12Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:01:16Z" }
+    ],
+    "evaluated_at": "2026-07-31T10:01:12Z",
+    "expected_disposition": "rejected-intent-conflict"
+  },
+  {
+    "name": "conflicting reuse of an idempotency key is rejected",
+    "base": "streamdeck-status-001",
+    "scope": "collection",
+    "mutations": [
+      { "path": ["intent_id"], "value": "streamdeck-idempotency-conflict-001" },
+      { "path": ["idempotency_key"], "value": "activation-refresh-001" },
+      { "path": ["sequence"], "value": 13 },
+      { "path": ["occurred_at"], "value": "2026-07-31T10:01:11Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:01:12Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:01:16Z" }
+    ],
+    "evaluated_at": "2026-07-31T10:01:12Z",
+    "expected_disposition": "rejected-idempotency-conflict"
+  },
+  {
+    "name": "out of order stream events are rejected",
+    "base": "streamdeck-interrupt-001",
+    "scope": "collection",
+    "mutations": [
+      { "path": ["intent_id"], "value": "streamdeck-out-of-order-001" },
+      { "path": ["idempotency_key"], "value": "activation-out-of-order-001" },
+      { "path": ["sequence"], "value": 11 },
+      { "path": ["occurred_at"], "value": "2026-07-31T10:01:11Z" },
+      { "path": ["received_at"], "value": "2026-07-31T10:01:12Z" },
+      { "path": ["expires_at"], "value": "2026-07-31T10:01:16Z" }
+    ],
+    "evaluated_at": "2026-07-31T10:01:12Z",
+    "expected_disposition": "rejected-out-of-order"
+  }
+]

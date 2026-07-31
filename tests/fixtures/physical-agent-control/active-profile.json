@@ -1,0 +1,103 @@
+{
+  "kind": "physical-control-profile",
+  "schema_version": "v1",
+  "profile_id": "desk-main",
+  "profile_version": "v1",
+  "digest_algorithm": "profile-jcs-sha256-v1",
+  "profile_digest": "sha256:afd8d4f33662260487c30653ef50253e6e1a79a957d076b721ec79e855ca3ea0",
+  "voice_capture": {
+    "device_claim": "ep-2350-ting",
+    "transport": "analog-line-out-via-audio-interface",
+    "identity_assurance": "operator-configured",
+    "capture_source_ref": "line-input-ting-001",
+    "coreaudio_uid_ref": "coreaudio-interface-001",
+    "interface_generation_ref": "audio-generation-001",
+    "channel_set": "channels-1-2",
+    "activation": "stream-deck-ptt",
+    "transcription_boundary": "workstation-local",
+    "network_access": "disabled",
+    "stt_engine_ref": "offline-stt",
+    "stt_engine_version": "v1",
+    "stt_model_ref": "local-speech-model",
+    "stt_model_version": "v1",
+    "raw_audio_retention": "memory-only-delete-after-transcription",
+    "max_capture_seconds": 30,
+    "transcript_retention_seconds": 900,
+    "sample_token_mode": "disabled",
+    "effect_semantics": "none"
+  },
+  "bindings": [
+    {
+      "binding_id": "deck-refresh-codex",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-1-1", "gesture": "press" },
+      "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-observed" },
+      "action": { "name": "refresh-local-state" }
+    },
+    {
+      "binding_id": "deck-focus-codex",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-1-2", "gesture": "press" },
+      "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-observed" },
+      "action": { "name": "focus-session" }
+    },
+    {
+      "binding_id": "deck-open-codex",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-1-2", "gesture": "double-press" },
+      "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-observed" },
+      "action": { "name": "open-session" }
+    },
+    {
+      "binding_id": "deck-ptt-begin-codex",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-2-1", "gesture": "press" },
+      "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-owned" },
+      "action": { "name": "begin-voice-capture" }
+    },
+    {
+      "binding_id": "deck-ptt-end-codex",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-2-1", "gesture": "release" },
+      "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-owned" },
+      "action": { "name": "end-voice-capture" }
+    },
+    {
+      "binding_id": "deck-draft-open-codex",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-2-2", "gesture": "press" },
+      "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-owned" },
+      "action": { "name": "open-voice-draft" }
+    },
+    {
+      "binding_id": "deck-draft-discard-codex",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-2-3", "gesture": "hold" },
+      "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-owned" },
+      "action": { "name": "discard-voice-draft" }
+    },
+    {
+      "binding_id": "deck-status-claude",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-2-4", "gesture": "hold" },
+      "target": { "harness": "claude-code", "session_ref": "slot-2", "ownership": "adapter-observed" },
+      "action": { "name": "request-status-turn" }
+    },
+    {
+      "binding_id": "deck-review-codex",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-2-5", "gesture": "hold" },
+      "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-observed" },
+      "action": { "name": "request-read-only-review" }
+    },
+    {
+      "binding_id": "deck-task-pi",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-3-1", "gesture": "hold" },
+      "target": { "harness": "pi", "session_ref": "slot-3", "ownership": "adapter-observed" },
+      "action": { "name": "request-task-template", "template_id": "review-working-tree" }
+    },
+    {
+      "binding_id": "deck-pause-codex",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-3-4", "gesture": "hold" },
+      "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-owned" },
+      "action": { "name": "pause" }
+    },
+    {
+      "binding_id": "deck-interrupt-codex",
+      "source": { "device": "stream-deck", "transport": "stream-deck-sdk", "control": "key-3-5", "gesture": "hold" },
+      "target": { "harness": "codex", "session_ref": "slot-1", "ownership": "adapter-owned" },
+      "action": { "name": "interrupt" }
+    }
+  ]
+}

@@ -21,6 +21,16 @@ the annotation, not only the filename.
 - `docs/node-substrate-contract.md` and `docs/adr-007-node-substrate-contract.md` — The node↔substrate
   contract and the ADR behind it; machine-readable schema in
   `docs/node-substrate-contract-v1.schema.json`
+- `docs/physical-agent-control-contract.md` — Proposed local Stream Deck + Teenage Engineering
+  EP–2350 ting console boundary for Codex, Claude Code, and the Pi coding agent: Stream Deck is the
+  sole control-event surface, ting is optional PTT-gated analog voice input, consequential work
+  remains Hugin-gated, and neither hardware nor voice can answer approvals or increase authority;
+  machine-readable closed control/state union in `docs/physical-agent-control-v1.schema.json`,
+  canonical owner-reviewed profile envelope in
+  `docs/physical-agent-control-profile-v1.schema.json`, and metadata-only volatile voice-draft
+  envelope plus no-draft/audio-deleted cancellation evidence in
+  `docs/physical-agent-voice-draft-v1.schema.json` and
+  `docs/physical-agent-voice-capture-cancellation-v1.schema.json`
 
 ## Roles, deployment, and hygiene
 
