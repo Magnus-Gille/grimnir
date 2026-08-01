@@ -59,8 +59,9 @@ result. Another database or prose-analysis daemon would duplicate storage while 
 **Current gaps:** operational coverage is uneven; some desired metrics have no owning emitter;
 Heimdall does not supply learning verdicts; certified external Codex/Pi producer rollout remains
 incomplete under [#90](https://github.com/Magnus-Gille/grimnir/issues/90) and
-`claude-config#11`; `gille-inference#11` and `#13` are closed but their completion does not supply
-the missing full-path operating proof; and the consequential-receipt path is not live. The core
+`claude-config#11`; `gille-inference#11` and `gille-inference#13` are closed but their completion
+does not supply the missing full-path operating proof; and the consequential-receipt path is not
+live. The core
 Hugin↔gateway join is live-smoked, but uncovered task paths fail closed instead of being counted as
 complete evidence. **Future work** stays in the owning repositories: services add bounded emitters,
 Heimdall adds health collectors/views, and external surfaces complete certified adapters. The owner
@@ -233,7 +234,7 @@ the required posture outside ADR-008's seven future armed classes and while W0 i
 |---|---|---|
 | LearningTaskContract seam, canonical identity, authenticated stamp/echo | Implemented and live-smoked | Compatibility and missing evidence still fail closed; this is not proof of every producer path. |
 | Hugin receipts, all-outcome registry, corrections, candidate packaging, experiments | Implemented | Product-review and task-type breadth depend on available verifier/label evidence. |
-| Gateway exposure/accounting, capability import, routing lifecycle | Implemented; partial operating evidence | `gille-inference#11/#13` are closed, but the full-path production acceptance evidence remains absent. |
+| Gateway exposure/accounting, capability import, routing lifecycle | Implemented; partial operating evidence | `gille-inference#11` and `gille-inference#13` are closed, but the full-path production acceptance evidence remains absent. |
 | Experiment/sampling cadence and autonomy controller | Implemented; globally disarmed | W0–W5 software seams are merged. The owner ceremony gates exact `armed-canary` admission; real canary/watch/recovery evidence gates promotion beyond it. |
 | External Codex App/CLI and Pi producers | Partial | Hugin/gateway intake exists, but installed/certified adapters remain open under #90 and `claude-config#11`. |
 | Consequential-mutation receipts | Future/recovery-gated | Verdandi cannot be claimed live until its separate recovery and purpose gates pass. |

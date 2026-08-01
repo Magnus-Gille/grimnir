@@ -11,6 +11,7 @@ ADR="$REPO_ROOT/docs/adr-006-learning-improvement-scope.md"
 OBS="$REPO_ROOT/docs/observability-and-improvement.md"
 README="$REPO_ROOT/README.md"
 SCHEMA="$REPO_ROOT/docs/learning-task-contract-v1.schema.json"
+RETIRED_TIER_CLAIM_RE='armed at tier 0|implemented; armed tier 0|armed on m5 at \*\*tier 0\*\*|tier 0 (proposes and records only|auto-adopts nothing)|tier 1 self-unlocks'
 
 PASS=0
 FAIL=0
@@ -184,7 +185,7 @@ assert_contains "$OBS" "owner ceremony precedes armed canary" 'owner ceremony.*p
 assert_contains "$OBS" "canary evidence gates wider promotion" 'then precede promotion beyond'
 assert_contains "$OBS" "immutable late reviews are roadmap facts" 'Late reviews append; they do not patch observations'
 
-if grep -qiE 'armed at Tier 0|Implemented; armed Tier 0' "$OBS"; then
+if grep -qiE "$RETIRED_TIER_CLAIM_RE" <<< "$(tr '\n' ' ' < "$OBS")"; then
   echo "  FAIL: retired Tier-0 arming claim remains in ${OBS#"$REPO_ROOT"/}"
   FAIL=$((FAIL+1))
 else

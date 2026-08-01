@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OBS="$ROOT/docs/observability-and-improvement.md"
 SCHEDULE="$ROOT/docs/scheduled-tasks.md"
 REGISTRY="$ROOT/services.json"
+RETIRED_TIER_CLAIM_RE='armed at tier 0|implemented; armed tier 0|armed on m5 at \*\*tier 0\*\*|tier 0 (proposes and records only|auto-adopts nothing)|tier 1 self-unlocks'
 
 require() {
   local file="$1" needle="$2"
@@ -14,6 +15,16 @@ require() {
   flat="$(tr '\n' ' ' < "$file")"
   grep -Fq "$needle" <<< "$flat" || {
     echo "missing telemetry strategy statement in ${file#"$ROOT"/}: $needle" >&2
+    exit 1
+  }
+}
+
+require_match() {
+  local file="$1" pattern="$2"
+  local flat
+  flat="$(tr '\n' ' ' < "$file")"
+  grep -qiE "$pattern" <<< "$flat" || {
+    echo "missing telemetry strategy pattern in ${file#"$ROOT"/}: $pattern" >&2
     exit 1
   }
 }
@@ -34,18 +45,20 @@ require "$OBS" "data-lifecycle.md"
 require "$OBS" "No new generic observability service"
 require "$OBS" "Current gaps"
 require "$OBS" "Future work"
-require "$OBS" "core Hugin↔gateway join is live"
+require "$OBS" "core Hugin↔gateway join is live-smoked"
 require "$OBS" "authenticated preflight/stamp/echo | Implemented and exercised"
 require "$OBS" "Immutable pipeline accounting | Implemented on both owners"
 require "$OBS" "Routing lifecycle, watchdog, and autonomy controller | Implemented; globally disarmed"
 require "$OBS" "External Codex App/CLI and Pi producers | Partial"
 require "$OBS" "claude-config#11"
-require "$OBS" "gille-inference#11/#13"
+require "$OBS" "gille-inference#11"
+require "$OBS" "gille-inference#13"
+require_match "$OBS" 'Current gaps:.*gille-inference#11.*gille-inference#13'
 require "$OBS" "Heimdall may visualize these planes; it does not create their verdicts."
 require "$OBS" "The owner ceremony must precede an exact ADR-008 \`armed-canary\` class"
 require "$OBS" "real canary/watch/recovery evidence must then precede promotion beyond it"
 
-if grep -Eq 'armed at Tier 0|Implemented; armed Tier 0' "$OBS"; then
+if grep -qiE "$RETIRED_TIER_CLAIM_RE" <<< "$(tr '\n' ' ' < "$OBS")"; then
   echo "retired Tier-0 arming claim remains in ${OBS#"$ROOT"/}" >&2
   exit 1
 fi
