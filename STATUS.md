@@ -29,6 +29,12 @@ No credential, private address, backup locator, or private account detail belong
 - Issue #168 closed through PR #171, merged as
   `ff797087c4ab763883eae1f2e839a413b0497945`. Adoption-report failures now expose stable,
   content-free reasons and have regression coverage across the supported result space.
+- The exact `ff797087c4ab763883eae1f2e839a413b0497945` deployment preflight passed source binding,
+  67 focused tests, typechecks, diff validation, and the documented dry-run. Official verification
+  confirmed that production still runs `c45a0654f6768ad9a0d9fd7854166cc19efcd5cb` and passed its
+  source spot checks, then failed closed only because `DEPLOY_PUBLIC_HTTP_URL` and
+  `DEPLOY_PUBLIC_HTTPS_URL` were unavailable. Their non-secret private locator values must be
+  exported in the private operator environment and never pasted into chat or committed.
 - Issue #166 has a reviewed branch at
   `75a2f85a7625b4be731ebaae25bc73039a29fce9`; PR publication was blocked by the execution
   platform, so it remains unmerged.
@@ -40,10 +46,12 @@ No credential, private address, backup locator, or private account detail belong
 - Issue #89's safe full-disk-encryption preparation merged through PR #93 as
   `bd23a1118b275d04dc534066ba9d9ff274374b19`. The destructive live migration is deliberately
   postponed to an attended post-travel window with verified backup and rollback ceremony.
-- Issue #90 / PR #95 passed review and green checks at former exact head
-  `5d669bd5412def50f0e5075010da85d4e72ef7e0`, but main advanced and that head is no longer
-  mergeable. Its prior approval request is withdrawn while the owning agent updates it for a new
-  exact-head review. No staged or live firewall, SSH, or Samba mutation has occurred.
+- Issue #90 / PR #95 is refreshed on base
+  `c53b79d7808c74b33c6a485010559566e396f929`, reviewed PASS, green, and mergeable at exact head
+  `6cec78c3a0b616a061cfd150503a32b276e3fcd3`. Its security patch-id is unchanged and its body says
+  `Part of #90`. Code merge does not close #90: the issue remains open until the owner-attended live
+  apply, probes, and rollback evidence satisfy acceptance. No staged or live firewall, SSH, or
+  Samba mutation has occurred.
 - Issue #91 / PR #96 is reviewed PASS, green, and ready at exact head
   `f870f69a90640c2688a0edfc9220a638dbf514ec`. Merge requires owner approval. The issue remains
   open for owner-attended private binding, official policy validation, live apply, probes, and
@@ -65,11 +73,9 @@ No credential, private address, backup locator, or private account detail belong
 
 Enter these exact phrases in the active Codex chat when ready:
 
-1. `Approve merge Brokkr PR #96 at f870f69`
-2. `Approve M5 deploy gille-inference ff79708`
-
-Do not reuse the withdrawn PR #95 approval. Wait for the owning agent's updated exact head and a
-fresh review before requesting a replacement phrase.
+1. `Approve merge Brokkr PR #95 at 6cec78c`
+2. `Approve merge Brokkr PR #96 at f870f69`
+3. `Approve M5 deploy gille-inference ff79708`
 
 An attempted iMessage notification failed safely because Messages automation could not acquire a
 window. No message was delivered, and no alternate personal contact locator was stored or used.
@@ -79,8 +85,9 @@ window. No message was delivered, and no alternate personal contact locator was 
 - Deploy gille-inference only from exact accepted revision
   `ff797087c4ab763883eae1f2e839a413b0497945`, after the owner approval above. Re-run health,
   authentication, inference, and adoption-recorder probes after deployment.
-- Brokkr PR #95 is being updated after main advanced. It needs a new exact-head review and a new
-  explicit approval phrase before merge; live network hardening remains a separate attended action.
+- Brokkr PR #95 may be merged only at reviewed head
+  `6cec78c3a0b616a061cfd150503a32b276e3fcd3` after its exact approval. Issue #90 remains open for
+  the separate owner-attended live apply, probes, and rollback evidence.
 - Brokkr PR #96 may be merged after its exact approval, but issue #91 stays open until the owner
   validates private device bindings and completes apply/probe/rollback from a physically safe
   two-session ceremony.
@@ -101,8 +108,8 @@ window. No message was delivered, and no alternate personal contact locator was 
 
 ## Exact next steps
 
-1. Obtain the two current exact approvals above in Codex chat; wait for a replacement PR #95 phrase.
-2. Merge Brokkr PRs #95 and #96 only at their newly/currently reviewed heads and after green CI; do not combine
+1. Obtain the three current exact approvals above in Codex chat.
+2. Merge Brokkr PRs #95 and #96 only at their reviewed heads and after green CI; do not combine
    merge approval with live application authority.
 3. Deploy gille-inference `ff797087c4ab763883eae1f2e839a413b0497945` through its exact-source
    gate and run the post-deploy probes.
