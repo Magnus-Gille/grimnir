@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OBS="$ROOT/docs/observability-and-improvement.md"
 SCHEDULE="$ROOT/docs/scheduled-tasks.md"
 REGISTRY="$ROOT/services.json"
-RETIRED_TIER_CLAIM_RE='completed one live human-approved routing adoption|autonom(ous|y)?[[:space:]]+controller is armed|controller is armed|armed at tier 0|implemented; armed tier 0|armed on m5 at[^.]{0,20}tier 0|tier 0[^.]{0,80}(proposes and records only|currently auto-adopts nothing|auto-adopts nothing)|tier 1 self-unlocks|gille-inference#11/#13|gille-inference#(11|13)[^.]{0,60}remain(s)? (open|under)|(served-model refresh|reviewer adoption evidence|final ground-truth reviewer work)[^.]{0,40}remain'
+RETIRED_TIER_CLAIM_RE="$(< "$ROOT/tests/fixtures/retired-autonomy-claims.regex")"
 
 require() {
   local file="$1" needle="$2"
@@ -53,18 +53,20 @@ require "$OBS" "claude-config#11"
 require "$OBS" "gille-inference#11"
 require "$OBS" "gille-inference#13"
 CURRENT_GAPS_PARAGRAPH="$(paragraph "$OBS" '^[*][*]Current gaps:[*][*]' | tr '\n' ' ')"
-grep -qiE 'Current gaps:.*gille-inference#11.*gille-inference#13' <<< "$CURRENT_GAPS_PARAGRAPH" || {
-  echo "missing telemetry strategy pattern in Current gaps paragraph of ${OBS#"$ROOT"/}: Current gaps:.*gille-inference#11.*gille-inference#13" >&2
+grep -qiE 'Current gaps:.*gille-inference#11.*gille-inference#13.*are closed.*full-path' <<< "$CURRENT_GAPS_PARAGRAPH" || {
+  echo "Current gaps must identify #11/#13 as closed context and the residual full-path gap" >&2
   exit 1
 }
 require "$OBS" "Heimdall may visualize these planes; it does not create their verdicts."
 require "$OBS" "The owner ceremony must precede an exact ADR-008 \`armed-canary\` class"
 require "$OBS" "real canary/watch/recovery evidence must then precede promotion beyond it"
 
-if grep -qiE "$RETIRED_TIER_CLAIM_RE" <<< "$(tr '\n' ' ' < "$OBS")"; then
-  echo "retired Tier-0 arming claim remains in ${OBS#"$ROOT"/}" >&2
-  exit 1
-fi
+while IFS= read -r relative; do
+  if grep -qiE "$RETIRED_TIER_CLAIM_RE" <<< "$(tr '\n' ' ' < "$ROOT/$relative")"; then
+    echo "retired autonomy/current-truth claim remains in $relative" >&2
+    exit 1
+  fi
+done < <(git -C "$ROOT" ls-files 'README.md' 'STATUS.md' 'docs/*.md')
 require "$SCHEDULE" "hugin#325"
 require "$SCHEDULE" "a782c6b"
 require "$SCHEDULE" "not-found"
