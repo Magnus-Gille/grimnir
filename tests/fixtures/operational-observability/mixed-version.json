@@ -3,27 +3,27 @@
     {
       "kind": "service-observation",
       "contract_version": "v1.1",
-      "observation_id": "obs-hugin-live-v11",
+      "observation_id": "obs-rat-live-v11",
       "source": {
         "source_kind": "service_internal",
-        "producer": "hugin",
-        "producer_version": "git-3be19f7"
+        "producer": "ratatoskr",
+        "producer_version": "git-73943d1"
       },
       "service": {
-        "service_id": "hugin",
-        "instance_id": "hugin-user"
+        "service_id": "ratatoskr",
+        "instance_id": "ratatoskr-prod"
       },
-      "slot_id": "live-core",
+      "slot_id": "service-live",
       "check": {
         "surface": "liveness"
       },
-      "attempt_id": "att-hugin-02",
+      "attempt_id": "att-rat-01",
       "observed_at": "2026-07-31T09:00:00Z",
       "collected_at": "2026-07-31T09:00:01Z",
       "freshness_window": "PT5M",
       "fresh_until": "2026-07-31T09:05:00Z",
       "outcome": "ok",
-      "diagnostic_ref": "ref:hugin-live-v11",
+      "diagnostic_ref": "ref:rat-live-v11",
       "extensions": [
         {
           "id": "minor-note",
@@ -35,77 +35,136 @@
     {
       "kind": "service-observation",
       "contract_version": "v1.0",
-      "observation_id": "obs-hugin-ready-v10",
+      "observation_id": "obs-rat-ready-v10",
       "source": {
         "source_kind": "service_internal",
-        "producer": "hugin",
-        "producer_version": "git-3be19f7"
+        "producer": "ratatoskr",
+        "producer_version": "git-73943d1"
       },
       "service": {
-        "service_id": "hugin",
-        "instance_id": "hugin-user"
+        "service_id": "ratatoskr",
+        "instance_id": "ratatoskr-prod"
       },
-      "slot_id": "ready-broker",
+      "slot_id": "service-ready",
       "check": {
         "surface": "readiness"
       },
-      "attempt_id": "att-hugin-02",
+      "attempt_id": "att-rat-01",
       "observed_at": "2026-07-31T09:00:00Z",
       "collected_at": "2026-07-31T09:00:01Z",
       "freshness_window": "PT5M",
       "fresh_until": "2026-07-31T09:05:00Z",
       "outcome": "ok",
-      "diagnostic_ref": "ref:hugin-ready-v10",
+      "diagnostic_ref": "ref:rat-ready-v10",
       "extensions": []
     },
     {
-      "kind": "observation-aggregate",
+      "kind": "service-observation",
       "contract_version": "v1.0",
-      "aggregate_id": "agg-hugin-mixed-version",
+      "observation_id": "obs-rat-collector-v10",
       "source": {
         "source_kind": "aggregator",
         "producer": "heimdall",
         "producer_version": "git-945847c"
       },
       "service": {
-        "service_id": "hugin",
-        "instance_id": "hugin-user"
+        "service_id": "ratatoskr",
+        "instance_id": "ratatoskr-prod"
+      },
+      "slot_id": "collector-health",
+      "check": {
+        "surface": "readiness"
+      },
+      "attempt_id": "att-rat-01",
+      "observed_at": "2026-07-31T09:00:00Z",
+      "collected_at": "2026-07-31T09:00:02Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T09:05:00Z",
+      "outcome": "ok",
+      "diagnostic_ref": "ref:rat-collector-v10",
+      "extensions": []
+    },
+    {
+      "kind": "observation-aggregate",
+      "contract_version": "v1.0",
+      "aggregate_id": "agg-rat-mixed-version",
+      "source": {
+        "source_kind": "aggregator",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "ratatoskr",
+        "instance_id": "ratatoskr-prod"
       },
       "aggregate_surface": "service_overall",
-      "attempt_id": "agg-hugin-02",
+      "attempt_id": "agg-rat-01",
       "observed_at": "2026-07-31T09:00:01Z",
       "collected_at": "2026-07-31T09:00:02Z",
       "freshness_window": "PT5M",
       "fresh_until": "2026-07-31T09:05:01Z",
       "inventory": {
-        "authority_kind": "services_json",
-        "authority_ref": "ref:services-json-hugin",
-        "authority_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
-        "expected_slots": [
+        "authorities": [
           {
-            "slot_id": "live-core",
-            "surface": "liveness",
-            "applicability": "required"
+            "authority_kind": "services_json",
+            "authority_ref": "ref:services-json-ratatoskr",
+            "authority_digest": "sha256:a1869e866756939bdc113740c9cea913c00d98a4bcb605bf97b20072fde47d7e"
           },
           {
-            "slot_id": "ready-broker",
+            "authority_kind": "consumer_contract",
+            "authority_ref": "ref:heimdall-ratatoskr-observer",
+            "authority_digest": "sha256:49f68c8198f137fb48931dcaebeb61d2f4c1483541fb7bf218fcfd633e6be2ff"
+          }
+        ],
+        "expected_slots": [
+          {
+            "slot_id": "service-live",
+            "authority_kind": "services_json",
+            "slot_class": "service_liveness",
+            "surface": "liveness",
+            "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "ratatoskr",
+            "max_freshness": "PT5M"
+          },
+          {
+            "slot_id": "service-ready",
+            "authority_kind": "services_json",
+            "slot_class": "service_readiness",
             "surface": "readiness",
-            "applicability": "required"
+            "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "ratatoskr",
+            "max_freshness": "PT5M"
+          },
+          {
+            "slot_id": "collector-health",
+            "authority_kind": "consumer_contract",
+            "slot_class": "collector_health",
+            "surface": "readiness",
+            "applicability": "required",
+            "owner_kind": "consumer",
+            "owner_service_id": "heimdall",
+            "max_freshness": "PT5M"
           }
         ]
       },
       "observation_refs": [
         {
-          "slot_id": "live-core",
-          "observation_id": "obs-hugin-live-v11"
+          "slot_id": "service-live",
+          "observation_id": "obs-rat-live-v11"
         },
         {
-          "slot_id": "ready-broker",
-          "observation_id": "obs-hugin-ready-v10"
+          "slot_id": "service-ready",
+          "observation_id": "obs-rat-ready-v10"
+        },
+        {
+          "slot_id": "collector-health",
+          "observation_id": "obs-rat-collector-v10"
         }
       ],
       "outcome": "ok",
-      "diagnostic_ref": "ref:hugin-mixed-version",
+      "diagnostic_ref": "ref:rat-mixed-version",
       "extensions": []
     }
   ]

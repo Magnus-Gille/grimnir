@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://grimnir.gille.ai/contracts/operational-observability/v1/schema.json",
   "title": "Grimnir operational-observability contract v1",
-  "description": "Versioned, closed, content-blind operational health and trace records. Semantic validation of fail-closed aggregation, expected inventory, trace privacy, and major/minor rollout rules is defined by tests/scripts/validate-operational-observability-contract.mjs. These records never become topology, learning, capability, or audit authority.",
+  "description": "Versioned, closed, content-blind operational health and trace records. Semantic validation of fail-closed aggregation, expected inventory, trace privacy, inventory digests, and rollout rules is defined by tests/scripts/validate-operational-observability-contract.mjs. These records never become topology, learning, capability, or audit authority.",
   "oneOf": [
     { "$ref": "#/$defs/service-observation" },
     { "$ref": "#/$defs/observation-aggregate" },
@@ -11,7 +11,12 @@
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,62}$" },
-    "contract-version": { "type": "string", "pattern": "^v[1-9][0-9]*\\.[0-9]+$" },
+    "contract-version": { "type": "string", "pattern": "^v1\\.[0-9]+$" },
+    "safe-token": {
+      "type": "string",
+      "description": "A bounded, low-cardinality token that cannot carry URLs, paths, or query strings.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,79}$"
+    },
     "utc": { "type": "string", "format": "date-time" },
     "duration": {
       "type": "string",
@@ -39,7 +44,7 @@
       "properties": {
         "source_kind": { "enum": ["service_internal", "service_probe", "systemd", "substrate", "synthetic", "aggregator"] },
         "producer": { "$ref": "#/$defs/id" },
-        "producer_version": { "type": "string", "minLength": 1 }
+        "producer_version": { "$ref": "#/$defs/safe-token" }
       }
     },
     "service": {
@@ -69,25 +74,38 @@
         "span_id": { "$ref": "#/$defs/span-id" }
       }
     },
+    "inventory-authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_kind", "authority_ref", "authority_digest"],
+      "properties": {
+        "authority_kind": { "enum": ["services_json", "producer_contract", "consumer_contract"] },
+        "authority_ref": { "$ref": "#/$defs/opaque-ref" },
+        "authority_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
     "expected-slot": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["slot_id", "surface", "applicability"],
+      "required": ["slot_id", "authority_kind", "slot_class", "surface", "applicability", "owner_kind", "owner_service_id", "max_freshness"],
       "properties": {
         "slot_id": { "$ref": "#/$defs/id" },
+        "authority_kind": { "enum": ["services_json", "producer_contract", "consumer_contract"] },
+        "slot_class": { "enum": ["service_liveness", "service_readiness", "dependency_health", "exporter_health", "collector_health"] },
         "surface": { "enum": ["liveness", "readiness", "dependency"] },
         "applicability": { "enum": ["required", "not_applicable"] },
+        "owner_kind": { "enum": ["producer", "consumer"] },
+        "owner_service_id": { "$ref": "#/$defs/id" },
+        "max_freshness": { "$ref": "#/$defs/duration" },
         "dependency_service_id": { "$ref": "#/$defs/id" }
       }
     },
     "inventory": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["authority_kind", "authority_ref", "authority_digest", "expected_slots"],
+      "required": ["authorities", "expected_slots"],
       "properties": {
-        "authority_kind": { "enum": ["services_json", "component_contract", "producer_registry"] },
-        "authority_ref": { "$ref": "#/$defs/opaque-ref" },
-        "authority_digest": { "$ref": "#/$defs/digest" },
+        "authorities": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/inventory-authority" } },
         "expected_slots": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/expected-slot" } }
       }
     },
@@ -165,11 +183,10 @@
         "service_id": { "$ref": "#/$defs/id" },
         "instance_id": { "$ref": "#/$defs/id" },
         "dependency_service_id": { "$ref": "#/$defs/id" },
-        "lifecycle_outcome": { "enum": ["ok", "degraded", "failed", "stale", "unknown", "not_applicable"] },
         "task_class": { "enum": ["diagnostic", "delegation", "maintenance", "publication", "read_only", "not_applicable"] },
         "runtime_lane": { "enum": ["default", "reason-hard", "reason-fast", "numeric", "review", "not_applicable"] },
         "retry_ordinal": { "type": "integer", "minimum": 0, "maximum": 10 },
-        "error_class": { "type": "string", "minLength": 1 },
+        "error_class": { "$ref": "#/$defs/safe-token" },
         "check_surface": { "enum": ["liveness", "readiness", "dependency", "not_applicable"] }
       }
     },

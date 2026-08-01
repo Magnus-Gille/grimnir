@@ -1,0 +1,135 @@
+{
+  "cases": [
+    {
+      "label": "services-json-hugin",
+      "authority": {
+        "authority_kind": "services_json",
+        "authority_ref": "ref:services-json-hugin",
+        "authority_digest": "sha256:ecf4cf0ceb58cf909b7e964ee32481902351a7ea8d3d2254c8751e12c564d8bf"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "service-live",
+          "authority_kind": "services_json",
+          "slot_class": "service_liveness",
+          "surface": "liveness",
+          "applicability": "required",
+          "owner_kind": "producer",
+          "owner_service_id": "hugin",
+          "max_freshness": "PT5M"
+        },
+        {
+          "slot_id": "service-ready",
+          "authority_kind": "services_json",
+          "slot_class": "service_readiness",
+          "surface": "readiness",
+          "applicability": "required",
+          "owner_kind": "producer",
+          "owner_service_id": "hugin",
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "services-json-verdandi-stopped",
+      "authority": {
+        "authority_kind": "services_json",
+        "authority_ref": "ref:services-json-verdandi",
+        "authority_digest": "sha256:58ee8424e6e32e15fc6544d20753afa552dc2355d88f7be7f02f1c406d17bf3d"
+      },
+      "service": {
+        "service_id": "verdandi",
+        "instance_id": "verdandi-user"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "service-live",
+          "authority_kind": "services_json",
+          "slot_class": "service_liveness",
+          "surface": "liveness",
+          "applicability": "not_applicable",
+          "owner_kind": "producer",
+          "owner_service_id": "verdandi",
+          "max_freshness": "PT5M"
+        },
+        {
+          "slot_id": "service-ready",
+          "authority_kind": "services_json",
+          "slot_class": "service_readiness",
+          "surface": "readiness",
+          "applicability": "not_applicable",
+          "owner_kind": "producer",
+          "owner_service_id": "verdandi",
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "producer-contract-hugin",
+      "authority": {
+        "authority_kind": "producer_contract",
+        "authority_ref": "ref:hugin-observability-contract",
+        "authority_digest": "sha256:83d47596cb635ce7e4b5a139eddcb16928c5a2b567cad8d776f7c48ec6e93c68"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "dep-munin",
+          "authority_kind": "producer_contract",
+          "slot_class": "dependency_health",
+          "surface": "dependency",
+          "applicability": "required",
+          "owner_kind": "producer",
+          "owner_service_id": "hugin",
+          "max_freshness": "PT5M",
+          "dependency_service_id": "munin-memory"
+        },
+        {
+          "slot_id": "exporter-health",
+          "authority_kind": "producer_contract",
+          "slot_class": "exporter_health",
+          "surface": "readiness",
+          "applicability": "required",
+          "owner_kind": "producer",
+          "owner_service_id": "hugin",
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "consumer-contract-hugin",
+      "authority": {
+        "authority_kind": "consumer_contract",
+        "authority_ref": "ref:heimdall-hugin-observer",
+        "authority_digest": "sha256:057a201ac2264a38d209f3d1b4afe0e8943219ef0ec21164a6b779359b024086"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "collector-health",
+          "authority_kind": "consumer_contract",
+          "slot_class": "collector_health",
+          "surface": "readiness",
+          "applicability": "required",
+          "owner_kind": "consumer",
+          "owner_service_id": "heimdall",
+          "max_freshness": "PT2M"
+        }
+      ]
+    }
+  ]
+}

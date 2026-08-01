@@ -26,19 +26,31 @@ assert_contains "$DOC" "contract doc exists with a title" '^# Operational-observ
 assert_contains "$DOC" "records accepted status" '^> \*\*Status:\*\* accepted v1\.$'
 assert_contains "$DOC" "lists the closed observation states" "ok\`, \`degraded\`, \`failed\`, \`stale\`, \`unknown\`, and \`not_applicable"
 assert_contains "$DOC" "states missing or expired evidence can never become healthy" 'missing or expired evidence can never become healthy'
-assert_contains "$DOC" "binds source service instance version attempt and timestamps" 'source, service/instance, producer version, attempt ID, observed/collected timestamps'
+assert_contains "$DOC" "binds source service instance version attempt and timestamps" 'Every `service-observation` binds source, service/instance, producer version'
 assert_contains "$DOC" "defines liveness readiness dependency semantics" "liveness\`, \`readiness\`, and \`dependency"
 assert_contains "$DOC" "requires W3C trace context" 'W3C trace context'
 assert_contains "$DOC" "requires deny-by-default serialization export" 'deny-by-default'
 assert_contains "$DOC" "keeps automatic instrumentation disabled by default" 'Automatic instrumentation is disabled by default'
 assert_contains "$DOC" "defines the aggregation truth table" 'Aggregation truth table'
+assert_contains "$DOC" "defines authority kinds for expected inventory" 'The v1 authority kinds are closed'
+assert_contains "$DOC" "defines consumer-owned max freshness" 'consumer-owned `max_freshness`'
+assert_contains "$DOC" "defines stricter producer consumer effective freshness" 'consumer.s `max_freshness`'
+assert_contains "$DOC" "defines canonical authority digest bytes" 'compute SHA-256 over those bytes'
 assert_contains "$DOC" "excludes not_applicable from aggregates" "\`not_applicable\` is excluded"
 assert_contains "$DOC" "makes an empty expected aggregate unknown" "empty expected aggregate is \`unknown\`"
 assert_contains "$DOC" "keeps absent producers distinct from not_applicable" "Absent producers are distinct from \`not_applicable\`"
+assert_contains "$DOC" "requires collector health meta slot" 'collector_health'
+assert_contains "$DOC" "requires exporter health when trace export is enabled" 'exporter_health'
+assert_contains "$DOC" "requires render time aggregate expiry downgrade" 'Render-time expiry'
 assert_contains "$DOC" "defines major minor rollout rules" 'unknown major versions fail visibly'
 assert_contains "$DOC" "limits safe optional evolution to informational extensions" "informational \`extensions\`"
+assert_contains "$DOC" "states extensions are marker only" 'marker-only descriptors'
 assert_contains "$DOC" "keeps trace ids diagnostic only" 'Trace IDs are diagnostic joins only'
-assert_contains "$DOC" "forbids prompts outputs telegram accounting credentials and raw urls" 'No prompts, outputs, memory/file contents, Telegram text, accounting data, credentials, private locators, or raw URLs/query strings'
+assert_contains "$DOC" "forbids lifecycle outcome on spans" '`lifecycle_outcome` or any equivalent field'
+assert_contains "$DOC" "binds trace policy service identity" '`trace-policy` is bound to one service identity'
+assert_contains "$DOC" "forbids spans when export disabled or sampling zero" 'instrumentation/export is disabled'
+assert_contains "$DOC" "forbids self parenting traces" 'Self-parenting is forbidden'
+assert_contains "$DOC" "forbids prompts outputs telegram accounting credentials and raw urls" 'No prompts, outputs, memory/file contents'
 assert_contains "$DOC" "links the data lifecycle policy" 'data-lifecycle\.md'
 assert_contains "$DOC" "states operational telemetry retention ownership" 'operational telemetry'
 assert_contains "$DOC" "states consumer tests prove stale missing partial evidence never renders healthy" 'stale, missing, and partial evidence never renders healthy'
