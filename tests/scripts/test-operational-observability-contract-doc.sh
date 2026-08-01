@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Regression test for the operational-observability v1 contract adopted by grimnir#183.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+DOC="$REPO_ROOT/docs/operational-observability-contract.md"
+OBS="$REPO_ROOT/docs/observability-and-improvement.md"
+INDEX="$REPO_ROOT/docs/index.md"
+AUTHORITY="$REPO_ROOT/docs/authority.md"
+PASS=0
+FAIL=0
+
+assert_contains() {
+  local file="$1" desc="$2" pattern="$3"
+  if [[ -f "$file" ]] && grep -qiE "$pattern" "$file"; then
+    echo "  PASS: $desc"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL: $desc — pattern not found: $pattern"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+echo "Running operational-observability contract documentation assertions..."
+assert_contains "$DOC" "contract doc exists with a title" '^# Operational-observability contract v1'
+assert_contains "$DOC" "records accepted status" '^> \*\*Status:\*\* accepted v1\.$'
+assert_contains "$DOC" "lists the closed observation states" "ok\`, \`degraded\`, \`failed\`, \`stale\`, \`unknown\`, and \`not_applicable"
+assert_contains "$DOC" "states missing or expired evidence can never become healthy" 'missing or expired evidence can never become healthy'
+assert_contains "$DOC" "binds source service instance version attempt and timestamps" 'source, service/instance, producer version, attempt ID, observed/collected timestamps'
+assert_contains "$DOC" "defines liveness readiness dependency semantics" "liveness\`, \`readiness\`, and \`dependency"
+assert_contains "$DOC" "requires W3C trace context" 'W3C trace context'
+assert_contains "$DOC" "requires deny-by-default serialization export" 'deny-by-default'
+assert_contains "$DOC" "keeps automatic instrumentation disabled by default" 'Automatic instrumentation is disabled by default'
+assert_contains "$DOC" "defines the aggregation truth table" 'Aggregation truth table'
+assert_contains "$DOC" "excludes not_applicable from aggregates" "\`not_applicable\` is excluded"
+assert_contains "$DOC" "makes an empty expected aggregate unknown" "empty expected aggregate is \`unknown\`"
+assert_contains "$DOC" "keeps absent producers distinct from not_applicable" "Absent producers are distinct from \`not_applicable\`"
+assert_contains "$DOC" "defines major minor rollout rules" 'unknown major versions fail visibly'
+assert_contains "$DOC" "limits safe optional evolution to informational extensions" "informational \`extensions\`"
+assert_contains "$DOC" "keeps trace ids diagnostic only" 'Trace IDs are diagnostic joins only'
+assert_contains "$DOC" "forbids prompts outputs telegram accounting credentials and raw urls" 'No prompts, outputs, memory/file contents, Telegram text, accounting data, credentials, private locators, or raw URLs/query strings'
+assert_contains "$DOC" "links the data lifecycle policy" 'data-lifecycle\.md'
+assert_contains "$DOC" "states operational telemetry retention ownership" 'operational telemetry'
+assert_contains "$DOC" "states consumer tests prove stale missing partial evidence never renders healthy" 'stale, missing, and partial evidence never renders healthy'
+assert_contains "$INDEX" "index references the observability contract doc" 'operational-observability-contract\.md'
+assert_contains "$INDEX" "index references the observability schema" 'operational-observability-v1\.schema\.json'
+assert_contains "$AUTHORITY" "authority map references the observability contract" 'operational-observability-contract\.md'
+assert_contains "$OBS" "observability strategy links to the new contract" 'operational-observability-contract\.md'
+
+if [[ "$FAIL" -eq 0 ]]; then
+  echo "All $PASS assertion(s) passed."
+else
+  echo "$FAIL of $((PASS + FAIL)) assertion(s) failed."
+  exit 1
+fi

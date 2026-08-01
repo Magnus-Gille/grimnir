@@ -1,0 +1,332 @@
+{
+  "records": [
+    {
+      "kind": "trace-policy",
+      "contract_version": "v1.0",
+      "policy_id": "trace-policy-default",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "hugin",
+        "producer_version": "git-3be19f7"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "default_state": {
+        "instrumentation_enabled": false,
+        "export_enabled": false,
+        "automatic_instrumentation": "disabled"
+      },
+      "sampling": {
+        "mode": "head",
+        "rate_per_mille": 0
+      },
+      "serialization": {
+        "allowlist_version": "v1",
+        "deny_by_default": true,
+        "max_attributes": 12,
+        "max_string_length": 64
+      },
+      "retention": {
+        "policy_ref": "ref:data-lifecycle-v1",
+        "data_class": "operational_telemetry",
+        "deletion_owner": "producer"
+      },
+      "failure_behavior": {
+        "export_failure": "drop_and_count",
+        "instrumentation_failure": "must_not_fail_request"
+      },
+      "created_at": "2026-07-31T08:00:00Z",
+      "extensions": []
+    },
+    {
+      "kind": "trace-policy",
+      "contract_version": "v1.0",
+      "policy_id": "trace-policy-synthetic",
+      "source": {
+        "source_kind": "synthetic",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "heimdall",
+        "instance_id": "heimdall-prod"
+      },
+      "default_state": {
+        "instrumentation_enabled": true,
+        "export_enabled": true,
+        "automatic_instrumentation": "disabled"
+      },
+      "sampling": {
+        "mode": "head",
+        "rate_per_mille": 1000
+      },
+      "serialization": {
+        "allowlist_version": "v1",
+        "deny_by_default": true,
+        "max_attributes": 12,
+        "max_string_length": 64
+      },
+      "retention": {
+        "policy_ref": "ref:data-lifecycle-v1",
+        "data_class": "operational_telemetry",
+        "deletion_owner": "authoritative_store"
+      },
+      "failure_behavior": {
+        "export_failure": "drop_and_count",
+        "instrumentation_failure": "must_not_fail_request"
+      },
+      "created_at": "2026-07-31T08:01:00Z",
+      "extensions": []
+    },
+    {
+      "kind": "trace-span",
+      "contract_version": "v1.0",
+      "policy_id": "trace-policy-synthetic",
+      "source": {
+        "source_kind": "synthetic",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "heimdall",
+        "instance_id": "heimdall-prod"
+      },
+      "trace_id": "0123456789abcdef0123456789abcdef",
+      "span_id": "0123456789abcdef",
+      "operation": {
+        "surface": "synthetic",
+        "phase": "probe"
+      },
+      "started_at": "2026-07-31T08:05:00Z",
+      "ended_at": "2026-07-31T08:05:02Z",
+      "collected_at": "2026-07-31T08:05:02Z",
+      "sampled": true,
+      "outcome": "ok",
+      "attributes": {
+        "service_id": "heimdall",
+        "instance_id": "heimdall-prod",
+        "task_class": "diagnostic",
+        "runtime_lane": "not_applicable",
+        "retry_ordinal": 0,
+        "lifecycle_outcome": "ok",
+        "check_surface": "readiness"
+      },
+      "diagnostic_ref": "ref:heimdall-synthetic-span",
+      "extensions": []
+    },
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
+      "observation_id": "obs-hugin-live-core",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "hugin",
+        "producer_version": "git-3be19f7"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "slot_id": "live-core",
+      "check": {
+        "surface": "liveness"
+      },
+      "attempt_id": "att-hugin-01",
+      "observed_at": "2026-07-31T08:10:00Z",
+      "collected_at": "2026-07-31T08:10:01Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T08:15:00Z",
+      "outcome": "ok",
+      "diagnostic_ref": "ref:hugin-live-core",
+      "extensions": []
+    },
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
+      "observation_id": "obs-hugin-ready-broker",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "hugin",
+        "producer_version": "git-3be19f7"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "slot_id": "ready-broker",
+      "check": {
+        "surface": "readiness"
+      },
+      "attempt_id": "att-hugin-01",
+      "observed_at": "2026-07-31T08:10:00Z",
+      "collected_at": "2026-07-31T08:10:01Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T08:15:00Z",
+      "outcome": "ok",
+      "diagnostic_ref": "ref:hugin-ready-broker",
+      "extensions": []
+    },
+    {
+      "kind": "observation-aggregate",
+      "contract_version": "v1.0",
+      "aggregate_id": "agg-hugin-overall-ok",
+      "source": {
+        "source_kind": "aggregator",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "aggregate_surface": "service_overall",
+      "attempt_id": "agg-hugin-01",
+      "observed_at": "2026-07-31T08:10:01Z",
+      "collected_at": "2026-07-31T08:10:02Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T08:15:01Z",
+      "inventory": {
+        "authority_kind": "services_json",
+        "authority_ref": "ref:services-json-hugin",
+        "authority_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "expected_slots": [
+          {
+            "slot_id": "live-core",
+            "surface": "liveness",
+            "applicability": "required"
+          },
+          {
+            "slot_id": "ready-broker",
+            "surface": "readiness",
+            "applicability": "required"
+          },
+          {
+            "slot_id": "dep-gateway",
+            "surface": "dependency",
+            "applicability": "not_applicable",
+            "dependency_service_id": "gille-inference"
+          }
+        ]
+      },
+      "observation_refs": [
+        {
+          "slot_id": "live-core",
+          "observation_id": "obs-hugin-live-core"
+        },
+        {
+          "slot_id": "ready-broker",
+          "observation_id": "obs-hugin-ready-broker"
+        }
+      ],
+      "outcome": "ok",
+      "diagnostic_ref": "ref:hugin-overall-ok",
+      "extensions": []
+    },
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
+      "observation_id": "obs-gille-live-core",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "gille-inference",
+        "producer_version": "git-125b0f3"
+      },
+      "service": {
+        "service_id": "gille-inference",
+        "instance_id": "gille-main"
+      },
+      "slot_id": "live-core",
+      "check": {
+        "surface": "liveness"
+      },
+      "attempt_id": "att-gille-01",
+      "observed_at": "2026-07-31T08:12:00Z",
+      "collected_at": "2026-07-31T08:12:01Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T08:17:00Z",
+      "outcome": "ok",
+      "diagnostic_ref": "ref:gille-live-core",
+      "extensions": []
+    },
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
+      "observation_id": "obs-gille-dep-model",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "gille-inference",
+        "producer_version": "git-125b0f3"
+      },
+      "service": {
+        "service_id": "gille-inference",
+        "instance_id": "gille-main"
+      },
+      "slot_id": "dep-model",
+      "check": {
+        "surface": "dependency",
+        "dependency_service_id": "model-runtime"
+      },
+      "attempt_id": "att-gille-01",
+      "observed_at": "2026-07-31T08:12:00Z",
+      "collected_at": "2026-07-31T08:12:01Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T08:17:00Z",
+      "outcome": "degraded",
+      "diagnostic_ref": "ref:gille-dep-model",
+      "extensions": []
+    },
+    {
+      "kind": "observation-aggregate",
+      "contract_version": "v1.0",
+      "aggregate_id": "agg-gille-overall-degraded",
+      "source": {
+        "source_kind": "aggregator",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "gille-inference",
+        "instance_id": "gille-main"
+      },
+      "aggregate_surface": "service_overall",
+      "attempt_id": "agg-gille-01",
+      "observed_at": "2026-07-31T08:12:01Z",
+      "collected_at": "2026-07-31T08:12:02Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T08:17:01Z",
+      "inventory": {
+        "authority_kind": "services_json",
+        "authority_ref": "ref:services-json-gille",
+        "authority_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "expected_slots": [
+          {
+            "slot_id": "live-core",
+            "surface": "liveness",
+            "applicability": "required"
+          },
+          {
+            "slot_id": "dep-model",
+            "surface": "dependency",
+            "applicability": "required",
+            "dependency_service_id": "model-runtime"
+          }
+        ]
+      },
+      "observation_refs": [
+        {
+          "slot_id": "live-core",
+          "observation_id": "obs-gille-live-core"
+        },
+        {
+          "slot_id": "dep-model",
+          "observation_id": "obs-gille-dep-model"
+        }
+      ],
+      "outcome": "degraded",
+      "diagnostic_ref": "ref:gille-overall-degraded",
+      "extensions": []
+    }
+  ]
+}

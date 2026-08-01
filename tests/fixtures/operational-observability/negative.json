@@ -1,0 +1,318 @@
+{
+  "schema_malformed_diagnostic_ref": {
+    "kind": "service-observation",
+    "contract_version": "v1.0",
+    "observation_id": "obs-malformed-ref",
+    "source": {
+      "source_kind": "service_internal",
+      "producer": "heimdall",
+      "producer_version": "git-945847c"
+    },
+    "service": {
+      "service_id": "heimdall",
+      "instance_id": "heimdall-prod"
+    },
+    "slot_id": "live-core",
+    "check": {
+      "surface": "liveness"
+    },
+    "attempt_id": "att-malformed-01",
+    "observed_at": "2026-07-31T10:00:00Z",
+    "collected_at": "2026-07-31T10:00:01Z",
+    "freshness_window": "PT5M",
+    "fresh_until": "2026-07-31T10:05:00Z",
+    "outcome": "ok",
+    "diagnostic_ref": "https://heimdall.local/health?token=abc",
+    "extensions": []
+  },
+  "unsupported_major_observation": {
+    "kind": "service-observation",
+    "contract_version": "v2.0",
+    "observation_id": "obs-unsupported-major",
+    "source": {
+      "source_kind": "service_internal",
+      "producer": "hugin",
+      "producer_version": "git-3be19f7"
+    },
+    "service": {
+      "service_id": "hugin",
+      "instance_id": "hugin-user"
+    },
+    "slot_id": "live-core",
+    "check": {
+      "surface": "liveness"
+    },
+    "attempt_id": "att-major-01",
+    "observed_at": "2026-07-31T10:01:00Z",
+    "collected_at": "2026-07-31T10:01:01Z",
+    "freshness_window": "PT5M",
+    "fresh_until": "2026-07-31T10:06:00Z",
+    "outcome": "ok",
+    "diagnostic_ref": "ref:unsupported-major",
+    "extensions": []
+  },
+  "privacy_adversarial_trace_scenario": {
+    "records": [
+      {
+        "kind": "trace-policy",
+        "contract_version": "v1.0",
+        "policy_id": "trace-policy-bad-span",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "mimir",
+          "producer_version": "git-a1b2c3d"
+        },
+        "service": {
+          "service_id": "mimir",
+          "instance_id": "mimir-prod"
+        },
+        "default_state": {
+          "instrumentation_enabled": true,
+          "export_enabled": true,
+          "automatic_instrumentation": "disabled"
+        },
+        "sampling": {
+          "mode": "head",
+          "rate_per_mille": 100
+        },
+        "serialization": {
+          "allowlist_version": "v1",
+          "deny_by_default": true,
+          "max_attributes": 12,
+          "max_string_length": 64
+        },
+        "retention": {
+          "policy_ref": "ref:data-lifecycle-v1",
+          "data_class": "operational_telemetry",
+          "deletion_owner": "producer"
+        },
+        "failure_behavior": {
+          "export_failure": "drop_and_count",
+          "instrumentation_failure": "must_not_fail_request"
+        },
+        "created_at": "2026-07-31T10:02:00Z",
+        "extensions": []
+      },
+      {
+        "kind": "trace-span",
+        "contract_version": "v1.0",
+        "policy_id": "trace-policy-bad-span",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "mimir",
+          "producer_version": "git-a1b2c3d"
+        },
+        "service": {
+          "service_id": "mimir",
+          "instance_id": "mimir-prod"
+        },
+        "trace_id": "abcdefabcdefabcdefabcdefabcdefab",
+        "span_id": "0123456789abcdef",
+        "operation": {
+          "surface": "service",
+          "phase": "execution"
+        },
+        "started_at": "2026-07-31T10:02:10Z",
+        "ended_at": "2026-07-31T10:02:11Z",
+        "collected_at": "2026-07-31T10:02:11Z",
+        "sampled": true,
+        "outcome": "failed",
+        "attributes": {
+          "service_id": "mimir",
+          "instance_id": "mimir-prod",
+          "error_class": "https://mimir.local/private?token=abc"
+        },
+        "diagnostic_ref": "ref:mimir-bad-span",
+        "extensions": []
+      }
+    ]
+  },
+  "healthy_from_stale_scenario": {
+    "records": [
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-stale-child",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "heimdall",
+          "instance_id": "heimdall-prod"
+        },
+        "slot_id": "live-core",
+        "check": {
+          "surface": "liveness"
+        },
+        "attempt_id": "att-stale-01",
+        "observed_at": "2026-07-31T10:05:00Z",
+        "collected_at": "2026-07-31T10:05:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T10:10:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:stale-child",
+        "extensions": []
+      },
+      {
+        "kind": "observation-aggregate",
+        "contract_version": "v1.0",
+        "aggregate_id": "agg-stale-wrong-ok",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "heimdall",
+          "instance_id": "heimdall-prod"
+        },
+        "aggregate_surface": "service_overall",
+        "attempt_id": "agg-stale-01",
+        "observed_at": "2026-07-31T10:11:00Z",
+        "collected_at": "2026-07-31T10:11:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T10:16:00Z",
+        "inventory": {
+          "authority_kind": "services_json",
+          "authority_ref": "ref:services-json-heimdall",
+          "authority_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "expected_slots": [
+            {
+              "slot_id": "live-core",
+              "surface": "liveness",
+              "applicability": "required"
+            }
+          ]
+        },
+        "observation_refs": [
+          {
+            "slot_id": "live-core",
+            "observation_id": "obs-stale-child"
+          }
+        ],
+        "outcome": "ok",
+        "diagnostic_ref": "ref:stale-wrong-ok",
+        "extensions": []
+      }
+    ]
+  },
+  "healthy_from_missing_scenario": {
+    "records": [
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-missing-live",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "munin-memory",
+          "producer_version": "git-e8caef0"
+        },
+        "service": {
+          "service_id": "munin-memory",
+          "instance_id": "munin-prod"
+        },
+        "slot_id": "live-core",
+        "check": {
+          "surface": "liveness"
+        },
+        "attempt_id": "att-missing-01",
+        "observed_at": "2026-07-31T10:12:00Z",
+        "collected_at": "2026-07-31T10:12:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T10:17:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:missing-live",
+        "extensions": []
+      },
+      {
+        "kind": "observation-aggregate",
+        "contract_version": "v1.0",
+        "aggregate_id": "agg-missing-wrong-ok",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "munin-memory",
+          "instance_id": "munin-prod"
+        },
+        "aggregate_surface": "service_overall",
+        "attempt_id": "agg-missing-01",
+        "observed_at": "2026-07-31T10:12:01Z",
+        "collected_at": "2026-07-31T10:12:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T10:17:01Z",
+        "inventory": {
+          "authority_kind": "services_json",
+          "authority_ref": "ref:services-json-munin",
+          "authority_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "expected_slots": [
+            {
+              "slot_id": "live-core",
+              "surface": "liveness",
+              "applicability": "required"
+            },
+            {
+              "slot_id": "ready-store",
+              "surface": "readiness",
+              "applicability": "required"
+            }
+          ]
+        },
+        "observation_refs": [
+          {
+            "slot_id": "live-core",
+            "observation_id": "obs-missing-live"
+          }
+        ],
+        "outcome": "ok",
+        "diagnostic_ref": "ref:missing-wrong-ok",
+        "extensions": []
+      }
+    ]
+  },
+  "empty_expected_green_scenario": {
+    "records": [
+      {
+        "kind": "observation-aggregate",
+        "contract_version": "v1.0",
+        "aggregate_id": "agg-empty-wrong-ok",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "skuld",
+          "instance_id": "skuld-user"
+        },
+        "aggregate_surface": "service_overall",
+        "attempt_id": "agg-empty-01",
+        "observed_at": "2026-07-31T10:20:00Z",
+        "collected_at": "2026-07-31T10:20:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T10:25:00Z",
+        "inventory": {
+          "authority_kind": "services_json",
+          "authority_ref": "ref:services-json-skuld",
+          "authority_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "expected_slots": [
+            {
+              "slot_id": "dep-telegram",
+              "surface": "dependency",
+              "applicability": "not_applicable",
+              "dependency_service_id": "ratatoskr"
+            }
+          ]
+        },
+        "observation_refs": [],
+        "outcome": "ok",
+        "diagnostic_ref": "ref:empty-wrong-ok",
+        "extensions": []
+      }
+    ]
+  }
+}

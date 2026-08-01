@@ -20,6 +20,11 @@ cadence still have explicit maturity gaps.
 Grimnir uses four deliberately separate record classes. A shared identifier can correlate them, but
 storage or visualization does not transfer authority:
 
+The operational-telemetry plane's record shape is normative in
+[`operational-observability-contract.md`](operational-observability-contract.md): closed
+observation states, expected-inventory aggregation, content-blind trace joins, and deny-by-default
+serialized attributes live there rather than in Heimdall tickets or dashboards.
+
 | Record class | Authoritative producer and facts | Aggregation and consumers | Current boundary |
 |---|---|---|---|
 | **Operational telemetry** | Each service owns its application health, latency, queue, throughput, and error facts; systemd owns unit lifecycle; Brokkr owns substrate observations. | Heimdall collects derived health time series and alerts for the operator. Skuld may consume an explicitly derived health summary, not raw logs or a new verdict. | Basic host/service/backup and Hugin task-health collection exists. Queue depth, Munin request rates, model-load timing, and cross-service throughput trends remain uneven or absent. |
