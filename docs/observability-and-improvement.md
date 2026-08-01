@@ -14,7 +14,7 @@ This document replaces the older assumption that all components participated in 
 `trace → score → reflection → few-shot/routing` pipeline. The core Hugin↔`gille-inference` software
 loop is implemented and its authenticated seam has been live-smoked, while producer coverage,
 ground-truth breadth, full-path operating evidence, and operating cadence still have explicit
-maturity gaps. ADR-008's W0.2 production configuration is globally disarmed.
+maturity gaps. ADR-008's production configuration is globally disarmed.
 
 ## Telemetry strategy
 

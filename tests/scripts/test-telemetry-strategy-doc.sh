@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OBS="$ROOT/docs/observability-and-improvement.md"
 SCHEDULE="$ROOT/docs/scheduled-tasks.md"
 REGISTRY="$ROOT/services.json"
-RETIRED_TIER_CLAIM_RE='completed one live human-approved routing adoption|autonomous controller is armed|armed at tier 0|implemented; armed tier 0|armed on m5 at[^.]{0,20}tier 0|tier 0[^.]{0,80}(proposes and records only|currently auto-adopts nothing|auto-adopts nothing)|tier 1 self-unlocks'
+RETIRED_TIER_CLAIM_RE='completed one live human-approved routing adoption|autonom(ous|y)?[[:space:]]+controller is armed|controller is armed|armed at tier 0|implemented; armed tier 0|armed on m5 at[^.]{0,20}tier 0|tier 0[^.]{0,80}(proposes and records only|currently auto-adopts nothing|auto-adopts nothing)|tier 1 self-unlocks|gille-inference#11/#13|gille-inference#(11|13)[^.]{0,60}remain(s)? (open|under)|(served-model refresh|reviewer adoption evidence|final ground-truth reviewer work)[^.]{0,40}remain'
 
 require() {
   local file="$1" needle="$2"
@@ -15,16 +15,6 @@ require() {
   flat="$(tr '\n' ' ' < "$file")"
   grep -Fq "$needle" <<< "$flat" || {
     echo "missing telemetry strategy statement in ${file#"$ROOT"/}: $needle" >&2
-    exit 1
-  }
-}
-
-require_match() {
-  local file="$1" pattern="$2"
-  local flat
-  flat="$(tr '\n' ' ' < "$file")"
-  grep -qiE "$pattern" <<< "$flat" || {
-    echo "missing telemetry strategy pattern in ${file#"$ROOT"/}: $pattern" >&2
     exit 1
   }
 }
@@ -62,7 +52,7 @@ require "$OBS" "External Codex App/CLI and Pi producers | Partial"
 require "$OBS" "claude-config#11"
 require "$OBS" "gille-inference#11"
 require "$OBS" "gille-inference#13"
-CURRENT_GAPS_PARAGRAPH="$(paragraph "$OBS" '^\*\*Current gaps:\*\*' | tr '\n' ' ')"
+CURRENT_GAPS_PARAGRAPH="$(paragraph "$OBS" '^[*][*]Current gaps:[*][*]' | tr '\n' ' ')"
 grep -qiE 'Current gaps:.*gille-inference#11.*gille-inference#13' <<< "$CURRENT_GAPS_PARAGRAPH" || {
   echo "missing telemetry strategy pattern in Current gaps paragraph of ${OBS#"$ROOT"/}: Current gaps:.*gille-inference#11.*gille-inference#13" >&2
   exit 1

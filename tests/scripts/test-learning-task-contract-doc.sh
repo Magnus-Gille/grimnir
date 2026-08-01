@@ -11,7 +11,7 @@ ADR="$REPO_ROOT/docs/adr-006-learning-improvement-scope.md"
 OBS="$REPO_ROOT/docs/observability-and-improvement.md"
 README="$REPO_ROOT/README.md"
 SCHEMA="$REPO_ROOT/docs/learning-task-contract-v1.schema.json"
-RETIRED_TIER_CLAIM_RE='completed one live human-approved routing adoption|autonomous controller is armed|armed at tier 0|implemented; armed tier 0|armed on m5 at[^.]{0,20}tier 0|tier 0[^.]{0,80}(proposes and records only|currently auto-adopts nothing|auto-adopts nothing)|tier 1 self-unlocks'
+RETIRED_TIER_CLAIM_RE='completed one live human-approved routing adoption|autonom(ous|y)?[[:space:]]+controller is armed|controller is armed|armed at tier 0|implemented; armed tier 0|armed on m5 at[^.]{0,20}tier 0|tier 0[^.]{0,80}(proposes and records only|currently auto-adopts nothing|auto-adopts nothing)|tier 1 self-unlocks|gille-inference#11/#13|gille-inference#(11|13)[^.]{0,60}remain(s)? (open|under)|(served-model refresh|reviewer adoption evidence|final ground-truth reviewer work)[^.]{0,40}remain'
 
 PASS=0
 FAIL=0
