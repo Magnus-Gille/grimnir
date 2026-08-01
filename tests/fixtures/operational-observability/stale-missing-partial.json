@@ -325,8 +325,8 @@
       "attempt_id": "agg-munin-02",
       "observed_at": "2026-07-31T09:20:02Z",
       "collected_at": "2026-07-31T09:20:02Z",
-      "freshness_window": "PT5M",
-      "fresh_until": "2026-07-31T09:25:02Z",
+      "freshness_window": "PT4M58S",
+      "fresh_until": "2026-07-31T09:25:00Z",
       "inventory": {
         "authorities": [
           {

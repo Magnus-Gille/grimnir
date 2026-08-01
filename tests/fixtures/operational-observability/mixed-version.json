@@ -141,8 +141,8 @@
       "attempt_id": "agg-rat-01",
       "observed_at": "2026-07-31T09:00:02Z",
       "collected_at": "2026-07-31T09:00:02Z",
-      "freshness_window": "PT5M",
-      "fresh_until": "2026-07-31T09:05:02Z",
+      "freshness_window": "PT4M58S",
+      "fresh_until": "2026-07-31T09:05:00Z",
       "inventory": {
         "authorities": [
           {

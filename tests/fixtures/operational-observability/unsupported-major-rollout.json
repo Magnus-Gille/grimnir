@@ -95,6 +95,33 @@
     {
       "kind": "service-observation",
       "contract_version": "v1.0",
+      "observation_id": "obs-hugin-dep-munin-v10",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "hugin",
+        "producer_version": "git-3be19f7"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "slot_id": "dep-munin",
+      "check": {
+        "surface": "dependency",
+        "dependency_service_id": "munin-memory"
+      },
+      "attempt_id": "att-hugin-major-01",
+      "observed_at": "2026-07-31T10:00:00Z",
+      "collected_at": "2026-07-31T10:00:01Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T10:05:00Z",
+      "outcome": "ok",
+      "diagnostic_ref": "ref:hugin-dep-munin-v10",
+      "extensions": []
+    },
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
       "observation_id": "obs-hugin-collector-v10",
       "source": {
         "source_kind": "aggregator",
@@ -135,8 +162,8 @@
       "attempt_id": "agg-hugin-major-01",
       "observed_at": "2026-07-31T10:00:02Z",
       "collected_at": "2026-07-31T10:00:02Z",
-      "freshness_window": "PT5M",
-      "fresh_until": "2026-07-31T10:05:02Z",
+      "freshness_window": "PT4M58S",
+      "fresh_until": "2026-07-31T10:05:00Z",
       "inventory": {
         "authorities": [
           {
@@ -147,7 +174,7 @@
           {
             "authority_kind": "producer_contract",
             "authority_ref": "ref:hugin-observability-contract-v1",
-            "authority_digest": "sha256:a21c306aebd11968789584103cc3e694f254056358b420df7e8c112e2fd53d39"
+            "authority_digest": "sha256:08bce19d4828eda69612dd1e939768ebcea810eed399cf5b5f693d92f6c4bd0a"
           },
           {
             "authority_kind": "consumer_contract",
@@ -177,6 +204,17 @@
             "max_freshness": "PT5M"
           },
           {
+            "slot_id": "dep-munin",
+            "authority_kind": "producer_contract",
+            "slot_class": "dependency_health",
+            "surface": "dependency",
+            "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "hugin",
+            "max_freshness": "PT5M",
+            "dependency_service_id": "munin-memory"
+          },
+          {
             "slot_id": "exporter-health",
             "authority_kind": "producer_contract",
             "slot_class": "exporter_health",
@@ -202,6 +240,10 @@
         {
           "slot_id": "service-ready",
           "observation_id": "obs-hugin-ready-v10"
+        },
+        {
+          "slot_id": "dep-munin",
+          "observation_id": "obs-hugin-dep-munin-v10"
         },
         {
           "slot_id": "collector-health",

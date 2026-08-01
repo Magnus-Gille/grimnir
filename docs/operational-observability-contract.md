@@ -56,6 +56,10 @@ becomes `stale`; an explicit `failed` observation stays `failed`; an existing `u
 Every `service-observation` binds source, service/instance, producer version, attempt ID,
 observed/collected timestamps, freshness window, outcome, and a content-blind diagnostic ref.
 
+Every v1 timestamp field MUST be a real whole-second UTC instant encoded as
+`YYYY-MM-DDTHH:MM:SSZ`. Offsets and fractional seconds are rejected by both the schema and the
+runtime validator so every freshness comparison uses one exact wire format.
+
 - `source` identifies the producing surface (`service_internal`, `service_probe`, `systemd`,
   `substrate`, `synthetic`, or `aggregator`) plus the producer id and producer version.
 - `service` identifies one service and one instance, using the existing registry/component identity
@@ -104,12 +108,14 @@ The owner split is explicit and usable by Heimdall and Brokkr:
 `max_freshness` is bounded: it MUST be positive and MUST NOT exceed `P1D`. Effective freshness is
 the stricter of the producer's `freshness_window` and the consumer's `max_freshness`.
 
-For `producer_contract` and `consumer_contract`, v1 `authority_digest` is a self-consistency digest
-over the projected slot allocation, not proof that some external document's bytes were hashed. To
-ground that projection in a real authority, `authority_ref` MUST name a versioned external contract
-or observer artifact such as `ref:hugin-observability-contract-v1` or
-`ref:heimdall-hugin-observer-v1`. Full cross-document byte binding is a future major-version
-change.
+For `producer_contract` and `consumer_contract`, v1 `authority_ref` MUST resolve through a
+versioned external authority registry or derivation input that is not authored inside the aggregate
+record itself, and that selector MUST name a versioned external contract or observer artifact. The
+validator's canonical input is `tests/fixtures/operational-observability/inventory-derivation.json`;
+a production consumer needs an equivalent external selector. `authority_digest` is computed over
+the externally selected slot projection after removing consumer-owned `max_freshness`, not over an
+arbitrary projection embedded only in the aggregate. Unknown refs or mismatched projections fail closed.
+Full cross-document byte binding is a future major-version change.
 
 ### Canonical `authority_digest`
 
@@ -146,7 +152,7 @@ no locale-sensitive comparison is allowed.
 `tests/fixtures/operational-observability/inventory-derivation.json` is the recomputable fixture
 for this rule set: it includes authoritative projections for `services_json`, `producer_contract`,
 and `consumer_contract`, including prefix-related dependency ids, and the validator recomputes every
-digest from scratch.
+digest from scratch while binding producer/consumer refs through that external fixture input.
 
 ## Aggregation truth table
 
@@ -168,6 +174,10 @@ The v1 truth table is:
 This makes the fail-closed rule explicit: no `failed`, `stale`, or `unknown` child can be reduced
 to `ok`. Stale, missing, and partial evidence never renders healthy.
 
+An aggregate that would otherwise still be `ok` or `degraded` MUST NOT advertise a `fresh_until`
+beyond the earliest effective child `fresh_until` after the stricter producer/consumer freshness
+cap is applied. Aggregate render-time health cannot outlive any contributing child.
+
 Every `service_overall`, `liveness`, and `readiness` aggregate MUST bind `services_json` authority
 and carry the complete mechanically derived registry slot set for that surface:
 
@@ -176,6 +186,8 @@ and carry the complete mechanically derived registry slot set for that surface:
 - `readiness`: `service-ready`
 
 No collector-only or exporter-only inventory may validate green for those aggregate surfaces.
+`liveness` and `readiness` aggregates may not carry any additional producer or consumer slots
+beyond that mechanically derived registry surface set.
 
 Every `service_overall` aggregate MUST include one required consumer-owned `collector_health` slot
 and MUST bind exactly one `trace-policy` record for the same service and instance. It MUST also

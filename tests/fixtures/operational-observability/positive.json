@@ -334,8 +334,8 @@
       "attempt_id": "agg-hugin-01",
       "observed_at": "2026-07-31T08:10:02Z",
       "collected_at": "2026-07-31T08:10:02Z",
-      "freshness_window": "PT5M",
-      "fresh_until": "2026-07-31T08:15:02Z",
+      "freshness_window": "PT4M58S",
+      "fresh_until": "2026-07-31T08:15:00Z",
       "inventory": {
         "authorities": [
           {
@@ -582,8 +582,8 @@
       "attempt_id": "agg-hugin-02",
       "observed_at": "2026-07-31T09:11:02Z",
       "collected_at": "2026-07-31T09:11:02Z",
-      "freshness_window": "PT5M",
-      "fresh_until": "2026-07-31T09:16:02Z",
+      "freshness_window": "PT4M58S",
+      "fresh_until": "2026-07-31T09:16:00Z",
       "inventory": {
         "authorities": [
           {

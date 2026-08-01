@@ -243,6 +243,9 @@ function slotAuthorityProjection(slot) {
   delete projection.max_freshness;
   return projection;
 }
+function authorityRegistryKey(authorityKind, authorityRef, service, aggregateProducer) {
+  return [authorityKind, authorityRef, service.service_id, service.instance_id, aggregateProducer].join("|");
+}
 function authorityDigest(authority, slots) {
   const projection = {
     authority_kind: authority.authority_kind,
@@ -312,6 +315,17 @@ function traceExportSlotApplicability(policy) {
     ? "required"
     : "not_applicable";
 }
+function externalAuthoritySlots(authorityCase, aggregate, policiesByService) {
+  const projectedSlots = authorityCase.expected_slots.map((slot) => structuredClone(slot));
+  if (authorityCase.authority.authority_kind !== "producer_contract") return projectedSlots;
+  const policy = policiesByService.get(`${aggregate.service.service_id}:${aggregate.service.instance_id}`);
+  if (!policy) return projectedSlots;
+  return projectedSlots.map((slot) => {
+    if (slot.slot_class !== "exporter_health") return slot;
+    slot.applicability = traceExportSlotApplicability(policy);
+    return slot;
+  });
+}
 function detectPrivateIp(value) {
   for (const token of value.match(/[0-9A-Fa-f:.]+/g) ?? []) {
     const version = net.isIP(token);
@@ -335,7 +349,7 @@ function isPrivateIpv6(token) {
     || normalized.startsWith("fd")
     || /^fe[89ab]/.test(normalized);
 }
-function validateInventory(value, label, aggregate, policiesByService) {
+function validateInventory(value, label, aggregate, policiesByService, authorityRegistry) {
   exact(value, ["authorities", "expected_slots"], label);
   if (!Array.isArray(value.authorities) || value.authorities.length === 0) fail(`${label}.authorities must contain at least one binding`);
   if (!Array.isArray(value.expected_slots) || value.expected_slots.length === 0) fail(`${label}.expected_slots must contain at least one declared slot`);
@@ -378,15 +392,13 @@ function validateInventory(value, label, aggregate, policiesByService) {
     if (!slotsByKind.has(slot.authority_kind)) slotsByKind.set(slot.authority_kind, []);
     slotsByKind.get(slot.authority_kind).push(slot);
   }
-  for (const [kind, authority] of authoritiesByKind.entries()) {
-    const slots = slotsByKind.get(kind) ?? [];
-    if (slots.length === 0) fail(`${label}.authority_kind ${kind} does not allocate any expected slots`);
-    const expectedDigest = authorityDigest(authority, slots);
-    if (authority.authority_digest !== expectedDigest) fail(`${label}.authority_kind ${kind} digest mismatch: expected ${expectedDigest}, got ${authority.authority_digest}`);
-  }
   const registrySlots = normalizedSlots(slotsByKind.get("services_json") ?? []);
-  const requiredRegistrySurfaces = new Set(["service_overall", "liveness", "readiness"]);
-  if (requiredRegistrySurfaces.has(aggregate.aggregate_surface)) {
+  if (aggregate.aggregate_surface === "liveness" || aggregate.aggregate_surface === "readiness") {
+    if (!authoritiesByKind.has("services_json")) fail(`${label} must bind services_json authority for ${aggregate.aggregate_surface} aggregates`);
+    const expectedRegistrySlots = normalizedSlots(derivedRegistryProjection(aggregate.service.service_id, aggregate.aggregate_surface));
+    const normalizedExpectedSlots = normalizedSlots(value.expected_slots);
+    if (canonical(expectedRegistrySlots) !== canonical(normalizedExpectedSlots.map(slotAuthorityProjection))) fail(`${label}.expected_slots must equal the complete mechanically derived registry slot set for ${aggregate.service.service_id} ${aggregate.aggregate_surface} aggregates`);
+  } else if (aggregate.aggregate_surface === "service_overall") {
     if (!authoritiesByKind.has("services_json")) fail(`${label} must bind services_json authority for ${aggregate.aggregate_surface} aggregates`);
     const expectedRegistrySlots = normalizedSlots(derivedRegistryProjection(aggregate.service.service_id, aggregate.aggregate_surface));
     if (canonical(expectedRegistrySlots) !== canonical(registrySlots.map(slotAuthorityProjection))) fail(`${label}.services_json slots must equal the complete mechanically derived registry slot set for ${aggregate.service.service_id} ${aggregate.aggregate_surface} aggregates`);
@@ -404,6 +416,24 @@ function validateInventory(value, label, aggregate, policiesByService) {
     if (exporterSlots.length !== 1) fail(`${label} must declare exactly one exporter_health slot for service_overall aggregates`);
     const requiredApplicability = traceExportSlotApplicability(policy);
     if (exporterSlots[0].applicability !== requiredApplicability) fail(`${label}.exporter_health applicability must be ${requiredApplicability} under the bound trace policy`);
+  }
+  for (const [kind, authority] of authoritiesByKind.entries()) {
+    const slots = slotsByKind.get(kind) ?? [];
+    if (slots.length === 0) fail(`${label}.authority_kind ${kind} does not allocate any expected slots`);
+    if (kind === "services_json") {
+      const expectedDigest = authorityDigest(authority, slots);
+      if (authority.authority_digest !== expectedDigest) fail(`${label}.authority_kind ${kind} digest mismatch: expected ${expectedDigest}, got ${authority.authority_digest}`);
+      continue;
+    }
+    const key = authorityRegistryKey(kind, authority.authority_ref, aggregate.service, aggregate.source.producer);
+    const authorityCase = authorityRegistry.get(key);
+    if (!authorityCase) fail(`${label}.authority_kind ${kind} ref ${authority.authority_ref} is not present in the external authority registry for ${aggregate.service.service_id}/${aggregate.service.instance_id} via ${aggregate.source.producer}`);
+    const expectedSlots = externalAuthoritySlots(authorityCase, aggregate, policiesByService);
+    const expectedProjection = normalizedSlots(expectedSlots).map(slotAuthorityProjection);
+    const actualProjection = normalizedSlots(slots).map(slotAuthorityProjection);
+    if (canonical(expectedProjection) !== canonical(actualProjection)) fail(`${label}.authority_kind ${kind} expected_slots do not match the external authority projection for ${authority.authority_ref}`);
+    const expectedDigest = authorityDigest(authorityCase.authority, expectedSlots);
+    if (authority.authority_digest !== expectedDigest) fail(`${label}.authority_kind ${kind} digest mismatch: expected ${expectedDigest}, got ${authority.authority_digest}`);
   }
 }
 function validateTracePolicy(record) {
@@ -449,8 +479,8 @@ function validateObservation(record) {
   validateExtensions(record.extensions, "observation.extensions");
 }
 function effectiveObservationOutcome(observation, slot, asOf) {
-  const effectiveFreshnessMs = Math.min(durationToMs(observation.freshness_window), durationToMs(slot.max_freshness));
-  const expired = Date.parse(asOf) > Date.parse(observation.observed_at) + effectiveFreshnessMs;
+  const effectiveFreshUntilMs = Math.min(Date.parse(observation.fresh_until), Date.parse(observation.observed_at) + durationToMs(slot.max_freshness));
+  const expired = Date.parse(asOf) > effectiveFreshUntilMs;
   if (!expired) return observation.outcome;
   if (observation.outcome === "ok" || observation.outcome === "degraded") return "stale";
   return observation.outcome;
@@ -469,7 +499,7 @@ function renderEffectiveAggregateOutcome(record, renderedAt) {
   if (record.outcome === "ok" || record.outcome === "degraded") return "stale";
   return record.outcome;
 }
-function validateAggregate(record, observations, policiesByService) {
+function validateAggregate(record, observations, policiesByService, authorityRegistry) {
   exact(record, record.trace !== undefined
     ? ["kind", "contract_version", "aggregate_id", "source", "service", "aggregate_surface", "attempt_id", "observed_at", "collected_at", "freshness_window", "fresh_until", "inventory", "observation_refs", "outcome", "diagnostic_ref", "trace", "extensions"]
     : ["kind", "contract_version", "aggregate_id", "source", "service", "aggregate_surface", "attempt_id", "observed_at", "collected_at", "freshness_window", "fresh_until", "inventory", "observation_refs", "outcome", "diagnostic_ref", "extensions"], "aggregate");
@@ -484,7 +514,7 @@ function validateAggregate(record, observations, policiesByService) {
   validateExtensions(record.extensions, "aggregate.extensions");
   if (!["ok", "degraded", "failed", "stale", "unknown"].includes(record.outcome)) fail("aggregate.outcome invalid");
   if (!opaqueRef.test(record.diagnostic_ref)) fail("aggregate.diagnostic_ref must remain content-blind");
-  validateInventory(record.inventory, "aggregate.inventory", record, policiesByService);
+  validateInventory(record.inventory, "aggregate.inventory", record, policiesByService, authorityRegistry);
   const slotMap = new Map(record.inventory.expected_slots.map((slot) => [slot.slot_id, slot]));
   const seenRefs = new Set();
   const bySlot = new Map();
@@ -511,6 +541,7 @@ function validateAggregate(record, observations, policiesByService) {
     if (Date.parse(record.collected_at) < latestChildClockMs) fail("aggregate.collected_at must be greater than or equal to every referenced child clock");
   }
   const effectiveChildren = [];
+  let earliestEffectiveChildFreshUntilMs = Number.POSITIVE_INFINITY;
   for (const slot of record.inventory.expected_slots) {
     const observation = bySlot.get(slot.slot_id);
     if (slot.applicability === "not_applicable") {
@@ -522,9 +553,12 @@ function validateAggregate(record, observations, policiesByService) {
       continue;
     }
     if (observation.outcome === "not_applicable") fail(`required slot ${slot.slot_id} cannot report not_applicable`);
+    const effectiveChildFreshUntilMs = Math.min(Date.parse(observation.fresh_until), Date.parse(observation.observed_at) + durationToMs(slot.max_freshness));
+    earliestEffectiveChildFreshUntilMs = Math.min(earliestEffectiveChildFreshUntilMs, effectiveChildFreshUntilMs);
     effectiveChildren.push(effectiveObservationOutcome(observation, slot, record.collected_at));
   }
   const expected = aggregateOutcome(effectiveChildren);
+  if ((expected === "ok" || expected === "degraded") && earliestEffectiveChildFreshUntilMs < Number.POSITIVE_INFINITY && Date.parse(record.fresh_until) > earliestEffectiveChildFreshUntilMs) fail("aggregate.fresh_until must be less than or equal to the earliest effective child fresh_until");
   if (record.outcome !== expected) fail(`aggregate outcome mismatch: expected ${expected}, got ${record.outcome}`);
 }
 function validateTraceSpan(record, policiesById) {
@@ -589,7 +623,7 @@ function validateTraceGraph(records, observationsById) {
     }
   }
 }
-function validateRecordSet(records, label) {
+function validateRecordSet(records, label, authorityRegistry) {
   const observations = new Map();
   const policiesById = new Map();
   const policiesByService = new Map();
@@ -607,18 +641,21 @@ function validateRecordSet(records, label) {
   for (const policy of policiesById.values()) validateTracePolicy(policy);
   for (const observation of observations.values()) validateObservation(observation);
   for (const record of records) {
-    if (record.kind === "observation-aggregate") validateAggregate(record, observations, policiesByService);
+    if (record.kind === "observation-aggregate") validateAggregate(record, observations, policiesByService, authorityRegistry);
     if (record.kind === "trace-span") validateTraceSpan(record, policiesById);
   }
   validateTraceGraph(records, observations);
 }
 function validateInventoryDerivationCases(file) {
   assert.ok(Array.isArray(file.cases) && file.cases.length > 0, "inventory-derivation fixture must contain at least one case");
+  const authorityRegistry = new Map();
   for (const testCase of file.cases) {
     exact(testCase, ["label", "authority", "service", "aggregate_producer", "expected_slots"], "inventory-derivation.case");
     validateService(testCase.service, `inventory-derivation.${testCase.label}.service`);
     if (!id.test(testCase.aggregate_producer)) fail(`inventory-derivation.${testCase.label}.aggregate_producer invalid`);
     exact(testCase.authority, ["authority_kind", "authority_ref", "authority_digest"], `inventory-derivation.${testCase.label}.authority`);
+    if (!opaqueRef.test(testCase.authority.authority_ref) || !digest.test(testCase.authority.authority_digest)) fail(`inventory-derivation.${testCase.label}.authority binding malformed`);
+    if (testCase.authority.authority_kind !== "services_json" && !VERSIONED_CONTRACT_AUTHORITY_REF.test(testCase.authority.authority_ref)) fail(`inventory-derivation.${testCase.label}.authority_kind ${testCase.authority.authority_kind} must use a versioned external contract ref`);
     const slots = normalizedSlots(testCase.expected_slots);
     for (const slot of slots) {
       const slotLabel = `inventory-derivation.${testCase.label}.slot.${slot.slot_id}`;
@@ -635,7 +672,16 @@ function validateInventoryDerivationCases(file) {
       const expectedRegistrySlots = normalizedSlots(derivedServicesJsonSlots(testCase.service.service_id, slots[0].max_freshness));
       if (canonical(expectedRegistrySlots.map(slotAuthorityProjection)) !== canonical(slots.map(slotAuthorityProjection))) fail(`inventory-derivation.${testCase.label} does not match the authoritative services.json slot derivation`);
     }
+    const key = authorityRegistryKey(testCase.authority.authority_kind, testCase.authority.authority_ref, testCase.service, testCase.aggregate_producer);
+    if (authorityRegistry.has(key)) fail(`inventory-derivation.${testCase.label} duplicates external authority binding ${key}`);
+    authorityRegistry.set(key, {
+      authority: structuredClone(testCase.authority),
+      service: structuredClone(testCase.service),
+      aggregate_producer: testCase.aggregate_producer,
+      expected_slots: slots
+    });
   }
+  return authorityRegistry;
 }
 
 function reject(fn, label, expectedError) {
@@ -650,21 +696,23 @@ function reject(fn, label, expectedError) {
 }
 
 checkSchema(schema);
+assert.equal(schema.$defs.utc.format, "date-time", "schema utc definition must retain RFC 3339 date-time format");
+assert.equal(schema.$defs.utc.pattern, utc.source, "schema utc definition must pin whole-second UTC Z timestamps");
+
+const authorityRegistry = validateInventoryDerivationCases(inventoryDerivation);
 
 for (const record of positive.records) schemaValid(record, `positive:${record.kind}`);
-validateRecordSet(positive.records, "positive");
+validateRecordSet(positive.records, "positive", authorityRegistry);
 
 for (const record of mixedVersion.records) schemaValid(record, `mixed-version:${record.kind}`);
-validateRecordSet(mixedVersion.records, "mixed-version");
+validateRecordSet(mixedVersion.records, "mixed-version", authorityRegistry);
 
 for (const record of staleMissingPartial.records) schemaValid(record, `stale-missing-partial:${record.kind}`);
-validateRecordSet(staleMissingPartial.records, "stale-missing-partial");
+validateRecordSet(staleMissingPartial.records, "stale-missing-partial", authorityRegistry);
 
 for (const record of unsupportedMajorRollout.records) schemaValid(record, `unsupported-major-rollout:${record.kind}`);
 schemaInvalid(unsupportedMajorRollout.rejected_record, "unsupported-major-rollout:rejected-record");
-validateRecordSet(unsupportedMajorRollout.records, "unsupported-major-rollout");
-
-validateInventoryDerivationCases(inventoryDerivation);
+validateRecordSet(unsupportedMajorRollout.records, "unsupported-major-rollout", authorityRegistry);
 
 schemaInvalid(negative.schema_malformed_diagnostic_ref, "schema-malformed-diagnostic-ref");
 schemaInvalid(negative.schema_unsupported_major_observation, "schema-unsupported-major-observation");
@@ -674,12 +722,14 @@ schemaInvalid(negative.schema_extension_payload, "schema-extension-payload");
 schemaInvalid(negative.schema_unsampled_trace_span, "schema-unsampled-trace-span");
 schemaInvalid(negative.schema_liveness_check_with_dependency_service_id, "schema-liveness-check-with-dependency-service-id");
 schemaInvalid(negative.schema_dependency_trace_attribute_missing_target, "schema-dependency-trace-attribute-missing-target");
+schemaInvalid(negative.schema_offset_timestamp_observation, "schema-offset-timestamp-observation");
+schemaInvalid(negative.schema_fractional_second_trace_policy, "schema-fractional-second-trace-policy");
 
 for (const [name, scenario] of Object.entries(negative)) {
   if (name.startsWith("schema_") || name === "failed_aggregate_expiry") continue;
   for (const record of scenario.records) schemaValid(record, `${name}:${record.kind}`);
   assert.equal(typeof scenario.expected_error, "string", `${name} must pin expected_error`);
-  reject(() => validateRecordSet(scenario.records, name), name, scenario.expected_error);
+  reject(() => validateRecordSet(scenario.records, name, authorityRegistry), name, scenario.expected_error);
 }
 
 assert.doesNotThrow(() => rejectPrivate("git-10.0.0"), "semantic versions must not be mistaken for private IPs");

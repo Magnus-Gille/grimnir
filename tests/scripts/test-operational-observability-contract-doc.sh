@@ -28,6 +28,7 @@ assert_contains "$DOC" "records accepted status" '^> \*\*Status:\*\* accepted v1
 assert_contains "$DOC" "lists the closed observation states" "ok\`, \`degraded\`, \`failed\`, \`stale\`, \`unknown\`, and \`not_applicable"
 assert_contains "$DOC" "states missing or expired evidence can never become healthy" 'missing or expired evidence can never become healthy'
 assert_contains "$DOC" "binds source service instance version attempt and timestamps" 'Every `service-observation` binds source, service/instance, producer version'
+assert_contains "$DOC" "requires whole second UTC Z timestamps" 'whole-second UTC instant encoded as'
 assert_contains "$DOC" "defines liveness readiness dependency semantics" "liveness\`, \`readiness\`, and \`dependency"
 assert_contains "$DOC" "requires W3C trace context" 'W3C trace context'
 assert_contains "$DOC" "requires deny-by-default serialization export" 'deny-by-default'
@@ -36,7 +37,9 @@ assert_contains "$DOC" "defines the aggregation truth table" 'Aggregation truth 
 assert_contains "$DOC" "defines authority kinds for expected inventory" 'The v1 authority kinds are closed'
 assert_contains "$DOC" "defines consumer-owned max freshness" 'consumer-owned `max_freshness`'
 assert_contains "$DOC" "defines stricter producer consumer effective freshness" 'consumer.s `max_freshness`'
-assert_contains "$DOC" "clarifies producer and consumer digests are self consistency without external binding" 'self-consistency digest'
+assert_contains "$DOC" "binds producer and consumer refs through an external registry or derivation input" 'external authority registry or derivation input'
+assert_contains "$DOC" "computes producer and consumer digests over the externally selected slot projection" 'externally selected slot projection'
+assert_contains "$DOC" "rejects unknown producer and consumer refs or slot mismatches" 'Unknown refs or mismatched projections fail closed'
 assert_contains "$DOC" "requires versioned external contract refs" 'versioned external contract'
 assert_contains "$DOC" "defines canonical authority digest bytes" 'compute SHA-256 over those bytes'
 assert_contains "$DOC" "defines locale free field based slot ordering" 'field-based and locale-free'
@@ -44,9 +47,11 @@ assert_contains "$DOC" "excludes not_applicable from aggregates" "\`not_applicab
 assert_contains "$DOC" "makes an empty expected aggregate unknown" "empty expected aggregate is \`unknown\`"
 assert_contains "$DOC" "keeps absent producers distinct from not_applicable" "Absent producers are distinct from \`not_applicable\`"
 assert_contains "$DOC" "requires complete services json registry slots for service aggregates" 'complete mechanically derived registry slot set'
+assert_contains "$DOC" "caps aggregate freshness to the earliest effective child" 'earliest effective child `fresh_until`'
 assert_contains "$DOC" "requires collector health meta slot" 'collector_health'
 assert_contains "$DOC" "requires a bound trace policy for service overall aggregates" 'bind exactly one `trace-policy` record'
 assert_contains "$DOC" "requires exporter health or explicit not_applicable under the bound trace policy" 'declare exactly one producer-owned `exporter_health` slot'
+assert_contains "$DOC" "forbids extra slots on liveness and readiness aggregates" 'may not carry any additional producer or consumer slots'
 assert_contains "$DOC" "forbids aggregate child clock backdating" 'greater than or equal to every referenced child'
 assert_contains "$DOC" "requires render time aggregate expiry downgrade" 'Render-time expiry'
 assert_contains "$DOC" "defines major minor rollout rules" 'unknown major versions fail visibly'

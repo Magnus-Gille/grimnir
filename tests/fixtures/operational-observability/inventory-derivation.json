@@ -127,7 +127,207 @@
           "applicability": "required",
           "owner_kind": "consumer",
           "owner_service_id": "heimdall",
-          "max_freshness": "PT2M"
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "producer-contract-ratatoskr",
+      "authority": {
+        "authority_kind": "producer_contract",
+        "authority_ref": "ref:ratatoskr-observability-contract-v1",
+        "authority_digest": "sha256:193ca05cb2bb42138cb398f33b3290a7fdfde064077dd12c32b6e4982255e464"
+      },
+      "service": {
+        "service_id": "ratatoskr",
+        "instance_id": "ratatoskr-prod"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "exporter-health",
+          "authority_kind": "producer_contract",
+          "slot_class": "exporter_health",
+          "surface": "readiness",
+          "applicability": "not_applicable",
+          "owner_kind": "producer",
+          "owner_service_id": "ratatoskr",
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "consumer-contract-ratatoskr",
+      "authority": {
+        "authority_kind": "consumer_contract",
+        "authority_ref": "ref:heimdall-ratatoskr-observer-v1",
+        "authority_digest": "sha256:77851084ed18004c4fb59ac093e6382e0f44ff242e0bb4950e4ac441db9e48e5"
+      },
+      "service": {
+        "service_id": "ratatoskr",
+        "instance_id": "ratatoskr-prod"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "collector-health",
+          "authority_kind": "consumer_contract",
+          "slot_class": "collector_health",
+          "surface": "readiness",
+          "applicability": "required",
+          "owner_kind": "consumer",
+          "owner_service_id": "heimdall",
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "producer-contract-heimdall",
+      "authority": {
+        "authority_kind": "producer_contract",
+        "authority_ref": "ref:heimdall-observability-contract-v1",
+        "authority_digest": "sha256:227659afc030c10db30447957a887131fad75c1e6978bfea3354da244c570e8a"
+      },
+      "service": {
+        "service_id": "heimdall",
+        "instance_id": "heimdall-prod"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "exporter-health",
+          "authority_kind": "producer_contract",
+          "slot_class": "exporter_health",
+          "surface": "readiness",
+          "applicability": "not_applicable",
+          "owner_kind": "producer",
+          "owner_service_id": "heimdall",
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "consumer-contract-heimdall",
+      "authority": {
+        "authority_kind": "consumer_contract",
+        "authority_ref": "ref:heimdall-self-observer-v1",
+        "authority_digest": "sha256:bfdca47d7c1e25502aa17a4b9e95646ef02dbc0ec9ca59311a516ede9a656d73"
+      },
+      "service": {
+        "service_id": "heimdall",
+        "instance_id": "heimdall-prod"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "collector-health",
+          "authority_kind": "consumer_contract",
+          "slot_class": "collector_health",
+          "surface": "readiness",
+          "applicability": "required",
+          "owner_kind": "consumer",
+          "owner_service_id": "heimdall",
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "producer-contract-munin-memory",
+      "authority": {
+        "authority_kind": "producer_contract",
+        "authority_ref": "ref:munin-memory-observability-contract-v1",
+        "authority_digest": "sha256:698f46988e6374816441c496439fdc771fa641142e6d1b3fec0b9a88e1bf76ae"
+      },
+      "service": {
+        "service_id": "munin-memory",
+        "instance_id": "munin-prod"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "exporter-health",
+          "authority_kind": "producer_contract",
+          "slot_class": "exporter_health",
+          "surface": "readiness",
+          "applicability": "not_applicable",
+          "owner_kind": "producer",
+          "owner_service_id": "munin-memory",
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "consumer-contract-munin-memory",
+      "authority": {
+        "authority_kind": "consumer_contract",
+        "authority_ref": "ref:heimdall-munin-observer-v1",
+        "authority_digest": "sha256:83d0aafbce3926a334e1d8642df826413154df02fa1ef4239f2dac79bd5cb5c9"
+      },
+      "service": {
+        "service_id": "munin-memory",
+        "instance_id": "munin-prod"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "collector-health",
+          "authority_kind": "consumer_contract",
+          "slot_class": "collector_health",
+          "surface": "readiness",
+          "applicability": "required",
+          "owner_kind": "consumer",
+          "owner_service_id": "heimdall",
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "consumer-contract-brokkr",
+      "authority": {
+        "authority_kind": "consumer_contract",
+        "authority_ref": "ref:heimdall-brokkr-observer-v1",
+        "authority_digest": "sha256:7fa4c006013df1dfe335b6006223faf0ebd1ba9eba5a12c0651a8d2b048967ec"
+      },
+      "service": {
+        "service_id": "brokkr",
+        "instance_id": "brokkr-prod"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "collector-health",
+          "authority_kind": "consumer_contract",
+          "slot_class": "collector_health",
+          "surface": "readiness",
+          "applicability": "required",
+          "owner_kind": "consumer",
+          "owner_service_id": "heimdall",
+          "max_freshness": "PT5M"
+        }
+      ]
+    },
+    {
+      "label": "consumer-contract-grimnir",
+      "authority": {
+        "authority_kind": "consumer_contract",
+        "authority_ref": "ref:heimdall-grimnir-observer-v1",
+        "authority_digest": "sha256:3fd789ba8ac55b586728c8083bddebc5f3dffb349b0aef491eb938cf1c198d15"
+      },
+      "service": {
+        "service_id": "grimnir",
+        "instance_id": "grimnir-prod"
+      },
+      "aggregate_producer": "heimdall",
+      "expected_slots": [
+        {
+          "slot_id": "collector-health",
+          "authority_kind": "consumer_contract",
+          "slot_class": "collector_health",
+          "surface": "readiness",
+          "applicability": "required",
+          "owner_kind": "consumer",
+          "owner_service_id": "heimdall",
+          "max_freshness": "PT5M"
         }
       ]
     },

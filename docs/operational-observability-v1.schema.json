@@ -17,7 +17,11 @@
       "description": "A bounded, low-cardinality token that cannot carry URLs, paths, or query strings.",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,79}$"
     },
-    "utc": { "type": "string", "format": "date-time" },
+    "utc": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
     "duration": {
       "type": "string",
       "description": "A bounded ISO 8601 duration restricted to day/hour/minute/second components.",
