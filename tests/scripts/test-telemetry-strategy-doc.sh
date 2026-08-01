@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OBS="$ROOT/docs/observability-and-improvement.md"
 SCHEDULE="$ROOT/docs/scheduled-tasks.md"
 REGISTRY="$ROOT/services.json"
-RETIRED_TIER_CLAIM_RE='armed at tier 0|implemented; armed tier 0|armed on m5 at \*\*tier 0\*\*|tier 0 (proposes and records only|auto-adopts nothing)|tier 1 self-unlocks'
+RETIRED_TIER_CLAIM_RE='completed one live human-approved routing adoption|autonomous controller is armed|armed at tier 0|implemented; armed tier 0|armed on m5 at[^.]{0,20}tier 0|tier 0[^.]{0,80}(proposes and records only|currently auto-adopts nothing|auto-adopts nothing)|tier 1 self-unlocks'
 
 require() {
   local file="$1" needle="$2"
@@ -27,6 +27,15 @@ require_match() {
     echo "missing telemetry strategy pattern in ${file#"$ROOT"/}: $pattern" >&2
     exit 1
   }
+}
+
+paragraph() {
+  local file="$1" heading="$2"
+  awk -v heading="$heading" '
+    $0 ~ heading { capture=1 }
+    capture && /^[[:space:]]*$/ { exit }
+    capture { print }
+  ' "$file"
 }
 
 require "$OBS" "## Telemetry strategy"
@@ -53,7 +62,11 @@ require "$OBS" "External Codex App/CLI and Pi producers | Partial"
 require "$OBS" "claude-config#11"
 require "$OBS" "gille-inference#11"
 require "$OBS" "gille-inference#13"
-require_match "$OBS" 'Current gaps:.*gille-inference#11.*gille-inference#13'
+CURRENT_GAPS_PARAGRAPH="$(paragraph "$OBS" '^\*\*Current gaps:\*\*' | tr '\n' ' ')"
+grep -qiE 'Current gaps:.*gille-inference#11.*gille-inference#13' <<< "$CURRENT_GAPS_PARAGRAPH" || {
+  echo "missing telemetry strategy pattern in Current gaps paragraph of ${OBS#"$ROOT"/}: Current gaps:.*gille-inference#11.*gille-inference#13" >&2
+  exit 1
+}
 require "$OBS" "Heimdall may visualize these planes; it does not create their verdicts."
 require "$OBS" "The owner ceremony must precede an exact ADR-008 \`armed-canary\` class"
 require "$OBS" "real canary/watch/recovery evidence must then precede promotion beyond it"
