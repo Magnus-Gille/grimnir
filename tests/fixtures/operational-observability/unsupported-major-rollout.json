@@ -27,6 +27,46 @@
   },
   "records": [
     {
+      "kind": "trace-policy",
+      "contract_version": "v1.0",
+      "policy_id": "trace-policy-hugin-disabled",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "hugin",
+        "producer_version": "git-3be19f7"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "default_state": {
+        "instrumentation_enabled": false,
+        "export_enabled": false,
+        "automatic_instrumentation": "disabled"
+      },
+      "sampling": {
+        "mode": "head",
+        "rate_per_mille": 0
+      },
+      "serialization": {
+        "allowlist_version": "v1",
+        "deny_by_default": true,
+        "max_attributes": 12,
+        "max_string_length": 64
+      },
+      "retention": {
+        "policy_ref": "ref:data-lifecycle-v1",
+        "data_class": "operational_telemetry",
+        "deletion_owner": "producer"
+      },
+      "failure_behavior": {
+        "export_failure": "drop_and_count",
+        "instrumentation_failure": "must_not_fail_request"
+      },
+      "created_at": "2026-07-31T09:59:00Z",
+      "extensions": []
+    },
+    {
       "kind": "service-observation",
       "contract_version": "v1.0",
       "observation_id": "obs-hugin-ready-v10",
@@ -93,10 +133,10 @@
       },
       "aggregate_surface": "service_overall",
       "attempt_id": "agg-hugin-major-01",
-      "observed_at": "2026-07-31T10:00:01Z",
+      "observed_at": "2026-07-31T10:00:02Z",
       "collected_at": "2026-07-31T10:00:02Z",
       "freshness_window": "PT5M",
-      "fresh_until": "2026-07-31T10:05:01Z",
+      "fresh_until": "2026-07-31T10:05:02Z",
       "inventory": {
         "authorities": [
           {
@@ -105,9 +145,14 @@
             "authority_digest": "sha256:ecf4cf0ceb58cf909b7e964ee32481902351a7ea8d3d2254c8751e12c564d8bf"
           },
           {
+            "authority_kind": "producer_contract",
+            "authority_ref": "ref:hugin-observability-contract-v1",
+            "authority_digest": "sha256:a21c306aebd11968789584103cc3e694f254056358b420df7e8c112e2fd53d39"
+          },
+          {
             "authority_kind": "consumer_contract",
-            "authority_ref": "ref:heimdall-hugin-observer",
-            "authority_digest": "sha256:057a201ac2264a38d209f3d1b4afe0e8943219ef0ec21164a6b779359b024086"
+            "authority_ref": "ref:heimdall-hugin-observer-v1",
+            "authority_digest": "sha256:819abcceeca0b9dabcfe0f0402b644e0a5610cbba7baf1a31962ba9dbb7fc47a"
           }
         ],
         "expected_slots": [
@@ -127,6 +172,16 @@
             "slot_class": "service_readiness",
             "surface": "readiness",
             "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "hugin",
+            "max_freshness": "PT5M"
+          },
+          {
+            "slot_id": "exporter-health",
+            "authority_kind": "producer_contract",
+            "slot_class": "exporter_health",
+            "surface": "readiness",
+            "applicability": "not_applicable",
             "owner_kind": "producer",
             "owner_service_id": "hugin",
             "max_freshness": "PT5M"

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,6 +20,7 @@ const negative = read("negative.json");
 
 const SUPPORTED_MAJOR = 1;
 const MAX_SLOT_FRESHNESS_MS = 24 * 60 * 60 * 1000;
+const VERSIONED_CONTRACT_AUTHORITY_REF = /^ref:[a-z][a-z0-9-]{2,116}-v[1-9][0-9]*$/;
 const SLOT_CLASS_ORDER = new Map([
   ["service_liveness", 0],
   ["service_readiness", 1],
@@ -37,14 +39,35 @@ const safeToken = /^[A-Za-z0-9][A-Za-z0-9._:+-]{0,79}$/;
 const opaqueRef = /^ref:[a-z][a-z0-9-]{2,120}$/;
 const traceId = /^[a-f0-9]{32}$/;
 const spanId = /^[a-f0-9]{16}$/;
-const privateIpv4 = /(?:^|[^0-9])(?:10(?:\.\d{1,3}){3}|127(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(?:$|[^0-9])/;
 const servicesByName = new Map(servicesRegistry.components.map((component) => [component.name, component]));
 
+function compareCodeUnits(left, right) {
+  const leftLength = left.length;
+  const rightLength = right.length;
+  for (let index = 0; index < Math.min(leftLength, rightLength); index += 1) {
+    const delta = left.charCodeAt(index) - right.charCodeAt(index);
+    if (delta !== 0) return delta;
+  }
+  return leftLength - rightLength;
+}
+function compareMaybeString(left, right) {
+  return compareCodeUnits(left ?? "", right ?? "");
+}
+function compareSlots(left, right) {
+  const classDelta = (SLOT_CLASS_ORDER.get(left.slot_class) ?? 99) - (SLOT_CLASS_ORDER.get(right.slot_class) ?? 99);
+  if (classDelta !== 0) return classDelta;
+  const fields = ["surface", "applicability", "owner_kind", "owner_service_id", "dependency_service_id", "slot_id"];
+  for (const field of fields) {
+    const delta = compareMaybeString(left[field], right[field]);
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
 function canonicalJson(value) {
   if (value === null || typeof value === "number" || typeof value === "boolean") return JSON.stringify(value);
   if (typeof value === "string") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (plain(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  if (plain(value)) return `{${Object.keys(value).sort(compareCodeUnits).map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
   fail(`unsupported canonical value type ${typeof value}`);
 }
 const canonical = canonicalJson;
@@ -164,7 +187,8 @@ function requireSafeToken(value, label) {
 function rejectPrivate(value, label = "$") {
   if (typeof value === "string") {
     if (/https?:\/\/|file:\/\/|\/Users\/|\/home\/|\.ssh\/|(?:^|[?&])(token|password|secret)=|Authorization:|Bearer\s+[A-Za-z0-9._-]+/i.test(value)) fail(`${label} contains a private locator, credential-like data, or a raw URL/query string`);
-    if (privateIpv4.test(value)) fail(`${label} contains a private IP literal`);
+    const privateIp = detectPrivateIp(value);
+    if (privateIp !== null) fail(`${label} contains a private IPv${privateIp.version} literal`);
     return;
   }
   if (Array.isArray(value)) return value.forEach((item, index) => rejectPrivate(item, `${label}[${index}]`));
@@ -214,17 +238,6 @@ function validateCheck(value, label) {
     fail(`${label}.dependency_service_id is only valid for dependency checks`);
   }
 }
-function slotSortKey(slot) {
-  return [
-    SLOT_CLASS_ORDER.get(slot.slot_class) ?? 99,
-    slot.slot_id,
-    slot.surface,
-    slot.applicability,
-    slot.owner_kind,
-    slot.owner_service_id,
-    slot.dependency_service_id ?? ""
-  ].join("\u0000");
-}
 function slotAuthorityProjection(slot) {
   const projection = structuredClone(slot);
   delete projection.max_freshness;
@@ -234,7 +247,7 @@ function authorityDigest(authority, slots) {
   const projection = {
     authority_kind: authority.authority_kind,
     authority_ref: authority.authority_ref,
-    expected_slots: slots.map(slotAuthorityProjection).sort((left, right) => slotSortKey(left).localeCompare(slotSortKey(right)))
+    expected_slots: slots.map(slotAuthorityProjection).sort(compareSlots)
   };
   return `sha256:${crypto.createHash("sha256").update(canonicalJson(projection), "utf8").digest("hex")}`;
 }
@@ -267,7 +280,60 @@ function derivedServicesJsonSlots(serviceId, maxFreshness) {
   ];
 }
 function normalizedSlots(slots) {
-  return slots.map((slot) => structuredClone(slot)).sort((left, right) => slotSortKey(left).localeCompare(slotSortKey(right)));
+  return slots.map((slot) => structuredClone(slot)).sort(compareSlots);
+}
+function derivedRegistryProjection(serviceId, aggregateSurface) {
+  const serviceLiveness = {
+    slot_id: "service-live",
+    authority_kind: "services_json",
+    slot_class: "service_liveness",
+    surface: "liveness",
+    applicability: (servicesByName.get(serviceId)?.desired_runtime_state ?? "active") === "active" ? "required" : "not_applicable",
+    owner_kind: "producer",
+    owner_service_id: serviceId
+  };
+  const serviceReadiness = {
+    slot_id: "service-ready",
+    authority_kind: "services_json",
+    slot_class: "service_readiness",
+    surface: "readiness",
+    applicability: (servicesByName.get(serviceId)?.desired_runtime_state ?? "active") === "active" ? "required" : "not_applicable",
+    owner_kind: "producer",
+    owner_service_id: serviceId
+  };
+  if (!servicesByName.has(serviceId)) fail(`services_json authority cannot derive unknown service ${serviceId}`);
+  if (aggregateSurface === "liveness") return [serviceLiveness];
+  if (aggregateSurface === "readiness") return [serviceReadiness];
+  if (aggregateSurface === "service_overall") return [serviceLiveness, serviceReadiness];
+  return [];
+}
+function traceExportSlotApplicability(policy) {
+  return policy.default_state.export_enabled === true && policy.sampling.rate_per_mille > 0
+    ? "required"
+    : "not_applicable";
+}
+function detectPrivateIp(value) {
+  for (const token of value.match(/[0-9A-Fa-f:.]+/g) ?? []) {
+    const version = net.isIP(token);
+    if (version === 4 && isPrivateIpv4(token)) return { version, token };
+    if (version === 6 && isPrivateIpv6(token)) return { version, token };
+  }
+  return null;
+}
+function isPrivateIpv4(token) {
+  const octets = token.split(".").map(Number);
+  return octets[0] === 10
+    || octets[0] === 127
+    || (octets[0] === 169 && octets[1] === 254)
+    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+    || (octets[0] === 192 && octets[1] === 168);
+}
+function isPrivateIpv6(token) {
+  const normalized = token.toLowerCase();
+  return normalized === "::1"
+    || normalized.startsWith("fc")
+    || normalized.startsWith("fd")
+    || /^fe[89ab]/.test(normalized);
 }
 function validateInventory(value, label, aggregate, policiesByService) {
   exact(value, ["authorities", "expected_slots"], label);
@@ -279,6 +345,7 @@ function validateInventory(value, label, aggregate, policiesByService) {
     if (!["services_json", "producer_contract", "consumer_contract"].includes(authority.authority_kind)) fail(`${label}.authority_kind invalid`);
     if (authoritiesByKind.has(authority.authority_kind)) fail(`${label}.authority_kind ${authority.authority_kind} duplicated`);
     if (!opaqueRef.test(authority.authority_ref) || !digest.test(authority.authority_digest)) fail(`${label}.authority binding malformed`);
+    if (authority.authority_kind !== "services_json" && !VERSIONED_CONTRACT_AUTHORITY_REF.test(authority.authority_ref)) fail(`${label}.authority_kind ${authority.authority_kind} must use a versioned external contract ref; v1 authority_digest alone is only self-consistency`);
     authoritiesByKind.set(authority.authority_kind, authority);
   }
   const seenSlotIds = new Set();
@@ -318,7 +385,12 @@ function validateInventory(value, label, aggregate, policiesByService) {
     if (authority.authority_digest !== expectedDigest) fail(`${label}.authority_kind ${kind} digest mismatch: expected ${expectedDigest}, got ${authority.authority_digest}`);
   }
   const registrySlots = normalizedSlots(slotsByKind.get("services_json") ?? []);
-  if (registrySlots.length > 0) {
+  const requiredRegistrySurfaces = new Set(["service_overall", "liveness", "readiness"]);
+  if (requiredRegistrySurfaces.has(aggregate.aggregate_surface)) {
+    if (!authoritiesByKind.has("services_json")) fail(`${label} must bind services_json authority for ${aggregate.aggregate_surface} aggregates`);
+    const expectedRegistrySlots = normalizedSlots(derivedRegistryProjection(aggregate.service.service_id, aggregate.aggregate_surface));
+    if (canonical(expectedRegistrySlots) !== canonical(registrySlots.map(slotAuthorityProjection))) fail(`${label}.services_json slots must equal the complete mechanically derived registry slot set for ${aggregate.service.service_id} ${aggregate.aggregate_surface} aggregates`);
+  } else if (registrySlots.length > 0) {
     const maxFreshness = registrySlots[0].max_freshness;
     const expectedRegistrySlots = normalizedSlots(derivedServicesJsonSlots(aggregate.service.service_id, maxFreshness));
     if (canonical(expectedRegistrySlots.map(slotAuthorityProjection)) !== canonical(registrySlots.map(slotAuthorityProjection))) fail(`${label}.services_json slots do not match the authoritative services.json derivation for ${aggregate.service.service_id}`);
@@ -327,10 +399,11 @@ function validateInventory(value, label, aggregate, policiesByService) {
     const collectorSlots = value.expected_slots.filter((slot) => slot.slot_class === "collector_health" && slot.applicability === "required");
     if (collectorSlots.length !== 1) fail(`${label} must contain exactly one required collector_health slot for service_overall aggregates`);
     const policy = policiesByService.get(`${aggregate.service.service_id}:${aggregate.service.instance_id}`);
-    if (policy?.default_state.export_enabled === true) {
-      const exporterSlots = value.expected_slots.filter((slot) => slot.slot_class === "exporter_health" && slot.applicability === "required");
-      if (exporterSlots.length === 0) fail(`${label} must include a required exporter_health slot when the bound service trace policy exports spans`);
-    }
+    if (!policy) fail(`${label} must bind exactly one trace-policy record for service_overall aggregates`);
+    const exporterSlots = value.expected_slots.filter((slot) => slot.slot_class === "exporter_health");
+    if (exporterSlots.length !== 1) fail(`${label} must declare exactly one exporter_health slot for service_overall aggregates`);
+    const requiredApplicability = traceExportSlotApplicability(policy);
+    if (exporterSlots[0].applicability !== requiredApplicability) fail(`${label}.exporter_health applicability must be ${requiredApplicability} under the bound trace policy`);
   }
 }
 function validateTracePolicy(record) {
@@ -415,6 +488,7 @@ function validateAggregate(record, observations, policiesByService) {
   const slotMap = new Map(record.inventory.expected_slots.map((slot) => [slot.slot_id, slot]));
   const seenRefs = new Set();
   const bySlot = new Map();
+  let latestChildClockMs = Number.NEGATIVE_INFINITY;
   for (const ref of record.observation_refs) {
     exact(ref, ["slot_id", "observation_id"], "aggregate.observation_ref");
     if (!id.test(ref.slot_id) || !id.test(ref.observation_id)) fail("aggregate.observation_ref invalid");
@@ -428,8 +502,13 @@ function validateAggregate(record, observations, policiesByService) {
     if (observation.check.surface !== slot.surface) fail(`observation ${ref.observation_id} surface mismatch for slot ${ref.slot_id}`);
     if (slot.surface === "dependency" && observation.check.dependency_service_id !== slot.dependency_service_id) fail(`observation ${ref.observation_id} dependency target mismatch for slot ${ref.slot_id}`);
     if (slot.slot_class === "collector_health" && observation.source.producer !== slot.owner_service_id) fail(`collector slot ${slot.slot_id} must be emitted by ${slot.owner_service_id}`);
+    latestChildClockMs = Math.max(latestChildClockMs, Date.parse(observation.observed_at), Date.parse(observation.collected_at));
     seenRefs.add(ref.slot_id);
     bySlot.set(ref.slot_id, observation);
+  }
+  if (latestChildClockMs > Number.NEGATIVE_INFINITY) {
+    if (Date.parse(record.observed_at) < latestChildClockMs) fail("aggregate.observed_at must be greater than or equal to every referenced child clock");
+    if (Date.parse(record.collected_at) < latestChildClockMs) fail("aggregate.collected_at must be greater than or equal to every referenced child clock");
   }
   const effectiveChildren = [];
   for (const slot of record.inventory.expected_slots) {
@@ -463,7 +542,7 @@ function validateTraceSpan(record, policiesById) {
   if (policy.service.service_id !== record.service.service_id || policy.service.instance_id !== record.service.instance_id) fail("trace-span policy must bind the same service and instance as the span");
   if (policy.default_state.instrumentation_enabled !== true || policy.default_state.export_enabled !== true || policy.sampling.rate_per_mille === 0) fail("trace-span cannot be emitted when instrumentation/export is disabled or sampling is zero");
   if (!realDateTime(record.started_at) || !realDateTime(record.ended_at) || !realDateTime(record.collected_at) || Date.parse(record.ended_at) < Date.parse(record.started_at) || Date.parse(record.collected_at) < Date.parse(record.ended_at)) fail("trace-span timestamps invalid");
-  if (typeof record.sampled !== "boolean" || record.sampled !== true) fail("trace-span.sampled must be true for any emitted v1 span");
+  if (record.sampled !== true) fail("trace-span.sampled must be true for any emitted v1 span");
   if (!["ok", "degraded", "failed", "stale", "unknown"].includes(record.outcome)) fail("trace-span.outcome invalid");
   exact(record.operation, ["surface", "phase"], "trace-span.operation");
   if (!["task", "gateway", "service", "synthetic"].includes(record.operation.surface) || !["ingress", "queue", "execution", "dependency", "publication", "probe", "export"].includes(record.operation.phase)) fail("trace-span.operation invalid");
@@ -518,8 +597,11 @@ function validateRecordSet(records, label) {
     rejectPrivate(record, `${label}.${record.kind ?? "record"}`);
     if (record.kind === "service-observation") observations.set(record.observation_id, record);
     if (record.kind === "trace-policy") {
+      if (policiesById.has(record.policy_id)) fail(`duplicate trace-policy.policy_id ${record.policy_id}`);
       policiesById.set(record.policy_id, record);
-      policiesByService.set(`${record.service.service_id}:${record.service.instance_id}`, record);
+      const serviceKey = `${record.service.service_id}:${record.service.instance_id}`;
+      if (policiesByService.has(serviceKey)) fail(`multiple trace-policy records bind ${serviceKey}`);
+      policiesByService.set(serviceKey, record);
     }
   }
   for (const policy of policiesById.values()) validateTracePolicy(policy);
@@ -556,7 +638,16 @@ function validateInventoryDerivationCases(file) {
   }
 }
 
-const reject = (fn, label) => assert.throws(fn, undefined, label);
+function reject(fn, label, expectedError) {
+  let error;
+  try {
+    fn();
+  } catch (caught) {
+    error = caught;
+  }
+  assert.ok(error instanceof Error, `${label} must fail`);
+  assert.equal(error.message, expectedError, `${label} diagnostic mismatch`);
+}
 
 checkSchema(schema);
 
@@ -580,11 +671,15 @@ schemaInvalid(negative.schema_unsupported_major_observation, "schema-unsupported
 schemaInvalid(negative.schema_tokenized_trace_error_class, "schema-tokenized-trace-error-class");
 schemaInvalid(negative.schema_lifecycle_outcome_trace_attribute, "schema-lifecycle-outcome-trace-attribute");
 schemaInvalid(negative.schema_extension_payload, "schema-extension-payload");
+schemaInvalid(negative.schema_unsampled_trace_span, "schema-unsampled-trace-span");
+schemaInvalid(negative.schema_liveness_check_with_dependency_service_id, "schema-liveness-check-with-dependency-service-id");
+schemaInvalid(negative.schema_dependency_trace_attribute_missing_target, "schema-dependency-trace-attribute-missing-target");
 
 for (const [name, scenario] of Object.entries(negative)) {
   if (name.startsWith("schema_") || name === "failed_aggregate_expiry") continue;
   for (const record of scenario.records) schemaValid(record, `${name}:${record.kind}`);
-  reject(() => validateRecordSet(scenario.records, name), name);
+  assert.equal(typeof scenario.expected_error, "string", `${name} must pin expected_error`);
+  reject(() => validateRecordSet(scenario.records, name), name, scenario.expected_error);
 }
 
 assert.doesNotThrow(() => rejectPrivate("git-10.0.0"), "semantic versions must not be mistaken for private IPs");

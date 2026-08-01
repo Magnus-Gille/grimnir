@@ -151,82 +151,184 @@
   "collector_slot_missing": {
     "records": [
       {
-        "kind": "service-observation",
+        "kind": "trace-policy",
         "contract_version": "v1.0",
-        "observation_id": "obs-grimnir-live",
+        "policy_id": "trace-policy-hugin",
         "source": {
           "source_kind": "service_internal",
-          "producer": "grimnir",
-          "producer_version": "git-16edee0"
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
         },
         "service": {
-          "service_id": "grimnir",
-          "instance_id": "grimnir-prod"
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "default_state": {
+          "instrumentation_enabled": true,
+          "export_enabled": true,
+          "automatic_instrumentation": "disabled"
+        },
+        "sampling": {
+          "mode": "head",
+          "rate_per_mille": 1000
+        },
+        "serialization": {
+          "allowlist_version": "v1",
+          "deny_by_default": true,
+          "max_attributes": 12,
+          "max_string_length": 64
+        },
+        "retention": {
+          "policy_ref": "ref:data-lifecycle-v1",
+          "data_class": "operational_telemetry",
+          "deletion_owner": "producer"
+        },
+        "failure_behavior": {
+          "export_failure": "drop_and_count",
+          "instrumentation_failure": "must_not_fail_request"
+        },
+        "created_at": "2026-07-31T08:00:00Z",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-live-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
         },
         "slot_id": "service-live",
         "check": {
           "surface": "liveness"
         },
-        "attempt_id": "att-grimnir-01",
-        "observed_at": "2026-07-31T10:10:00Z",
-        "collected_at": "2026-07-31T10:10:01Z",
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
         "freshness_window": "PT5M",
-        "fresh_until": "2026-07-31T10:15:00Z",
+        "fresh_until": "2026-07-31T08:15:00Z",
         "outcome": "ok",
-        "diagnostic_ref": "ref:grimnir-live",
+        "diagnostic_ref": "ref:hugin-live-ok",
         "extensions": []
       },
       {
         "kind": "service-observation",
         "contract_version": "v1.0",
-        "observation_id": "obs-grimnir-ready",
+        "observation_id": "obs-hugin-ready-ok",
         "source": {
           "source_kind": "service_internal",
-          "producer": "grimnir",
-          "producer_version": "git-16edee0"
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
         },
         "service": {
-          "service_id": "grimnir",
-          "instance_id": "grimnir-prod"
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
         },
         "slot_id": "service-ready",
         "check": {
           "surface": "readiness"
         },
-        "attempt_id": "att-grimnir-01",
-        "observed_at": "2026-07-31T10:10:00Z",
-        "collected_at": "2026-07-31T10:10:01Z",
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
         "freshness_window": "PT5M",
-        "fresh_until": "2026-07-31T10:15:00Z",
+        "fresh_until": "2026-07-31T08:15:00Z",
         "outcome": "ok",
-        "diagnostic_ref": "ref:grimnir-ready",
+        "diagnostic_ref": "ref:hugin-ready-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-dep-munin-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "dep-munin",
+        "check": {
+          "surface": "dependency",
+          "dependency_service_id": "munin-memory"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-dep-munin-ok",
+        "trace": {
+          "trace_id": "0123456789abcdef0123456789abcdef",
+          "span_id": "1111111111111111"
+        },
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-exporter-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "exporter-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-exporter-ok",
         "extensions": []
       },
       {
         "kind": "observation-aggregate",
         "contract_version": "v1.0",
-        "aggregate_id": "agg-grimnir-no-collector",
+        "aggregate_id": "agg-hugin-no-collector",
         "source": {
           "source_kind": "aggregator",
           "producer": "heimdall",
           "producer_version": "git-945847c"
         },
         "service": {
-          "service_id": "grimnir",
-          "instance_id": "grimnir-prod"
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
         },
         "aggregate_surface": "service_overall",
-        "attempt_id": "agg-grimnir-01",
-        "observed_at": "2026-07-31T10:10:01Z",
-        "collected_at": "2026-07-31T10:10:02Z",
+        "attempt_id": "agg-hugin-01",
+        "observed_at": "2026-07-31T08:10:02Z",
+        "collected_at": "2026-07-31T08:10:02Z",
         "freshness_window": "PT5M",
-        "fresh_until": "2026-07-31T10:15:01Z",
+        "fresh_until": "2026-07-31T08:15:02Z",
         "inventory": {
           "authorities": [
             {
               "authority_kind": "services_json",
-              "authority_ref": "ref:services-json-grimnir",
-              "authority_digest": "sha256:a118c2b227059347315c058ecdeaf92ce27824a9ccc92f65f73bcd5cc9b36391"
+              "authority_ref": "ref:services-json-hugin",
+              "authority_digest": "sha256:ecf4cf0ceb58cf909b7e964ee32481902351a7ea8d3d2254c8751e12c564d8bf"
+            },
+            {
+              "authority_kind": "producer_contract",
+              "authority_ref": "ref:hugin-observability-contract-v1",
+              "authority_digest": "sha256:7689094233d745f29ce995dc1b2519159bb66887bc39da9b9e8c96be75681924"
             }
           ],
           "expected_slots": [
@@ -237,7 +339,7 @@
               "surface": "liveness",
               "applicability": "required",
               "owner_kind": "producer",
-              "owner_service_id": "grimnir",
+              "owner_service_id": "hugin",
               "max_freshness": "PT5M"
             },
             {
@@ -247,7 +349,28 @@
               "surface": "readiness",
               "applicability": "required",
               "owner_kind": "producer",
-              "owner_service_id": "grimnir",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "dep-munin",
+              "authority_kind": "producer_contract",
+              "slot_class": "dependency_health",
+              "surface": "dependency",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M",
+              "dependency_service_id": "munin-memory"
+            },
+            {
+              "slot_id": "exporter-health",
+              "authority_kind": "producer_contract",
+              "slot_class": "exporter_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
               "max_freshness": "PT5M"
             }
           ]
@@ -255,18 +378,27 @@
         "observation_refs": [
           {
             "slot_id": "service-live",
-            "observation_id": "obs-grimnir-live"
+            "observation_id": "obs-hugin-live-ok"
           },
           {
             "slot_id": "service-ready",
-            "observation_id": "obs-grimnir-ready"
+            "observation_id": "obs-hugin-ready-ok"
+          },
+          {
+            "slot_id": "dep-munin",
+            "observation_id": "obs-hugin-dep-munin-ok"
+          },
+          {
+            "slot_id": "exporter-health",
+            "observation_id": "obs-hugin-exporter-ok"
           }
         ],
         "outcome": "ok",
-        "diagnostic_ref": "ref:grimnir-no-collector",
+        "diagnostic_ref": "ref:hugin-no-collector",
         "extensions": []
       }
-    ]
+    ],
+    "expected_error": "aggregate.inventory must contain exactly one required collector_health slot for service_overall aggregates"
   },
   "exporter_slot_missing": {
     "records": [
@@ -307,13 +439,13 @@
           "export_failure": "drop_and_count",
           "instrumentation_failure": "must_not_fail_request"
         },
-        "created_at": "2026-07-31T10:11:00Z",
+        "created_at": "2026-07-31T08:00:00Z",
         "extensions": []
       },
       {
         "kind": "service-observation",
         "contract_version": "v1.0",
-        "observation_id": "obs-hugin-live-no-exporter",
+        "observation_id": "obs-hugin-live-ok",
         "source": {
           "source_kind": "service_internal",
           "producer": "hugin",
@@ -327,19 +459,19 @@
         "check": {
           "surface": "liveness"
         },
-        "attempt_id": "att-hugin-03",
-        "observed_at": "2026-07-31T10:11:00Z",
-        "collected_at": "2026-07-31T10:11:01Z",
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
         "freshness_window": "PT5M",
-        "fresh_until": "2026-07-31T10:16:00Z",
+        "fresh_until": "2026-07-31T08:15:00Z",
         "outcome": "ok",
-        "diagnostic_ref": "ref:hugin-live-no-exporter",
+        "diagnostic_ref": "ref:hugin-live-ok",
         "extensions": []
       },
       {
         "kind": "service-observation",
         "contract_version": "v1.0",
-        "observation_id": "obs-hugin-ready-no-exporter",
+        "observation_id": "obs-hugin-ready-ok",
         "source": {
           "source_kind": "service_internal",
           "producer": "hugin",
@@ -353,19 +485,19 @@
         "check": {
           "surface": "readiness"
         },
-        "attempt_id": "att-hugin-03",
-        "observed_at": "2026-07-31T10:11:00Z",
-        "collected_at": "2026-07-31T10:11:01Z",
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
         "freshness_window": "PT5M",
-        "fresh_until": "2026-07-31T10:16:00Z",
+        "fresh_until": "2026-07-31T08:15:00Z",
         "outcome": "ok",
-        "diagnostic_ref": "ref:hugin-ready-no-exporter",
+        "diagnostic_ref": "ref:hugin-ready-ok",
         "extensions": []
       },
       {
         "kind": "service-observation",
         "contract_version": "v1.0",
-        "observation_id": "obs-hugin-collector-no-exporter",
+        "observation_id": "obs-hugin-collector-ok",
         "source": {
           "source_kind": "aggregator",
           "producer": "heimdall",
@@ -379,13 +511,13 @@
         "check": {
           "surface": "readiness"
         },
-        "attempt_id": "att-hugin-03",
-        "observed_at": "2026-07-31T10:11:00Z",
-        "collected_at": "2026-07-31T10:11:02Z",
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:02Z",
         "freshness_window": "PT5M",
-        "fresh_until": "2026-07-31T10:16:00Z",
+        "fresh_until": "2026-07-31T08:15:00Z",
         "outcome": "ok",
-        "diagnostic_ref": "ref:hugin-collector-no-exporter",
+        "diagnostic_ref": "ref:hugin-collector-ok",
         "extensions": []
       },
       {
@@ -402,11 +534,11 @@
           "instance_id": "hugin-user"
         },
         "aggregate_surface": "service_overall",
-        "attempt_id": "agg-hugin-03",
-        "observed_at": "2026-07-31T10:11:01Z",
-        "collected_at": "2026-07-31T10:11:02Z",
+        "attempt_id": "agg-hugin-01",
+        "observed_at": "2026-07-31T08:10:02Z",
+        "collected_at": "2026-07-31T08:10:02Z",
         "freshness_window": "PT5M",
-        "fresh_until": "2026-07-31T10:16:01Z",
+        "fresh_until": "2026-07-31T08:15:02Z",
         "inventory": {
           "authorities": [
             {
@@ -416,8 +548,8 @@
             },
             {
               "authority_kind": "consumer_contract",
-              "authority_ref": "ref:heimdall-hugin-observer",
-              "authority_digest": "sha256:057a201ac2264a38d209f3d1b4afe0e8943219ef0ec21164a6b779359b024086"
+              "authority_ref": "ref:heimdall-hugin-observer-v1",
+              "authority_digest": "sha256:819abcceeca0b9dabcfe0f0402b644e0a5610cbba7baf1a31962ba9dbb7fc47a"
             }
           ],
           "expected_slots": [
@@ -456,22 +588,23 @@
         "observation_refs": [
           {
             "slot_id": "service-live",
-            "observation_id": "obs-hugin-live-no-exporter"
+            "observation_id": "obs-hugin-live-ok"
           },
           {
             "slot_id": "service-ready",
-            "observation_id": "obs-hugin-ready-no-exporter"
+            "observation_id": "obs-hugin-ready-ok"
           },
           {
             "slot_id": "collector-health",
-            "observation_id": "obs-hugin-collector-no-exporter"
+            "observation_id": "obs-hugin-collector-ok"
           }
         ],
         "outcome": "ok",
         "diagnostic_ref": "ref:hugin-no-exporter",
         "extensions": []
       }
-    ]
+    ],
+    "expected_error": "aggregate.inventory must declare exactly one exporter_health slot for service_overall aggregates"
   },
   "sampling_zero_span": {
     "records": [
@@ -550,7 +683,8 @@
         "diagnostic_ref": "ref:grimnir-zero-span",
         "extensions": []
       }
-    ]
+    ],
+    "expected_error": "trace-span cannot be emitted when instrumentation/export is disabled or sampling is zero"
   },
   "trace_policy_source_mismatch": {
     "records": [
@@ -594,7 +728,8 @@
         "created_at": "2026-07-31T10:21:00Z",
         "extensions": []
       }
-    ]
+    ],
+    "expected_error": "trace-policy.source.producer must match trace-policy.service.service_id"
   },
   "trace_span_policy_service_mismatch": {
     "records": [
@@ -673,7 +808,8 @@
         "diagnostic_ref": "ref:munin-span-policy-mismatch",
         "extensions": []
       }
-    ]
+    ],
+    "expected_error": "trace-span policy must bind the same service and instance as the span"
   },
   "self_parent_span": {
     "records": [
@@ -753,7 +889,8 @@
         "diagnostic_ref": "ref:rat-self-parent",
         "extensions": []
       }
-    ]
+    ],
+    "expected_error": "trace-span cannot self-parent"
   },
   "consumer_freshness_too_large": {
     "records": [
@@ -863,8 +1000,8 @@
             },
             {
               "authority_kind": "consumer_contract",
-              "authority_ref": "ref:heimdall-brokkr-observer",
-              "authority_digest": "sha256:f2a30e841d2d8265539f00aa77c6ecc166b567d8241688935ad0d756ee25fc5e"
+              "authority_ref": "ref:heimdall-brokkr-observer-v1",
+              "authority_digest": "sha256:7fa4c006013df1dfe335b6006223faf0ebd1ba9eba5a12c0651a8d2b048967ec"
             }
           ],
           "expected_slots": [
@@ -918,10 +1055,51 @@
         "diagnostic_ref": "ref:brokkr-too-fresh",
         "extensions": []
       }
-    ]
+    ],
+    "expected_error": "aggregate.inventory.slot service-live max_freshness must be positive and no greater than P1D"
   },
   "degraded_from_expired_child": {
     "records": [
+      {
+        "kind": "trace-policy",
+        "contract_version": "v1.0",
+        "policy_id": "trace-policy-heimdall-disabled",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "heimdall",
+          "instance_id": "heimdall-prod"
+        },
+        "default_state": {
+          "instrumentation_enabled": false,
+          "export_enabled": false,
+          "automatic_instrumentation": "disabled"
+        },
+        "sampling": {
+          "mode": "head",
+          "rate_per_mille": 0
+        },
+        "serialization": {
+          "allowlist_version": "v1",
+          "deny_by_default": true,
+          "max_attributes": 12,
+          "max_string_length": 64
+        },
+        "retention": {
+          "policy_ref": "ref:data-lifecycle-v1",
+          "data_class": "operational_telemetry",
+          "deletion_owner": "producer"
+        },
+        "failure_behavior": {
+          "export_failure": "drop_and_count",
+          "instrumentation_failure": "must_not_fail_request"
+        },
+        "created_at": "2026-07-31T10:29:00Z",
+        "extensions": []
+      },
       {
         "kind": "service-observation",
         "contract_version": "v1.0",
@@ -1027,9 +1205,14 @@
               "authority_digest": "sha256:010f598b867398e58d817cdcd1543724cd64cb3754c3f1a8c75bae3e505c26b6"
             },
             {
+              "authority_kind": "producer_contract",
+              "authority_ref": "ref:heimdall-observability-contract-v1",
+              "authority_digest": "sha256:227659afc030c10db30447957a887131fad75c1e6978bfea3354da244c570e8a"
+            },
+            {
               "authority_kind": "consumer_contract",
-              "authority_ref": "ref:heimdall-self-observer",
-              "authority_digest": "sha256:bbe6f88cd7b520d4c637104b79a303156232c8956f522e6b9c62a2a790b99c5c"
+              "authority_ref": "ref:heimdall-self-observer-v1",
+              "authority_digest": "sha256:bfdca47d7c1e25502aa17a4b9e95646ef02dbc0ec9ca59311a516ede9a656d73"
             }
           ],
           "expected_slots": [
@@ -1049,6 +1232,16 @@
               "slot_class": "service_readiness",
               "surface": "readiness",
               "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "heimdall",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "exporter-health",
+              "authority_kind": "producer_contract",
+              "slot_class": "exporter_health",
+              "surface": "readiness",
+              "applicability": "not_applicable",
               "owner_kind": "producer",
               "owner_service_id": "heimdall",
               "max_freshness": "PT5M"
@@ -1083,7 +1276,8 @@
         "diagnostic_ref": "ref:heim-wrong-degraded",
         "extensions": []
       }
-    ]
+    ],
+    "expected_error": "aggregate outcome mismatch: expected stale, got degraded"
   },
   "failed_aggregate_expiry": {
     "records": [
@@ -1193,7 +1387,7 @@
             },
             {
               "authority_kind": "consumer_contract",
-              "authority_ref": "ref:heimdall-grimnir-observer",
+              "authority_ref": "ref:heimdall-grimnir-observer-v1",
               "authority_digest": "sha256:c06cbc97a6fe88b03e4c0005fbbf3623cab75443bc286b78d7a658612257bfec"
             }
           ],
@@ -1249,5 +1443,1546 @@
         "extensions": []
       }
     ]
+  },
+  "schema_unsampled_trace_span": {
+    "kind": "trace-span",
+    "contract_version": "v1.0",
+    "policy_id": "trace-policy-mimir",
+    "source": {
+      "source_kind": "service_internal",
+      "producer": "mimir",
+      "producer_version": "git-8cd26ce"
+    },
+    "service": {
+      "service_id": "mimir",
+      "instance_id": "mimir-prod"
+    },
+    "trace_id": "abcdefabcdefabcdefabcdefabcdefab",
+    "span_id": "0123456789abcdef",
+    "operation": {
+      "surface": "service",
+      "phase": "execution"
+    },
+    "started_at": "2026-07-31T10:02:10Z",
+    "ended_at": "2026-07-31T10:02:11Z",
+    "collected_at": "2026-07-31T10:02:11Z",
+    "sampled": false,
+    "outcome": "failed",
+    "attributes": {
+      "service_id": "mimir",
+      "instance_id": "mimir-prod",
+      "error_class": "timeout"
+    },
+    "diagnostic_ref": "ref:unsampled-span",
+    "extensions": []
+  },
+  "schema_liveness_check_with_dependency_service_id": {
+    "kind": "service-observation",
+    "contract_version": "v1.0",
+    "observation_id": "obs-liveness-dep-id",
+    "source": {
+      "source_kind": "service_internal",
+      "producer": "hugin",
+      "producer_version": "git-3be19f7"
+    },
+    "service": {
+      "service_id": "hugin",
+      "instance_id": "hugin-user"
+    },
+    "slot_id": "service-live",
+    "check": {
+      "surface": "liveness",
+      "dependency_service_id": "munin-memory"
+    },
+    "attempt_id": "att-major-01",
+    "observed_at": "2026-07-31T10:01:00Z",
+    "collected_at": "2026-07-31T10:01:01Z",
+    "freshness_window": "PT5M",
+    "fresh_until": "2026-07-31T10:06:00Z",
+    "outcome": "ok",
+    "diagnostic_ref": "ref:liveness-dep-id",
+    "extensions": []
+  },
+  "schema_dependency_trace_attribute_missing_target": {
+    "kind": "trace-span",
+    "contract_version": "v1.0",
+    "policy_id": "trace-policy-mimir",
+    "source": {
+      "source_kind": "service_internal",
+      "producer": "mimir",
+      "producer_version": "git-8cd26ce"
+    },
+    "service": {
+      "service_id": "mimir",
+      "instance_id": "mimir-prod"
+    },
+    "trace_id": "abcdefabcdefabcdefabcdefabcdefab",
+    "span_id": "0123456789abcdef",
+    "operation": {
+      "surface": "service",
+      "phase": "execution"
+    },
+    "started_at": "2026-07-31T10:02:10Z",
+    "ended_at": "2026-07-31T10:02:11Z",
+    "collected_at": "2026-07-31T10:02:11Z",
+    "sampled": true,
+    "outcome": "failed",
+    "attributes": {
+      "service_id": "mimir",
+      "instance_id": "mimir-prod",
+      "check_surface": "dependency"
+    },
+    "diagnostic_ref": "ref:dependency-missing-target",
+    "extensions": []
+  },
+  "service_overall_collector_only_inventory": {
+    "records": [
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-collector-ok",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "collector-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-collector-ok",
+        "extensions": []
+      },
+      {
+        "kind": "observation-aggregate",
+        "contract_version": "v1.0",
+        "aggregate_id": "agg-hugin-collector-only",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "aggregate_surface": "service_overall",
+        "attempt_id": "agg-hugin-collector-only-01",
+        "observed_at": "2026-07-31T08:10:02Z",
+        "collected_at": "2026-07-31T08:10:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:02Z",
+        "inventory": {
+          "authorities": [
+            {
+              "authority_kind": "consumer_contract",
+              "authority_ref": "ref:heimdall-hugin-observer-v1",
+              "authority_digest": "sha256:819abcceeca0b9dabcfe0f0402b644e0a5610cbba7baf1a31962ba9dbb7fc47a"
+            }
+          ],
+          "expected_slots": [
+            {
+              "slot_id": "collector-health",
+              "authority_kind": "consumer_contract",
+              "slot_class": "collector_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "consumer",
+              "owner_service_id": "heimdall",
+              "max_freshness": "PT5M"
+            }
+          ]
+        },
+        "observation_refs": [
+          {
+            "slot_id": "collector-health",
+            "observation_id": "obs-hugin-collector-ok"
+          }
+        ],
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-collector-only",
+        "extensions": []
+      }
+    ],
+    "expected_error": "aggregate.inventory must bind services_json authority for service_overall aggregates"
+  },
+  "readiness_exporter_only_inventory": {
+    "records": [
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-exporter-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "exporter-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-exporter-ok",
+        "extensions": []
+      },
+      {
+        "kind": "observation-aggregate",
+        "contract_version": "v1.0",
+        "aggregate_id": "agg-hugin-readiness-exporter-only",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "aggregate_surface": "readiness",
+        "attempt_id": "agg-hugin-readiness-01",
+        "observed_at": "2026-07-31T08:10:01Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:01Z",
+        "inventory": {
+          "authorities": [
+            {
+              "authority_kind": "producer_contract",
+              "authority_ref": "ref:hugin-observability-contract-v1",
+              "authority_digest": "sha256:73dd742e82ac7d16b88369bbb466c50620532ad9064418ef216543f132ca5f76"
+            }
+          ],
+          "expected_slots": [
+            {
+              "slot_id": "exporter-health",
+              "authority_kind": "producer_contract",
+              "slot_class": "exporter_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            }
+          ]
+        },
+        "observation_refs": [
+          {
+            "slot_id": "exporter-health",
+            "observation_id": "obs-hugin-exporter-ok"
+          }
+        ],
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-readiness-exporter-only",
+        "extensions": []
+      }
+    ],
+    "expected_error": "aggregate.inventory must bind services_json authority for readiness aggregates"
+  },
+  "service_overall_partial_registry_slots": {
+    "records": [
+      {
+        "kind": "trace-policy",
+        "contract_version": "v1.0",
+        "policy_id": "trace-policy-hugin",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "default_state": {
+          "instrumentation_enabled": true,
+          "export_enabled": true,
+          "automatic_instrumentation": "disabled"
+        },
+        "sampling": {
+          "mode": "head",
+          "rate_per_mille": 1000
+        },
+        "serialization": {
+          "allowlist_version": "v1",
+          "deny_by_default": true,
+          "max_attributes": 12,
+          "max_string_length": 64
+        },
+        "retention": {
+          "policy_ref": "ref:data-lifecycle-v1",
+          "data_class": "operational_telemetry",
+          "deletion_owner": "producer"
+        },
+        "failure_behavior": {
+          "export_failure": "drop_and_count",
+          "instrumentation_failure": "must_not_fail_request"
+        },
+        "created_at": "2026-07-31T08:00:00Z",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-live-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "service-live",
+        "check": {
+          "surface": "liveness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-live-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-ready-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "service-ready",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-ready-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-dep-munin-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "dep-munin",
+        "check": {
+          "surface": "dependency",
+          "dependency_service_id": "munin-memory"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-dep-munin-ok",
+        "trace": {
+          "trace_id": "0123456789abcdef0123456789abcdef",
+          "span_id": "1111111111111111"
+        },
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-exporter-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "exporter-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-exporter-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-collector-ok",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "collector-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-collector-ok",
+        "extensions": []
+      },
+      {
+        "kind": "observation-aggregate",
+        "contract_version": "v1.0",
+        "aggregate_id": "agg-hugin-partial-registry",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "aggregate_surface": "service_overall",
+        "attempt_id": "agg-hugin-01",
+        "observed_at": "2026-07-31T08:10:02Z",
+        "collected_at": "2026-07-31T08:10:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:02Z",
+        "inventory": {
+          "authorities": [
+            {
+              "authority_kind": "services_json",
+              "authority_ref": "ref:services-json-hugin",
+              "authority_digest": "sha256:4472c50311350098923b4dfcde265cb7f1c45c3c9e8cdcb6d0663865b14f6594"
+            },
+            {
+              "authority_kind": "producer_contract",
+              "authority_ref": "ref:hugin-observability-contract-v1",
+              "authority_digest": "sha256:7689094233d745f29ce995dc1b2519159bb66887bc39da9b9e8c96be75681924"
+            },
+            {
+              "authority_kind": "consumer_contract",
+              "authority_ref": "ref:heimdall-hugin-observer-v1",
+              "authority_digest": "sha256:819abcceeca0b9dabcfe0f0402b644e0a5610cbba7baf1a31962ba9dbb7fc47a"
+            }
+          ],
+          "expected_slots": [
+            {
+              "slot_id": "service-live",
+              "authority_kind": "services_json",
+              "slot_class": "service_liveness",
+              "surface": "liveness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "dep-munin",
+              "authority_kind": "producer_contract",
+              "slot_class": "dependency_health",
+              "surface": "dependency",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M",
+              "dependency_service_id": "munin-memory"
+            },
+            {
+              "slot_id": "exporter-health",
+              "authority_kind": "producer_contract",
+              "slot_class": "exporter_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "collector-health",
+              "authority_kind": "consumer_contract",
+              "slot_class": "collector_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "consumer",
+              "owner_service_id": "heimdall",
+              "max_freshness": "PT5M"
+            }
+          ]
+        },
+        "observation_refs": [
+          {
+            "slot_id": "service-live",
+            "observation_id": "obs-hugin-live-ok"
+          },
+          {
+            "slot_id": "dep-munin",
+            "observation_id": "obs-hugin-dep-munin-ok"
+          },
+          {
+            "slot_id": "exporter-health",
+            "observation_id": "obs-hugin-exporter-ok"
+          },
+          {
+            "slot_id": "collector-health",
+            "observation_id": "obs-hugin-collector-ok"
+          }
+        ],
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-partial-registry",
+        "extensions": []
+      }
+    ],
+    "expected_error": "aggregate.inventory.services_json slots must equal the complete mechanically derived registry slot set for hugin service_overall aggregates"
+  },
+  "missing_trace_policy_binding": {
+    "records": [
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-live-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "service-live",
+        "check": {
+          "surface": "liveness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-live-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-ready-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "service-ready",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-ready-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-dep-munin-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "dep-munin",
+        "check": {
+          "surface": "dependency",
+          "dependency_service_id": "munin-memory"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-dep-munin-ok",
+        "trace": {
+          "trace_id": "0123456789abcdef0123456789abcdef",
+          "span_id": "1111111111111111"
+        },
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-exporter-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "exporter-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-exporter-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-collector-ok",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "collector-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-collector-ok",
+        "extensions": []
+      },
+      {
+        "kind": "observation-aggregate",
+        "contract_version": "v1.0",
+        "aggregate_id": "agg-hugin-missing-policy",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "aggregate_surface": "service_overall",
+        "attempt_id": "agg-hugin-01",
+        "observed_at": "2026-07-31T08:10:02Z",
+        "collected_at": "2026-07-31T08:10:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:02Z",
+        "inventory": {
+          "authorities": [
+            {
+              "authority_kind": "services_json",
+              "authority_ref": "ref:services-json-hugin",
+              "authority_digest": "sha256:ecf4cf0ceb58cf909b7e964ee32481902351a7ea8d3d2254c8751e12c564d8bf"
+            },
+            {
+              "authority_kind": "producer_contract",
+              "authority_ref": "ref:hugin-observability-contract-v1",
+              "authority_digest": "sha256:7689094233d745f29ce995dc1b2519159bb66887bc39da9b9e8c96be75681924"
+            },
+            {
+              "authority_kind": "consumer_contract",
+              "authority_ref": "ref:heimdall-hugin-observer-v1",
+              "authority_digest": "sha256:819abcceeca0b9dabcfe0f0402b644e0a5610cbba7baf1a31962ba9dbb7fc47a"
+            }
+          ],
+          "expected_slots": [
+            {
+              "slot_id": "service-live",
+              "authority_kind": "services_json",
+              "slot_class": "service_liveness",
+              "surface": "liveness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "service-ready",
+              "authority_kind": "services_json",
+              "slot_class": "service_readiness",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "dep-munin",
+              "authority_kind": "producer_contract",
+              "slot_class": "dependency_health",
+              "surface": "dependency",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M",
+              "dependency_service_id": "munin-memory"
+            },
+            {
+              "slot_id": "exporter-health",
+              "authority_kind": "producer_contract",
+              "slot_class": "exporter_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "collector-health",
+              "authority_kind": "consumer_contract",
+              "slot_class": "collector_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "consumer",
+              "owner_service_id": "heimdall",
+              "max_freshness": "PT5M"
+            }
+          ]
+        },
+        "observation_refs": [
+          {
+            "slot_id": "service-live",
+            "observation_id": "obs-hugin-live-ok"
+          },
+          {
+            "slot_id": "service-ready",
+            "observation_id": "obs-hugin-ready-ok"
+          },
+          {
+            "slot_id": "dep-munin",
+            "observation_id": "obs-hugin-dep-munin-ok"
+          },
+          {
+            "slot_id": "exporter-health",
+            "observation_id": "obs-hugin-exporter-ok"
+          },
+          {
+            "slot_id": "collector-health",
+            "observation_id": "obs-hugin-collector-ok"
+          }
+        ],
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-missing-policy",
+        "extensions": []
+      }
+    ],
+    "expected_error": "aggregate.inventory must bind exactly one trace-policy record for service_overall aggregates"
+  },
+  "disabled_policy_required_exporter": {
+    "records": [
+      {
+        "kind": "trace-policy",
+        "contract_version": "v1.0",
+        "policy_id": "trace-policy-hugin-disabled",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "default_state": {
+          "instrumentation_enabled": false,
+          "export_enabled": false,
+          "automatic_instrumentation": "disabled"
+        },
+        "sampling": {
+          "mode": "head",
+          "rate_per_mille": 0
+        },
+        "serialization": {
+          "allowlist_version": "v1",
+          "deny_by_default": true,
+          "max_attributes": 12,
+          "max_string_length": 64
+        },
+        "retention": {
+          "policy_ref": "ref:data-lifecycle-v1",
+          "data_class": "operational_telemetry",
+          "deletion_owner": "producer"
+        },
+        "failure_behavior": {
+          "export_failure": "drop_and_count",
+          "instrumentation_failure": "must_not_fail_request"
+        },
+        "created_at": "2026-07-31T08:00:00Z",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-live-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "service-live",
+        "check": {
+          "surface": "liveness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-live-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-ready-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "service-ready",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-ready-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-dep-munin-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "dep-munin",
+        "check": {
+          "surface": "dependency",
+          "dependency_service_id": "munin-memory"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-dep-munin-ok",
+        "trace": {
+          "trace_id": "0123456789abcdef0123456789abcdef",
+          "span_id": "1111111111111111"
+        },
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-exporter-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "exporter-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-exporter-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-collector-ok",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "collector-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-collector-ok",
+        "extensions": []
+      },
+      {
+        "kind": "observation-aggregate",
+        "contract_version": "v1.0",
+        "aggregate_id": "agg-hugin-disabled-policy-required-exporter",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "aggregate_surface": "service_overall",
+        "attempt_id": "agg-hugin-01",
+        "observed_at": "2026-07-31T08:10:02Z",
+        "collected_at": "2026-07-31T08:10:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:02Z",
+        "inventory": {
+          "authorities": [
+            {
+              "authority_kind": "services_json",
+              "authority_ref": "ref:services-json-hugin",
+              "authority_digest": "sha256:ecf4cf0ceb58cf909b7e964ee32481902351a7ea8d3d2254c8751e12c564d8bf"
+            },
+            {
+              "authority_kind": "producer_contract",
+              "authority_ref": "ref:hugin-observability-contract-v1",
+              "authority_digest": "sha256:7689094233d745f29ce995dc1b2519159bb66887bc39da9b9e8c96be75681924"
+            },
+            {
+              "authority_kind": "consumer_contract",
+              "authority_ref": "ref:heimdall-hugin-observer-v1",
+              "authority_digest": "sha256:819abcceeca0b9dabcfe0f0402b644e0a5610cbba7baf1a31962ba9dbb7fc47a"
+            }
+          ],
+          "expected_slots": [
+            {
+              "slot_id": "service-live",
+              "authority_kind": "services_json",
+              "slot_class": "service_liveness",
+              "surface": "liveness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "service-ready",
+              "authority_kind": "services_json",
+              "slot_class": "service_readiness",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "dep-munin",
+              "authority_kind": "producer_contract",
+              "slot_class": "dependency_health",
+              "surface": "dependency",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M",
+              "dependency_service_id": "munin-memory"
+            },
+            {
+              "slot_id": "exporter-health",
+              "authority_kind": "producer_contract",
+              "slot_class": "exporter_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "collector-health",
+              "authority_kind": "consumer_contract",
+              "slot_class": "collector_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "consumer",
+              "owner_service_id": "heimdall",
+              "max_freshness": "PT5M"
+            }
+          ]
+        },
+        "observation_refs": [
+          {
+            "slot_id": "service-live",
+            "observation_id": "obs-hugin-live-ok"
+          },
+          {
+            "slot_id": "service-ready",
+            "observation_id": "obs-hugin-ready-ok"
+          },
+          {
+            "slot_id": "dep-munin",
+            "observation_id": "obs-hugin-dep-munin-ok"
+          },
+          {
+            "slot_id": "exporter-health",
+            "observation_id": "obs-hugin-exporter-ok"
+          },
+          {
+            "slot_id": "collector-health",
+            "observation_id": "obs-hugin-collector-ok"
+          }
+        ],
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-disabled-policy-required-exporter",
+        "extensions": []
+      }
+    ],
+    "expected_error": "aggregate.inventory.exporter_health applicability must be not_applicable under the bound trace policy"
+  },
+  "aggregate_child_clock_backdating": {
+    "records": [
+      {
+        "kind": "trace-policy",
+        "contract_version": "v1.0",
+        "policy_id": "trace-policy-hugin",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "default_state": {
+          "instrumentation_enabled": true,
+          "export_enabled": true,
+          "automatic_instrumentation": "disabled"
+        },
+        "sampling": {
+          "mode": "head",
+          "rate_per_mille": 1000
+        },
+        "serialization": {
+          "allowlist_version": "v1",
+          "deny_by_default": true,
+          "max_attributes": 12,
+          "max_string_length": 64
+        },
+        "retention": {
+          "policy_ref": "ref:data-lifecycle-v1",
+          "data_class": "operational_telemetry",
+          "deletion_owner": "producer"
+        },
+        "failure_behavior": {
+          "export_failure": "drop_and_count",
+          "instrumentation_failure": "must_not_fail_request"
+        },
+        "created_at": "2026-07-31T08:00:00Z",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-live-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "service-live",
+        "check": {
+          "surface": "liveness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-live-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-ready-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "service-ready",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-ready-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-dep-munin-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "dep-munin",
+        "check": {
+          "surface": "dependency",
+          "dependency_service_id": "munin-memory"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-dep-munin-ok",
+        "trace": {
+          "trace_id": "0123456789abcdef0123456789abcdef",
+          "span_id": "1111111111111111"
+        },
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-exporter-ok",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "exporter-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:01Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-exporter-ok",
+        "extensions": []
+      },
+      {
+        "kind": "service-observation",
+        "contract_version": "v1.0",
+        "observation_id": "obs-hugin-collector-ok",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "slot_id": "collector-health",
+        "check": {
+          "surface": "readiness"
+        },
+        "attempt_id": "att-hugin-01",
+        "observed_at": "2026-07-31T08:10:00Z",
+        "collected_at": "2026-07-31T08:10:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:00Z",
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-collector-ok",
+        "extensions": []
+      },
+      {
+        "kind": "observation-aggregate",
+        "contract_version": "v1.0",
+        "aggregate_id": "agg-hugin-backdated-child-clock",
+        "source": {
+          "source_kind": "aggregator",
+          "producer": "heimdall",
+          "producer_version": "git-945847c"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "aggregate_surface": "service_overall",
+        "attempt_id": "agg-hugin-01",
+        "observed_at": "2026-07-31T08:10:01Z",
+        "collected_at": "2026-07-31T08:10:02Z",
+        "freshness_window": "PT5M",
+        "fresh_until": "2026-07-31T08:15:01Z",
+        "inventory": {
+          "authorities": [
+            {
+              "authority_kind": "services_json",
+              "authority_ref": "ref:services-json-hugin",
+              "authority_digest": "sha256:ecf4cf0ceb58cf909b7e964ee32481902351a7ea8d3d2254c8751e12c564d8bf"
+            },
+            {
+              "authority_kind": "producer_contract",
+              "authority_ref": "ref:hugin-observability-contract-v1",
+              "authority_digest": "sha256:7689094233d745f29ce995dc1b2519159bb66887bc39da9b9e8c96be75681924"
+            },
+            {
+              "authority_kind": "consumer_contract",
+              "authority_ref": "ref:heimdall-hugin-observer-v1",
+              "authority_digest": "sha256:819abcceeca0b9dabcfe0f0402b644e0a5610cbba7baf1a31962ba9dbb7fc47a"
+            }
+          ],
+          "expected_slots": [
+            {
+              "slot_id": "service-live",
+              "authority_kind": "services_json",
+              "slot_class": "service_liveness",
+              "surface": "liveness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "service-ready",
+              "authority_kind": "services_json",
+              "slot_class": "service_readiness",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "dep-munin",
+              "authority_kind": "producer_contract",
+              "slot_class": "dependency_health",
+              "surface": "dependency",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M",
+              "dependency_service_id": "munin-memory"
+            },
+            {
+              "slot_id": "exporter-health",
+              "authority_kind": "producer_contract",
+              "slot_class": "exporter_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "producer",
+              "owner_service_id": "hugin",
+              "max_freshness": "PT5M"
+            },
+            {
+              "slot_id": "collector-health",
+              "authority_kind": "consumer_contract",
+              "slot_class": "collector_health",
+              "surface": "readiness",
+              "applicability": "required",
+              "owner_kind": "consumer",
+              "owner_service_id": "heimdall",
+              "max_freshness": "PT5M"
+            }
+          ]
+        },
+        "observation_refs": [
+          {
+            "slot_id": "service-live",
+            "observation_id": "obs-hugin-live-ok"
+          },
+          {
+            "slot_id": "service-ready",
+            "observation_id": "obs-hugin-ready-ok"
+          },
+          {
+            "slot_id": "dep-munin",
+            "observation_id": "obs-hugin-dep-munin-ok"
+          },
+          {
+            "slot_id": "exporter-health",
+            "observation_id": "obs-hugin-exporter-ok"
+          },
+          {
+            "slot_id": "collector-health",
+            "observation_id": "obs-hugin-collector-ok"
+          }
+        ],
+        "outcome": "ok",
+        "diagnostic_ref": "ref:hugin-backdated-child-clock",
+        "extensions": []
+      }
+    ],
+    "expected_error": "aggregate.observed_at must be greater than or equal to every referenced child clock"
+  },
+  "private_ipv4_trace_attribute": {
+    "records": [
+      {
+        "kind": "trace-policy",
+        "contract_version": "v1.0",
+        "policy_id": "trace-policy-hugin",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "default_state": {
+          "instrumentation_enabled": true,
+          "export_enabled": true,
+          "automatic_instrumentation": "disabled"
+        },
+        "sampling": {
+          "mode": "head",
+          "rate_per_mille": 1000
+        },
+        "serialization": {
+          "allowlist_version": "v1",
+          "deny_by_default": true,
+          "max_attributes": 12,
+          "max_string_length": 64
+        },
+        "retention": {
+          "policy_ref": "ref:data-lifecycle-v1",
+          "data_class": "operational_telemetry",
+          "deletion_owner": "producer"
+        },
+        "failure_behavior": {
+          "export_failure": "drop_and_count",
+          "instrumentation_failure": "must_not_fail_request"
+        },
+        "created_at": "2026-07-31T08:00:00Z",
+        "extensions": []
+      },
+      {
+        "kind": "trace-span",
+        "contract_version": "v1.0",
+        "policy_id": "trace-policy-hugin",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "span_id": "abababababababab",
+        "operation": {
+          "surface": "service",
+          "phase": "execution"
+        },
+        "started_at": "2026-07-31T11:00:00Z",
+        "ended_at": "2026-07-31T11:00:01Z",
+        "collected_at": "2026-07-31T11:00:01Z",
+        "sampled": true,
+        "outcome": "failed",
+        "attributes": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user",
+          "error_class": "tcp-10.10.4.8-reset"
+        },
+        "diagnostic_ref": "ref:hugin-private-ipv4",
+        "extensions": []
+      }
+    ],
+    "expected_error": "private_ipv4_trace_attribute.trace-span.attributes.error_class contains a private IPv4 literal"
+  },
+  "private_ipv6_trace_attribute": {
+    "records": [
+      {
+        "kind": "trace-policy",
+        "contract_version": "v1.0",
+        "policy_id": "trace-policy-hugin",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "default_state": {
+          "instrumentation_enabled": true,
+          "export_enabled": true,
+          "automatic_instrumentation": "disabled"
+        },
+        "sampling": {
+          "mode": "head",
+          "rate_per_mille": 1000
+        },
+        "serialization": {
+          "allowlist_version": "v1",
+          "deny_by_default": true,
+          "max_attributes": 12,
+          "max_string_length": 64
+        },
+        "retention": {
+          "policy_ref": "ref:data-lifecycle-v1",
+          "data_class": "operational_telemetry",
+          "deletion_owner": "producer"
+        },
+        "failure_behavior": {
+          "export_failure": "drop_and_count",
+          "instrumentation_failure": "must_not_fail_request"
+        },
+        "created_at": "2026-07-31T08:00:00Z",
+        "extensions": []
+      },
+      {
+        "kind": "trace-span",
+        "contract_version": "v1.0",
+        "policy_id": "trace-policy-hugin",
+        "source": {
+          "source_kind": "service_internal",
+          "producer": "hugin",
+          "producer_version": "git-3be19f7"
+        },
+        "service": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user"
+        },
+        "trace_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "span_id": "bcbcbcbcbcbcbcbc",
+        "operation": {
+          "surface": "service",
+          "phase": "execution"
+        },
+        "started_at": "2026-07-31T11:01:00Z",
+        "ended_at": "2026-07-31T11:01:01Z",
+        "collected_at": "2026-07-31T11:01:01Z",
+        "sampled": true,
+        "outcome": "failed",
+        "attributes": {
+          "service_id": "hugin",
+          "instance_id": "hugin-user",
+          "error_class": "dial-fd00::1234-timeout"
+        },
+        "diagnostic_ref": "ref:hugin-private-ipv6",
+        "extensions": []
+      }
+    ],
+    "expected_error": "private_ipv6_trace_attribute.trace-span.attributes.error_class contains a private IPv6 literal"
   }
 }

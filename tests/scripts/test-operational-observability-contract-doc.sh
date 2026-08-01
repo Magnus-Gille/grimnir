@@ -7,6 +7,7 @@ DOC="$REPO_ROOT/docs/operational-observability-contract.md"
 OBS="$REPO_ROOT/docs/observability-and-improvement.md"
 INDEX="$REPO_ROOT/docs/index.md"
 AUTHORITY="$REPO_ROOT/docs/authority.md"
+LIFECYCLE="$REPO_ROOT/docs/data-lifecycle.md"
 PASS=0
 FAIL=0
 
@@ -35,12 +36,18 @@ assert_contains "$DOC" "defines the aggregation truth table" 'Aggregation truth 
 assert_contains "$DOC" "defines authority kinds for expected inventory" 'The v1 authority kinds are closed'
 assert_contains "$DOC" "defines consumer-owned max freshness" 'consumer-owned `max_freshness`'
 assert_contains "$DOC" "defines stricter producer consumer effective freshness" 'consumer.s `max_freshness`'
+assert_contains "$DOC" "clarifies producer and consumer digests are self consistency without external binding" 'self-consistency digest'
+assert_contains "$DOC" "requires versioned external contract refs" 'versioned external contract'
 assert_contains "$DOC" "defines canonical authority digest bytes" 'compute SHA-256 over those bytes'
+assert_contains "$DOC" "defines locale free field based slot ordering" 'field-based and locale-free'
 assert_contains "$DOC" "excludes not_applicable from aggregates" "\`not_applicable\` is excluded"
 assert_contains "$DOC" "makes an empty expected aggregate unknown" "empty expected aggregate is \`unknown\`"
 assert_contains "$DOC" "keeps absent producers distinct from not_applicable" "Absent producers are distinct from \`not_applicable\`"
+assert_contains "$DOC" "requires complete services json registry slots for service aggregates" 'complete mechanically derived registry slot set'
 assert_contains "$DOC" "requires collector health meta slot" 'collector_health'
-assert_contains "$DOC" "requires exporter health when trace export is enabled" 'exporter_health'
+assert_contains "$DOC" "requires a bound trace policy for service overall aggregates" 'bind exactly one `trace-policy` record'
+assert_contains "$DOC" "requires exporter health or explicit not_applicable under the bound trace policy" 'declare exactly one producer-owned `exporter_health` slot'
+assert_contains "$DOC" "forbids aggregate child clock backdating" 'greater than or equal to every referenced child'
 assert_contains "$DOC" "requires render time aggregate expiry downgrade" 'Render-time expiry'
 assert_contains "$DOC" "defines major minor rollout rules" 'unknown major versions fail visibly'
 assert_contains "$DOC" "limits safe optional evolution to informational extensions" "informational \`extensions\`"
@@ -51,9 +58,13 @@ assert_contains "$DOC" "binds trace policy service identity" '`trace-policy` is 
 assert_contains "$DOC" "forbids spans when export disabled or sampling zero" 'instrumentation/export is disabled'
 assert_contains "$DOC" "forbids self parenting traces" 'Self-parenting is forbidden'
 assert_contains "$DOC" "forbids prompts outputs telegram accounting credentials and raw urls" 'No prompts, outputs, memory/file contents'
+assert_contains "$DOC" "forbids private ipv4 and ipv6 literals" 'Private IPv4 and IPv6 literals'
 assert_contains "$DOC" "links the data lifecycle policy" 'data-lifecycle\.md'
 assert_contains "$DOC" "states operational telemetry retention ownership" 'operational telemetry'
+assert_contains "$DOC" "states emitted trace spans are always sampled true" '`trace-span` is `sampled: true`'
 assert_contains "$DOC" "states consumer tests prove stale missing partial evidence never renders healthy" 'stale, missing, and partial evidence never renders healthy'
+assert_contains "$LIFECYCLE" "data lifecycle keeps an operational telemetry row" '^\| Operational telemetry \|'
+assert_contains "$LIFECYCLE" "operational telemetry row keeps the six month provisional default" 'Operational telemetry \| \*\*6 months\*\* from collection'
 assert_contains "$INDEX" "index references the observability contract doc" 'operational-observability-contract\.md'
 assert_contains "$INDEX" "index references the observability schema" 'operational-observability-v1\.schema\.json'
 assert_contains "$AUTHORITY" "authority map references the observability contract" 'operational-observability-contract\.md'

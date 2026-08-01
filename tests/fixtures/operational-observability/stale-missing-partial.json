@@ -1,6 +1,86 @@
 {
   "records": [
     {
+      "kind": "trace-policy",
+      "contract_version": "v1.0",
+      "policy_id": "trace-policy-munin-disabled",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "munin-memory",
+        "producer_version": "git-e8caef0"
+      },
+      "service": {
+        "service_id": "munin-memory",
+        "instance_id": "munin-prod"
+      },
+      "default_state": {
+        "instrumentation_enabled": false,
+        "export_enabled": false,
+        "automatic_instrumentation": "disabled"
+      },
+      "sampling": {
+        "mode": "head",
+        "rate_per_mille": 0
+      },
+      "serialization": {
+        "allowlist_version": "v1",
+        "deny_by_default": true,
+        "max_attributes": 12,
+        "max_string_length": 64
+      },
+      "retention": {
+        "policy_ref": "ref:data-lifecycle-v1",
+        "data_class": "operational_telemetry",
+        "deletion_owner": "producer"
+      },
+      "failure_behavior": {
+        "export_failure": "drop_and_count",
+        "instrumentation_failure": "must_not_fail_request"
+      },
+      "created_at": "2026-07-31T09:19:00Z",
+      "extensions": []
+    },
+    {
+      "kind": "trace-policy",
+      "contract_version": "v1.0",
+      "policy_id": "trace-policy-heimdall-disabled",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "heimdall",
+        "instance_id": "heimdall-prod"
+      },
+      "default_state": {
+        "instrumentation_enabled": false,
+        "export_enabled": false,
+        "automatic_instrumentation": "disabled"
+      },
+      "sampling": {
+        "mode": "head",
+        "rate_per_mille": 0
+      },
+      "serialization": {
+        "allowlist_version": "v1",
+        "deny_by_default": true,
+        "max_attributes": 12,
+        "max_string_length": 64
+      },
+      "retention": {
+        "policy_ref": "ref:data-lifecycle-v1",
+        "data_class": "operational_telemetry",
+        "deletion_owner": "producer"
+      },
+      "failure_behavior": {
+        "export_failure": "drop_and_count",
+        "instrumentation_failure": "must_not_fail_request"
+      },
+      "created_at": "2026-07-31T09:09:00Z",
+      "extensions": []
+    },
+    {
       "kind": "service-observation",
       "contract_version": "v1.0",
       "observation_id": "obs-heim-live-degraded-old",
@@ -105,9 +185,14 @@
             "authority_digest": "sha256:010f598b867398e58d817cdcd1543724cd64cb3754c3f1a8c75bae3e505c26b6"
           },
           {
+            "authority_kind": "producer_contract",
+            "authority_ref": "ref:heimdall-observability-contract-v1",
+            "authority_digest": "sha256:227659afc030c10db30447957a887131fad75c1e6978bfea3354da244c570e8a"
+          },
+          {
             "authority_kind": "consumer_contract",
-            "authority_ref": "ref:heimdall-self-observer",
-            "authority_digest": "sha256:bbe6f88cd7b520d4c637104b79a303156232c8956f522e6b9c62a2a790b99c5c"
+            "authority_ref": "ref:heimdall-self-observer-v1",
+            "authority_digest": "sha256:bfdca47d7c1e25502aa17a4b9e95646ef02dbc0ec9ca59311a516ede9a656d73"
           }
         ],
         "expected_slots": [
@@ -127,6 +212,16 @@
             "slot_class": "service_readiness",
             "surface": "readiness",
             "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "heimdall",
+            "max_freshness": "PT5M"
+          },
+          {
+            "slot_id": "exporter-health",
+            "authority_kind": "producer_contract",
+            "slot_class": "exporter_health",
+            "surface": "readiness",
+            "applicability": "not_applicable",
             "owner_kind": "producer",
             "owner_service_id": "heimdall",
             "max_freshness": "PT5M"
@@ -228,10 +323,10 @@
       },
       "aggregate_surface": "service_overall",
       "attempt_id": "agg-munin-02",
-      "observed_at": "2026-07-31T09:20:01Z",
+      "observed_at": "2026-07-31T09:20:02Z",
       "collected_at": "2026-07-31T09:20:02Z",
       "freshness_window": "PT5M",
-      "fresh_until": "2026-07-31T09:25:01Z",
+      "fresh_until": "2026-07-31T09:25:02Z",
       "inventory": {
         "authorities": [
           {
@@ -240,9 +335,14 @@
             "authority_digest": "sha256:a7bfbd332080f770828af6fc09cde49c4842794667636081341d77f5ba64ba91"
           },
           {
+            "authority_kind": "producer_contract",
+            "authority_ref": "ref:munin-memory-observability-contract-v1",
+            "authority_digest": "sha256:698f46988e6374816441c496439fdc771fa641142e6d1b3fec0b9a88e1bf76ae"
+          },
+          {
             "authority_kind": "consumer_contract",
-            "authority_ref": "ref:heimdall-munin-observer",
-            "authority_digest": "sha256:d952039a2069c8f8da1077dccb9f67d8067ab2f218588ef6ae49e96d92c000e7"
+            "authority_ref": "ref:heimdall-munin-observer-v1",
+            "authority_digest": "sha256:83d0aafbce3926a334e1d8642df826413154df02fa1ef4239f2dac79bd5cb5c9"
           }
         ],
         "expected_slots": [
@@ -262,6 +362,16 @@
             "slot_class": "service_readiness",
             "surface": "readiness",
             "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "munin-memory",
+            "max_freshness": "PT5M"
+          },
+          {
+            "slot_id": "exporter-health",
+            "authority_kind": "producer_contract",
+            "slot_class": "exporter_health",
+            "surface": "readiness",
+            "applicability": "not_applicable",
             "owner_kind": "producer",
             "owner_service_id": "munin-memory",
             "max_freshness": "PT5M"

@@ -1,6 +1,46 @@
 {
   "records": [
     {
+      "kind": "trace-policy",
+      "contract_version": "v1.0",
+      "policy_id": "trace-policy-ratatoskr-disabled",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "ratatoskr",
+        "producer_version": "git-73943d1"
+      },
+      "service": {
+        "service_id": "ratatoskr",
+        "instance_id": "ratatoskr-prod"
+      },
+      "default_state": {
+        "instrumentation_enabled": false,
+        "export_enabled": false,
+        "automatic_instrumentation": "disabled"
+      },
+      "sampling": {
+        "mode": "head",
+        "rate_per_mille": 0
+      },
+      "serialization": {
+        "allowlist_version": "v1",
+        "deny_by_default": true,
+        "max_attributes": 12,
+        "max_string_length": 64
+      },
+      "retention": {
+        "policy_ref": "ref:data-lifecycle-v1",
+        "data_class": "operational_telemetry",
+        "deletion_owner": "producer"
+      },
+      "failure_behavior": {
+        "export_failure": "drop_and_count",
+        "instrumentation_failure": "must_not_fail_request"
+      },
+      "created_at": "2026-07-31T08:59:00Z",
+      "extensions": []
+    },
+    {
       "kind": "service-observation",
       "contract_version": "v1.1",
       "observation_id": "obs-rat-live-v11",
@@ -99,10 +139,10 @@
       },
       "aggregate_surface": "service_overall",
       "attempt_id": "agg-rat-01",
-      "observed_at": "2026-07-31T09:00:01Z",
+      "observed_at": "2026-07-31T09:00:02Z",
       "collected_at": "2026-07-31T09:00:02Z",
       "freshness_window": "PT5M",
-      "fresh_until": "2026-07-31T09:05:01Z",
+      "fresh_until": "2026-07-31T09:05:02Z",
       "inventory": {
         "authorities": [
           {
@@ -111,9 +151,14 @@
             "authority_digest": "sha256:a1869e866756939bdc113740c9cea913c00d98a4bcb605bf97b20072fde47d7e"
           },
           {
+            "authority_kind": "producer_contract",
+            "authority_ref": "ref:ratatoskr-observability-contract-v1",
+            "authority_digest": "sha256:193ca05cb2bb42138cb398f33b3290a7fdfde064077dd12c32b6e4982255e464"
+          },
+          {
             "authority_kind": "consumer_contract",
-            "authority_ref": "ref:heimdall-ratatoskr-observer",
-            "authority_digest": "sha256:49f68c8198f137fb48931dcaebeb61d2f4c1483541fb7bf218fcfd633e6be2ff"
+            "authority_ref": "ref:heimdall-ratatoskr-observer-v1",
+            "authority_digest": "sha256:77851084ed18004c4fb59ac093e6382e0f44ff242e0bb4950e4ac441db9e48e5"
           }
         ],
         "expected_slots": [
@@ -133,6 +178,16 @@
             "slot_class": "service_readiness",
             "surface": "readiness",
             "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "ratatoskr",
+            "max_freshness": "PT5M"
+          },
+          {
+            "slot_id": "exporter-health",
+            "authority_kind": "producer_contract",
+            "slot_class": "exporter_health",
+            "surface": "readiness",
+            "applicability": "not_applicable",
             "owner_kind": "producer",
             "owner_service_id": "ratatoskr",
             "max_freshness": "PT5M"

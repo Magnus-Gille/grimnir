@@ -57,13 +57,25 @@
       }
     },
     "check": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["surface"],
-      "properties": {
-        "surface": { "enum": ["liveness", "readiness", "dependency"] },
-        "dependency_service_id": { "$ref": "#/$defs/id" }
-      }
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["surface"],
+          "properties": {
+            "surface": { "enum": ["liveness", "readiness"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["surface", "dependency_service_id"],
+          "properties": {
+            "surface": { "const": "dependency" },
+            "dependency_service_id": { "$ref": "#/$defs/id" }
+          }
+        }
+      ]
     },
     "trace-link": {
       "type": "object",
@@ -85,20 +97,39 @@
       }
     },
     "expected-slot": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["slot_id", "authority_kind", "slot_class", "surface", "applicability", "owner_kind", "owner_service_id", "max_freshness"],
-      "properties": {
-        "slot_id": { "$ref": "#/$defs/id" },
-        "authority_kind": { "enum": ["services_json", "producer_contract", "consumer_contract"] },
-        "slot_class": { "enum": ["service_liveness", "service_readiness", "dependency_health", "exporter_health", "collector_health"] },
-        "surface": { "enum": ["liveness", "readiness", "dependency"] },
-        "applicability": { "enum": ["required", "not_applicable"] },
-        "owner_kind": { "enum": ["producer", "consumer"] },
-        "owner_service_id": { "$ref": "#/$defs/id" },
-        "max_freshness": { "$ref": "#/$defs/duration" },
-        "dependency_service_id": { "$ref": "#/$defs/id" }
-      }
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["slot_id", "authority_kind", "slot_class", "surface", "applicability", "owner_kind", "owner_service_id", "max_freshness"],
+          "properties": {
+            "slot_id": { "$ref": "#/$defs/id" },
+            "authority_kind": { "enum": ["services_json", "producer_contract", "consumer_contract"] },
+            "slot_class": { "enum": ["service_liveness", "service_readiness", "exporter_health", "collector_health"] },
+            "surface": { "enum": ["liveness", "readiness"] },
+            "applicability": { "enum": ["required", "not_applicable"] },
+            "owner_kind": { "enum": ["producer", "consumer"] },
+            "owner_service_id": { "$ref": "#/$defs/id" },
+            "max_freshness": { "$ref": "#/$defs/duration" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["slot_id", "authority_kind", "slot_class", "surface", "applicability", "owner_kind", "owner_service_id", "max_freshness", "dependency_service_id"],
+          "properties": {
+            "slot_id": { "$ref": "#/$defs/id" },
+            "authority_kind": { "enum": ["services_json", "producer_contract", "consumer_contract"] },
+            "slot_class": { "const": "dependency_health" },
+            "surface": { "const": "dependency" },
+            "applicability": { "enum": ["required", "not_applicable"] },
+            "owner_kind": { "enum": ["producer", "consumer"] },
+            "owner_service_id": { "$ref": "#/$defs/id" },
+            "max_freshness": { "$ref": "#/$defs/duration" },
+            "dependency_service_id": { "$ref": "#/$defs/id" }
+          }
+        }
+      ]
     },
     "inventory": {
       "type": "object",
@@ -177,18 +208,36 @@
       }
     },
     "trace-attributes": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "service_id": { "$ref": "#/$defs/id" },
-        "instance_id": { "$ref": "#/$defs/id" },
-        "dependency_service_id": { "$ref": "#/$defs/id" },
-        "task_class": { "enum": ["diagnostic", "delegation", "maintenance", "publication", "read_only", "not_applicable"] },
-        "runtime_lane": { "enum": ["default", "reason-hard", "reason-fast", "numeric", "review", "not_applicable"] },
-        "retry_ordinal": { "type": "integer", "minimum": 0, "maximum": 10 },
-        "error_class": { "$ref": "#/$defs/safe-token" },
-        "check_surface": { "enum": ["liveness", "readiness", "dependency", "not_applicable"] }
-      }
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "service_id": { "$ref": "#/$defs/id" },
+            "instance_id": { "$ref": "#/$defs/id" },
+            "task_class": { "enum": ["diagnostic", "delegation", "maintenance", "publication", "read_only", "not_applicable"] },
+            "runtime_lane": { "enum": ["default", "reason-hard", "reason-fast", "numeric", "review", "not_applicable"] },
+            "retry_ordinal": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "error_class": { "$ref": "#/$defs/safe-token" },
+            "check_surface": { "enum": ["liveness", "readiness", "not_applicable"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["check_surface", "dependency_service_id"],
+          "properties": {
+            "service_id": { "$ref": "#/$defs/id" },
+            "instance_id": { "$ref": "#/$defs/id" },
+            "dependency_service_id": { "$ref": "#/$defs/id" },
+            "task_class": { "enum": ["diagnostic", "delegation", "maintenance", "publication", "read_only", "not_applicable"] },
+            "runtime_lane": { "enum": ["default", "reason-hard", "reason-fast", "numeric", "review", "not_applicable"] },
+            "retry_ordinal": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "error_class": { "$ref": "#/$defs/safe-token" },
+            "check_surface": { "const": "dependency" }
+          }
+        }
+      ]
     },
     "service-observation": {
       "type": "object",
@@ -273,7 +322,7 @@
         "started_at": { "$ref": "#/$defs/utc" },
         "ended_at": { "$ref": "#/$defs/utc" },
         "collected_at": { "$ref": "#/$defs/utc" },
-        "sampled": { "type": "boolean" },
+        "sampled": { "const": true },
         "outcome": { "enum": ["ok", "degraded", "failed", "stale", "unknown"] },
         "attributes": { "$ref": "#/$defs/trace-attributes" },
         "diagnostic_ref": { "$ref": "#/$defs/opaque-ref" },

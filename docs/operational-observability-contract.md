@@ -104,6 +104,13 @@ The owner split is explicit and usable by Heimdall and Brokkr:
 `max_freshness` is bounded: it MUST be positive and MUST NOT exceed `P1D`. Effective freshness is
 the stricter of the producer's `freshness_window` and the consumer's `max_freshness`.
 
+For `producer_contract` and `consumer_contract`, v1 `authority_digest` is a self-consistency digest
+over the projected slot allocation, not proof that some external document's bytes were hashed. To
+ground that projection in a real authority, `authority_ref` MUST name a versioned external contract
+or observer artifact such as `ref:hugin-observability-contract-v1` or
+`ref:heimdall-hugin-observer-v1`. Full cross-document byte binding is a future major-version
+change.
+
 ### Canonical `authority_digest`
 
 Each `authority_digest` uses algorithm **`operational-observability-authority-jcs-v1`**:
@@ -114,7 +121,7 @@ Each `authority_digest` uses algorithm **`operational-observability-authority-jc
    authority-owned slot allocation.
 4. Canonicalize the resulting JSON value recursively:
    - objects: `{` + comma-joined `JSON.stringify(key) + ":" + canonicalize(value)` pairs, with keys
-     sorted by UTF-16 code unit order;
+     sorted by raw UTF-16 code unit order;
    - arrays: `[` + comma-joined canonicalized elements `]`, preserving element order after the
      authority-kind slot ordering rule is applied;
    - strings, booleans, and integers: `JSON.stringify(value)`;
@@ -122,15 +129,24 @@ Each `authority_digest` uses algorithm **`operational-observability-authority-jc
 5. UTF-8 encode the canonical JSON text and compute SHA-256 over those bytes.
 6. Render as `sha256:` followed by 64 lowercase hex characters.
 
-The canonical slot ordering is authority-local:
+The canonical slot ordering is field-based and locale-free. Compare:
 
-- `services_json`: `service_liveness`, then `service_readiness`.
-- `producer_contract`: `dependency_health` then `exporter_health`, with ties broken by `slot_id`.
-- `consumer_contract`: `collector_health`, with ties broken by `slot_id`.
+1. slot-class rank: `service_liveness`, `service_readiness`, `dependency_health`,
+   `exporter_health`, `collector_health`;
+2. `surface`;
+3. `applicability`;
+4. `owner_kind`;
+5. `owner_service_id`;
+6. `dependency_service_id`, treating absence as the empty string; and
+7. `slot_id`.
+
+Every string comparison in that tuple uses raw UTF-16 code unit order. No concatenated sort key and
+no locale-sensitive comparison is allowed.
 
 `tests/fixtures/operational-observability/inventory-derivation.json` is the recomputable fixture
 for this rule set: it includes authoritative projections for `services_json`, `producer_contract`,
-and `consumer_contract`, and the validator recomputes every digest from scratch.
+and `consumer_contract`, including prefix-related dependency ids, and the validator recomputes every
+digest from scratch.
 
 ## Aggregation truth table
 
@@ -152,11 +168,30 @@ The v1 truth table is:
 This makes the fail-closed rule explicit: no `failed`, `stale`, or `unknown` child can be reduced
 to `ok`. Stale, missing, and partial evidence never renders healthy.
 
-Every `service_overall` aggregate MUST include one required consumer-owned `collector_health` slot.
-If the bound service `trace-policy` has `export_enabled: true`, the aggregate MUST also include one
-required producer-owned `exporter_health` slot. This is the v1 meta-observation floor: a service
-must not appear healthy while the consumer cannot collect it or while the producer has declared
-export on but cannot keep that export path healthy.
+Every `service_overall`, `liveness`, and `readiness` aggregate MUST bind `services_json` authority
+and carry the complete mechanically derived registry slot set for that surface:
+
+- `service_overall`: `service-live` plus `service-ready`
+- `liveness`: `service-live`
+- `readiness`: `service-ready`
+
+No collector-only or exporter-only inventory may validate green for those aggregate surfaces.
+
+Every `service_overall` aggregate MUST include one required consumer-owned `collector_health` slot
+and MUST bind exactly one `trace-policy` record for the same service and instance. It MUST also
+declare exactly one producer-owned `exporter_health` slot:
+
+- if the bound policy has `export_enabled: true` and `rate_per_mille > 0`, that slot MUST be
+  `required`;
+- otherwise it MUST be `not_applicable`.
+
+This is the v1 meta-observation floor: a service must not appear healthy while the consumer cannot
+collect it, while the producer has declared export on but cannot keep that export path healthy, or
+while export omission is being hidden by a missing policy record.
+
+Aggregate clocks are monotonic over their accepted children: `observed_at` and `collected_at` MUST
+each be greater than or equal to every referenced child `observed_at` and `collected_at` instant.
+An aggregate is not allowed to backdate itself relative to accepted child evidence.
 
 Render-time expiry also fails closed: once an aggregate's own `fresh_until` is in the past, a
 rendered `ok` or `degraded` aggregate becomes `stale`. A rendered `failed` aggregate stays
@@ -185,7 +220,8 @@ path; observations and aggregates remain the only health-verdict records.
 No prompts, outputs, memory/file contents, Telegram text, accounting data, credentials, private
 locators, or raw URLs/query strings may enter the serialized/exported envelope. Free-form token
 fields such as `producer_version` and `error_class` are schema-bounded safe tokens so schema-only
-consumers cannot admit tokenized URLs.
+consumers cannot admit tokenized URLs. Private IPv4 and IPv6 literals are private locators for this
+contract and MUST be rejected even when they fit the safe-token grammar.
 
 `service-observation.trace` and `observation-aggregate.trace` are observation links only. They MUST
 resolve to an emitted `trace-span`; they do not let traces overwrite the observation's owned fact.
@@ -205,6 +241,10 @@ export both disabled while still fixing the privacy and retention contract. The 
 - when instrumentation/export is disabled or `rate_per_mille` is `0`, no `trace-span` record may
   cite that policy.
 
+In other words, a disabled or zero-rate `trace-policy` is the explicit v1 model for “no exported
+traces right now”. `service_overall` aggregates may rely on that explicit disabled state; they may
+not omit the policy record entirely.
+
 Parent/child spans are allowed across services inside the same W3C trace, and the fixtures include
 a two-service Hugin → Munin example. Self-parenting is forbidden, and a declared parent span must
 exist in the same trace.
@@ -212,8 +252,11 @@ exist in the same trace.
 ## Retention, sampling, cardinality, and failure behavior
 
 - Retention is aligned with [`data-lifecycle.md`](data-lifecycle.md) through the
-  `ref:data-lifecycle-v1` policy ref and the `operational_telemetry` data class.
+  `ref:data-lifecycle-v1` policy ref and the `operational_telemetry` data class. The authoritative
+  lifecycle table includes an `Operational telemetry` row with a six-month provisional default.
 - Sampling is explicit (`head`, `rate_per_mille`) rather than implicit backend behavior.
+- Every emitted v1 `trace-span` is `sampled: true`; disabled or unsampled export is represented by
+  policy state plus span absence, not by serializing `sampled: false`.
 - Cardinality is bounded by the allowlist plus per-policy limits on attribute count and string
   length.
 - Export failure is `drop_and_count`; instrumentation failure is `must_not_fail_request`.

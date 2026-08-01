@@ -332,10 +332,10 @@
       },
       "aggregate_surface": "service_overall",
       "attempt_id": "agg-hugin-01",
-      "observed_at": "2026-07-31T08:10:01Z",
+      "observed_at": "2026-07-31T08:10:02Z",
       "collected_at": "2026-07-31T08:10:02Z",
       "freshness_window": "PT5M",
-      "fresh_until": "2026-07-31T08:15:01Z",
+      "fresh_until": "2026-07-31T08:15:02Z",
       "inventory": {
         "authorities": [
           {
@@ -345,13 +345,13 @@
           },
           {
             "authority_kind": "producer_contract",
-            "authority_ref": "ref:hugin-observability-contract",
-            "authority_digest": "sha256:83d47596cb635ce7e4b5a139eddcb16928c5a2b567cad8d776f7c48ec6e93c68"
+            "authority_ref": "ref:hugin-observability-contract-v1",
+            "authority_digest": "sha256:7689094233d745f29ce995dc1b2519159bb66887bc39da9b9e8c96be75681924"
           },
           {
             "authority_kind": "consumer_contract",
-            "authority_ref": "ref:heimdall-hugin-observer",
-            "authority_digest": "sha256:057a201ac2264a38d209f3d1b4afe0e8943219ef0ec21164a6b779359b024086"
+            "authority_ref": "ref:heimdall-hugin-observer-v1",
+            "authority_digest": "sha256:819abcceeca0b9dabcfe0f0402b644e0a5610cbba7baf1a31962ba9dbb7fc47a"
           }
         ],
         "expected_slots": [
@@ -580,10 +580,10 @@
       },
       "aggregate_surface": "service_overall",
       "attempt_id": "agg-hugin-02",
-      "observed_at": "2026-07-31T09:11:01Z",
+      "observed_at": "2026-07-31T09:11:02Z",
       "collected_at": "2026-07-31T09:11:02Z",
       "freshness_window": "PT5M",
-      "fresh_until": "2026-07-31T09:16:01Z",
+      "fresh_until": "2026-07-31T09:16:02Z",
       "inventory": {
         "authorities": [
           {
@@ -593,13 +593,13 @@
           },
           {
             "authority_kind": "producer_contract",
-            "authority_ref": "ref:hugin-observability-contract",
-            "authority_digest": "sha256:83d47596cb635ce7e4b5a139eddcb16928c5a2b567cad8d776f7c48ec6e93c68"
+            "authority_ref": "ref:hugin-observability-contract-v1",
+            "authority_digest": "sha256:7689094233d745f29ce995dc1b2519159bb66887bc39da9b9e8c96be75681924"
           },
           {
             "authority_kind": "consumer_contract",
-            "authority_ref": "ref:heimdall-hugin-observer",
-            "authority_digest": "sha256:057a201ac2264a38d209f3d1b4afe0e8943219ef0ec21164a6b779359b024086"
+            "authority_ref": "ref:heimdall-hugin-observer-v1",
+            "authority_digest": "sha256:819abcceeca0b9dabcfe0f0402b644e0a5610cbba7baf1a31962ba9dbb7fc47a"
           }
         ],
         "expected_slots": [
