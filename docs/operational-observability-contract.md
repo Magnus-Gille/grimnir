@@ -91,8 +91,9 @@ The v1 authority kinds are closed:
 
 - `services_json`: Grimnir's authoritative component inventory contributes the baseline
   `service-live` and `service-ready` slots. The slot applicability derives mechanically from the
-  component's `desired_runtime_state` (`active` => `required`; `stopped`/`not-applicable` =>
-  `not_applicable`).
+  component's `desired_runtime_state`. When `desired_runtime_state` is absent, consumers MUST treat
+  it as `active`, so the slot remains `required`. The full rule is `active` or absent =>
+  `required`; `stopped`/`not-applicable` => `not_applicable`.
 - `producer_contract`: the subject service contributes producer-owned dependency and exporter slots,
   such as `dependency_health` and `exporter_health`.
 - `consumer_contract`: the read-only consumer contributes consumer-owned meta-observation slots,
@@ -125,15 +126,38 @@ Each `authority_digest` uses algorithm **`operational-observability-authority-jc
 2. Collect only the `expected_slots` allocated by that authority kind.
 3. Remove `max_freshness` from each slot because it is consumer-owned freshness policy, not
    authority-owned slot allocation.
-4. Canonicalize the resulting JSON value recursively:
+4. Build exactly this canonical object, with no additional fields:
+
+   ```json
+   {
+     "authority_kind": "services_json | producer_contract | consumer_contract",
+     "authority_ref": "ref:...",
+     "expected_slots": [
+       {
+         "slot_id": "...",
+         "authority_kind": "...",
+         "slot_class": "...",
+         "surface": "...",
+         "applicability": "...",
+         "owner_kind": "...",
+         "owner_service_id": "...",
+         "dependency_service_id": "..."
+       }
+     ]
+   }
+   ```
+
+   `dependency_service_id` appears only for `dependency_health` slots, exactly as in the slot
+   projection. `max_freshness` never appears inside the digested object.
+5. Canonicalize the resulting JSON value recursively:
    - objects: `{` + comma-joined `JSON.stringify(key) + ":" + canonicalize(value)` pairs, with keys
      sorted by raw UTF-16 code unit order;
    - arrays: `[` + comma-joined canonicalized elements `]`, preserving element order after the
      authority-kind slot ordering rule is applied;
    - strings, booleans, and integers: `JSON.stringify(value)`;
    - no insignificant whitespace anywhere.
-5. UTF-8 encode the canonical JSON text and compute SHA-256 over those bytes.
-6. Render as `sha256:` followed by 64 lowercase hex characters.
+6. UTF-8 encode the canonical JSON text and compute SHA-256 over those bytes.
+7. Render as `sha256:` followed by 64 lowercase hex characters.
 
 The canonical slot ordering is field-based and locale-free. Compare:
 
@@ -233,10 +257,14 @@ No prompts, outputs, memory/file contents, Telegram text, accounting data, crede
 locators, or raw URLs/query strings may enter the serialized/exported envelope. Free-form token
 fields such as `producer_version` and `error_class` are schema-bounded safe tokens so schema-only
 consumers cannot admit tokenized URLs. Private IPv4 and IPv6 literals are private locators for this
-contract and MUST be rejected even when they fit the safe-token grammar.
+contract and MUST be rejected even when they fit the safe-token grammar. That rejection explicitly
+includes expanded IPv6 loopback spellings such as `0:0:0:0:0:0:0:1`, IPv4-mapped private IPv6
+forms, CGNAT `100.64.0.0/10`, and `0.0.0.0`.
 
 `service-observation.trace` and `observation-aggregate.trace` are observation links only. They MUST
-resolve to an emitted `trace-span`; they do not let traces overwrite the observation's owned fact.
+resolve to an emitted `trace-span` for the same `service_id` and `instance_id`; they do not let
+traces overwrite the observation's owned fact. Cross-service trace structure is allowed only
+through `trace-span.parent_span_id`, not through observation trace links.
 
 ## Trace policy, sampling, and parentage
 
@@ -259,7 +287,8 @@ not omit the policy record entirely.
 
 Parent/child spans are allowed across services inside the same W3C trace, and the fixtures include
 a two-service Hugin → Munin example. Self-parenting is forbidden, and a declared parent span must
-exist in the same trace.
+exist in the same trace. This is compatible with the stricter observation-link rule above: spans may
+cross services, but `service-observation.trace` and `observation-aggregate.trace` may not.
 
 ## Retention, sampling, cardinality, and failure behavior
 

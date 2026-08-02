@@ -14,7 +14,7 @@
     "contract-version": { "type": "string", "pattern": "^v1\\.[0-9]+$" },
     "safe-token": {
       "type": "string",
-      "description": "A bounded, low-cardinality token that cannot carry URLs, paths, or query strings.",
+      "description": "A bounded, low-cardinality token that cannot carry URLs, paths, or query strings. Semantic validation also rejects private or loopback IP literals, including IPv4-mapped private IPv6 forms.",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,79}$"
     },
     "utc": {
@@ -83,6 +83,7 @@
     },
     "trace-link": {
       "type": "object",
+      "description": "A diagnostic join only. Runtime validation requires observation links to resolve to a same-service emitted span; cross-service relationships travel through trace-span parentage instead.",
       "additionalProperties": false,
       "required": ["trace_id", "span_id"],
       "properties": {

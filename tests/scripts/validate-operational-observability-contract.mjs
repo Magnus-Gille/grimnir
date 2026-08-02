@@ -326,6 +326,49 @@ function externalAuthoritySlots(authorityCase, aggregate, policiesByService) {
     return slot;
   });
 }
+function parseIpv4(token) {
+  const octets = token.split(".");
+  if (octets.length !== 4) return null;
+  const bytes = [];
+  for (const octet of octets) {
+    if (!/^\d{1,3}$/.test(octet)) return null;
+    const value = Number(octet);
+    if (value < 0 || value > 255) return null;
+    bytes.push(value);
+  }
+  return bytes;
+}
+function parseIpv6(token) {
+  const normalized = token.toLowerCase();
+  if (normalized.includes("%")) return null;
+  let expanded = normalized;
+  if (expanded.includes(".")) {
+    const lastColon = expanded.lastIndexOf(":");
+    if (lastColon === -1) return null;
+    const ipv4Bytes = parseIpv4(expanded.slice(lastColon + 1));
+    if (ipv4Bytes === null) return null;
+    const high = ((ipv4Bytes[0] << 8) | ipv4Bytes[1]).toString(16);
+    const low = ((ipv4Bytes[2] << 8) | ipv4Bytes[3]).toString(16);
+    expanded = `${expanded.slice(0, lastColon)}:${high}:${low}`;
+  }
+  const parts = expanded.split("::");
+  if (parts.length > 2) return null;
+  const parseGroups = (value) => value.length === 0
+    ? []
+    : value.split(":").map((group) => /^[0-9a-f]{1,4}$/.test(group) ? Number.parseInt(group, 16) : null);
+  const left = parseGroups(parts[0]);
+  const right = parseGroups(parts[1] ?? "");
+  if (left.includes(null) || right.includes(null)) return null;
+  const missing = 8 - (left.length + right.length);
+  if ((parts.length === 1 && missing !== 0) || (parts.length === 2 && missing < 1)) return null;
+  const groups = parts.length === 1
+    ? left
+    : [...left, ...Array(missing).fill(0), ...right];
+  if (groups.length !== 8) return null;
+  const bytes = [];
+  for (const group of groups) bytes.push(group >> 8, group & 0xff);
+  return bytes;
+}
 function detectPrivateIp(value) {
   for (const token of value.match(/[0-9A-Fa-f:.]+/g) ?? []) {
     const version = net.isIP(token);
@@ -334,20 +377,29 @@ function detectPrivateIp(value) {
   }
   return null;
 }
-function isPrivateIpv4(token) {
-  const octets = token.split(".").map(Number);
-  return octets[0] === 10
+function isPrivateIpv4Bytes(octets) {
+  return octets[0] === 0
+    || octets[0] === 10
     || octets[0] === 127
+    || (octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127)
     || (octets[0] === 169 && octets[1] === 254)
     || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
     || (octets[0] === 192 && octets[1] === 168);
 }
+function isPrivateIpv4(token) {
+  const octets = parseIpv4(token);
+  return octets !== null && isPrivateIpv4Bytes(octets);
+}
 function isPrivateIpv6(token) {
-  const normalized = token.toLowerCase();
-  return normalized === "::1"
-    || normalized.startsWith("fc")
-    || normalized.startsWith("fd")
-    || /^fe[89ab]/.test(normalized);
+  const bytes = parseIpv6(token);
+  if (bytes === null) return false;
+  const mappedIpv4 = bytes.slice(0, 10).every((value) => value === 0) && bytes[10] === 0xff && bytes[11] === 0xff
+    ? bytes.slice(12)
+    : null;
+  return bytes.slice(0, 15).every((value) => value === 0) && bytes[15] === 1
+    || (bytes[0] & 0xfe) === 0xfc
+    || (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80)
+    || (mappedIpv4 !== null && isPrivateIpv4Bytes(mappedIpv4));
 }
 function validateInventory(value, label, aggregate, policiesByService, authorityRegistry) {
   exact(value, ["authorities", "expected_slots"], label);
@@ -582,7 +634,7 @@ function validateTraceSpan(record, policiesById) {
   if (!["task", "gateway", "service", "synthetic"].includes(record.operation.surface) || !["ingress", "queue", "execution", "dependency", "publication", "probe", "export"].includes(record.operation.phase)) fail("trace-span.operation invalid");
   validateExtensions(record.extensions, "trace-span.extensions");
   if (!opaqueRef.test(record.diagnostic_ref)) fail("trace-span.diagnostic_ref must remain content-blind");
-  exact(record.attributes, Object.keys(record.attributes), "trace-span.attributes");
+  if (!plain(record.attributes)) fail("trace-span.attributes must be object");
   const allowedKeys = new Set(["service_id", "instance_id", "dependency_service_id", "task_class", "runtime_lane", "retry_ordinal", "error_class", "check_surface"]);
   for (const key of Object.keys(record.attributes)) if (!allowedKeys.has(key)) fail(`trace-span.attributes.${key} is not on the v1 allowlist`);
   if (record.attributes.service_id !== undefined && record.attributes.service_id !== record.service.service_id) fail("trace-span.attributes.service_id must echo the top-level service_id");
@@ -614,8 +666,7 @@ function validateTraceGraph(records, observationsById) {
     if ((record.kind === "service-observation" || record.kind === "observation-aggregate") && record.trace !== undefined) {
       const span = spansByNode.get(`${record.trace.trace_id}:${record.trace.span_id}`);
       if (!span) fail(`${record.kind} trace link must resolve to an emitted trace-span`);
-      const observationService = record.service.service_id;
-      if (span.service.service_id !== observationService) fail(`${record.kind} trace link must stay within the same service_id`);
+      if (span.service.service_id !== record.service.service_id || span.service.instance_id !== record.service.instance_id) fail(`${record.kind} trace link must stay within the same service and instance`);
       if (record.kind === "service-observation") {
         const observation = observationsById.get(record.observation_id);
         if (!observation) fail(`observation ${record.observation_id} missing from accepted set`);
@@ -700,6 +751,8 @@ assert.equal(schema.$defs.utc.format, "date-time", "schema utc definition must r
 assert.equal(schema.$defs.utc.pattern, utc.source, "schema utc definition must pin whole-second UTC Z timestamps");
 
 const authorityRegistry = validateInventoryDerivationCases(inventoryDerivation);
+assert.equal(derivedServicesJsonSlots("hugin", "PT5M")[0].applicability, "required", "services without desired_runtime_state default to required applicability");
+assert.equal(derivedServicesJsonSlots("verdandi", "PT5M")[0].applicability, "not_applicable", "stopped services derive not_applicable applicability");
 
 for (const record of positive.records) schemaValid(record, `positive:${record.kind}`);
 validateRecordSet(positive.records, "positive", authorityRegistry);
@@ -712,6 +765,7 @@ validateRecordSet(staleMissingPartial.records, "stale-missing-partial", authorit
 
 for (const record of unsupportedMajorRollout.records) schemaValid(record, `unsupported-major-rollout:${record.kind}`);
 schemaInvalid(unsupportedMajorRollout.rejected_record, "unsupported-major-rollout:rejected-record");
+reject(() => validateRecordSet([unsupportedMajorRollout.rejected_record], "unsupported-major-rollout:rejected-runtime", authorityRegistry), "unsupported-major-rollout:rejected-runtime", "observation.contract_version uses unsupported major version v2.0");
 validateRecordSet(unsupportedMajorRollout.records, "unsupported-major-rollout", authorityRegistry);
 
 schemaInvalid(negative.schema_malformed_diagnostic_ref, "schema-malformed-diagnostic-ref");
@@ -726,17 +780,30 @@ schemaInvalid(negative.schema_offset_timestamp_observation, "schema-offset-times
 schemaInvalid(negative.schema_fractional_second_trace_policy, "schema-fractional-second-trace-policy");
 
 for (const [name, scenario] of Object.entries(negative)) {
-  if (name.startsWith("schema_") || name === "failed_aggregate_expiry") continue;
+  if (name.startsWith("schema_")) continue;
   for (const record of scenario.records) schemaValid(record, `${name}:${record.kind}`);
   assert.equal(typeof scenario.expected_error, "string", `${name} must pin expected_error`);
   reject(() => validateRecordSet(scenario.records, name, authorityRegistry), name, scenario.expected_error);
 }
 
 assert.doesNotThrow(() => rejectPrivate("git-10.0.0"), "semantic versions must not be mistaken for private IPs");
+reject(() => rejectPrivate("100.64.0.1", "cgnat"), "reject-private-cgnat", "cgnat contains a private IPv4 literal");
+reject(() => rejectPrivate("0.0.0.0", "wildcard"), "reject-private-wildcard", "wildcard contains a private IPv4 literal");
+reject(() => rejectPrivate("0:0:0:0:0:0:0:1", "expanded-loopback"), "reject-private-expanded-loopback", "expanded-loopback contains a private IPv6 literal");
+reject(() => rejectPrivate("::ffff:10.0.0.1", "mapped-private"), "reject-private-mapped-private", "mapped-private contains a private IPv6 literal");
 
 const degradedAggregate = positive.records.find((record) => record.kind === "observation-aggregate" && record.aggregate_id === "agg-hugin-overall-degraded");
 assert.equal(renderEffectiveAggregateOutcome(degradedAggregate, "2026-07-31T09:16:03Z"), "stale", "render-time expiry downgrades degraded aggregate truth to stale");
-const failedAggregate = negative.failed_aggregate_expiry.records.find((record) => record.kind === "observation-aggregate");
-assert.equal(renderEffectiveAggregateOutcome(failedAggregate, "2026-07-31T12:16:02Z"), "failed", "render-time expiry preserves failed aggregates");
+const staleObservation = staleMissingPartial.records.find((record) => record.kind === "service-observation" && record.observation_id === "obs-munin-ready-stale");
+const staleSlot = staleMissingPartial.records.find((record) => record.kind === "observation-aggregate" && record.aggregate_id === "agg-munin-ready-stale").inventory.expected_slots.find((slot) => slot.slot_id === "service-ready");
+assert.equal(effectiveObservationOutcome(staleObservation, staleSlot, "2026-07-31T09:30:02Z"), "stale", "explicit stale child observations stay stale");
+const unknownObservation = staleMissingPartial.records.find((record) => record.kind === "service-observation" && record.observation_id === "obs-munin-live-unknown");
+const unknownSlot = staleMissingPartial.records.find((record) => record.kind === "observation-aggregate" && record.aggregate_id === "agg-munin-live-unknown").inventory.expected_slots.find((slot) => slot.slot_id === "service-live");
+assert.equal(effectiveObservationOutcome(unknownObservation, unknownSlot, "2026-07-31T09:31:02Z"), "unknown", "explicit unknown child observations stay unknown");
+const notApplicableObservation = staleMissingPartial.records.find((record) => record.kind === "service-observation" && record.observation_id === "obs-verdandi-live-not-applicable");
+const notApplicableSlot = staleMissingPartial.records.find((record) => record.kind === "observation-aggregate" && record.aggregate_id === "agg-verdandi-live-not-applicable").inventory.expected_slots.find((slot) => slot.slot_id === "service-live");
+assert.equal(effectiveObservationOutcome(notApplicableObservation, notApplicableSlot, "2026-07-31T09:32:02Z"), "not_applicable", "explicit not_applicable child observations remain excluded");
+const failedAggregate = staleMissingPartial.records.find((record) => record.kind === "observation-aggregate" && record.aggregate_id === "agg-heim-failed-precedence");
+assert.equal(renderEffectiveAggregateOutcome(failedAggregate, "2026-07-31T09:26:00Z"), "failed", "render-time expiry preserves failed aggregates");
 
-console.log("Operational-observability v1 schema, inventory digests, freshness rules, rollout handling, and trace/privacy fixtures validated.");
+console.log("Operational-observability v1 schema, inventory digests, freshness rules, rollout handling, trace-link rules, and trace/privacy fixtures validated.");

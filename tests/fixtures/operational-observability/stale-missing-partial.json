@@ -401,6 +401,358 @@
       "outcome": "unknown",
       "diagnostic_ref": "ref:munin-partial",
       "extensions": []
+    },
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
+      "observation_id": "obs-heim-live-failed",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "heimdall",
+        "instance_id": "heimdall-prod"
+      },
+      "slot_id": "service-live",
+      "check": {
+        "surface": "liveness"
+      },
+      "attempt_id": "att-heim-02",
+      "observed_at": "2026-07-31T09:15:30Z",
+      "collected_at": "2026-07-31T09:15:31Z",
+      "freshness_window": "PT10M",
+      "fresh_until": "2026-07-31T09:25:30Z",
+      "outcome": "failed",
+      "diagnostic_ref": "ref:heim-live-failed",
+      "extensions": []
+    },
+    {
+      "kind": "observation-aggregate",
+      "contract_version": "v1.0",
+      "aggregate_id": "agg-heim-failed-precedence",
+      "source": {
+        "source_kind": "aggregator",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "heimdall",
+        "instance_id": "heimdall-prod"
+      },
+      "aggregate_surface": "service_overall",
+      "attempt_id": "agg-heim-02",
+      "observed_at": "2026-07-31T09:16:01Z",
+      "collected_at": "2026-07-31T09:16:02Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T09:21:01Z",
+      "inventory": {
+        "authorities": [
+          {
+            "authority_kind": "services_json",
+            "authority_ref": "ref:services-json-heimdall",
+            "authority_digest": "sha256:010f598b867398e58d817cdcd1543724cd64cb3754c3f1a8c75bae3e505c26b6"
+          },
+          {
+            "authority_kind": "producer_contract",
+            "authority_ref": "ref:heimdall-observability-contract-v1",
+            "authority_digest": "sha256:227659afc030c10db30447957a887131fad75c1e6978bfea3354da244c570e8a"
+          },
+          {
+            "authority_kind": "consumer_contract",
+            "authority_ref": "ref:heimdall-self-observer-v1",
+            "authority_digest": "sha256:bfdca47d7c1e25502aa17a4b9e95646ef02dbc0ec9ca59311a516ede9a656d73"
+          }
+        ],
+        "expected_slots": [
+          {
+            "slot_id": "service-live",
+            "authority_kind": "services_json",
+            "slot_class": "service_liveness",
+            "surface": "liveness",
+            "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "heimdall",
+            "max_freshness": "PT5M"
+          },
+          {
+            "slot_id": "service-ready",
+            "authority_kind": "services_json",
+            "slot_class": "service_readiness",
+            "surface": "readiness",
+            "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "heimdall",
+            "max_freshness": "PT5M"
+          },
+          {
+            "slot_id": "exporter-health",
+            "authority_kind": "producer_contract",
+            "slot_class": "exporter_health",
+            "surface": "readiness",
+            "applicability": "not_applicable",
+            "owner_kind": "producer",
+            "owner_service_id": "heimdall",
+            "max_freshness": "PT5M"
+          },
+          {
+            "slot_id": "collector-health",
+            "authority_kind": "consumer_contract",
+            "slot_class": "collector_health",
+            "surface": "readiness",
+            "applicability": "required",
+            "owner_kind": "consumer",
+            "owner_service_id": "heimdall",
+            "max_freshness": "PT5M"
+          }
+        ]
+      },
+      "observation_refs": [
+        {
+          "slot_id": "service-live",
+          "observation_id": "obs-heim-live-failed"
+        },
+        {
+          "slot_id": "service-ready",
+          "observation_id": "obs-heim-ready-fresh"
+        },
+        {
+          "slot_id": "collector-health",
+          "observation_id": "obs-heim-collector-fresh"
+        }
+      ],
+      "outcome": "failed",
+      "diagnostic_ref": "ref:heim-failed-precedence",
+      "extensions": []
+    },
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
+      "observation_id": "obs-munin-ready-stale",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "munin-memory",
+        "producer_version": "git-e8caef0"
+      },
+      "service": {
+        "service_id": "munin-memory",
+        "instance_id": "munin-prod"
+      },
+      "slot_id": "service-ready",
+      "check": {
+        "surface": "readiness"
+      },
+      "attempt_id": "att-munin-02",
+      "observed_at": "2026-07-31T09:30:00Z",
+      "collected_at": "2026-07-31T09:30:01Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T09:35:00Z",
+      "outcome": "stale",
+      "diagnostic_ref": "ref:munin-ready-stale",
+      "extensions": []
+    },
+    {
+      "kind": "observation-aggregate",
+      "contract_version": "v1.0",
+      "aggregate_id": "agg-munin-ready-stale",
+      "source": {
+        "source_kind": "aggregator",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "munin-memory",
+        "instance_id": "munin-prod"
+      },
+      "aggregate_surface": "readiness",
+      "attempt_id": "agg-munin-02",
+      "observed_at": "2026-07-31T09:30:01Z",
+      "collected_at": "2026-07-31T09:30:02Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T09:35:01Z",
+      "inventory": {
+        "authorities": [
+          {
+            "authority_kind": "services_json",
+            "authority_ref": "ref:services-json-munin-memory",
+            "authority_digest": "sha256:e27c9d4822dea0ba8007f57ec4f0ae31ade0def5bbd95b24228b7b7cf77825a9"
+          }
+        ],
+        "expected_slots": [
+          {
+            "slot_id": "service-ready",
+            "authority_kind": "services_json",
+            "slot_class": "service_readiness",
+            "surface": "readiness",
+            "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "munin-memory",
+            "max_freshness": "PT5M"
+          }
+        ]
+      },
+      "observation_refs": [
+        {
+          "slot_id": "service-ready",
+          "observation_id": "obs-munin-ready-stale"
+        }
+      ],
+      "outcome": "stale",
+      "diagnostic_ref": "ref:munin-ready-stale",
+      "extensions": []
+    },
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
+      "observation_id": "obs-munin-live-unknown",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "munin-memory",
+        "producer_version": "git-e8caef0"
+      },
+      "service": {
+        "service_id": "munin-memory",
+        "instance_id": "munin-prod"
+      },
+      "slot_id": "service-live",
+      "check": {
+        "surface": "liveness"
+      },
+      "attempt_id": "att-munin-03",
+      "observed_at": "2026-07-31T09:31:00Z",
+      "collected_at": "2026-07-31T09:31:01Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T09:36:00Z",
+      "outcome": "unknown",
+      "diagnostic_ref": "ref:munin-live-unknown",
+      "extensions": []
+    },
+    {
+      "kind": "observation-aggregate",
+      "contract_version": "v1.0",
+      "aggregate_id": "agg-munin-live-unknown",
+      "source": {
+        "source_kind": "aggregator",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "munin-memory",
+        "instance_id": "munin-prod"
+      },
+      "aggregate_surface": "liveness",
+      "attempt_id": "agg-munin-03",
+      "observed_at": "2026-07-31T09:31:01Z",
+      "collected_at": "2026-07-31T09:31:02Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T09:36:01Z",
+      "inventory": {
+        "authorities": [
+          {
+            "authority_kind": "services_json",
+            "authority_ref": "ref:services-json-munin-memory",
+            "authority_digest": "sha256:e1a21c3571ba05022abeae30e8e04041d3104c370f9bceb586586bcea2e93a57"
+          }
+        ],
+        "expected_slots": [
+          {
+            "slot_id": "service-live",
+            "authority_kind": "services_json",
+            "slot_class": "service_liveness",
+            "surface": "liveness",
+            "applicability": "required",
+            "owner_kind": "producer",
+            "owner_service_id": "munin-memory",
+            "max_freshness": "PT5M"
+          }
+        ]
+      },
+      "observation_refs": [
+        {
+          "slot_id": "service-live",
+          "observation_id": "obs-munin-live-unknown"
+        }
+      ],
+      "outcome": "unknown",
+      "diagnostic_ref": "ref:munin-live-unknown",
+      "extensions": []
+    },
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
+      "observation_id": "obs-verdandi-live-not-applicable",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "verdandi",
+        "producer_version": "git-disabled"
+      },
+      "service": {
+        "service_id": "verdandi",
+        "instance_id": "verdandi-user"
+      },
+      "slot_id": "service-live",
+      "check": {
+        "surface": "liveness"
+      },
+      "attempt_id": "att-verdandi-01",
+      "observed_at": "2026-07-31T09:32:00Z",
+      "collected_at": "2026-07-31T09:32:01Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T09:37:00Z",
+      "outcome": "not_applicable",
+      "diagnostic_ref": "ref:verdandi-live-not-applicable",
+      "extensions": []
+    },
+    {
+      "kind": "observation-aggregate",
+      "contract_version": "v1.0",
+      "aggregate_id": "agg-verdandi-live-not-applicable",
+      "source": {
+        "source_kind": "aggregator",
+        "producer": "heimdall",
+        "producer_version": "git-945847c"
+      },
+      "service": {
+        "service_id": "verdandi",
+        "instance_id": "verdandi-user"
+      },
+      "aggregate_surface": "liveness",
+      "attempt_id": "agg-verdandi-01",
+      "observed_at": "2026-07-31T09:32:01Z",
+      "collected_at": "2026-07-31T09:32:02Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T09:37:01Z",
+      "inventory": {
+        "authorities": [
+          {
+            "authority_kind": "services_json",
+            "authority_ref": "ref:services-json-verdandi",
+            "authority_digest": "sha256:a185cce4bd85f4ebf6e308143adfddeff58a2e7e1cb68e6d7f9e2baf97f88339"
+          }
+        ],
+        "expected_slots": [
+          {
+            "slot_id": "service-live",
+            "authority_kind": "services_json",
+            "slot_class": "service_liveness",
+            "surface": "liveness",
+            "applicability": "not_applicable",
+            "owner_kind": "producer",
+            "owner_service_id": "verdandi",
+            "max_freshness": "PT5M"
+          }
+        ]
+      },
+      "observation_refs": [
+        {
+          "slot_id": "service-live",
+          "observation_id": "obs-verdandi-live-not-applicable"
+        }
+      ],
+      "outcome": "unknown",
+      "diagnostic_ref": "ref:verdandi-live-not-applicable",
+      "extensions": []
     }
   ]
 }
