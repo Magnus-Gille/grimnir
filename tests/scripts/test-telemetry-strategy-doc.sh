@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OBS="$ROOT/docs/observability-and-improvement.md"
 SCHEDULE="$ROOT/docs/scheduled-tasks.md"
 REGISTRY="$ROOT/services.json"
+RETIRED_TIER_CLAIM_RE="$(< "$ROOT/tests/fixtures/retired-autonomy-claims.regex")"
 
 require() {
   local file="$1" needle="$2"
@@ -16,6 +17,15 @@ require() {
     echo "missing telemetry strategy statement in ${file#"$ROOT"/}: $needle" >&2
     exit 1
   }
+}
+
+paragraph() {
+  local file="$1" heading="$2"
+  awk -v heading="$heading" '
+    $0 ~ heading { capture=1 }
+    capture && /^[[:space:]]*$/ { exit }
+    capture { print }
+  ' "$file"
 }
 
 require "$OBS" "## Telemetry strategy"
@@ -34,15 +44,29 @@ require "$OBS" "data-lifecycle.md"
 require "$OBS" "No new generic observability service"
 require "$OBS" "Current gaps"
 require "$OBS" "Future work"
-require "$OBS" "core Hugin↔gateway join is live"
+require "$OBS" "core Hugin↔gateway join is live-smoked"
 require "$OBS" "authenticated preflight/stamp/echo | Implemented and exercised"
 require "$OBS" "Immutable pipeline accounting | Implemented on both owners"
-require "$OBS" "Routing lifecycle, watchdog, and autonomy controller | Implemented; armed Tier 0"
+require "$OBS" "Routing lifecycle, watchdog, and autonomy controller | Implemented; globally disarmed"
 require "$OBS" "External Codex App/CLI and Pi producers | Partial"
 require "$OBS" "claude-config#11"
-require "$OBS" "gille-inference#11/#13"
+require "$OBS" "gille-inference#11"
+require "$OBS" "gille-inference#13"
+CURRENT_GAPS_PARAGRAPH="$(paragraph "$OBS" '^[*][*]Current gaps:[*][*]' | tr '\n' ' ')"
+grep -qiE 'Current gaps:.*gille-inference#11.*gille-inference#13.*are closed.*full-path' <<< "$CURRENT_GAPS_PARAGRAPH" || {
+  echo "Current gaps must identify #11/#13 as closed context and the residual full-path gap" >&2
+  exit 1
+}
 require "$OBS" "Heimdall may visualize these planes; it does not create their verdicts."
-require "$OBS" "Tier 0 auto-adopts nothing"
+require "$OBS" "The owner ceremony must precede an exact ADR-008 \`armed-canary\` class"
+require "$OBS" "real canary/watch/recovery evidence must then precede promotion beyond it"
+
+while IFS= read -r relative; do
+  if grep -qiE "$RETIRED_TIER_CLAIM_RE" <<< "$(tr '\n' ' ' < "$ROOT/$relative")"; then
+    echo "retired autonomy/current-truth claim remains in $relative" >&2
+    exit 1
+  fi
+done < <(git -C "$ROOT" ls-files 'README.md' 'STATUS.md' 'docs/*.md')
 require "$SCHEDULE" "hugin#325"
 require "$SCHEDULE" "a782c6b"
 require "$SCHEDULE" "not-found"
