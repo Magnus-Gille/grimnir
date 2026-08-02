@@ -1,0 +1,115 @@
+{
+  "records": [
+    {
+      "kind": "trace-policy",
+      "contract_version": "v1.0",
+      "policy_id": "trace-policy-hugin-dup-span",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "hugin",
+        "producer_version": "git-3be19f7"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "default_state": {
+        "instrumentation_enabled": true,
+        "export_enabled": true,
+        "automatic_instrumentation": "disabled"
+      },
+      "sampling": {
+        "mode": "head",
+        "rate_per_mille": 1000
+      },
+      "serialization": {
+        "allowlist_version": "v1",
+        "deny_by_default": true,
+        "max_attributes": 12,
+        "max_string_length": 64
+      },
+      "retention": {
+        "policy_ref": "ref:data-lifecycle-v1",
+        "data_class": "operational_telemetry",
+        "deletion_owner": "producer"
+      },
+      "failure_behavior": {
+        "export_failure": "drop_and_count",
+        "instrumentation_failure": "must_not_fail_request"
+      },
+      "created_at": "2026-07-31T10:31:00Z",
+      "extensions": []
+    },
+    {
+      "kind": "trace-span",
+      "contract_version": "v1.0",
+      "policy_id": "trace-policy-hugin-dup-span",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "hugin",
+        "producer_version": "git-3be19f7"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "span_id": "1111111111111111",
+      "operation": {
+        "surface": "service",
+        "phase": "execution"
+      },
+      "started_at": "2026-07-31T10:31:10Z",
+      "ended_at": "2026-07-31T10:31:11Z",
+      "collected_at": "2026-07-31T10:31:11Z",
+      "sampled": true,
+      "outcome": "ok",
+      "attributes": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user",
+        "task_class": "diagnostic",
+        "runtime_lane": "not_applicable",
+        "retry_ordinal": 0,
+        "check_surface": "readiness"
+      },
+      "diagnostic_ref": "ref:hugin-dup-span-1",
+      "extensions": []
+    },
+    {
+      "kind": "trace-span",
+      "contract_version": "v1.0",
+      "policy_id": "trace-policy-hugin-dup-span",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "hugin",
+        "producer_version": "git-3be19f7"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "span_id": "1111111111111111",
+      "operation": {
+        "surface": "service",
+        "phase": "publication"
+      },
+      "started_at": "2026-07-31T10:31:12Z",
+      "ended_at": "2026-07-31T10:31:13Z",
+      "collected_at": "2026-07-31T10:31:13Z",
+      "sampled": true,
+      "outcome": "degraded",
+      "attributes": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user",
+        "task_class": "diagnostic",
+        "runtime_lane": "not_applicable",
+        "retry_ordinal": 1,
+        "check_surface": "readiness"
+      },
+      "diagnostic_ref": "ref:hugin-dup-span-2",
+      "extensions": []
+    }
+  ],
+  "expected_error": "duplicate trace-span pair aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1111111111111111"
+}

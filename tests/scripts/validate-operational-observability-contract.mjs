@@ -17,9 +17,12 @@ const staleMissingPartial = read("stale-missing-partial.json");
 const unsupportedMajorRollout = read("unsupported-major-rollout.json");
 const inventoryDerivation = read("inventory-derivation.json");
 const negative = read("negative.json");
+const duplicateObservationId = read("duplicate-observation-id.json");
+const duplicateTraceSpanPair = read("duplicate-trace-span-pair.json");
 
 const SUPPORTED_MAJOR = 1;
 const MAX_SLOT_FRESHNESS_MS = 24 * 60 * 60 * 1000;
+const VALID_DESIRED_RUNTIME_STATES = new Set(["active", "stopped", "not-applicable"]);
 const VERSIONED_CONTRACT_AUTHORITY_REF = /^ref:[a-z][a-z0-9-]{2,116}-v[1-9][0-9]*$/;
 const SLOT_CLASS_ORDER = new Map([
   ["service_liveness", 0],
@@ -254,11 +257,17 @@ function authorityDigest(authority, slots) {
   };
   return `sha256:${crypto.createHash("sha256").update(canonicalJson(projection), "utf8").digest("hex")}`;
 }
-function derivedServicesJsonSlots(serviceId, maxFreshness) {
+function servicesJsonApplicability(serviceId) {
   const component = servicesByName.get(serviceId);
   if (!component) fail(`services_json authority cannot derive unknown service ${serviceId}`);
   const desiredRuntimeState = component.desired_runtime_state ?? "active";
-  const applicability = desiredRuntimeState === "active" ? "required" : "not_applicable";
+  if (!VALID_DESIRED_RUNTIME_STATES.has(desiredRuntimeState)) {
+    fail(`services_json authority cannot derive invalid desired_runtime_state "${desiredRuntimeState}" for service ${serviceId}`);
+  }
+  return desiredRuntimeState === "active" ? "required" : "not_applicable";
+}
+function derivedServicesJsonSlots(serviceId, maxFreshness) {
+  const applicability = servicesJsonApplicability(serviceId);
   return [
     {
       slot_id: "service-live",
@@ -286,12 +295,13 @@ function normalizedSlots(slots) {
   return slots.map((slot) => structuredClone(slot)).sort(compareSlots);
 }
 function derivedRegistryProjection(serviceId, aggregateSurface) {
+  const applicability = servicesJsonApplicability(serviceId);
   const serviceLiveness = {
     slot_id: "service-live",
     authority_kind: "services_json",
     slot_class: "service_liveness",
     surface: "liveness",
-    applicability: (servicesByName.get(serviceId)?.desired_runtime_state ?? "active") === "active" ? "required" : "not_applicable",
+    applicability,
     owner_kind: "producer",
     owner_service_id: serviceId
   };
@@ -300,11 +310,10 @@ function derivedRegistryProjection(serviceId, aggregateSurface) {
     authority_kind: "services_json",
     slot_class: "service_readiness",
     surface: "readiness",
-    applicability: (servicesByName.get(serviceId)?.desired_runtime_state ?? "active") === "active" ? "required" : "not_applicable",
+    applicability,
     owner_kind: "producer",
     owner_service_id: serviceId
   };
-  if (!servicesByName.has(serviceId)) fail(`services_json authority cannot derive unknown service ${serviceId}`);
   if (aggregateSurface === "liveness") return [serviceLiveness];
   if (aggregateSurface === "readiness") return [serviceReadiness];
   if (aggregateSurface === "service_overall") return [serviceLiveness, serviceReadiness];
@@ -655,16 +664,18 @@ function validateTraceGraph(records, observationsById) {
   const spansByNode = new Map();
   for (const record of records) {
     if (record.kind !== "trace-span") continue;
-    spansByNode.set(`${record.trace_id}:${record.span_id}`, record);
+    const spanKey = `${record.trace_id}/${record.span_id}`;
+    if (spansByNode.has(spanKey)) fail(`duplicate trace-span pair ${spanKey}`);
+    spansByNode.set(spanKey, record);
   }
   for (const record of records) {
     if (record.kind === "trace-span" && record.parent_span_id !== undefined) {
       if (record.parent_span_id === record.span_id) fail("trace-span cannot self-parent");
-      const parent = spansByNode.get(`${record.trace_id}:${record.parent_span_id}`);
+      const parent = spansByNode.get(`${record.trace_id}/${record.parent_span_id}`);
       if (!parent) fail(`trace-span parent ${record.parent_span_id} is missing from trace ${record.trace_id}`);
     }
     if ((record.kind === "service-observation" || record.kind === "observation-aggregate") && record.trace !== undefined) {
-      const span = spansByNode.get(`${record.trace.trace_id}:${record.trace.span_id}`);
+      const span = spansByNode.get(`${record.trace.trace_id}/${record.trace.span_id}`);
       if (!span) fail(`${record.kind} trace link must resolve to an emitted trace-span`);
       if (span.service.service_id !== record.service.service_id || span.service.instance_id !== record.service.instance_id) fail(`${record.kind} trace link must stay within the same service and instance`);
       if (record.kind === "service-observation") {
@@ -680,7 +691,10 @@ function validateRecordSet(records, label, authorityRegistry) {
   const policiesByService = new Map();
   for (const record of records) {
     rejectPrivate(record, `${label}.${record.kind ?? "record"}`);
-    if (record.kind === "service-observation") observations.set(record.observation_id, record);
+    if (record.kind === "service-observation") {
+      if (observations.has(record.observation_id)) fail(`duplicate service-observation.observation_id ${record.observation_id}`);
+      observations.set(record.observation_id, record);
+    }
     if (record.kind === "trace-policy") {
       if (policiesById.has(record.policy_id)) fail(`duplicate trace-policy.policy_id ${record.policy_id}`);
       policiesById.set(record.policy_id, record);
@@ -753,6 +767,18 @@ assert.equal(schema.$defs.utc.pattern, utc.source, "schema utc definition must p
 const authorityRegistry = validateInventoryDerivationCases(inventoryDerivation);
 assert.equal(derivedServicesJsonSlots("hugin", "PT5M")[0].applicability, "required", "services without desired_runtime_state default to required applicability");
 assert.equal(derivedServicesJsonSlots("verdandi", "PT5M")[0].applicability, "not_applicable", "stopped services derive not_applicable applicability");
+{
+  const invalidServiceId = "invalid-runtime-fixture";
+  const invalidRuntimeState = "paused-maybe";
+  const expectedError = `services_json authority cannot derive invalid desired_runtime_state "${invalidRuntimeState}" for service ${invalidServiceId}`;
+  servicesByName.set(invalidServiceId, { name: invalidServiceId, desired_runtime_state: invalidRuntimeState });
+  try {
+    reject(() => derivedServicesJsonSlots(invalidServiceId, "PT5M"), "invalid-runtime-state-services-json", expectedError);
+    reject(() => derivedRegistryProjection(invalidServiceId, "service_overall"), "invalid-runtime-state-registry-projection", expectedError);
+  } finally {
+    servicesByName.delete(invalidServiceId);
+  }
+}
 
 for (const record of positive.records) schemaValid(record, `positive:${record.kind}`);
 validateRecordSet(positive.records, "positive", authorityRegistry);
@@ -781,6 +807,14 @@ schemaInvalid(negative.schema_fractional_second_trace_policy, "schema-fractional
 
 for (const [name, scenario] of Object.entries(negative)) {
   if (name.startsWith("schema_")) continue;
+  for (const record of scenario.records) schemaValid(record, `${name}:${record.kind}`);
+  assert.equal(typeof scenario.expected_error, "string", `${name} must pin expected_error`);
+  reject(() => validateRecordSet(scenario.records, name, authorityRegistry), name, scenario.expected_error);
+}
+for (const [name, scenario] of Object.entries({
+  duplicateObservationId,
+  duplicateTraceSpanPair
+})) {
   for (const record of scenario.records) schemaValid(record, `${name}:${record.kind}`);
   assert.equal(typeof scenario.expected_error, "string", `${name} must pin expected_error`);
   reject(() => validateRecordSet(scenario.records, name, authorityRegistry), name, scenario.expected_error);
