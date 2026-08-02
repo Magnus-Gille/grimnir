@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grimnir.gille.ai/contracts/operational-observability/v1/schema.json",
+  "title": "Grimnir operational-observability contract v1",
+  "description": "Versioned, closed, content-blind operational health and trace records. Semantic validation of fail-closed aggregation, expected inventory, trace privacy, inventory digests, and rollout rules is defined by tests/scripts/validate-operational-observability-contract.mjs. These records never become topology, learning, capability, or audit authority.",
+  "oneOf": [
+    { "$ref": "#/$defs/service-observation" },
+    { "$ref": "#/$defs/observation-aggregate" },
+    { "$ref": "#/$defs/trace-policy" },
+    { "$ref": "#/$defs/trace-span" }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,62}$" },
+    "contract-version": { "type": "string", "pattern": "^v1\\.[0-9]+$" },
+    "safe-token": {
+      "type": "string",
+      "description": "A bounded, low-cardinality token that cannot carry URLs, paths, or query strings. Semantic validation also rejects private or loopback IP literals, including IPv4-mapped private IPv6 forms.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,79}$"
+    },
+    "utc": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "duration": {
+      "type": "string",
+      "description": "A bounded ISO 8601 duration restricted to day/hour/minute/second components.",
+      "pattern": "^P(?=\\d|T\\d)(\\d+D)?(T(?=\\d)(\\d+H)?(\\d+M)?(\\d+S)?)?$"
+    },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "opaque-ref": { "type": "string", "pattern": "^ref:[a-z][a-z0-9-]{2,120}$" },
+    "trace-id": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+    "span-id": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+    "extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "decision_effect"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "version": { "type": "string", "pattern": "^v[1-9][0-9]*$" },
+        "decision_effect": { "enum": ["informational"] }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_kind", "producer", "producer_version"],
+      "properties": {
+        "source_kind": { "enum": ["service_internal", "service_probe", "systemd", "substrate", "synthetic", "aggregator"] },
+        "producer": { "$ref": "#/$defs/id" },
+        "producer_version": { "$ref": "#/$defs/safe-token" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service_id", "instance_id"],
+      "properties": {
+        "service_id": { "$ref": "#/$defs/id" },
+        "instance_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "check": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["surface"],
+          "properties": {
+            "surface": { "enum": ["liveness", "readiness"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["surface", "dependency_service_id"],
+          "properties": {
+            "surface": { "const": "dependency" },
+            "dependency_service_id": { "$ref": "#/$defs/id" }
+          }
+        }
+      ]
+    },
+    "trace-link": {
+      "type": "object",
+      "description": "A diagnostic join only. Runtime validation requires observation links to resolve to a same-service emitted span; cross-service relationships travel through trace-span parentage instead.",
+      "additionalProperties": false,
+      "required": ["trace_id", "span_id"],
+      "properties": {
+        "trace_id": { "$ref": "#/$defs/trace-id" },
+        "span_id": { "$ref": "#/$defs/span-id" }
+      }
+    },
+    "inventory-authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_kind", "authority_ref", "authority_digest"],
+      "properties": {
+        "authority_kind": { "enum": ["services_json", "producer_contract", "consumer_contract"] },
+        "authority_ref": { "$ref": "#/$defs/opaque-ref" },
+        "authority_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "expected-slot": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["slot_id", "authority_kind", "slot_class", "surface", "applicability", "owner_kind", "owner_service_id", "max_freshness"],
+          "properties": {
+            "slot_id": { "$ref": "#/$defs/id" },
+            "authority_kind": { "enum": ["services_json", "producer_contract", "consumer_contract"] },
+            "slot_class": { "enum": ["service_liveness", "service_readiness", "exporter_health", "collector_health"] },
+            "surface": { "enum": ["liveness", "readiness"] },
+            "applicability": { "enum": ["required", "not_applicable"] },
+            "owner_kind": { "enum": ["producer", "consumer"] },
+            "owner_service_id": { "$ref": "#/$defs/id" },
+            "max_freshness": { "$ref": "#/$defs/duration" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["slot_id", "authority_kind", "slot_class", "surface", "applicability", "owner_kind", "owner_service_id", "max_freshness", "dependency_service_id"],
+          "properties": {
+            "slot_id": { "$ref": "#/$defs/id" },
+            "authority_kind": { "enum": ["services_json", "producer_contract", "consumer_contract"] },
+            "slot_class": { "const": "dependency_health" },
+            "surface": { "const": "dependency" },
+            "applicability": { "enum": ["required", "not_applicable"] },
+            "owner_kind": { "enum": ["producer", "consumer"] },
+            "owner_service_id": { "$ref": "#/$defs/id" },
+            "max_freshness": { "$ref": "#/$defs/duration" },
+            "dependency_service_id": { "$ref": "#/$defs/id" }
+          }
+        }
+      ]
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorities", "expected_slots"],
+      "properties": {
+        "authorities": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/inventory-authority" } },
+        "expected_slots": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/expected-slot" } }
+      }
+    },
+    "observation-ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slot_id", "observation_id"],
+      "properties": {
+        "slot_id": { "$ref": "#/$defs/id" },
+        "observation_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "trace-default-state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instrumentation_enabled", "export_enabled", "automatic_instrumentation"],
+      "properties": {
+        "instrumentation_enabled": { "type": "boolean" },
+        "export_enabled": { "type": "boolean" },
+        "automatic_instrumentation": { "enum": ["disabled", "allowlisted_only"] }
+      }
+    },
+    "trace-sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "rate_per_mille"],
+      "properties": {
+        "mode": { "const": "head" },
+        "rate_per_mille": { "type": "integer", "minimum": 0, "maximum": 1000 }
+      }
+    },
+    "trace-serialization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowlist_version", "deny_by_default", "max_attributes", "max_string_length"],
+      "properties": {
+        "allowlist_version": { "const": "v1" },
+        "deny_by_default": { "const": true },
+        "max_attributes": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "max_string_length": { "type": "integer", "minimum": 1, "maximum": 256 }
+      }
+    },
+    "trace-retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_ref", "data_class", "deletion_owner"],
+      "properties": {
+        "policy_ref": { "$ref": "#/$defs/opaque-ref" },
+        "data_class": { "const": "operational_telemetry" },
+        "deletion_owner": { "enum": ["producer", "authoritative_store"] }
+      }
+    },
+    "trace-failure-behavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["export_failure", "instrumentation_failure"],
+      "properties": {
+        "export_failure": { "const": "drop_and_count" },
+        "instrumentation_failure": { "const": "must_not_fail_request" }
+      }
+    },
+    "trace-operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["surface", "phase"],
+      "properties": {
+        "surface": { "enum": ["task", "gateway", "service", "synthetic"] },
+        "phase": { "enum": ["ingress", "queue", "execution", "dependency", "publication", "probe", "export"] }
+      }
+    },
+    "trace-attributes": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "service_id": { "$ref": "#/$defs/id" },
+            "instance_id": { "$ref": "#/$defs/id" },
+            "task_class": { "enum": ["diagnostic", "delegation", "maintenance", "publication", "read_only", "not_applicable"] },
+            "runtime_lane": { "enum": ["default", "reason-hard", "reason-fast", "numeric", "review", "not_applicable"] },
+            "retry_ordinal": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "error_class": { "$ref": "#/$defs/safe-token" },
+            "check_surface": { "enum": ["liveness", "readiness", "not_applicable"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["check_surface", "dependency_service_id"],
+          "properties": {
+            "service_id": { "$ref": "#/$defs/id" },
+            "instance_id": { "$ref": "#/$defs/id" },
+            "dependency_service_id": { "$ref": "#/$defs/id" },
+            "task_class": { "enum": ["diagnostic", "delegation", "maintenance", "publication", "read_only", "not_applicable"] },
+            "runtime_lane": { "enum": ["default", "reason-hard", "reason-fast", "numeric", "review", "not_applicable"] },
+            "retry_ordinal": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "error_class": { "$ref": "#/$defs/safe-token" },
+            "check_surface": { "const": "dependency" }
+          }
+        }
+      ]
+    },
+    "service-observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "contract_version", "observation_id", "source", "service", "slot_id", "check", "attempt_id", "observed_at", "collected_at", "freshness_window", "fresh_until", "outcome", "diagnostic_ref", "extensions"],
+      "properties": {
+        "kind": { "const": "service-observation" },
+        "contract_version": { "$ref": "#/$defs/contract-version" },
+        "observation_id": { "$ref": "#/$defs/id" },
+        "source": { "$ref": "#/$defs/source" },
+        "service": { "$ref": "#/$defs/service" },
+        "slot_id": { "$ref": "#/$defs/id" },
+        "check": { "$ref": "#/$defs/check" },
+        "attempt_id": { "$ref": "#/$defs/id" },
+        "observed_at": { "$ref": "#/$defs/utc" },
+        "collected_at": { "$ref": "#/$defs/utc" },
+        "freshness_window": { "$ref": "#/$defs/duration" },
+        "fresh_until": { "$ref": "#/$defs/utc" },
+        "outcome": { "enum": ["ok", "degraded", "failed", "stale", "unknown", "not_applicable"] },
+        "diagnostic_ref": { "$ref": "#/$defs/opaque-ref" },
+        "trace": { "$ref": "#/$defs/trace-link" },
+        "extensions": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/extension" } }
+      }
+    },
+    "observation-aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "contract_version", "aggregate_id", "source", "service", "aggregate_surface", "attempt_id", "observed_at", "collected_at", "freshness_window", "fresh_until", "inventory", "observation_refs", "outcome", "diagnostic_ref", "extensions"],
+      "properties": {
+        "kind": { "const": "observation-aggregate" },
+        "contract_version": { "$ref": "#/$defs/contract-version" },
+        "aggregate_id": { "$ref": "#/$defs/id" },
+        "source": { "$ref": "#/$defs/source" },
+        "service": { "$ref": "#/$defs/service" },
+        "aggregate_surface": { "enum": ["liveness", "readiness", "dependency", "service_overall"] },
+        "attempt_id": { "$ref": "#/$defs/id" },
+        "observed_at": { "$ref": "#/$defs/utc" },
+        "collected_at": { "$ref": "#/$defs/utc" },
+        "freshness_window": { "$ref": "#/$defs/duration" },
+        "fresh_until": { "$ref": "#/$defs/utc" },
+        "inventory": { "$ref": "#/$defs/inventory" },
+        "observation_refs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/observation-ref" } },
+        "outcome": { "enum": ["ok", "degraded", "failed", "stale", "unknown"] },
+        "diagnostic_ref": { "$ref": "#/$defs/opaque-ref" },
+        "trace": { "$ref": "#/$defs/trace-link" },
+        "extensions": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/extension" } }
+      }
+    },
+    "trace-policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "contract_version", "policy_id", "source", "service", "default_state", "sampling", "serialization", "retention", "failure_behavior", "created_at", "extensions"],
+      "properties": {
+        "kind": { "const": "trace-policy" },
+        "contract_version": { "$ref": "#/$defs/contract-version" },
+        "policy_id": { "$ref": "#/$defs/id" },
+        "source": { "$ref": "#/$defs/source" },
+        "service": { "$ref": "#/$defs/service" },
+        "default_state": { "$ref": "#/$defs/trace-default-state" },
+        "sampling": { "$ref": "#/$defs/trace-sampling" },
+        "serialization": { "$ref": "#/$defs/trace-serialization" },
+        "retention": { "$ref": "#/$defs/trace-retention" },
+        "failure_behavior": { "$ref": "#/$defs/trace-failure-behavior" },
+        "created_at": { "$ref": "#/$defs/utc" },
+        "extensions": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/extension" } }
+      }
+    },
+    "trace-span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "contract_version", "policy_id", "source", "service", "trace_id", "span_id", "operation", "started_at", "ended_at", "collected_at", "sampled", "outcome", "attributes", "diagnostic_ref", "extensions"],
+      "properties": {
+        "kind": { "const": "trace-span" },
+        "contract_version": { "$ref": "#/$defs/contract-version" },
+        "policy_id": { "$ref": "#/$defs/id" },
+        "source": { "$ref": "#/$defs/source" },
+        "service": { "$ref": "#/$defs/service" },
+        "trace_id": { "$ref": "#/$defs/trace-id" },
+        "span_id": { "$ref": "#/$defs/span-id" },
+        "parent_span_id": { "$ref": "#/$defs/span-id" },
+        "operation": { "$ref": "#/$defs/trace-operation" },
+        "started_at": { "$ref": "#/$defs/utc" },
+        "ended_at": { "$ref": "#/$defs/utc" },
+        "collected_at": { "$ref": "#/$defs/utc" },
+        "sampled": { "const": true },
+        "outcome": { "enum": ["ok", "degraded", "failed", "stale", "unknown"] },
+        "attributes": { "$ref": "#/$defs/trace-attributes" },
+        "diagnostic_ref": { "$ref": "#/$defs/opaque-ref" },
+        "extensions": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/extension" } }
+      }
+    }
+  }
+}

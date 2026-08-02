@@ -62,6 +62,12 @@ the annotation, not only the filename.
   operational health, task/product evidence, capability evidence, and consequential-mutation
   receipts remain separate; structured metrics precede advisory LLM interpretation, correlation
   uses opaque references rather than copied payloads, and no generic observability service is added
+- `docs/operational-observability-contract.md` and
+  `docs/operational-observability-v1.schema.json` — Versioned content-blind operational-health and
+  trace contract: closed observation states, expected-inventory aggregation, W3C trace correlation,
+  deny-by-default serialized attributes, major/minor rollout rules, and operational-telemetry
+  retention refs; fixtures under `tests/fixtures/operational-observability/` and validator
+  `tests/scripts/validate-operational-observability-contract.mjs`
 - `docs/learning-task-contract.md` — Normative Hugin↔M5 learning-evidence seam: field and decision
   owners, privacy/evolution rules, cross-repo fixtures, and measurable definitions of continuous
 - `docs/learning-task-contract-v1.schema.json` — Canonical machine-readable v1 union schema; positive
