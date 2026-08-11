@@ -7,6 +7,10 @@ Wants=network-online.target
 Type=oneshot
 User=magnus
 WorkingDirectory=/home/magnus/repos/grimnir
+# Private owner-managed file containing MUNIN_TOKEN=... .  It is deliberately
+# outside the repository and read by systemd, never searched for in a component
+# checkout by the scanner.
+EnvironmentFile=/home/magnus/.config/grimnir/security-scan.env
 ExecStart=/usr/bin/bash scripts/security-scan.sh
 
 # Timeout — full scan across 7 repos can take a few minutes

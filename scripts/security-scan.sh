@@ -16,11 +16,13 @@
 
 set -euo pipefail
 
-SCANNER_VERSION="1.3.0"
+SCANNER_VERSION="1.5.0"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
 REPOS_DIR="${REPOS_DIR:-$HOME/repos}"
+GIT_LS_TREE_BIN="${GIT_LS_TREE_BIN:-git}"
+CHMOD_BIN="${CHMOD_BIN:-chmod}"
 
 # ─── Source shared helpers ─────────────────────────────────────
 # shellcheck source=scripts/lib/notify.sh
@@ -33,7 +35,10 @@ TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 SCAN_DATE="$(date -u '+%Y-%m-%d')"
 HOSTNAME_VAL="$(hostname)"
 
-# Read scannable components from the service registry (single source of truth)
+# Read scannable components from the service registry (single source of truth).
+# REPOS_DIR is a local checkout root, never a deployment target: the scan copies
+# immutable Git objects into a private snapshot before inspecting either source
+# files or dependency metadata.
 REGISTRY="${REGISTRY_PATH:-$GRIMNIR_DIR/services.json}"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 COMPONENTS="$(REGISTRY_PATH="$REGISTRY" QUERY=scan node --input-type=commonjs "$REGISTRY_JS")"
@@ -75,20 +80,6 @@ source "$SCRIPT_DIR/lib/escalation.sh"
 # for multi-line code blocks instead.
 
 
-# ─── Find Munin bearer token ─────────────────────────────────
-if [[ -z "$MUNIN_TOKEN" ]]; then
-  for envfile in "$REPOS_DIR/hugin/.env" "$REPOS_DIR/ratatoskr/.env" "$REPOS_DIR/heimdall/.env"; do
-    if [[ -f "$envfile" ]]; then
-      val="$(grep -E '^MUNIN_API_KEY=' "$envfile" 2>/dev/null | head -1 | cut -d= -f2-)" || true
-      if [[ -n "$val" ]]; then
-        MUNIN_TOKEN="$val"
-        log_verbose "Found Munin token in $envfile"
-        break
-      fi
-    fi
-  done
-fi
-
 # ─── Munin helpers ───────────────────────────────────────────
 
 munin_call() {
@@ -115,7 +106,7 @@ munin_tool_call() {
 # ─── Temp directory for per-repo results ─────────────────────
 # Used to store per-repo data without requiring bash 4 associative arrays
 SCAN_TMP="$(mktemp -d)"
-trap 'rm -rf "$SCAN_TMP"' EXIT
+trap 'chmod -R u+w "$SCAN_TMP" 2>/dev/null || true; rm -rf "$SCAN_TMP"' EXIT
 
 repo_set() {
   # repo_set <repo> <key> <value>
@@ -135,6 +126,125 @@ repo_get() {
     echo ""
   fi
 }
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+# Materialize every tracked blob from one immutable commit.  The scanner never
+# reads the mutable checkout after this point, so source edits cannot split the
+# dependency audit and secret scan across different revisions.  git archive is
+# intentionally not used: export-ignore must not silently remove tracked files
+# from security coverage.
+prepare_source_snapshot() {
+  local repo=$1 checkout=$2 commit tree snapshot list entries rel target digest_list mode checkout_root git_root expected_authority origin_url
+  if [[ -L "$checkout" ]] || [[ ! -d "$checkout" ]] || ! git -C "$checkout" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    repo_set "$repo" "source_status" "error:no-source-checkout"
+    return 1
+  fi
+  checkout_root="$(cd "$checkout" && pwd -P)"
+  git_root="$(git -C "$checkout" rev-parse --show-toplevel 2>/dev/null || true)"
+  git_root="$(cd "$git_root" 2>/dev/null && pwd -P || true)"
+  if [[ -z "$checkout_root" || "$checkout_root" != "$git_root" ]]; then
+    repo_set "$repo" "source_status" "error:not-checkout-root"
+    return 1
+  fi
+  expected_authority="$(repo_get "$repo" source_authority)"
+  origin_url="$(git -C "$checkout" config --get remote.origin.url 2>/dev/null || true)"
+  if [[ -z "$expected_authority" || -z "$origin_url" ]] || ! EXPECTED_AUTHORITY="$expected_authority" ORIGIN_URL="$origin_url" node --input-type=commonjs -e '
+    const expected = process.env.EXPECTED_AUTHORITY;
+    const normalize = value => value.replace(/^git@github\.com:/, "https://github.com/").replace(/\.git$/, "").replace(/\/$/, "");
+    process.exit(normalize(process.env.ORIGIN_URL) === "https://github.com/" + expected ? 0 : 1);
+  ' >/dev/null 2>&1; then
+    repo_set "$repo" "source_status" "error:source-authority"
+    return 1
+  fi
+  commit="$(git -C "$checkout" rev-parse 'HEAD^{commit}' 2>/dev/null || true)"
+  tree="$(git -C "$checkout" rev-parse "$commit^{tree}" 2>/dev/null || true)"
+  if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$tree" =~ ^[0-9a-f]{40}$ ]]; then
+    repo_set "$repo" "source_status" "error:source-revision"
+    return 1
+  fi
+  snapshot="$SCAN_TMP/${repo//-/_}__source"
+  list="$SCAN_TMP/${repo//-/_}__tracked-files"
+  entries="$SCAN_TMP/${repo//-/_}__tracked-files-z"
+  mkdir -p "$snapshot"
+  : > "$list"
+  if ! "$GIT_LS_TREE_BIN" -C "$checkout" ls-tree -r -z --name-only "$commit" > "$entries" 2>/dev/null || [[ ! -s "$entries" ]]; then
+    repo_set "$repo" "source_status" "error:source-enumeration"
+    return 1
+  fi
+  while IFS= read -r -d '' rel; do
+    # Newlines/tabs would make the receipt ambiguous. Fail closed rather than
+    # producing a coverage claim that cannot be replayed safely.
+    if [[ -z "$rel" || "$rel" == /* || "$rel" == *$'\n'* || "$rel" == *$'\r'* || "$rel" == *$'\t'* || "$rel" == *"../"* ]]; then
+      repo_set "$repo" "source_status" "error:unsafe-tracked-path"
+      return 1
+    fi
+    mode="$(git -C "$checkout" ls-tree "$commit" -- "$rel" 2>/dev/null | awk '{print $1}')"
+    if [[ "$mode" != "100644" && "$mode" != "100755" ]]; then
+      repo_set "$repo" "source_status" "error:non-regular-tracked-path"
+      return 1
+    fi
+    target="$snapshot/$rel"
+    mkdir -p "$(dirname "$target")"
+    if ! git -C "$checkout" show "$commit:$rel" > "$target" 2>/dev/null; then
+      repo_set "$repo" "source_status" "error:source-snapshot"
+      return 1
+    fi
+    printf '%s\n' "$rel" >> "$list"
+  done < "$entries"
+  if [[ ! -s "$list" ]]; then
+    repo_set "$repo" "source_status" "error:empty-source-tree"
+    return 1
+  fi
+  digest_list="$SCAN_TMP/${repo//-/_}__snapshot-digests"
+  while IFS= read -r rel; do
+    printf '%s  %s\n' "$(sha256_file "$snapshot/$rel")" "$rel" >> "$digest_list"
+  done < "$list"
+  repo_set "$repo" "source_status" "ok"
+  repo_set "$repo" "commit" "$commit"
+  repo_set "$repo" "tree" "$tree"
+  repo_set "$repo" "snapshot_digest" "$(sha256_file "$digest_list")"
+  # npm audit runs against the snapshot, so make it read-only before invoking
+  # any external tooling. A post-phase digest check below remains the
+  # fail-closed backstop for unexpected filesystem changes.
+  if ! "$CHMOD_BIN" -R a-w "$snapshot"; then
+    repo_set "$repo" "source_status" "error:snapshot-read-only"
+    return 1
+  fi
+  repo_set "$repo" "snapshot_dir" "$snapshot"
+  repo_set "$repo" "tracked_files" "$list"
+  return 0
+}
+
+verify_source_snapshot() {
+  local repo=$1 snapshot list digest_list rel expected actual
+  snapshot="$(repo_get "$repo" snapshot_dir)"
+  list="$(repo_get "$repo" tracked_files)"
+  expected="$(repo_get "$repo" snapshot_digest)"
+  [[ -d "$snapshot" && -f "$list" && "$expected" =~ ^[0-9a-f]{64}$ ]] || return 1
+  digest_list="$SCAN_TMP/${repo//-/_}__snapshot-digests-current"
+  : > "$digest_list"
+  while IFS= read -r rel; do
+    [[ -f "$snapshot/$rel" && ! -L "$snapshot/$rel" ]] || return 1
+    printf '%s  %s\n' "$(sha256_file "$snapshot/$rel")" "$rel" >> "$digest_list"
+  done < "$list"
+  actual="$(sha256_file "$digest_list")"
+  [[ "$actual" == "$expected" ]]
+}
+
+# Component repo names are resolved through the repository authority rather
+# than inferred from a checkout directory.  A missing or mismatched origin is
+# incomplete coverage, not an acceptable local convenience.
+while IFS='|' read -r authority_checkout authority_remote; do
+  [[ -n "$authority_checkout" && -n "$authority_remote" ]] || continue
+  repo_set "$authority_checkout" "source_authority" "$authority_remote"
+done < <(REGISTRY_PATH="$REGISTRY" QUERY=repository-authority node --input-type=commonjs "$REGISTRY_JS")
 
 # ─── Build component list ─────────────────────────────────────
 if [[ -n "$FILTER_REPO" ]]; then
@@ -173,20 +283,10 @@ echo "Phase 1: Dependency audit (npm audit)"
 echo "--------------------------------------"
 
 for repo in $SCAN_COMPONENTS; do
-  dir="$REPOS_DIR/$repo"
-
-  # Collect git provenance
-  if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    repo_set "$repo" "commit" "$(git -C "$dir" rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
-    repo_set "$repo" "branch" "$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')"
-  else
-    repo_set "$repo" "commit" "n/a"
-    repo_set "$repo" "branch" "n/a"
-  fi
-
-  if [[ ! -d "$dir" ]]; then
-    log_verbose "  $repo: directory not found at $dir"
-    repo_set "$repo" "audit_status" "skipped:no-dir"
+  checkout="$REPOS_DIR/$repo"
+  if ! prepare_source_snapshot "$repo" "$checkout"; then
+    log_verbose "  $repo: authoritative source checkout/snapshot unavailable"
+    repo_set "$repo" "audit_status" "error:source-snapshot"
     repo_set "$repo" "audit_critical" "0"
     repo_set "$repo" "audit_high" "0"
     repo_set "$repo" "audit_moderate" "0"
@@ -196,8 +296,11 @@ for repo in $SCAN_COMPONENTS; do
     continue
   fi
 
+  dir="$(repo_get "$repo" snapshot_dir)"
+  repo_set "$repo" "branch" "snapshot"
+
   if [[ ! -f "$dir/package-lock.json" ]]; then
-    log_verbose "  $repo: no package-lock.json, skipping npm audit"
+    log_verbose "  $repo: no package-lock.json in immutable snapshot, skipping npm audit"
     repo_set "$repo" "audit_status" "skipped:no-lockfile"
     repo_set "$repo" "audit_critical" "0"
     repo_set "$repo" "audit_high" "0"
@@ -210,7 +313,7 @@ for repo in $SCAN_COMPONENTS; do
 
   log_verbose "  $repo: running npm audit..."
   # npm audit exits 1 when vulnerabilities found — capture output regardless
-  audit_raw="$(cd "$dir" && npm audit --json 2>/dev/null)" || true
+  audit_raw="$(cd "$dir" && npm audit --package-lock-only --json 2>/dev/null)" || true
 
   if [[ -z "$audit_raw" ]]; then
     repo_set "$repo" "audit_status" "error:no-output"
@@ -332,44 +435,21 @@ PATTERNS
 ALLOWLIST_PATTERN='\*\*\*|<TOKEN>|<key>|example|EXAMPLE|sample|your[-_]|YOUR_'
 
 for repo in $SCAN_COMPONENTS; do
-  dir="$REPOS_DIR/$repo"
-
-  if [[ ! -d "$dir" ]]; then
-    repo_set "$repo" "secret_status" "skipped:no-dir"
+  dir="$(repo_get "$repo" snapshot_dir)"
+  tracked_list="$(repo_get "$repo" tracked_files)"
+  if [[ "$(repo_get "$repo" source_status)" != "ok" || ! -d "$dir" || ! -f "$tracked_list" ]] ||
+     ! verify_source_snapshot "$repo"; then
+    repo_set "$repo" "secret_status" "error:source-snapshot"
     repo_set "$repo" "secret_count" "0"
     repo_set "$repo" "secret_findings" "[]"
+    echo "  $repo: ERROR (immutable source snapshot unavailable)"
     continue
   fi
 
-  if ! git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    log_verbose "  $repo: not a git repo, skipping secret scan"
-    repo_set "$repo" "secret_status" "skipped:no-git"
-    repo_set "$repo" "secret_count" "0"
-    repo_set "$repo" "secret_findings" "[]"
-    continue
-  fi
-
-  log_verbose "  $repo: scanning tracked files for secrets..."
+  log_verbose "  $repo: scanning immutable source snapshot for secrets..."
 
   findings_tsv=""   # accumulates: repo<TAB>file<TAB>line<TAB>category, one per line
   finding_count=0
-
-  # Get list of tracked files
-  if ! tracked_files="$(git -C "$dir" ls-files 2>/dev/null)"; then
-    repo_set "$repo" "secret_status" "error:git-ls-files"
-    repo_set "$repo" "secret_count" "0"
-    repo_set "$repo" "secret_findings" "[]"
-    echo "  $repo: ERROR (could not enumerate tracked files)"
-    continue
-  fi
-
-  if [[ -z "$tracked_files" ]]; then
-    repo_set "$repo" "secret_status" "ok"
-    repo_set "$repo" "secret_count" "0"
-    repo_set "$repo" "secret_findings" "[]"
-    echo "  $repo: OK (no tracked files)"
-    continue
-  fi
 
   while IFS= read -r relfile; do
     absfile="$dir/$relfile"
@@ -449,7 +529,18 @@ ${repo}	${relfile}	${line_num}	${category}"
         fi
       done <<< "$real_matches"
     done < "$SECRET_PATTERNS_FILE"
-  done <<< "$tracked_files"
+  done < "$tracked_list"
+
+  # npm is an external command. Recheck after every file scan so a delayed
+  # child cannot mutate the snapshot after the pre-scan verification and leave
+  # a receipt for bytes that were not actually inspected.
+  if ! verify_source_snapshot "$repo"; then
+    repo_set "$repo" "secret_status" "error:snapshot-mutated"
+    repo_set "$repo" "secret_count" "0"
+    repo_set "$repo" "secret_findings" "[]"
+    echo "  $repo: ERROR (immutable source snapshot changed during scan)"
+    continue
+  fi
 
   repo_set "$repo" "secret_count" "$finding_count"
   # Convert accumulated TSV findings to JSON array in a single node call
@@ -674,11 +765,13 @@ for repo in $SCAN_COMPONENTS; do
   secret_st="$(repo_get "$repo" secret_status)"; [[ -z "$secret_st" ]] && secret_st="skipped"
   commit="$(repo_get "$repo" commit)"; [[ -z "$commit" ]] && commit="unknown"
   branch="$(repo_get "$repo" branch)"; [[ -z "$branch" ]] && branch="unknown"
+  tree="$(repo_get "$repo" tree)"; [[ -z "$tree" ]] && tree="unknown"
+  snapshot_digest="$(repo_get "$repo" snapshot_digest)"; [[ -z "$snapshot_digest" ]] && snapshot_digest="unknown"
 
   printf '%s' "$audit_data"     > "$SCAN_TMP/_ro_audit"
   printf '%s' "$secret_findings" > "$SCAN_TMP/_ro_secrets"
   REPO_VAL="$repo" AUDIT_ST="$audit_st" SECRET_ST="$secret_st" \
-    COMMIT_VAL="$commit" BRANCH_VAL="$branch" OUTDIR="$SCAN_TMP" \
+    COMMIT_VAL="$commit" BRANCH_VAL="$branch" TREE_VAL="$tree" SNAPSHOT_DIGEST_VAL="$snapshot_digest" OUTDIR="$SCAN_TMP" \
     node --input-type=commonjs -e '
       var fs = require("fs"), out = process.env.OUTDIR;
       var audit   = JSON.parse(fs.readFileSync(out + "/_ro_audit",   "utf8") || "null");
@@ -689,6 +782,8 @@ for repo in $SCAN_COMPONENTS; do
         secret_status: process.env.SECRET_ST,
         commit:        process.env.COMMIT_VAL,
         branch:        process.env.BRANCH_VAL,
+        source_tree:   process.env.TREE_VAL,
+        snapshot_digest: process.env.SNAPSHOT_DIGEST_VAL,
         audit:         audit,
         secrets:       secrets
       }) + "\n");
