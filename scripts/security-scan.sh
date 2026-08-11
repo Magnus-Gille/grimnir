@@ -148,7 +148,9 @@ prepare_source_snapshot() {
   fi
   checkout_root="$(cd "$checkout" && pwd -P)"
   git_root="$(git -C "$checkout" rev-parse --show-toplevel 2>/dev/null || true)"
-  git_root="$(cd "$git_root" 2>/dev/null && pwd -P || true)"
+  if [[ -n "$git_root" ]]; then
+    git_root="$(cd "$git_root" 2>/dev/null && pwd -P)" || git_root=""
+  fi
   if [[ -z "$checkout_root" || "$checkout_root" != "$git_root" ]]; then
     repo_set "$repo" "source_status" "error:not-checkout-root"
     return 1
