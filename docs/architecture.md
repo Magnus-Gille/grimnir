@@ -735,9 +735,16 @@ A weekly security scan runs across all Grimnir repos via `scripts/security-scan.
 | Script | `grimnir/scripts/security-scan.sh` |
 | Schedule | Weekly, Sunday 03:00 (systemd timer: `grimnir-security-scan.timer`) |
 | Host | Pi 1 (huginmunin) |
-| Checks | `npm audit` (dependency vulnerabilities), secret detection (regex on git-tracked files) |
+| Checks | `npm audit` (dependency vulnerabilities), secret detection (regex on an immutable snapshot of each Git-tracked source revision) |
 | Results | Munin (`security/scans/<date>`, `security/repos/<repo>`) + stdout |
 | Dashboard | Heimdall deploy status card (timer type: last run, next run, exit status) |
+
+The scan's coverage claim is source-only: every registered `scan: true`
+repository must be present as an authoritative local Git checkout on the
+scheduled host. The scanner records the commit/tree/snapshot digest and fails
+the run if it cannot construct any required snapshot. Deployment and runtime
+integrity require separate host-local evidence; they are not inferred from
+source coverage.
 
 **Munin schema:**
 

@@ -90,6 +90,13 @@ LearningTaskContract.
 | **Output** | Munin: `security/scans/{date}`, per-repo results in `security/repos/*` |
 | **Why it exists** | Automated dependency vulnerability and secret leak detection |
 
+The service must have an authoritative Git checkout for every `scan: true`
+repository beneath its configured checkout root. The scanner materializes each
+checked-out commit into a private snapshot and audits that snapshot; it does
+not scan deployment trees or claim deployment/runtime integrity. A missing
+checkout, unreadable commit, or unusable audit result makes the entire run
+incomplete and non-zero rather than silently omitting a repository.
+
 ### Claude CLI Update
 
 | Field | Value |
