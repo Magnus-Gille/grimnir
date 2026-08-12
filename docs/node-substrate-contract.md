@@ -1,4 +1,4 @@
-# Node/Substrate contract v1
+# Node/Substrate contract v1/v2
 
 This is the machine-readable companion to [ADR-007](adr-007-node-substrate-contract.md) and
 implements Grimnir #102. It defines four public-safe records:
@@ -8,14 +8,16 @@ implements Grimnir #102. It defines four public-safe records:
 - `placement-intent` — Grimnir's desired placement, without copying observed facts; and
 - `lifecycle-result` — one attempt's bound decision evidence and recovery state.
 
-The canonical schema is [`node-substrate-contract-v1.schema.json`](node-substrate-contract-v1.schema.json).
+The canonical schemas are [`node-substrate-contract-v1.schema.json`](node-substrate-contract-v1.schema.json) and
+[`node-substrate-contract-v2.schema.json`](node-substrate-contract-v2.schema.json). v2 is a focused decision-record
+release for `node-capability` and `workload-requirement`; placement and lifecycle records remain v1.
 Fixtures, normative-schema validation, and semantic validation live under
 [`tests/fixtures/node-substrate-contract`](../tests/fixtures/node-substrate-contract) and
 [`tests/scripts/validate-node-substrate-contract.mjs`](../tests/scripts/validate-node-substrate-contract.mjs).
 
 ## Compatibility and extensions
 
-Consumers support exactly `v1` in this initial release. An unsupported record version, an unknown
+Consumers support `v1` and the focused `v2` node/workload records. An unsupported record version, an unknown
 decision-driving value, a stale observation, or a hook/result binding mismatch is invalid for a
 decision and must fail closed. `unknown` and `not_applicable` are explicit states; neither is a
 positive capability.
@@ -40,3 +42,9 @@ network locations, credentials, host paths, or any mechanism that can execute a 
 The neutral fixture-set manifest identifies a shared input that Brokkr, Hugin, and Mimir can
 consume. It does **not** claim that those repositories already implement a consumer; their
 adoption is downstream owner work.
+
+`armv7l` is an explicit node and workload architecture in v2. v1 intentionally remains unchanged;
+it is not an implicit synonym for `arm64`. Placement remains fail-closed unless a v2 workload
+requirement explicitly lists `armv7l` as supported. The public-safe `munin-zero` placement fixture shows how
+Grimnir consumes a node-only Brokkr observation without copying a hostname, address, credential,
+or operator path.

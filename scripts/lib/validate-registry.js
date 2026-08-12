@@ -177,11 +177,11 @@ data.components.forEach(function (c, i) {
     if (!isPlainObject(c.workload_contract) ||
         Object.keys(c.workload_contract).length !== 4 ||
         c.workload_contract.kind !== 'workload-requirement' ||
-        c.workload_contract.schema_version !== 'v1' ||
+        ['v1', 'v2'].indexOf(c.workload_contract.schema_version) === -1 ||
         c.workload_contract.producer !== c.repo ||
         typeof c.workload_contract.digest !== 'string' ||
         !/^sha256:[a-f0-9]{64}$/.test(c.workload_contract.digest)) {
-      fail(label + ': workload_contract must exactly pin workload-requirement v1, its owning repo producer, and SHA-256 digest');
+      fail(label + ': workload_contract must exactly pin workload-requirement v1 or v2, its owning repo producer, and SHA-256 digest');
     }
   }
 
