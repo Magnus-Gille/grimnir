@@ -1,0 +1,40 @@
+{
+  "kind": "brokkr-placement-observation",
+  "schema_version": "v1",
+  "observation_id": "obs-munin-zero-placement-20260812",
+  "observed_at": "2026-08-12T15:00:00Z",
+  "valid_until": "2026-08-12T16:00:00Z",
+  "evidence": {
+    "evidence_id": "obs-munin-zero-placement-evidence-20260812",
+    "producer": "brokkr",
+    "observed_at": "2026-08-12T15:00:00Z",
+    "digest": "sha256:f11b9a09b8116b7b521391b7857662f64a5797840e649f04088d1d63a641e2aa"
+  },
+  "node_capabilities": [
+    {
+      "kind": "node-capability",
+      "schema_version": "v1",
+      "node_id": "node-munin-zero",
+      "observed_at": "2026-08-12T15:00:00Z",
+      "valid_until": "2026-08-12T16:00:00Z",
+      "evidence": {
+        "evidence_id": "obs-munin-zero-capability-20260812",
+        "producer": "brokkr",
+        "observed_at": "2026-08-12T15:00:00Z",
+        "digest": "sha256:09fc18463ba74773d83d9066c029f4fd5102125d3f619d08028b866d5066a170"
+      },
+      "capability_status": "known",
+      "architecture": "armv7l",
+      "resources": { "cpu_cores": 4, "memory_mib": 425 },
+      "uptime_class": "best_effort",
+      "network_capabilities": ["wifi"],
+      "logical_storage": [{ "class": "unknown", "available_mib": 0, "status": "unknown" }],
+      "service_manager": "systemd",
+      "deployment_mechanisms": ["systemd"],
+      "health_reporting": "supported",
+      "extensions": [{ "id": "workload-munin-memory", "version": "v1", "decision_effect": "informational" }]
+    }
+  ],
+  "workloads": [],
+  "capability_assessments": []
+}

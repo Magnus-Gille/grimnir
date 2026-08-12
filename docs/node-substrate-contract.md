@@ -40,3 +40,9 @@ network locations, credentials, host paths, or any mechanism that can execute a 
 The neutral fixture-set manifest identifies a shared input that Brokkr, Hugin, and Mimir can
 consume. It does **not** claim that those repositories already implement a consumer; their
 adoption is downstream owner work.
+
+`armv7l` is an explicit node architecture in v1. It is observable substrate identity, not an
+implicit synonym for `arm64`; placement remains fail-closed unless a workload requirement
+explicitly lists `armv7l` as supported. The public-safe `munin-zero` placement fixture shows how
+Grimnir consumes a node-only Brokkr observation without copying a hostname, address, credential,
+or operator path.

@@ -21,6 +21,18 @@ node scripts/validate-placement.js \
   --now 2026-07-23T10:15:00Z
 ```
 
+For a node-only Brokkr observation, use the explicit `--node-only` mode. It validates the
+same sealed v1 observation and registry membership, but does not report missing evidence for
+unrelated workloads that were not part of that capture:
+
+```sh
+node scripts/validate-placement.js \
+  --registry services.json \
+  --observation tests/fixtures/placement-validation/munin-zero.json \
+  --now 2026-08-12T15:15:00Z \
+  --node-only
+```
+
 The input shape is documented by
 [`placement-validation-v1.schema.json`](placement-validation-v1.schema.json). Its
 top-level and each node capability evidence must name `brokkr`, bind their exact
@@ -54,3 +66,8 @@ The fixtures are synthetic and hermetic. They cover current desired placement on
 claim those fixtures are live state nor authorize that relocation. Brokkr remains
 the only producer of observed node and workload facts; component owners remain the
 authority for workload requirements.
+
+The `munin-zero.json` fixture is a node-only, public-safe observation. It demonstrates that a
+legacy `armv7l` node can be consumed and checked against the registry without inventing a
+workload placement or carrying private LAN locators. Heimdall's separate monitoring-agent
+contract may retain only bounded freshness evidence; it is not topology or workload authority.

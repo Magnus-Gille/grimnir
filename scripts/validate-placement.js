@@ -16,13 +16,14 @@ function option(name) {
   return index === -1 ? undefined : args[index + 1];
 }
 function usage() {
-  console.error('Usage: node scripts/validate-placement.js --registry services.json --observation brokkr-observation.json --now YYYY-MM-DDTHH:MM:SSZ');
+  console.error('Usage: node scripts/validate-placement.js --registry services.json --observation brokkr-observation.json --now YYYY-MM-DDTHH:MM:SSZ [--node-only]');
   process.exit(2);
 }
 var registryPath = option('--registry');
 var observationPath = option('--observation');
 var nowText = option('--now');
-if (!registryPath || !observationPath || !nowText || args.length !== 6) usage();
+var nodeOnly = args.indexOf('--node-only') !== -1;
+if (!registryPath || !observationPath || !nowText || (args.length !== 6 && !(nodeOnly && args.length === 7))) usage();
 
 function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
@@ -100,7 +101,7 @@ function validateNode(record, now, errors) {
   validateEvidence(record.evidence, record.observed_at, 'node-capability.evidence', errors);
   validateEvidenceDigest(record, 'node-capability', errors);
   if (['known', 'unknown', 'not_applicable'].indexOf(record.capability_status) === -1) errors.push('node-capability capability_status is invalid: ' + record.node_id);
-  if (['arm64', 'x86_64', 'unknown', 'not_applicable'].indexOf(record.architecture) === -1) errors.push('node-capability architecture is invalid: ' + record.node_id);
+  if (['arm64', 'armv7l', 'x86_64', 'unknown', 'not_applicable'].indexOf(record.architecture) === -1) errors.push('node-capability architecture is invalid: ' + record.node_id);
   if (!exact(record.resources, ['cpu_cores', 'memory_mib'], 'node-capability.resources', errors) || !Number.isInteger(record.resources.cpu_cores) || record.resources.cpu_cores < 1 || !Number.isInteger(record.resources.memory_mib) || record.resources.memory_mib < 1) errors.push('node-capability.resources must contain positive numeric observed resources');
   if (['always_on', 'best_effort', 'unknown', 'not_applicable'].indexOf(record.uptime_class) === -1 || ['systemd', 'launchd', 'unknown', 'not_applicable'].indexOf(record.service_manager) === -1 || ['supported', 'unsupported', 'unknown', 'not_applicable'].indexOf(record.health_reporting) === -1) errors.push('node-capability contains an unsupported v1 capability enum');
   var networkValues = ['wired', 'wifi', 'tailnet', 'unknown', 'not_applicable'];
@@ -339,6 +340,19 @@ observation.node_capabilities.forEach(function (node) {
     add('stale-evidence', { node_id: node.node_id, evidence_id: node.evidence.evidence_id });
   }
 });
+if (nodeOnly) {
+  process.stdout.write(JSON.stringify({
+    schema_version: 'v1',
+    scope: 'node-only',
+    evaluated_at: nowText,
+    compliant: drift.length === 0,
+    nodes: observation.node_capabilities.map(function (node) {
+      return { node_id: node.node_id, evidence_id: node.evidence.evidence_id, capability_status: node.capability_status, architecture: node.architecture };
+    }),
+    drift: drift,
+  }) + '\n');
+  process.exit(0);
+}
 var desiredWorkloads = {};
 registry.components.forEach(function (component, index) {
   if (!plain(component)) { add('missing-evidence', { detail: 'invalid desired component at index ' + index }); return; }

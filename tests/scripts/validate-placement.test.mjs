@@ -13,8 +13,8 @@ const fixtures = path.join(root, "tests", "fixtures", "placement-validation");
 const require = createRequire(import.meta.url);
 const schemaSubset = require(path.join(root, "scripts", "lib", "json-schema-subset.js"));
 const now = "2026-07-23T10:15:00Z";
-const run = (registry, observation) => JSON.parse(execFileSync(process.execPath, [validator,
-  "--registry", registry, "--observation", observation, "--now", now], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+const run = (registry, observation, evaluationNow = now, nodeOnly = false) => JSON.parse(execFileSync(process.execPath, [validator,
+  "--registry", registry, "--observation", observation, "--now", evaluationNow, ...(nodeOnly ? ["--node-only"] : [])], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
 const canonical = (value) => {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value !== null && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
@@ -36,6 +36,7 @@ const writeFixture = (directory, name, value) => {
   fs.writeFileSync(target, JSON.stringify(value));
   return target;
 };
+const publicLocatorPattern = /(?:\b(?:10|127|192\.168)\.|\b172\.(?:1[6-9]|2\d|3[01])\.)|\/Users\/|\.ssh\/|(?:password|token)=/i;
 
 const current = run(path.join(root, "services.json"), path.join(fixtures, "current.json"));
 assert.equal(current.compliant, true, "captured current huginmunin/nas/m5 fixture is compliant");
@@ -75,6 +76,12 @@ assert.deepEqual(schemaSubset.createValidator({
 
 const proposed = run(path.join(fixtures, "hugin-to-m5-services.json"), path.join(fixtures, "hugin-to-m5.json"));
 assert.equal(proposed.compliant, true, "proposed Hugin-to-M5 placement can be evaluated without live access");
+
+const piZero = run(path.join(root, "services.json"), path.join(fixtures, "munin-zero.json"), "2026-08-12T15:15:00Z", true);
+assert.equal(piZero.compliant, true, "public-safe munin-zero node observation is consumable without workload placement");
+assert.equal(Object.hasOwn(piZero, "states"), false, "node-only observation does not invent a workload state");
+assert.deepEqual(piZero.nodes, [{ node_id: "node-munin-zero", evidence_id: "obs-munin-zero-capability-20260812", capability_status: "known", architecture: "armv7l" }]);
+assert.equal(publicLocatorPattern.test(JSON.stringify(fixture("munin-zero.json"))), false, "munin-zero evidence fixture contains no private locator");
 
 const drifted = run(path.join(root, "services.json"), path.join(fixtures, "drift.json"));
 assert.equal(drifted.compliant, false, "drift fixture fails closed");
