@@ -410,6 +410,13 @@ data.components.forEach(function (c, i) {
             ', got "' + u.timer_semantics + '"');
         }
       }
+      if (u.service_name !== undefined) {
+        if (u.type !== 'timer') {
+          fail(uLabel + ': "service_name" is only valid for timer units');
+        } else if (typeof u.service_name !== 'string' || !VALID_UNIT_NAME.test(u.service_name)) {
+          fail(uLabel + ': "service_name" must be a valid systemd service base name');
+        }
+      }
     });
   }
 });

@@ -270,18 +270,41 @@ unit_rows() {
           u.name,
           u.type || "service",
           u.scope || "system",
-          u.type === "timer" ? (u.timer_semantics || "recurring") : ""
+          u.type === "timer" ? (u.timer_semantics || "recurring") : "",
+          u.type === "timer" ? (u.service_name || u.name) : "",
+          u.type === "timer" && u.service_name ? "true" : "false"
         ].join("|") + "\n");
       });
     '
 }
 
+timer_targets_declared_service() {
+  local timer_file=$1 expected_service=$2
+  awk -v expected="${expected_service}.service" '
+    /^[[:space:]]*\[[^]]+\][[:space:]]*$/ {
+      section = $0
+      gsub(/^[[:space:]]*\[|\][[:space:]]*$/, "", section)
+      in_timer = (section == "Timer")
+      next
+    }
+    in_timer && /^[[:space:]]*Unit[[:space:]]*=/ {
+      value = $0
+      sub(/^[[:space:]]*Unit[[:space:]]*=[[:space:]]*/, "", value)
+      sub(/[[:space:]]*$/, "", value)
+      count++
+      if (value != expected) valid = 0
+      else if (valid == 0 && count == 1) valid = 1
+    }
+    END { exit !(count == 1 && valid == 1) }
+  ' "$timer_file"
+}
+
 preflight_local_unit_sources() {
   local local_path=$1 units_json=$2 fallback_name=$3 fallback_type=$4 fallback_scope=$5 render_enabled=${6:-false} deploy_path=${7:-}
-  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file source
+  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required unit_file companion_file source
 
   rows="$(unit_rows "$units_json" "$fallback_name" "$fallback_type" "$fallback_scope")"
-  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics; do
+  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required; do
     [[ -n "$unit_name" ]] || continue
     unit_file="${unit_name}.${unit_kind}"
     if ! preflight_local_install_ready_unit_source "$local_path" "$unit_file" true "$render_enabled"; then
@@ -298,8 +321,15 @@ preflight_local_unit_sources() {
       fi
     fi
     if [[ "$unit_kind" == "timer" ]]; then
-      companion_file="${unit_name}.service"
-      if ! preflight_local_install_ready_unit_source "$local_path" "$companion_file" false "$render_enabled"; then
+      if [[ "$unit_companion_required" == "true" ]]; then
+        source=$(resolve_local_unit_source "$local_path" "$unit_file")
+        if ! timer_targets_declared_service "$source" "$unit_service_name"; then
+          echo "ERROR: timer $unit_file must declare Unit=${unit_service_name}.service" >&2
+          return 1
+        fi
+      fi
+      companion_file="${unit_service_name:-$unit_name}.service"
+      if ! preflight_local_install_ready_unit_source "$local_path" "$companion_file" "$unit_companion_required" "$render_enabled"; then
         return 1
       fi
       if [[ "$render_enabled" != "true" ]] && source=$(resolve_local_unit_source "$local_path" "$companion_file"); then
@@ -494,6 +524,13 @@ deploy_service() {
       fail=$((fail + 1))
       return
     fi
+    # The build may generate or rewrite unit files. Revalidate the exact
+    # artifacts that will be shipped before the first remote mutation.
+    if ! preflight_local_unit_sources "$local_path" "$units_json" "$name" "$unit_type" "$unit_scope" "$render_enabled" "$deploy_path"; then
+      results+=("${RED}✗${NC} ${name}")
+      fail=$((fail + 1))
+      return
+    fi
   fi
 
   if ! invalidate_remote_deploy_marker "$remote" "$deploy_path"; then
@@ -599,7 +636,7 @@ deploy_service() {
   fi
 
   local cmd="cd ${q_deploy_path} && "
-  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_file companion_file
+  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required unit_file companion_file
   local timer_entry timer_name timer_semantics timer_next_check
   local q_unit_src q_unit_root q_user_dest q_system_dest q_unit_label unit_guard companion_guard
   local unit_target_guard companion_target_guard
@@ -607,7 +644,7 @@ deploy_service() {
   local user_services=() system_services=() user_timers=() system_timers=()
 
   rows="$(unit_rows "$units_json" "$name" "$unit_type" "$unit_scope")"
-  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics; do
+  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required; do
     [[ -n "$unit_name" ]] || continue
     unit_file="${unit_name}.${unit_kind}"
     q_unit_src=$(posix_shell_quote "systemd/${unit_file}")
@@ -632,12 +669,15 @@ deploy_service() {
         user_services+=("$unit_name")
       elif [[ "$unit_kind" == "timer" ]]; then
         if [[ "$render_enabled" != "true" ]]; then
-          companion_file="${unit_name}.service"
+          companion_file="${unit_service_name:-$unit_name}.service"
           q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
           q_unit_root=$(posix_shell_quote "$companion_file")
           q_user_dest=$(posix_shell_quote ".config/systemd/user/${companion_file}")
           companion_target_guard=$(build_unit_target_guard "$local_path" "$companion_file" false)
           cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
+          if [[ "$unit_companion_required" == "true" ]]; then
+            cmd+="[ -n \"\$companion_src\" ] || { printf 'ERROR: declared timer companion missing: %s\\n' $(posix_shell_quote "$companion_file") >&2; exit 1; }; "
+          fi
           companion_guard=$(prepare_remote_install_ready_unit_check_command companion_src "$companion_file")
           cmd+="if [ -n \"\$companion_src\" ]; then dest=\"\$HOME\"/${q_user_dest} && ${companion_guard} && ${companion_target_guard}install -D -m644 \"\$companion_src\" \"\$dest\"; fi && "
         fi
@@ -659,12 +699,15 @@ deploy_service() {
         system_services+=("$unit_name")
       elif [[ "$unit_kind" == "timer" ]]; then
         if [[ "$render_enabled" != "true" ]]; then
-          companion_file="${unit_name}.service"
+          companion_file="${unit_service_name:-$unit_name}.service"
           q_unit_src=$(posix_shell_quote "systemd/${companion_file}")
           q_unit_root=$(posix_shell_quote "$companion_file")
           q_system_dest=$(posix_shell_quote "/etc/systemd/system/${companion_file}")
           companion_target_guard=$(build_unit_target_guard "$local_path" "$companion_file" true)
           cmd+="companion_src=''; for f in ${q_unit_src} ${q_unit_root}; do [ -f \"\$f\" ] && companion_src=\"\$f\" && break; done; "
+          if [[ "$unit_companion_required" == "true" ]]; then
+            cmd+="[ -n \"\$companion_src\" ] || { printf 'ERROR: declared timer companion missing: %s\\n' $(posix_shell_quote "$companion_file") >&2; exit 1; }; "
+          fi
           companion_guard=$(prepare_remote_install_ready_unit_check_command companion_src "$companion_file")
           cmd+="if [ -n \"\$companion_src\" ]; then dest=${q_system_dest} && ${companion_guard} && ${companion_target_guard}sudo install -D -m644 \"\$companion_src\" \"\$dest\"; fi && "
         fi

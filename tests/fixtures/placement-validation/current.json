@@ -4,7 +4,7 @@
   "observation_id": "placement-current-001",
   "observed_at": "2026-07-23T10:00:00Z",
   "valid_until": "2026-07-23T11:00:00Z",
-  "evidence": { "evidence_id": "evidence-current-001", "producer": "brokkr", "observed_at": "2026-07-23T10:00:00Z", "digest": "sha256:a2ff9b59c2c837f38b7a7baa5142de24ae3a167510da05ea6c6adff671894114" },
+  "evidence": { "evidence_id": "evidence-current-001", "producer": "brokkr", "observed_at": "2026-07-23T10:00:00Z", "digest": "sha256:c33d35fb079d4bd2c18d41ea467d463b21ccc153660d5092a927a0114bb82267" },
   "node_capabilities": [
     { "kind": "node-capability", "schema_version": "v1", "node_id": "node-huginmunin", "observed_at": "2026-07-23T10:00:00Z", "valid_until": "2026-07-23T11:00:00Z", "evidence": { "evidence_id": "evidence-huginmunin-001", "producer": "brokkr", "observed_at": "2026-07-23T10:00:00Z", "digest": "sha256:a012cde7bf86cb7d616aa9854957e25a42c7ba5dc2606cd10d1eb4b561525819" }, "capability_status": "known", "architecture": "arm64", "resources": { "cpu_cores": 4, "memory_mib": 8192 }, "uptime_class": "always_on", "network_capabilities": ["wired", "tailnet"], "logical_storage": [{ "class": "local_ssd", "available_mib": 100000, "status": "known" }], "service_manager": "systemd", "deployment_mechanisms": ["guarded_deploy", "systemd"], "health_reporting": "supported", "extensions": [] },
     { "kind": "node-capability", "schema_version": "v1", "node_id": "node-nas", "observed_at": "2026-07-23T10:00:00Z", "valid_until": "2026-07-23T11:00:00Z", "evidence": { "evidence_id": "evidence-nas-001", "producer": "brokkr", "observed_at": "2026-07-23T10:00:00Z", "digest": "sha256:384f98e8992a08f180a52799ee7cca5cea5b46c41c206aa6a9b84a15c50ac8fe" }, "capability_status": "known", "architecture": "x86_64", "resources": { "cpu_cores": 4, "memory_mib": 16384 }, "uptime_class": "always_on", "network_capabilities": ["wired", "tailnet"], "logical_storage": [{ "class": "network_share", "available_mib": 100000, "status": "known" }], "service_manager": "systemd", "deployment_mechanisms": ["guarded_deploy", "systemd"], "health_reporting": "supported", "extensions": [] },
@@ -17,7 +17,7 @@
     { "workload_id": "workload-ratatoskr", "node_id": "node-huginmunin", "deployed": "deployed", "running": "running", "healthy": "healthy", "units": ["ratatoskr"] },
     { "workload_id": "workload-skuld", "node_id": "node-huginmunin", "deployed": "deployed", "running": "running", "healthy": "not_applicable", "units": ["skuld"] },
     { "workload_id": "workload-mimir", "node_id": "node-nas", "deployed": "deployed", "running": "running", "healthy": "healthy", "units": ["mimir"] },
-    { "workload_id": "workload-grimnir", "node_id": "node-huginmunin", "deployed": "deployed", "running": "running", "healthy": "not_applicable", "units": ["grimnir-security-scan", "grimnir-validate"] },
+    { "workload_id": "workload-grimnir", "node_id": "node-huginmunin", "deployed": "deployed", "running": "running", "healthy": "not_applicable", "units": ["grimnir-security-scan", "grimnir-validate", "grimnir-validate-timer"] },
     { "workload_id": "workload-verdandi", "node_id": "node-huginmunin", "deployed": "deployed", "running": "stopped", "healthy": "not_applicable", "units": ["verdandi"] },
     { "workload_id": "workload-brokkr", "node_id": "node-huginmunin", "deployed": "not_applicable", "running": "running", "healthy": "not_applicable", "units": ["brokkr-maintenance-os", "brokkr-maintenance-deps"] }
   ],

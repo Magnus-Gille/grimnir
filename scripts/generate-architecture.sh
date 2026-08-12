@@ -142,10 +142,31 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   # shellcheck source=scripts/lib/validate-exit.sh
   # shellcheck disable=SC1091
   source "$SCRIPT_DIR/lib/validate-exit.sh"
+  # shellcheck source=scripts/lib/validation-evidence.sh
+  # shellcheck disable=SC1091
+  source "$SCRIPT_DIR/lib/validation-evidence.sh"
 
   # Set to a non-empty reason string the moment the audit itself (not a
   # finding) cannot do its job — see scripts/lib/validate-exit.sh.
   AUDIT_ERROR=""
+
+  # The timer invokes a dedicated service which sets this value. Direct service
+  # starts are explicitly manual. Do not infer origin from timestamps or static
+  # systemd unit relationships: both produce plausible but false evidence.
+  if ! VALIDATION_ORIGIN="$(validation_trigger_origin "${GRIMNIR_VALIDATION_ORIGIN:-manual}")"; then
+    AUDIT_ERROR="unknown validation trigger origin"
+    VALIDATION_ORIGIN="manual"
+  fi
+  VALIDATION_OBSERVED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  VALIDATION_SCHEDULED_AT=""
+  if [[ "$VALIDATION_ORIGIN" == "timer" ]]; then
+    if ! VALIDATION_SCHEDULED_AT="$(validation_timer_scheduled_at_utc)"; then
+      AUDIT_ERROR="${AUDIT_ERROR:-cannot read scheduled timer timestamp}"
+    fi
+  fi
+  EVIDENCE_REGISTRY_CHECKOUT="${GRIMNIR_REGISTRY_CHECKOUT:-$HOME/repos/grimnir}"
+  IFS='|' read -r EVIDENCE_LOCAL_SHA EVIDENCE_REMOTE_SHA EVIDENCE_CLASSIFICATION \
+    <<< "$(validation_registry_freshness_evidence "$EVIDENCE_REGISTRY_CHECKOUT" main)"
 
   # Find Munin token (same logic as main mode)
   if [[ -z "$MUNIN_TOKEN" ]]; then
@@ -373,7 +394,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   # branch, or a deploy leaves the tree dirty, consumers silently read a
   # poisoned registry — the class of the #33 and #44 incidents. Make that
   # alert-worthy. Read-only; overridable via env for a relocated checkout.
-  REGISTRY_CHECKOUT="${GRIMNIR_REGISTRY_CHECKOUT:-$HOME/repos/grimnir}"
+  REGISTRY_CHECKOUT="$EVIDENCE_REGISTRY_CHECKOUT"
   REGISTRY_DEFAULT_BRANCH="${GRIMNIR_DEFAULT_BRANCH:-main}"
   checkout_verdict="$(check_registry_checkout "$REGISTRY_CHECKOUT" "$REGISTRY_DEFAULT_BRANCH")"
   checkout_detail="$(registry_checkout_detail "$checkout_verdict" "$REGISTRY_DEFAULT_BRANCH")"
@@ -489,6 +510,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   # findings above actually reach the owner depends on this succeeding, not
   # on the FAIL count — see scripts/lib/validate-exit.sh.
   VALIDATION_PERSISTED=false
+  LATEST_RESULT_PERSISTED=false
   if [[ -n "$MUNIN_TOKEN" ]]; then
     # Munin helpers (inline — validation mode is self-contained)
     _munin_call() {
@@ -518,7 +540,7 @@ $(echo -e "$RESULTS")"
       }))
     ')"
     if _munin_call "$write_payload" > /dev/null 2>&1; then
-      VALIDATION_PERSISTED=true
+      LATEST_RESULT_PERSISTED=true
     else
       echo "⚠ Failed to write validation results to Munin"
     fi
@@ -531,7 +553,14 @@ $(echo -e "$RESULTS")"
     # memory_write's "validation/registry" call above was never affected because
     # it has no trailing slash — only this memory_log call broke, silently
     # amputating the one channel meant to carry findings to the owner.
-    log_payload="$(CONTENT_VAL="Registry validation: $PASS ok, $FAIL issues, $WARN warnings at $TIMESTAMP (severity=$SEVERITY)" node --input-type=commonjs -e '
+    latest_write_outcome="failed"
+    if [[ "$LATEST_RESULT_PERSISTED" == "true" ]]; then
+      latest_write_outcome="succeeded"
+    fi
+    if ! validation_evidence="$(validation_evidence_json "$VALIDATION_SCHEDULED_AT" "$VALIDATION_OBSERVED_AT" "$VALIDATION_ORIGIN" "$EVIDENCE_LOCAL_SHA" "$EVIDENCE_REMOTE_SHA" "$EVIDENCE_CLASSIFICATION" "$AUDIT_ERROR" "$latest_write_outcome" "$PASS" "$FAIL" "$WARN" "$SEVERITY")"; then
+      echo "⚠ Failed to construct immutable validation evidence"
+    else
+      log_payload="$(CONTENT_VAL="$validation_evidence" node --input-type=commonjs -e '
       console.log(JSON.stringify({
         jsonrpc: "2.0", id: 1, method: "tools/call",
         params: {
@@ -539,18 +568,20 @@ $(echo -e "$RESULTS")"
           arguments: {
             namespace: "validation",
             content: process.env.CONTENT_VAL,
-            tags: ["validation", "registry", "automated"]
+            tags: ["validation", "registry", "immutable", "validation-run-evidence-v1"]
           }
         }
       }))
     ')"
-    if ! _munin_call "$log_payload" > /dev/null 2>&1; then
-      echo "⚠ Failed to append validation event to Munin"
-      VALIDATION_PERSISTED=false
+      if ! _munin_call "$log_payload" > /dev/null 2>&1; then
+        echo "⚠ Failed to append immutable validation evidence to Munin"
+      elif [[ "$LATEST_RESULT_PERSISTED" == "true" ]]; then
+        VALIDATION_PERSISTED=true
+      fi
     fi
 
     if [[ "$VALIDATION_PERSISTED" == "true" ]]; then
-      echo "📡 Results written to Munin (validation/registry/latest, findings=$FAIL severity=$SEVERITY)"
+      echo "📡 Results and immutable evidence written to Munin (validation/registry/latest, findings=$FAIL severity=$SEVERITY)"
     fi
   else
     echo "⚠ No Munin token — results printed to stdout only"

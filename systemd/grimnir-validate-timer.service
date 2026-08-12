@@ -1,26 +1,19 @@
 [Unit]
-Description=Grimnir registry validation — compare services.json against live state
+Description=Grimnir scheduled registry validation — immutable evidence enabled
 After=network-online.target munin-memory.service
 Wants=network-online.target
+RefuseManualStart=yes
 
 [Service]
 Type=oneshot
 User=magnus
 WorkingDirectory=/home/magnus/repos/grimnir
+Environment=GRIMNIR_VALIDATION_ORIGIN=timer
 ExecStart=/usr/bin/bash scripts/generate-architecture.sh --validate
-Environment=GRIMNIR_VALIDATION_ORIGIN=manual
 
-# Timeout — cross-host SSH checks can be slow
 TimeoutStartSec=120
-
-# Sandboxing — read-only, needs network for SSH and Munin HTTP
 ProtectSystem=strict
 ReadOnlyPaths=/home/magnus/repos
-# Exception (#33): let the validate run self-heal ONLY the deploy marker so
-# Heimdall's drift detector doesn't false-flag grimnir after a session pulls the
-# tree forward outside a deploy. The '-' prefix makes it optional, so a checkout
-# without a marker yet still starts cleanly. Overrides ReadOnlyPaths/ProtectHome
-# for this single file only.
 ReadWritePaths=-/home/magnus/repos/grimnir/.deployed-commit
 NoNewPrivileges=yes
 PrivateTmp=yes
@@ -36,6 +29,3 @@ ProtectClock=yes
 ProtectKernelLogs=yes
 ProtectKernelModules=yes
 SystemCallArchitectures=native
-
-[Install]
-WantedBy=default.target
