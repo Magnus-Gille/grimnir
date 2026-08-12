@@ -583,8 +583,9 @@ assert_clean_failure "null entry in nodes" "$TMP_DIR/null-node.json"
 
 # ── registry.js structured deploy-query invariant (#43 / #33) ──────────────
 # The JSON Lines `deploy` projection derives each component's primary unit_type/scope from
-# systemd_units[0]. Pin Hugin's surviving user-scoped service after retirement
-# of the legacy system timer, plus the ordering contract on a synthetic fixture.
+# systemd_units[0]. Hugin's primary unit must stay a user-scoped rsync service
+# while its two user-scoped timers remain declared in the owning contract. Pin
+# the real services.json plus the ordering contract on a synthetic fixture.
 REGISTRY_JS="$SCRIPT_DIR/../lib/registry.js"
 repository_authority_rows="$(
   REGISTRY_PATH="$REPO_REGISTRY" QUERY=repository-authority \
@@ -618,9 +619,12 @@ assert_eq "real services.json: hugin primary unit remains service" "service" \
   "$(deploy_field "$REPO_REGISTRY" hugin unit_type)"
 assert_eq "real services.json: hugin deploy scope remains user" "user" \
   "$(deploy_field "$REPO_REGISTRY" hugin unit_scope)"
-assert_eq "real services.json: hugin declares only its user service after legacy timer retirement" \
-  '[{"name":"hugin","type":"service","scope":"user"}]' \
-  "$(deploy_field "$REPO_REGISTRY" hugin systemd_units)"
+hugin_units="$(deploy_field "$REPO_REGISTRY" hugin systemd_units)"
+assert_eq "real services.json: hugin declares the live service and timer contract" \
+  '[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-exam-factory","type":"timer","scope":"user"},{"name":"hugin-experiment-cadence","type":"timer","scope":"user"}]' \
+  "$hugin_units"
+assert_eq "real services.json: retired hugin daily-analysis timer is absent" \
+  "false" "$(printf '%s\n' "$hugin_units" | grep -Fq 'hugin-daily-analysis' && echo true || echo false)"
 
 assert_eq "real services.json: Heimdall deploy refreshes boot-check timer companion" \
   '[{"name":"heimdall","type":"service"},{"name":"heimdall-collect","type":"timer"},{"name":"heimdall-maintain","type":"timer"},{"name":"heimdall-boot-check","type":"timer"}]' \

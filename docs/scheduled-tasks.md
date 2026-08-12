@@ -70,13 +70,35 @@ removed, and systemd was reloaded. Post-change evidence was:
 - timer file: absent (`/etc/systemd/system/hugin-daily-analysis.timer`)
 - service file: absent (`/etc/systemd/system/hugin-daily-analysis.service`)
 
-Grimnir now omits the timer from `services.json`; the matching placement fixtures describe only the
-surviving Hugin service. This retirement closes the owner action filed as
+Grimnir omits this retired timer from `services.json`. The matching placement fixtures retain the
+surviving Hugin service and its current user timers below. This retirement closes the owner action filed as
 [hugin#324](https://github.com/Magnus-Gille/hugin/issues/324). The workload was not a telemetry
 aggregation or self-improvement mechanism: structured operational health belongs to Heimdall, while
 governed task and inference evidence follows
 [`observability-and-improvement.md`](observability-and-improvement.md) and the
 LearningTaskContract.
+
+### Hugin Daily-use Exam Factory
+
+| Field | Value |
+|-------|-------|
+| **Schedule** | Daily 05:30 (system local time, +5 min jitter) |
+| **Unit** | `hugin-daily-exam-factory.timer` / `hugin-daily-exam-factory.service` |
+| **Repo** | `hugin` |
+| **Purpose** | Build a reproducible, content-blind candidate manifest from recent Hugin task outcomes and M5 exposure evidence |
+| **Output** | Private manifest: `~/.hugin/daily-exam-candidates/latest.json` |
+| **Why it exists** | Daily candidate discovery and reproducibility evidence for governed improvement work |
+
+### Hugin Experiment Cadence
+
+| Field | Value |
+|-------|-------|
+| **Schedule** | Daily 05:00 (system local time, +5 min jitter) |
+| **Unit** | `hugin-experiment-cadence.timer` / `hugin-experiment-cadence.service` |
+| **Repo** | `hugin` |
+| **Purpose** | Run one continuous-improvement experiment tick: propose, package, observe, and conclude |
+| **Output** | Hugin/Munin experiment and quality-evidence records |
+| **Why it exists** | Advance governed improvement candidates through the Hugin lifecycle with durable evidence |
 
 ### Security Scan
 
