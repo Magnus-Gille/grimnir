@@ -19,8 +19,8 @@ the annotation, not only the filename.
   units). All scripts read from it via `scripts/lib/registry.js`
 - `docs/network-operating-model.md` — How the network is operated
 - `docs/node-substrate-contract.md` and `docs/adr-007-node-substrate-contract.md` — The node↔substrate
-  contract and the ADR behind it; machine-readable schema in
-  `docs/node-substrate-contract-v1.schema.json`
+  contract and the ADR behind it; machine-readable schemas in
+  `docs/node-substrate-contract-v1.schema.json` and `docs/node-substrate-contract-v2.schema.json`
 - `docs/physical-agent-control-contract.md` — Proposed local Stream Deck + Teenage Engineering
   EP–2350 ting console boundary for Codex, Claude Code, and the Pi coding agent: Stream Deck is the
   sole control-event surface, ting is optional PTT-gated analog voice input, consequential work

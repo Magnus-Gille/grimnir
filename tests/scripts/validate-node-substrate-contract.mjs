@@ -7,6 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const fixtures = path.join(root, "tests/fixtures/node-substrate-contract");
 const read = (name) => JSON.parse(fs.readFileSync(path.join(fixtures, name), "utf8"));
 const schema = JSON.parse(fs.readFileSync(path.join(root, "docs/node-substrate-contract-v1.schema.json"), "utf8"));
+const schemaV2 = JSON.parse(fs.readFileSync(path.join(root, "docs/node-substrate-contract-v2.schema.json"), "utf8"));
 const positive = read("positive.json");
 const partialDrain = read("partial-drain.json");
 const partialSubstrate = read("partial-substrate.json");
@@ -27,30 +28,30 @@ const dateTime = (value) => {
   const [, year, month, day, hour, minute, second] = match;
   return instant.getUTCFullYear() === Number(year) && instant.getUTCMonth() + 1 === Number(month) && instant.getUTCDate() === Number(day) && instant.getUTCHours() === Number(hour) && instant.getUTCMinutes() === Number(minute) && instant.getUTCSeconds() === Number(second);
 };
-const resolve = (ref) => {
+const resolve = (ref, rootSchema = schema) => {
   if (!ref.startsWith("#/")) fail(`unsupported external schema ref ${ref}`);
-  return ref.slice(2).split("/").reduce((value, raw) => value?.[raw.replaceAll("~1", "/").replaceAll("~0", "~")], schema);
+  return ref.slice(2).split("/").reduce((value, raw) => value?.[raw.replaceAll("~1", "/").replaceAll("~0", "~")], rootSchema);
 };
 const keywordSet = new Set(["$schema", "$id", "$defs", "$ref", "title", "description", "oneOf", "const", "enum", "type", "minLength", "pattern", "format", "minimum", "minItems", "uniqueItems", "items", "required", "properties", "additionalProperties"]);
-function checkSchema(node, at = "$") {
+function checkSchema(node, at = "$", rootSchema = schema) {
   if (typeof node === "boolean") return;
   assert.ok(plain(node), `schema node must be an object at ${at}`);
   for (const key of Object.keys(node)) assert.ok(keywordSet.has(key), `unsupported JSON Schema keyword ${key} at ${at}`);
-  if (node.$ref) { assert.ok(resolve(node.$ref), `unresolved ref ${node.$ref}`); assert.deepEqual(Object.keys(node).filter((key) => key !== "$ref" && !["title", "description"].includes(key)), [], `$ref siblings unsupported at ${at}`); }
+  if (node.$ref) { assert.ok(resolve(node.$ref, rootSchema), `unresolved ref ${node.$ref}`); assert.deepEqual(Object.keys(node).filter((key) => key !== "$ref" && !["title", "description"].includes(key)), [], `$ref siblings unsupported at ${at}`); }
   if (node.type) assert.ok(["object", "array", "string", "integer", "boolean", "null"].includes(node.type), `unsupported type at ${at}`);
   if (node.format) assert.equal(node.format, "date-time", `unsupported format at ${at}`);
   if (node.additionalProperties !== undefined) assert.equal(typeof node.additionalProperties, "boolean", `additionalProperties must be boolean at ${at}`);
-  for (const [key, child] of Object.entries(node.properties ?? {})) checkSchema(child, `${at}.properties.${key}`);
-  for (const [key, child] of Object.entries(node.$defs ?? {})) checkSchema(child, `${at}.$defs.${key}`);
-  if (node.items) checkSchema(node.items, `${at}.items`);
-  for (const [index, child] of (node.oneOf ?? []).entries()) checkSchema(child, `${at}.oneOf[${index}]`);
+  for (const [key, child] of Object.entries(node.properties ?? {})) checkSchema(child, `${at}.properties.${key}`, rootSchema);
+  for (const [key, child] of Object.entries(node.$defs ?? {})) checkSchema(child, `${at}.$defs.${key}`, rootSchema);
+  if (node.items) checkSchema(node.items, `${at}.items`, rootSchema);
+  for (const [index, child] of (node.oneOf ?? []).entries()) checkSchema(child, `${at}.oneOf[${index}]`, rootSchema);
 }
-function schemaErrors(node, value, at = "$") {
+function schemaErrors(node, value, at = "$", rootSchema = schema) {
   if (node === true) return [];
   if (node === false) return [`${at}: forbidden`];
-  if (node.$ref) return schemaErrors(resolve(node.$ref), value, at);
+  if (node.$ref) return schemaErrors(resolve(node.$ref, rootSchema), value, at, rootSchema);
   if (node.oneOf) {
-    const attempts = node.oneOf.map((child) => schemaErrors(child, value, at));
+    const attempts = node.oneOf.map((child) => schemaErrors(child, value, at, rootSchema));
     return attempts.filter((errors) => errors.length === 0).length === 1 ? [] : [`${at}: expected exactly one branch (${attempts.flat().join("; ")})`];
   }
   const errors = [];
@@ -59,10 +60,10 @@ function schemaErrors(node, value, at = "$") {
   if (node.type && !typeMatches(node.type, value)) return [...errors, `${at}: expected ${node.type}`];
   if (typeof value === "string") { if (node.minLength !== undefined && value.length < node.minLength) errors.push(`${at}: minLength`); if (node.pattern && !new RegExp(node.pattern).test(value)) errors.push(`${at}: pattern`); if (node.format === "date-time" && !utc.test(value)) errors.push(`${at}: date-time`); }
   if (typeof value === "number" && node.minimum !== undefined && value < node.minimum) errors.push(`${at}: minimum`);
-  if (Array.isArray(value)) { if (node.minItems !== undefined && value.length < node.minItems) errors.push(`${at}: minItems`); if (node.uniqueItems && new Set(value.map(canonical)).size !== value.length) errors.push(`${at}: duplicate items`); if (node.items) value.forEach((item, index) => errors.push(...schemaErrors(node.items, item, `${at}[${index}]`))); }
+  if (Array.isArray(value)) { if (node.minItems !== undefined && value.length < node.minItems) errors.push(`${at}: minItems`); if (node.uniqueItems && new Set(value.map(canonical)).size !== value.length) errors.push(`${at}: duplicate items`); if (node.items) value.forEach((item, index) => errors.push(...schemaErrors(node.items, item, `${at}[${index}]`, rootSchema))); }
   if (plain(value)) {
     for (const field of node.required ?? []) if (!Object.hasOwn(value, field)) errors.push(`${at}.${field}: required`);
-    for (const [field, child] of Object.entries(node.properties ?? {})) if (Object.hasOwn(value, field)) errors.push(...schemaErrors(child, value[field], `${at}.${field}`));
+    for (const [field, child] of Object.entries(node.properties ?? {})) if (Object.hasOwn(value, field)) errors.push(...schemaErrors(child, value[field], `${at}.${field}`, rootSchema));
     if (node.additionalProperties === false) for (const field of Object.keys(value)) if (!Object.hasOwn(node.properties ?? {}, field)) errors.push(`${at}.${field}: additional property`);
   }
   return errors;
@@ -82,7 +83,7 @@ function node(record, now) {
   exact(record, ["kind", "schema_version", "node_id", "observed_at", "valid_until", "evidence", "capability_status", "architecture", "resources", "uptime_class", "network_capabilities", "logical_storage", "service_manager", "deployment_mechanisms", "health_reporting", "extensions"], "node");
   if (!id.test(record.node_id) || !dateTime(record.observed_at) || !dateTime(record.valid_until) || Date.parse(record.valid_until) <= Date.parse(record.observed_at) || Date.parse(record.valid_until) <= now) fail("node stale/invalid identity or timestamp");
   exact(record.evidence, ["evidence_id", "producer", "observed_at", "digest"], "node.evidence"); if (!id.test(record.evidence.evidence_id) || record.evidence.producer !== "brokkr" || record.evidence.observed_at !== record.observed_at || !dateTime(record.evidence.observed_at) || !digest.test(record.evidence.digest)) fail("node evidence must be Brokkr-bound to observation");
-  exact(record.resources, ["cpu_cores", "memory_mib"], "node.resources"); if (![record.resources.cpu_cores, record.resources.memory_mib].every((value) => Number.isInteger(value) && value > 0) || record.capability_status !== "known" || !["arm64", "x86_64"].includes(record.architecture)) fail("node cannot drive placement");
+  exact(record.resources, ["cpu_cores", "memory_mib"], "node.resources"); const allowedArchitectures = record.schema_version === "v2" ? ["arm64", "armv7l", "x86_64"] : ["arm64", "x86_64"]; if (![record.resources.cpu_cores, record.resources.memory_mib].every((value) => Number.isInteger(value) && value > 0) || record.capability_status !== "known" || !allowedArchitectures.includes(record.architecture)) fail("node capability is unknown or unsupported");
   strings(record.network_capabilities, "node.network_capabilities"); for (const item of record.logical_storage) { exact(item, ["class", "available_mib", "status"], "node.logical_storage"); if (!Number.isInteger(item.available_mib) || item.available_mib < 0) fail("invalid storage"); } extensions(record.extensions, "node");
 }
 function workload(record) {
@@ -102,10 +103,11 @@ function lifecycle(record) {
   if (record.substrate.outcome === "partial" && (record.outcome !== "blocked" || record.phase !== "substrate_rollback" || record.substrate.rollback !== "verified")) fail("partial substrate must roll back");
   if (record.outcome === "promoted" && (!["planned", "none"].includes(record.drift) || record.phase !== "verify" || record.substrate.outcome !== "success" || !record.hook_results.some((hook) => hook.hook === "verify" && hook.outcome === "success"))) fail("promotion lacks verified plan"); extensions(record.extensions, "lifecycle");
 }
-function semantic(record, now = Date.parse("2026-07-23T10:15:00Z")) { rejectPrivate(record); if (record.schema_version !== "v1") fail("unsupported version"); if (record.kind === "node-capability") return node(record, now); if (record.kind === "workload-requirement") return workload(record); if (record.kind === "placement-intent") return placement(record); if (record.kind === "lifecycle-result") return lifecycle(record); fail("unknown record kind"); }
+function semantic(record, now = Date.parse("2026-07-23T10:15:00Z")) { rejectPrivate(record); if (!["v1", "v2"].includes(record.schema_version) || (record.schema_version === "v2" && !["node-capability", "workload-requirement"].includes(record.kind))) fail("unsupported version"); if (record.kind === "node-capability") return node(record, now); if (record.kind === "workload-requirement") return workload(record); if (record.kind === "placement-intent") return placement(record); if (record.kind === "lifecycle-result") return lifecycle(record); fail("unknown record kind"); }
 const reject = (fn, label) => assert.throws(fn, undefined, label);
 
 checkSchema(schema);
+checkSchema(schemaV2, "$", schemaV2);
 assert.deepEqual(consumers.consumers.sort(), ["brokkr", "hugin", "mimir"]);
 for (const record of [...positive.records, ...partialDrain.records, ...partialSubstrate.records]) { schemaValid(record, record.kind); semantic(record, Date.parse(record.created_at ?? record.observed_at)); }
 schemaInvalid(negative.schema_unsupported_version, "unsupported-version fixture");
@@ -118,5 +120,6 @@ schemaValid(negative.unknown_drift_promotion, "schema-valid unknown-drift promot
 reject(() => semantic(negative.unknown_drift_promotion), "unknown drift promotion");
 reject(() => rejectPrivate(negative.privacy_adversarial), "privacy adversarial fixture");
 const incompatibleNode = positive.records[0]; const incompatibleWorkload = structuredClone(positive.records[1]); incompatibleWorkload.supported_architectures = ["x86_64"]; schemaValid(incompatibleNode, "incompatible node"); schemaValid(incompatibleWorkload, "incompatible workload"); reject(() => { if (!incompatibleWorkload.supported_architectures.includes(incompatibleNode.architecture)) fail("incompatible placement"); }, "incompatible placement");
+const armv7lNode = structuredClone(positive.records[0]); armv7lNode.node_id = "fixture-pi-zero"; armv7lNode.schema_version = "v2"; armv7lNode.architecture = "armv7l"; armv7lNode.evidence.evidence_id = "obs-pi-zero-001"; assert.deepEqual(schemaErrors(schemaV2, armv7lNode, "$", schemaV2), [], "armv7l node violates the normative v2 schema"); semantic(armv7lNode, Date.parse("2026-07-23T10:15:00Z"));
 const stale = structuredClone(positive.records[0]); stale.observed_at = "2026-07-23T08:00:00Z"; stale.valid_until = "2026-07-23T09:00:00Z"; stale.evidence.observed_at = stale.observed_at; schemaValid(stale, "stale schema-valid node"); reject(() => semantic(stale, Date.parse("2026-07-23T10:15:00Z")), "stale evidence");
-console.log("Node/substrate v1 normative schema plus 10 hermetic fixture scenarios validated.");
+console.log("Node/substrate v1/v2 normative schemas plus hermetic fixture scenarios validated.");
