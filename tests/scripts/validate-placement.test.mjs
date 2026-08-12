@@ -115,6 +115,14 @@ try {
   seal(staleNodeOnly);
   assert.throws(() => run(path.join(root, "services.json"), writeFixture(tmp, "stale-node-only.json", staleNodeOnly), "2026-08-12T15:15:00Z", true), /--node-only observation is stale/, "node-only mode rejects stale top-level observations");
 
+  const unknownNodeOnly = fixture("munin-zero.json");
+  unknownNodeOnly.node_capabilities[0].capability_status = "unknown";
+  unknownNodeOnly.node_capabilities[0].architecture = "unknown";
+  seal(unknownNodeOnly);
+  const unknownNodeOnlyResult = run(path.join(root, "services.json"), writeFixture(tmp, "unknown-node-only.json", unknownNodeOnly), "2026-08-12T15:15:00Z", true);
+  assert.equal(unknownNodeOnlyResult.compliant, false, "node-only mode fails closed on unknown capability evidence");
+  assert.deepEqual(unknownNodeOnlyResult.drift.map((item) => item.category), ["incompatible-capability"], "unknown node-only capability has deterministic drift");
+
   const missing = path.join(tmp, "missing.json");
   fs.writeFileSync(missing, JSON.stringify({ schema_version: "v1", kind: "brokkr-placement-observation" }));
   assert.throws(() => run(path.join(root, "services.json"), missing), /validation FAILED/, "malformed or missing evidence cannot be compliant");

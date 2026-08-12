@@ -357,6 +357,10 @@ observation.node_capabilities.forEach(function (node) {
   if (instant(node.valid_until) <= now) {
     add('stale-evidence', { node_id: node.node_id, evidence_id: node.evidence.evidence_id });
   }
+  var supportedNodeArchitectures = node.schema_version === 'v2' ? ['arm64', 'armv7l', 'x86_64'] : ['arm64', 'x86_64'];
+  if (node.capability_status !== 'known' || supportedNodeArchitectures.indexOf(node.architecture) === -1) {
+    add('incompatible-capability', { node_id: node.node_id, evidence_id: node.evidence.evidence_id, compatibility: 'unknown', detail: 'node capability cannot drive a compliant observation' });
+  }
 });
 if (nodeOnly) {
   process.stdout.write(JSON.stringify({
@@ -391,7 +395,7 @@ registry.components.forEach(function (component, index) {
       component.workload_contract.producer !== component.repo ||
       !DIGEST.test(component.workload_contract.digest || '') ||
       Object.keys(component.workload_contract).length !== 4) {
-    add('missing-evidence', { workload_id: workloadId, detail: 'desired workload must exactly pin owner-published workload-requirement v1 provenance and digest' });
+    add('missing-evidence', { workload_id: workloadId, detail: 'desired workload must exactly pin owner-published workload-requirement v1 or v2 provenance and digest' });
   }
   var node = observation.node_capabilities.filter(function (candidate) { return candidate.node_id === targetNodeId; })[0];
   if (!node) { add('missing-evidence', { workload_id: workloadId, node_id: targetNodeId, detail: 'no Brokkr node capability evidence' }); return; }

@@ -91,6 +91,17 @@ assert_eq "valid registry -> exit 0" "0" "$(run_validator "$TMP_DIR/valid.json")
 REPO_REGISTRY="$SCRIPT_DIR/../../services.json"
 assert_eq "real services.json -> exit 0" "0" "$(run_validator "$REPO_REGISTRY")"
 
+# Node/Substrate v2 may be pinned for an explicitly v2 workload requirement.
+# The registry validates only the closed provenance tuple; the owning contract
+# and placement validators remain responsible for semantic compatibility.
+REPO_REGISTRY="$REPO_REGISTRY" OUTPUT="$TMP_DIR/valid-workload-v2.json" node --input-type=commonjs -e '
+  const fs = require("fs");
+  const registry = JSON.parse(fs.readFileSync(process.env.REPO_REGISTRY, "utf8"));
+  registry.components[0].workload_contract.schema_version = "v2";
+  fs.writeFileSync(process.env.OUTPUT, JSON.stringify(registry));
+'
+assert_eq "v2 workload contract provenance -> exit 0" "0" "$(run_validator "$TMP_DIR/valid-workload-v2.json")"
+
 # Managed legacy nodes remain observable without becoming workload deployment
 # targets. This is the Grimnir-side regression for issue #190.
 NODE_JSON="$(REGISTRY_PATH="$REPO_REGISTRY" QUERY=nodes-json node --input-type=commonjs "$SCRIPT_DIR/../lib/registry.js")"
