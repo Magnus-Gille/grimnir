@@ -49,8 +49,9 @@ unsupportedSchema.unevaluatedProperties = false;
 assert.throws(() => schemaSubset.createValidator({ rootName: "placement-validation-v1.schema.json", schemas: [{ name: "placement-validation-v1.schema.json", schema: unsupportedSchema }] }), /unsupported JSON Schema keyword/, "tracked schema drift outside the supported subset fails closed");
 const unresolvedSchema = JSON.parse(fs.readFileSync(path.join(root, "docs", "placement-validation-v1.schema.json"), "utf8"));
 const nodeSchema = JSON.parse(fs.readFileSync(path.join(root, "docs", "node-substrate-contract-v1.schema.json"), "utf8"));
-unresolvedSchema.properties.node_capabilities.items.$ref = "missing-node-schema.json#/$defs/node-capability";
-assert.throws(() => schemaSubset.createValidator({ rootName: "placement-validation-v1.schema.json", schemas: [{ name: "placement-validation-v1.schema.json", schema: unresolvedSchema }, { name: "node-substrate-contract-v1.schema.json", schema: nodeSchema }] }), /unresolved external schema ref/, "tracked schema reference drift fails closed before observation validation");
+const nodeSchemaV2 = JSON.parse(fs.readFileSync(path.join(root, "docs", "node-substrate-contract-v2.schema.json"), "utf8"));
+unresolvedSchema.properties.node_capabilities.items.oneOf[0].$ref = "missing-node-schema.json#/$defs/node-capability";
+assert.throws(() => schemaSubset.createValidator({ rootName: "placement-validation-v1.schema.json", schemas: [{ name: "placement-validation-v1.schema.json", schema: unresolvedSchema }, { name: "node-substrate-contract-v1.schema.json", schema: nodeSchema }, { name: "node-substrate-contract-v2.schema.json", schema: nodeSchemaV2 }] }), /unresolved external schema ref/, "tracked schema reference drift fails closed before observation validation");
 const oneOfWithSibling = schemaSubset.createValidator({
   rootName: "root.json",
   schemas: [{
@@ -80,7 +81,7 @@ assert.equal(proposed.compliant, true, "proposed Hugin-to-M5 placement can be ev
 const piZero = run(path.join(root, "services.json"), path.join(fixtures, "munin-zero.json"), "2026-08-12T15:15:00Z", true);
 assert.equal(piZero.compliant, true, "public-safe munin-zero node observation is consumable without workload placement");
 assert.equal(Object.hasOwn(piZero, "states"), false, "node-only observation does not invent a workload state");
-assert.deepEqual(piZero.nodes, [{ node_id: "node-munin-zero", evidence_id: "obs-munin-zero-capability-20260812", capability_status: "known", architecture: "armv7l" }]);
+assert.deepEqual(piZero.nodes, [{ node_id: "node-munin-zero", evidence_id: "obs-munin-zero-capability-20260812", capability_status: "known", architecture: "armv7l", schema_version: "v2" }]);
 assert.equal(publicLocatorPattern.test(JSON.stringify(fixture("munin-zero.json"))), false, "munin-zero evidence fixture contains no private locator");
 
 const drifted = run(path.join(root, "services.json"), path.join(fixtures, "drift.json"));
@@ -91,12 +92,28 @@ assert.deepEqual(drifted.drift.filter((item) => item.category === "extra-live-un
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "grimnir-placement-"));
 try {
   const armv7lPlacement = fixture("hugin-to-m5.json");
-  armv7lPlacement.node_capabilities.find((node) => node.node_id === "node-m5").architecture = "armv7l";
+  const armv7lNode = armv7lPlacement.node_capabilities.find((node) => node.node_id === "node-m5");
+  armv7lNode.architecture = "armv7l";
+  armv7lNode.schema_version = "v2";
+  armv7lPlacement.capability_assessments[0].requirement_schema_version = "v2";
   seal(armv7lPlacement);
-  const armv7lResult = run(path.join(fixtures, "hugin-to-m5-services.json"), writeFixture(tmp, "armv7l-placement.json", armv7lPlacement));
+  const armv7lRegistry = fixture("hugin-to-m5-services.json");
+  armv7lRegistry.components[0].workload_contract.schema_version = "v2";
+  const armv7lResult = run(writeFixture(tmp, "armv7l-registry.json", armv7lRegistry), writeFixture(tmp, "armv7l-placement.json", armv7lPlacement));
   assert.equal(armv7lResult.compliant, true, "explicitly compatible armv7l placement remains evaluable");
 
   assert.throws(() => run(path.join(root, "services.json"), path.join(fixtures, "current.json"), now, true), /--node-only requires an observation with no workload records/, "node-only mode rejects full observations instead of hiding workload drift");
+
+  const emptyNodeOnly = fixture("munin-zero.json");
+  emptyNodeOnly.node_capabilities = [];
+  emptyNodeOnly.evidence.digest = evidenceDigest(emptyNodeOnly);
+  assert.throws(() => run(path.join(root, "services.json"), writeFixture(tmp, "empty-node-only.json", emptyNodeOnly), "2026-08-12T15:15:00Z", true), /--node-only requires at least one node capability/, "node-only mode rejects empty observations");
+
+  const staleNodeOnly = fixture("munin-zero.json");
+  staleNodeOnly.node_capabilities[0].valid_until = "2026-08-12T15:10:00Z";
+  staleNodeOnly.valid_until = "2026-08-12T15:10:00Z";
+  seal(staleNodeOnly);
+  assert.throws(() => run(path.join(root, "services.json"), writeFixture(tmp, "stale-node-only.json", staleNodeOnly), "2026-08-12T15:15:00Z", true), /--node-only observation is stale/, "node-only mode rejects stale top-level observations");
 
   const missing = path.join(tmp, "missing.json");
   fs.writeFileSync(missing, JSON.stringify({ schema_version: "v1", kind: "brokkr-placement-observation" }));

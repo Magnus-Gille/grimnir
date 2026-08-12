@@ -93,7 +93,7 @@ function validateEvidenceDigest(record, label, errors) {
 function validateNode(record, now, errors) {
   var fields = ['kind', 'schema_version', 'node_id', 'observed_at', 'valid_until', 'evidence', 'capability_status', 'architecture', 'resources', 'uptime_class', 'network_capabilities', 'logical_storage', 'service_manager', 'deployment_mechanisms', 'health_reporting', 'extensions'];
   if (!exact(record, fields, 'node-capability', errors)) return;
-  if (record.kind !== 'node-capability' || record.schema_version !== 'v1') errors.push('node-capability must use the exact node/substrate v1 kind and version');
+  if (record.kind !== 'node-capability' || !['v1', 'v2'].includes(record.schema_version)) errors.push('node-capability must use the exact node/substrate v1 or v2 kind and version');
   if (!ID.test(record.node_id || '')) errors.push('node-capability.node_id must be a stable public-safe id');
   var observedAt = instant(record.observed_at); var validUntil = instant(record.valid_until);
   if (Number.isNaN(observedAt) || Number.isNaN(validUntil) || validUntil <= observedAt) errors.push('node-capability timestamps must be valid and increasing');
@@ -101,7 +101,8 @@ function validateNode(record, now, errors) {
   validateEvidence(record.evidence, record.observed_at, 'node-capability.evidence', errors);
   validateEvidenceDigest(record, 'node-capability', errors);
   if (['known', 'unknown', 'not_applicable'].indexOf(record.capability_status) === -1) errors.push('node-capability capability_status is invalid: ' + record.node_id);
-  if (['arm64', 'armv7l', 'x86_64', 'unknown', 'not_applicable'].indexOf(record.architecture) === -1) errors.push('node-capability architecture is invalid: ' + record.node_id);
+  var architectureValues = record.schema_version === 'v2' ? ['arm64', 'armv7l', 'x86_64', 'unknown', 'not_applicable'] : ['arm64', 'x86_64', 'unknown', 'not_applicable'];
+  if (architectureValues.indexOf(record.architecture) === -1) errors.push('node-capability architecture is invalid for ' + record.schema_version + ': ' + record.node_id);
   if (!exact(record.resources, ['cpu_cores', 'memory_mib'], 'node-capability.resources', errors) || !Number.isInteger(record.resources.cpu_cores) || record.resources.cpu_cores < 1 || !Number.isInteger(record.resources.memory_mib) || record.resources.memory_mib < 1) errors.push('node-capability.resources must contain positive numeric observed resources');
   if (['always_on', 'best_effort', 'unknown', 'not_applicable'].indexOf(record.uptime_class) === -1 || ['systemd', 'launchd', 'unknown', 'not_applicable'].indexOf(record.service_manager) === -1 || ['supported', 'unsupported', 'unknown', 'not_applicable'].indexOf(record.health_reporting) === -1) errors.push('node-capability contains an unsupported v1 capability enum');
   var networkValues = ['wired', 'wifi', 'tailnet', 'unknown', 'not_applicable'];
@@ -215,7 +216,7 @@ function validateDesiredRegistry(registry, errors) {
     if (!plain(contract) || Object.keys(contract).sort().join(',') !== 'digest,kind,producer,schema_version') {
       errors.push(label + '.workload_contract must contain the exact v1 provenance fields');
     } else {
-      if (contract.kind !== 'workload-requirement' || contract.schema_version !== 'v1') {
+      if (contract.kind !== 'workload-requirement' || !['v1', 'v2'].includes(contract.schema_version)) {
         errors.push(label + '.workload_contract must use workload-requirement v1');
       }
       if (contract.producer !== component.repo) errors.push(label + '.workload_contract.producer must equal repo');
@@ -234,17 +235,22 @@ var placementSchema; var nodeSchema; var runtimeSchema;
 try {
   placementSchema = readJson(path.join(__dirname, '..', 'docs', 'placement-validation-v1.schema.json'));
   nodeSchema = readJson(path.join(__dirname, '..', 'docs', 'node-substrate-contract-v1.schema.json'));
+  var nodeSchemaV2 = readJson(path.join(__dirname, '..', 'docs', 'node-substrate-contract-v2.schema.json'));
   if (placementSchema.$id !== 'https://grimnir.gille.ai/contracts/placement-validation/v1/schema.json') {
     throw new Error('unexpected pinned placement schema identity');
   }
   if (nodeSchema.$id !== 'https://grimnir.gille.ai/contracts/node-substrate/v1/schema.json') {
     throw new Error('unexpected pinned node/substrate schema identity');
   }
+  if (nodeSchemaV2.$id !== 'https://grimnir.gille.ai/contracts/node-substrate/v2/schema.json') {
+    throw new Error('unexpected pinned node/substrate v2 schema identity');
+  }
   runtimeSchema = schemaSubset.createValidator({
     rootName: 'placement-validation-v1.schema.json',
     schemas: [
       { name: 'placement-validation-v1.schema.json', schema: placementSchema },
-      { name: 'node-substrate-contract-v1.schema.json', schema: nodeSchema }
+      { name: 'node-substrate-contract-v1.schema.json', schema: nodeSchema },
+      { name: 'node-substrate-contract-v2.schema.json', schema: nodeSchemaV2 }
     ]
   });
 } catch (error) {
@@ -272,6 +278,12 @@ if (!errors.length) {
   }
   if (nodeOnly && Array.isArray(observation.capability_assessments) && observation.capability_assessments.length) {
     errors.push('--node-only requires an observation with no capability assessments');
+  }
+  if (nodeOnly && Array.isArray(observation.node_capabilities) && observation.node_capabilities.length === 0) {
+    errors.push('--node-only requires at least one node capability');
+  }
+  if (nodeOnly && !Number.isNaN(topValidUntil) && topValidUntil <= now) {
+    errors.push('--node-only observation is stale');
   }
 }
 if (!errors.length) {
@@ -310,9 +322,9 @@ if (!errors.length) {
     var label = 'observation.capability_assessments[' + index + ']';
     if (!exact(assessment, ['workload_id', 'node_id', 'requirement_kind', 'requirement_schema_version', 'requirement_producer', 'requirement_digest', 'compatibility'], label, errors)) return;
     if (!ID.test(assessment.workload_id || '') || !ID.test(assessment.node_id || '')) errors.push(label + ' IDs must be stable public-safe ids');
-    if (assessment.requirement_kind !== 'workload-requirement' || assessment.requirement_schema_version !== 'v1' ||
+    if (assessment.requirement_kind !== 'workload-requirement' || !['v1', 'v2'].includes(assessment.requirement_schema_version) ||
         typeof assessment.requirement_producer !== 'string' || !ID.test(assessment.requirement_producer) ||
-        !DIGEST.test(assessment.requirement_digest || '')) errors.push(label + ' must bind the exact workload-requirement v1 producer and digest');
+        !DIGEST.test(assessment.requirement_digest || '')) errors.push(label + ' must bind the exact workload-requirement v1 or v2 producer and digest');
     if (['compatible', 'incompatible', 'unknown'].indexOf(assessment.compatibility) === -1) errors.push(label + '.compatibility is invalid');
     if (!seenNodes[assessment.node_id]) errors.push(label + ' references unknown observed node: ' + assessment.node_id);
     var key = assessment.workload_id + '|' + assessment.node_id;
@@ -353,7 +365,7 @@ if (nodeOnly) {
     evaluated_at: nowText,
     compliant: drift.length === 0,
     nodes: observation.node_capabilities.map(function (node) {
-      return { node_id: node.node_id, evidence_id: node.evidence.evidence_id, capability_status: node.capability_status, architecture: node.architecture };
+      return { node_id: node.node_id, evidence_id: node.evidence.evidence_id, capability_status: node.capability_status, architecture: node.architecture, schema_version: node.schema_version };
     }),
     drift: drift,
   }) + '\n');
@@ -375,7 +387,7 @@ registry.components.forEach(function (component, index) {
   var target = desiredNodes[targetNodeId];
   if (target.hostname !== component.host) add('missing-evidence', { workload_id: workloadId, node_id: targetNodeId, detail: 'desired host and target node disagree' });
   if (!plain(component.workload_contract) || component.workload_contract.kind !== 'workload-requirement' ||
-      component.workload_contract.schema_version !== 'v1' ||
+      !['v1', 'v2'].includes(component.workload_contract.schema_version) ||
       component.workload_contract.producer !== component.repo ||
       !DIGEST.test(component.workload_contract.digest || '') ||
       Object.keys(component.workload_contract).length !== 4) {
@@ -383,7 +395,8 @@ registry.components.forEach(function (component, index) {
   }
   var node = observation.node_capabilities.filter(function (candidate) { return candidate.node_id === targetNodeId; })[0];
   if (!node) { add('missing-evidence', { workload_id: workloadId, node_id: targetNodeId, detail: 'no Brokkr node capability evidence' }); return; }
-  if (node.capability_status !== 'known' || ['arm64', 'armv7l', 'x86_64'].indexOf(node.architecture) === -1) add('incompatible-capability', { workload_id: workloadId, node_id: targetNodeId, compatibility: 'unknown', detail: 'node capability cannot drive placement' });
+  var supportedNodeArchitectures = node.schema_version === 'v2' ? ['arm64', 'armv7l', 'x86_64'] : ['arm64', 'x86_64'];
+  if (node.capability_status !== 'known' || supportedNodeArchitectures.indexOf(node.architecture) === -1) add('incompatible-capability', { workload_id: workloadId, node_id: targetNodeId, compatibility: 'unknown', detail: 'node capability cannot drive placement' });
   var assessment = assessments[workloadId + '|' + targetNodeId];
   if (!assessment) add('missing-evidence', { workload_id: workloadId, node_id: targetNodeId, detail: 'no Brokkr capability assessment bound to the workload contract' });
   else if (assessment.compatibility !== 'compatible') add('incompatible-capability', { workload_id: workloadId, node_id: targetNodeId, compatibility: assessment.compatibility });
