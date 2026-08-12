@@ -283,6 +283,18 @@
       "llm_servers": [],
       "monitor": false,
       "notes": "E-paper display / skald-display MCP node — NOT an inference node. Back online 2026-06-16."
+    },
+    {
+      "name": "munin-zero",
+      "node_id": "node-munin-zero",
+      "hostname": "munin-zero.local",
+      "ssh_alias": null,
+      "hardware": "Raspberry Pi Zero 2 W (armv7l), 512MB",
+      "role": "memory-appliance",
+      "status": "active",
+      "llm_servers": [],
+      "monitor": true,
+      "notes": "Legacy/secondary Munin Memory appliance — best-effort, LAN-only on the home network, managed by Brokkr for OS/firmware maintenance and health observation. No Grimnir workload is deployed here; do not use as a component deployment target. Tailscale is not installed."
     }
   ]
 }
