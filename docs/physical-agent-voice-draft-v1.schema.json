@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grimnir.gille.ai/contracts/physical-agent-voice-draft/v1/schema.json",
+  "title": "Grimnir physical agent voice draft metadata v1",
+  "description": "Public-safe metadata for an ephemeral, locally transcribed EP-2350 voice draft. Audio and transcript text are forbidden and the record cannot execute an action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema_version",
+    "draft_id",
+    "capture_id",
+    "created_at",
+    "updated_at",
+    "expires_at",
+    "gate",
+    "source",
+    "target_snapshot",
+    "capture",
+    "transcription",
+    "content",
+    "review",
+    "disposition",
+    "trace_id",
+    "extensions"
+  ],
+  "properties": {
+    "kind": { "const": "physical-agent-voice-draft" },
+    "schema_version": { "const": "v1" },
+    "draft_id": { "$ref": "#/$defs/id" },
+    "capture_id": { "$ref": "#/$defs/id" },
+    "created_at": { "$ref": "#/$defs/utc" },
+    "updated_at": { "$ref": "#/$defs/utc" },
+    "expires_at": { "$ref": "#/$defs/utc" },
+    "gate": { "$ref": "#/$defs/gate" },
+    "source": { "$ref": "#/$defs/source" },
+    "target_snapshot": { "$ref": "#/$defs/target-snapshot" },
+    "capture": { "$ref": "#/$defs/capture" },
+    "transcription": { "$ref": "#/$defs/transcription" },
+    "content": { "$ref": "#/$defs/content" },
+    "review": { "$ref": "#/$defs/review" },
+    "disposition": { "enum": ["draft", "opened"] },
+    "trace_id": { "$ref": "#/$defs/id" },
+    "extensions": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/extension" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{2,127}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[1-9][0-9]*$"
+    },
+    "utc": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\dZ$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "content-binding": {
+      "type": "string",
+      "pattern": "^hmac-sha256:[a-f0-9]{64}$"
+    },
+    "nullable-utc": {
+      "oneOf": [
+        { "$ref": "#/$defs/utc" },
+        { "type": "null" }
+      ]
+    },
+    "nullable-binding": {
+      "oneOf": [
+        { "$ref": "#/$defs/content-binding" },
+        { "type": "null" }
+      ]
+    },
+    "extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "decision_effect"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "version": { "$ref": "#/$defs/version" },
+        "decision_effect": { "const": "informational" }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "profile_version",
+        "profile_digest",
+        "begin_binding_id",
+        "end_binding_id",
+        "begin_intent_id",
+        "end_intent_id",
+        "stream_id",
+        "control",
+        "key_down_at",
+        "key_up_at"
+      ],
+      "properties": {
+        "profile_id": { "$ref": "#/$defs/id" },
+        "profile_version": { "$ref": "#/$defs/version" },
+        "profile_digest": { "$ref": "#/$defs/digest" },
+        "begin_binding_id": { "$ref": "#/$defs/id" },
+        "end_binding_id": { "$ref": "#/$defs/id" },
+        "begin_intent_id": { "$ref": "#/$defs/id" },
+        "end_intent_id": { "$ref": "#/$defs/id" },
+        "stream_id": { "$ref": "#/$defs/id" },
+        "control": { "type": "string", "pattern": "^key-[a-z0-9-]{1,48}$" },
+        "key_down_at": { "$ref": "#/$defs/utc" },
+        "key_up_at": { "$ref": "#/$defs/utc" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_claim",
+        "transport",
+        "identity_assurance",
+        "capture_source_ref",
+        "coreaudio_uid_ref",
+        "interface_generation_ref",
+        "channel_set"
+      ],
+      "properties": {
+        "device_claim": { "const": "ep-2350-ting" },
+        "transport": { "const": "analog-line-out-via-audio-interface" },
+        "identity_assurance": { "const": "operator-configured" },
+        "capture_source_ref": { "$ref": "#/$defs/id" },
+        "coreaudio_uid_ref": { "$ref": "#/$defs/id" },
+        "interface_generation_ref": { "$ref": "#/$defs/id" },
+        "channel_set": { "$ref": "#/$defs/id" }
+      }
+    },
+    "target-snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "harness",
+        "session_ref",
+        "ownership",
+        "snapshot_ref",
+        "snapshot_digest",
+        "adapter_instance_ref",
+        "native_session_ref",
+        "project_ref",
+        "worktree_ref",
+        "runtime_at_capture"
+      ],
+      "properties": {
+        "harness": { "enum": ["codex", "claude-code", "pi"] },
+        "session_ref": { "$ref": "#/$defs/id" },
+        "ownership": { "const": "adapter-owned" },
+        "snapshot_ref": { "$ref": "#/$defs/id" },
+        "snapshot_digest": { "$ref": "#/$defs/digest" },
+        "adapter_instance_ref": { "$ref": "#/$defs/id" },
+        "native_session_ref": { "$ref": "#/$defs/id" },
+        "project_ref": { "$ref": "#/$defs/id" },
+        "worktree_ref": { "$ref": "#/$defs/id" },
+        "runtime_at_capture": { "enum": ["idle", "active"] }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["started_at", "ended_at", "duration_ms", "termination"],
+      "properties": {
+        "started_at": { "$ref": "#/$defs/utc" },
+        "ended_at": { "$ref": "#/$defs/utc" },
+        "duration_ms": { "type": "integer", "minimum": 1, "maximum": 30000 },
+        "termination": { "const": "key-up" }
+      }
+    },
+    "transcription": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine_ref",
+        "engine_version",
+        "model_ref",
+        "model_version",
+        "boundary",
+        "network_access",
+        "cloud_transcription",
+        "confidence_basis_points"
+      ],
+      "properties": {
+        "engine_ref": { "$ref": "#/$defs/id" },
+        "engine_version": { "$ref": "#/$defs/version" },
+        "model_ref": { "$ref": "#/$defs/id" },
+        "model_version": { "$ref": "#/$defs/version" },
+        "boundary": { "const": "workstation-local" },
+        "network_access": { "const": "disabled" },
+        "cloud_transcription": { "const": false },
+        "confidence_basis_points": { "type": "integer", "minimum": 0, "maximum": 10000 }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_ref",
+        "content_binding",
+        "transcript_version",
+        "utf8_bytes",
+        "storage",
+        "audio_retained"
+      ],
+      "properties": {
+        "content_ref": { "$ref": "#/$defs/id" },
+        "content_binding": { "$ref": "#/$defs/content-binding" },
+        "transcript_version": { "type": "integer", "minimum": 1 },
+        "utf8_bytes": { "type": "integer", "minimum": 0, "maximum": 32768 },
+        "storage": { "const": "volatile-local" },
+        "audio_retained": { "const": false }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "reviewed_at", "reviewed_binding"],
+      "properties": {
+        "state": { "enum": ["pending", "accepted"] },
+        "reviewed_at": { "$ref": "#/$defs/nullable-utc" },
+        "reviewed_binding": { "$ref": "#/$defs/nullable-binding" }
+      }
+    }
+  }
+}

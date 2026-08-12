@@ -1,0 +1,152 @@
+[
+  {
+    "kind": "physical-agent-voice-draft",
+    "schema_version": "v1",
+    "draft_id": "voice-draft-pending-001",
+    "capture_id": "voice-capture-001",
+    "created_at": "2026-07-31T10:00:16Z",
+    "updated_at": "2026-07-31T10:00:16Z",
+    "expires_at": "2026-07-31T10:15:15Z",
+    "gate": {
+      "profile_id": "desk-main",
+      "profile_version": "v1",
+      "profile_digest": "sha256:afd8d4f33662260487c30653ef50253e6e1a79a957d076b721ec79e855ca3ea0",
+      "begin_binding_id": "deck-ptt-begin-codex",
+      "end_binding_id": "deck-ptt-end-codex",
+      "begin_intent_id": "streamdeck-ptt-begin-001",
+      "end_intent_id": "streamdeck-ptt-end-001",
+      "stream_id": "deck-start-001",
+      "control": "key-2-1",
+      "key_down_at": "2026-07-31T10:00:05Z",
+      "key_up_at": "2026-07-31T10:00:15Z"
+    },
+    "source": {
+      "device_claim": "ep-2350-ting",
+      "transport": "analog-line-out-via-audio-interface",
+      "identity_assurance": "operator-configured",
+      "capture_source_ref": "line-input-ting-001",
+      "coreaudio_uid_ref": "coreaudio-interface-001",
+      "interface_generation_ref": "audio-generation-001",
+      "channel_set": "channels-1-2"
+    },
+    "target_snapshot": {
+      "harness": "codex",
+      "session_ref": "slot-1",
+      "ownership": "adapter-owned",
+      "snapshot_ref": "native-target-snapshot-001",
+      "snapshot_digest": "sha256:79293cf072ccf5af536879814a60aefddffe62360d4c37157ad149724c5ddfe4",
+      "adapter_instance_ref": "codex-adapter-001",
+      "native_session_ref": "codex-thread-001",
+      "project_ref": "project-grimnir",
+      "worktree_ref": "worktree-physical-control",
+      "runtime_at_capture": "idle"
+    },
+    "capture": {
+      "started_at": "2026-07-31T10:00:05Z",
+      "ended_at": "2026-07-31T10:00:15Z",
+      "duration_ms": 10000,
+      "termination": "key-up"
+    },
+    "transcription": {
+      "engine_ref": "offline-stt",
+      "engine_version": "v1",
+      "model_ref": "local-speech-model",
+      "model_version": "v1",
+      "boundary": "workstation-local",
+      "network_access": "disabled",
+      "cloud_transcription": false,
+      "confidence_basis_points": 9300
+    },
+    "content": {
+      "content_ref": "volatile-transcript-001",
+      "content_binding": "hmac-sha256:7391688bbb4d59173c2d65c077db124f74c3d074e7537d3ef1aa2ae50c048fa9",
+      "transcript_version": 1,
+      "utf8_bytes": 50,
+      "storage": "volatile-local",
+      "audio_retained": false
+    },
+    "review": {
+      "state": "pending",
+      "reviewed_at": null,
+      "reviewed_binding": null
+    },
+    "disposition": "draft",
+    "trace_id": "voice-trace-001",
+    "extensions": []
+  },
+  {
+    "kind": "physical-agent-voice-draft",
+    "schema_version": "v1",
+    "draft_id": "voice-draft-reviewed-001",
+    "capture_id": "voice-capture-002",
+    "created_at": "2026-07-31T10:00:29Z",
+    "updated_at": "2026-07-31T10:00:40Z",
+    "expires_at": "2026-07-31T10:15:28Z",
+    "gate": {
+      "profile_id": "desk-main",
+      "profile_version": "v1",
+      "profile_digest": "sha256:afd8d4f33662260487c30653ef50253e6e1a79a957d076b721ec79e855ca3ea0",
+      "begin_binding_id": "deck-ptt-begin-codex",
+      "end_binding_id": "deck-ptt-end-codex",
+      "begin_intent_id": "streamdeck-ptt-begin-002",
+      "end_intent_id": "streamdeck-ptt-end-002",
+      "stream_id": "deck-start-001",
+      "control": "key-2-1",
+      "key_down_at": "2026-07-31T10:00:20Z",
+      "key_up_at": "2026-07-31T10:00:28Z"
+    },
+    "source": {
+      "device_claim": "ep-2350-ting",
+      "transport": "analog-line-out-via-audio-interface",
+      "identity_assurance": "operator-configured",
+      "capture_source_ref": "line-input-ting-001",
+      "coreaudio_uid_ref": "coreaudio-interface-001",
+      "interface_generation_ref": "audio-generation-001",
+      "channel_set": "channels-1-2"
+    },
+    "target_snapshot": {
+      "harness": "codex",
+      "session_ref": "slot-1",
+      "ownership": "adapter-owned",
+      "snapshot_ref": "native-target-snapshot-001",
+      "snapshot_digest": "sha256:79293cf072ccf5af536879814a60aefddffe62360d4c37157ad149724c5ddfe4",
+      "adapter_instance_ref": "codex-adapter-001",
+      "native_session_ref": "codex-thread-001",
+      "project_ref": "project-grimnir",
+      "worktree_ref": "worktree-physical-control",
+      "runtime_at_capture": "idle"
+    },
+    "capture": {
+      "started_at": "2026-07-31T10:00:20Z",
+      "ended_at": "2026-07-31T10:00:28Z",
+      "duration_ms": 8000,
+      "termination": "key-up"
+    },
+    "transcription": {
+      "engine_ref": "offline-stt",
+      "engine_version": "v1",
+      "model_ref": "local-speech-model",
+      "model_version": "v1",
+      "boundary": "workstation-local",
+      "network_access": "disabled",
+      "cloud_transcription": false,
+      "confidence_basis_points": 8750
+    },
+    "content": {
+      "content_ref": "volatile-transcript-002",
+      "content_binding": "hmac-sha256:1ad66a20f67a98a67bb8577ff7683e43590c25b3abec4ff392b252c2cf7c800f",
+      "transcript_version": 2,
+      "utf8_bytes": 51,
+      "storage": "volatile-local",
+      "audio_retained": false
+    },
+    "review": {
+      "state": "accepted",
+      "reviewed_at": "2026-07-31T10:00:40Z",
+      "reviewed_binding": "hmac-sha256:1ad66a20f67a98a67bb8577ff7683e43590c25b3abec4ff392b252c2cf7c800f"
+    },
+    "disposition": "opened",
+    "trace_id": "voice-trace-002",
+    "extensions": []
+  }
+]
