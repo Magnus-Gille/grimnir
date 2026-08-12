@@ -41,7 +41,9 @@
       "persistent_paths": ["/home/magnus/workspace", "/home/magnus/.hugin"],
       "needs_build": true,
       "systemd_units": [
-        { "name": "hugin", "type": "service", "scope": "user" }
+        { "name": "hugin", "type": "service", "scope": "user" },
+        { "name": "hugin-daily-exam-factory", "type": "timer", "scope": "user" },
+        { "name": "hugin-experiment-cadence", "type": "timer", "scope": "user" }
       ]
     },
     {

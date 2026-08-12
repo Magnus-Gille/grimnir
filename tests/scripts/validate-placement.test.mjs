@@ -155,12 +155,14 @@ try {
     assert.throws(() => run(writeFixture(tmp, `${name}-registry.json`, invalidRegistry), path.join(fixtures, "current.json")), expected, `desired registry rejects ${name} before reconciliation`);
   }
 
-  const missingUnit = fixture("current.json");
-  const huginObservation = missingUnit.workloads.find((workload) => workload.workload_id === "workload-hugin");
-  huginObservation.units = huginObservation.units.filter((unit) => unit !== "hugin");
-  seal(missingUnit);
-  const missingUnitResult = run(path.join(root, "services.json"), writeFixture(tmp, "missing-unit.json", missingUnit));
-  assert.ok(missingUnitResult.drift.some((item) => item.category === "missing-live-unit" && item.workload_id === "workload-hugin" && item.unit_id === "hugin"), "declared units absent from observation are explicit symmetric drift");
+  for (const missingUnitName of ["hugin", "hugin-daily-exam-factory", "hugin-experiment-cadence"]) {
+    const missingUnit = fixture("current.json");
+    const huginObservation = missingUnit.workloads.find((workload) => workload.workload_id === "workload-hugin");
+    huginObservation.units = huginObservation.units.filter((unit) => unit !== missingUnitName);
+    seal(missingUnit);
+    const missingUnitResult = run(path.join(root, "services.json"), writeFixture(tmp, `missing-${missingUnitName}.json`, missingUnit));
+    assert.ok(missingUnitResult.drift.some((item) => item.category === "missing-live-unit" && item.workload_id === "workload-hugin" && item.unit_id === missingUnitName), `declared unit ${missingUnitName} absent from observation is explicit symmetric drift`);
+  }
 
   const unknownNode = fixture("current.json");
   unknownNode.workloads[0].node_id = "node-unknown";
