@@ -536,6 +536,12 @@
     "expected": "schema"
   },
   {
+    "name": "leap-second timestamps are outside the v1 wire format",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["occurred_at"], "value": "1990-12-31T23:59:60Z" }],
+    "expected": "schema"
+  },
+  {
     "name": "intent sequence must remain a safe integer",
     "base": "streamdeck-refresh-001",
     "mutations": [{ "path": ["sequence"], "value": 9007199254740992 }],

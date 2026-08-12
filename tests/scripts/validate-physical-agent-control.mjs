@@ -437,12 +437,17 @@ function captureTargetKey(record) {
   });
 }
 
-function validateCaptureTransition(history, candidate, runtimeContext = context) {
+function validateCaptureTransition(
+  history,
+  candidate,
+  runtimeContext = context,
+  cancellationRecords = voiceCancellations
+) {
   if (!["begin-voice-capture", "end-voice-capture"].includes(candidate.action.name)) return;
 
   const activeByTarget = new Map();
   const usedCaptureRefs = new Set();
-  const cancellationEvents = voiceCancellations
+  const cancellationEvents = cancellationRecords
     .filter((record) => Date.parse(record.occurred_at) <= Date.parse(candidate.occurred_at))
     .map((record) => ({ kind: "cancellation", record }));
   const timeline = history
@@ -506,7 +511,7 @@ function validateCaptureTransition(history, candidate, runtimeContext = context)
     throw new Error("orphan voice capture end");
   }
   if (
-    Date.parse(candidate.occurred_at) - Date.parse(active.started_at) >
+    Date.parse(candidate.occurred_at) - Date.parse(active.started_at) >=
     profile.voice_capture.max_capture_seconds * 1000
   ) {
     throw new Error("voice capture exceeded the watchdog ceiling");
@@ -1096,6 +1101,18 @@ assert.throws(
   ),
   /orphan voice capture end/,
   "watchdog cancellation wins a same-timestamp key-up race"
+);
+
+const noCancellationContext = structuredClone(context);
+assert.throws(
+  () => validateCaptureTransition(
+    acceptedHistory.filter((entry) => entry.record.sequence <= 13),
+    deadlineRelease,
+    noCancellationContext,
+    []
+  ),
+  /exceeded the watchdog ceiling/,
+  "the exact watchdog ceiling is terminal even before cancellation evidence arrives"
 );
 
 const bases = new Map(
