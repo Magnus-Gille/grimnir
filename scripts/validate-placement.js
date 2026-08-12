@@ -267,6 +267,12 @@ if (!errors.length) {
   validateEvidence(observation.evidence, observation.observed_at, 'observation.evidence', errors);
   validateEvidenceDigest(observation, 'observation', errors);
   ['node_capabilities', 'workloads', 'capability_assessments'].forEach(function (field) { if (!Array.isArray(observation[field])) errors.push('observation.' + field + ' must be an array'); });
+  if (nodeOnly && Array.isArray(observation.workloads) && observation.workloads.length) {
+    errors.push('--node-only requires an observation with no workload records');
+  }
+  if (nodeOnly && Array.isArray(observation.capability_assessments) && observation.capability_assessments.length) {
+    errors.push('--node-only requires an observation with no capability assessments');
+  }
 }
 if (!errors.length) {
   observation.node_capabilities.forEach(function (node) { validateNode(node, now, errors); });
@@ -377,7 +383,7 @@ registry.components.forEach(function (component, index) {
   }
   var node = observation.node_capabilities.filter(function (candidate) { return candidate.node_id === targetNodeId; })[0];
   if (!node) { add('missing-evidence', { workload_id: workloadId, node_id: targetNodeId, detail: 'no Brokkr node capability evidence' }); return; }
-  if (node.capability_status !== 'known' || ['arm64', 'x86_64'].indexOf(node.architecture) === -1) add('incompatible-capability', { workload_id: workloadId, node_id: targetNodeId, compatibility: 'unknown', detail: 'node capability cannot drive placement' });
+  if (node.capability_status !== 'known' || ['arm64', 'armv7l', 'x86_64'].indexOf(node.architecture) === -1) add('incompatible-capability', { workload_id: workloadId, node_id: targetNodeId, compatibility: 'unknown', detail: 'node capability cannot drive placement' });
   var assessment = assessments[workloadId + '|' + targetNodeId];
   if (!assessment) add('missing-evidence', { workload_id: workloadId, node_id: targetNodeId, detail: 'no Brokkr capability assessment bound to the workload contract' });
   else if (assessment.compatibility !== 'compatible') add('incompatible-capability', { workload_id: workloadId, node_id: targetNodeId, compatibility: assessment.compatibility });

@@ -21,9 +21,10 @@ node scripts/validate-placement.js \
   --now 2026-07-23T10:15:00Z
 ```
 
-For a node-only Brokkr observation, use the explicit `--node-only` mode. It validates the
-same sealed v1 observation and registry membership, but does not report missing evidence for
-unrelated workloads that were not part of that capture:
+For a node-only Brokkr observation, use the explicit `--node-only` mode. The input must contain
+empty `workloads` and `capability_assessments` arrays; this prevents the mode from hiding
+workload-level drift in a full observation. It validates the same sealed v1 observation and
+registry membership without requiring unrelated workload evidence:
 
 ```sh
 node scripts/validate-placement.js \

@@ -90,6 +90,14 @@ assert.deepEqual(drifted.drift.filter((item) => item.category === "extra-live-un
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "grimnir-placement-"));
 try {
+  const armv7lPlacement = fixture("hugin-to-m5.json");
+  armv7lPlacement.node_capabilities.find((node) => node.node_id === "node-m5").architecture = "armv7l";
+  seal(armv7lPlacement);
+  const armv7lResult = run(path.join(fixtures, "hugin-to-m5-services.json"), writeFixture(tmp, "armv7l-placement.json", armv7lPlacement));
+  assert.equal(armv7lResult.compliant, true, "explicitly compatible armv7l placement remains evaluable");
+
+  assert.throws(() => run(path.join(root, "services.json"), path.join(fixtures, "current.json"), now, true), /--node-only requires an observation with no workload records/, "node-only mode rejects full observations instead of hiding workload drift");
+
   const missing = path.join(tmp, "missing.json");
   fs.writeFileSync(missing, JSON.stringify({ schema_version: "v1", kind: "brokkr-placement-observation" }));
   assert.throws(() => run(path.join(root, "services.json"), missing), /validation FAILED/, "malformed or missing evidence cannot be compliant");
