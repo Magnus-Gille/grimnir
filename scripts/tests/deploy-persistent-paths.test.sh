@@ -112,6 +112,10 @@ EOF
 cat > "$TMP_DIR/bin/npm" << 'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$BUILD_CAPTURE"
+if [[ "${BUILD_MUTATE_TIMER:-}" == "true" && "$*" == "run build" ]]; then
+  sed -i.bak '/^[[:space:]]*Unit[[:space:]]*=/d' systemd/alpha.timer
+  rm systemd/alpha.timer.bak
+fi
 exit 0
 EOF
 
@@ -532,6 +536,71 @@ cat > "$TMP_DIR/mismatched-companion.json" << 'EOF'
 EOF
 assert_rejected_before_remote "mismatched timer companion target" "$TMP_DIR/mismatched-companion.json" \
   "timer alpha.timer must declare Unit=alpha-worker.service"
+
+mkdir -p "$TMP_DIR/repos/absent-unit/systemd"
+cat > "$TMP_DIR/repos/absent-unit/systemd/alpha.timer" << 'EOF'
+[Timer]
+OnCalendar=daily
+EOF
+cat > "$TMP_DIR/repos/absent-unit/systemd/alpha-worker.service" << 'EOF'
+[Service]
+ExecStart=/bin/true
+EOF
+commit_fixture_repo "$TMP_DIR/repos/absent-unit"
+cat > "$TMP_DIR/absent-unit.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "absent-unit", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": false,
+      "systemd_units": [{ "name": "alpha", "type": "timer", "service_name": "alpha-worker" }]
+    }
+  ]
+}
+EOF
+assert_rejected_before_remote "absent timer companion target" "$TMP_DIR/absent-unit.json" \
+  "timer alpha.timer must declare Unit=alpha-worker.service"
+
+mkdir -p "$TMP_DIR/repos/post-build-timer/systemd"
+printf '%s\n' '{"name":"alpha","scripts":{"build":"true"}}' \
+  > "$TMP_DIR/repos/post-build-timer/package.json"
+cat > "$TMP_DIR/repos/post-build-timer/systemd/alpha.timer" << 'EOF'
+[Timer]
+OnCalendar=daily
+Unit=alpha-worker.service
+EOF
+cat > "$TMP_DIR/repos/post-build-timer/systemd/alpha-worker.service" << 'EOF'
+[Service]
+ExecStart=/bin/true
+EOF
+commit_fixture_repo "$TMP_DIR/repos/post-build-timer"
+cat > "$TMP_DIR/post-build-timer.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "post-build-timer", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": true,
+      "systemd_units": [{ "name": "alpha", "type": "timer", "service_name": "alpha-worker" }]
+    }
+  ]
+}
+EOF
+post_build_sha=$(git -C "$TMP_DIR/repos/post-build-timer" rev-parse HEAD)
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$BUILD_CAPTURE"
+if BUILD_MUTATE_TIMER=true REGISTRY_PATH="$TMP_DIR/post-build-timer.json" \
+    LOCAL_REPOS_ROOT="$TMP_DIR/repos" PATH="$TMP_DIR/bin:$PATH" \
+    bash "$DEPLOY" "alpha=$TMP_DIR/repos/post-build-timer@$post_build_sha" \
+      >"$TMP_DIR/post-build-timer.out" 2>&1; then
+  fail "post-build timer target mutation must fail"
+elif [[ -e "$BUILD_CAPTURE" && ! -e "$SSH_CAPTURE" && ! -e "$RSYNC_CAPTURE" ]] &&
+     grep -Fq 'timer alpha.timer must declare Unit=alpha-worker.service' \
+       "$TMP_DIR/post-build-timer.out"; then
+  pass "post-build timer target mutation is rejected before remote access"
+else
+  fail "post-build timer target mutation must fail after build and before remote access"
+fi
 
 cat > "$TMP_DIR/safe.json" << 'EOF'
 {

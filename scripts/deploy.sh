@@ -524,6 +524,13 @@ deploy_service() {
       fail=$((fail + 1))
       return
     fi
+    # The build may generate or rewrite unit files. Revalidate the exact
+    # artifacts that will be shipped before the first remote mutation.
+    if ! preflight_local_unit_sources "$local_path" "$units_json" "$name" "$unit_type" "$unit_scope" "$render_enabled" "$deploy_path"; then
+      results+=("${RED}✗${NC} ${name}")
+      fail=$((fail + 1))
+      return
+    fi
   fi
 
   if ! invalidate_remote_deploy_marker "$remote" "$deploy_path"; then

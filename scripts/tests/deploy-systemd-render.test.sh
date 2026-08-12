@@ -182,6 +182,21 @@ else
 fi
 mv "$DEPLOY_TARGET/systemd/alpha-custom.timer.bak" "$DEPLOY_TARGET/systemd/alpha-custom.timer"
 
+sed -i.bak '/^[[:space:]]*Unit[[:space:]]*=/d' \
+  "$DEPLOY_TARGET/systemd/alpha-custom.timer"
+if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
+    SYSTEMD_SYSTEM_ROOT="$TMP_DIR/absent-custom-target" \
+    bash "$RENDER_HELPER" "$DEPLOY_TARGET" "$runtime_json" \
+      "$custom_timer_units_json" "$persistent_json" >"$TMP_DIR/absent-custom-target.out" 2>&1; then
+  fail "rendered timer must reject an absent explicit companion target"
+elif grep -Fq 'timer alpha-custom.timer must declare Unit=alpha-custom-worker.service' \
+    "$TMP_DIR/absent-custom-target.out"; then
+  pass "rendered timer rejects an absent explicit companion target"
+else
+  fail "absent rendered timer target must name the required companion"
+fi
+mv "$DEPLOY_TARGET/systemd/alpha-custom.timer.bak" "$DEPLOY_TARGET/systemd/alpha-custom.timer"
+
 VERIFY_FAIL_ROOT="$TMP_DIR/verify-fail-systemd"
 mkdir -p "$VERIFY_FAIL_ROOT"
 printf '%s\n' 'OLD-VERIFIED-UNIT' > "$VERIFY_FAIL_ROOT/alpha.service"
