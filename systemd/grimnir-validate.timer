@@ -5,6 +5,7 @@ Description=Grimnir daily registry validation — runs before Skuld briefing
 OnCalendar=*-*-* 04:30:00
 Persistent=true
 RandomizedDelaySec=120
+Unit=grimnir-validate-timer.service
 
 [Install]
 WantedBy=timers.target

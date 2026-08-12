@@ -43,6 +43,9 @@ assert.equal(current.compliant, true, "captured current huginmunin/nas/m5 fixtur
 assert.deepEqual(current.drift, [], "current fixture has no desired-vs-observed drift");
 assert.deepEqual(current.states.map((state) => state.workload_id), [...current.states.map((state) => state.workload_id)].sort((a, b) => a.localeCompare(b, "en", { numeric: true })), "states have stable natural ordering");
 assert.ok(current.states.every((state) => Object.hasOwn(state, "declared") && Object.hasOwn(state, "deployed") && Object.hasOwn(state, "running") && Object.hasOwn(state, "healthy")), "declared/deployed/running/healthy remain distinct");
+assert.deepEqual(current.states.find((state) => state.workload_id === "workload-grimnir").declared.units,
+  ["grimnir-security-scan", "grimnir-validate", "grimnir-validate-timer"],
+  "custom timer companions are part of desired live-unit reconciliation");
 
 const unsupportedSchema = JSON.parse(fs.readFileSync(path.join(root, "docs", "placement-validation-v1.schema.json"), "utf8"));
 unsupportedSchema.unevaluatedProperties = false;
@@ -186,6 +189,11 @@ try {
     ["unknown-target", (data) => { data.components[0].target_node_id = "node-unknown"; }, /target_node_id.*registered node/],
     ["host-target-mismatch", (data) => { data.components[0].host = "elsewhere.example"; }, /host.*target node.*disagree/],
     ["invalid-unit-type", (data) => { data.components[0].systemd_units[0].type = "socket"; }, /systemd_units\[0\]\.type is invalid/],
+    ["service-name-on-service", (data) => { data.components[0].systemd_units[0].service_name = "worker"; }, /systemd_units\[0\]\.service_name is invalid/],
+    ["invalid-timer-service-name", (data) => {
+      const unit = data.components.find((component) => component.name === "grimnir").systemd_units[1];
+      unit.service_name = "not safe;";
+    }, /systemd_units\[1\]\.service_name is invalid/],
     ["duplicate-unit", (data) => { data.components[1].systemd_units.push(structuredClone(data.components[1].systemd_units[0])); }, /duplicate desired unit/],
     ["invalid-contract-producer", (data) => { data.components[0].workload_contract.producer = "other-owner"; }, /workload_contract\.producer must equal repo/]
   ];

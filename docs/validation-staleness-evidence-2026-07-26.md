@@ -57,6 +57,32 @@ quantify stale intervals and consider a reversible, explicitly bounded sync acti
 It must still be reviewed as a mutation policy, rather than being inferred from
 validation green-ness.
 
+## Evidence capture implementation (issue #159)
+
+The validator now appends one immutable `validation-run-evidence/v1` JSON event
+to Munin's `validation` log for each completed invocation. It contains the
+scheduled and observed UTC times (scheduled time is null only for an explicit
+manual run), explicit `timer` or `manual` origin, local and remote `main` SHA,
+and a read-only graph classification of `current`, `ahead`, `behind`,
+`diverged`, or `unreachable`. It also keeps audit completion/error and reporting
+outcome separate from the fleet finding counts.
+
+When the live remote SHA is not present in the canonical checkout, the
+validator fetches it into a disposable bare repository and uses the canonical
+object store only as a read-only alternate. This resolves `behind` and
+`diverged` without changing canonical refs or objects; `unreachable` is retained
+for transport/object-resolution failures where the graph cannot be proved.
+
+`grimnir-validate.timer` invokes a dedicated timer-origin service. Direct runs
+default to manual; unknown origins and unavailable scheduled timestamps fail
+closed rather than being labelled as timer evidence. The immutable log write is
+part of the reporting gate: a mutable `validation/registry/latest` update alone
+does not make the audit succeed.
+
+This implementation does not retrospectively validate the eight legacy summary
+logs or change the daily schedule. The 28-run window starts only after the
+updated units are deployed and successful timer-origin v1 records accumulate.
+
 ## Sources
 
 - Live systemd unit and timer inspection on `huginmunin`, 2026-07-26.

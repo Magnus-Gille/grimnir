@@ -123,6 +123,80 @@ else
   pass "private environment values stay outside the rendered unit"
 fi
 
+# A rendered runtime must honor the same registry-declared timer companion
+# override as the byte-for-byte deploy path.
+cat > "$DEPLOY_TARGET/systemd/alpha-custom.timer" << 'EOF'
+[Timer]
+OnCalendar=daily
+Unit=alpha-custom-worker.service
+EOF
+cat > "$DEPLOY_TARGET/systemd/alpha-custom-worker.service" << EOF
+[Service]
+User=<user>
+WorkingDirectory=<deploy-path>
+EnvironmentFile=<home>/state/env
+ExecStart=$EXEC_SYMLINK <deploy-path>/server.sh
+ReadWritePaths=<home>/state
+ReadOnlyPaths=<home>/cross-component
+EOF
+custom_timer_units_json='[{"name":"alpha-custom","type":"timer","scope":"system","service_name":"alpha-custom-worker"}]'
+CUSTOM_TIMER_ROOT="$TMP_DIR/custom-timer-systemd"
+mkdir -p "$CUSTOM_TIMER_ROOT"
+if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
+    SYSTEMD_SYSTEM_ROOT="$CUSTOM_TIMER_ROOT" \
+    bash "$RENDER_HELPER" "$DEPLOY_TARGET" "$runtime_json" \
+      "$custom_timer_units_json" "$persistent_json" &&
+    [[ -f "$CUSTOM_TIMER_ROOT/alpha-custom.timer" &&
+       -f "$CUSTOM_TIMER_ROOT/alpha-custom-worker.service" &&
+       ! -e "$CUSTOM_TIMER_ROOT/alpha-custom.service" ]]; then
+  pass "rendered timer installs its declared custom companion"
+else
+  fail "rendered timer must install service_name companion, not timer base name"
+fi
+
+mv "$DEPLOY_TARGET/systemd/alpha-custom-worker.service" "$TMP_DIR/alpha-custom-worker.service"
+if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
+    SYSTEMD_SYSTEM_ROOT="$TMP_DIR/missing-custom-companion" \
+    bash "$RENDER_HELPER" "$DEPLOY_TARGET" "$runtime_json" \
+      "$custom_timer_units_json" "$persistent_json" >"$TMP_DIR/missing-custom-companion.out" 2>&1; then
+  fail "rendered timer must reject a missing explicitly declared companion"
+elif grep -Fq 'unit file missing: alpha-custom-worker.service' "$TMP_DIR/missing-custom-companion.out"; then
+  pass "rendered timer rejects a missing explicitly declared companion"
+else
+  fail "missing rendered companion failure must name the declared service"
+fi
+mv "$TMP_DIR/alpha-custom-worker.service" "$DEPLOY_TARGET/systemd/alpha-custom-worker.service"
+
+sed -i.bak 's/Unit=alpha-custom-worker.service/Unit=alpha-other.service/' \
+  "$DEPLOY_TARGET/systemd/alpha-custom.timer"
+if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
+    SYSTEMD_SYSTEM_ROOT="$TMP_DIR/mismatched-custom-target" \
+    bash "$RENDER_HELPER" "$DEPLOY_TARGET" "$runtime_json" \
+      "$custom_timer_units_json" "$persistent_json" >"$TMP_DIR/mismatched-custom-target.out" 2>&1; then
+  fail "rendered timer must reject a mismatched explicit companion target"
+elif grep -Fq 'timer alpha-custom.timer must declare Unit=alpha-custom-worker.service' \
+    "$TMP_DIR/mismatched-custom-target.out"; then
+  pass "rendered timer rejects a mismatched explicit companion target"
+else
+  fail "mismatched rendered timer target must name the required companion"
+fi
+mv "$DEPLOY_TARGET/systemd/alpha-custom.timer.bak" "$DEPLOY_TARGET/systemd/alpha-custom.timer"
+
+sed -i.bak '/^[[:space:]]*Unit[[:space:]]*=/d' \
+  "$DEPLOY_TARGET/systemd/alpha-custom.timer"
+if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
+    SYSTEMD_SYSTEM_ROOT="$TMP_DIR/absent-custom-target" \
+    bash "$RENDER_HELPER" "$DEPLOY_TARGET" "$runtime_json" \
+      "$custom_timer_units_json" "$persistent_json" >"$TMP_DIR/absent-custom-target.out" 2>&1; then
+  fail "rendered timer must reject an absent explicit companion target"
+elif grep -Fq 'timer alpha-custom.timer must declare Unit=alpha-custom-worker.service' \
+    "$TMP_DIR/absent-custom-target.out"; then
+  pass "rendered timer rejects an absent explicit companion target"
+else
+  fail "absent rendered timer target must name the required companion"
+fi
+mv "$DEPLOY_TARGET/systemd/alpha-custom.timer.bak" "$DEPLOY_TARGET/systemd/alpha-custom.timer"
+
 VERIFY_FAIL_ROOT="$TMP_DIR/verify-fail-systemd"
 mkdir -p "$VERIFY_FAIL_ROOT"
 printf '%s\n' 'OLD-VERIFIED-UNIT' > "$VERIFY_FAIL_ROOT/alpha.service"
