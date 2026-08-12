@@ -1,4 +1,4 @@
-# Node/Substrate contract v1
+# Node/Substrate contract v1/v2
 
 This is the machine-readable companion to [ADR-007](adr-007-node-substrate-contract.md) and
 implements Grimnir #102. It defines four public-safe records:

@@ -214,10 +214,10 @@ function validateDesiredRegistry(registry, errors) {
     }
     var contract = component.workload_contract;
     if (!plain(contract) || Object.keys(contract).sort().join(',') !== 'digest,kind,producer,schema_version') {
-      errors.push(label + '.workload_contract must contain the exact v1 provenance fields');
+      errors.push(label + '.workload_contract must contain the exact v1/v2 provenance fields');
     } else {
       if (contract.kind !== 'workload-requirement' || !['v1', 'v2'].includes(contract.schema_version)) {
-        errors.push(label + '.workload_contract must use workload-requirement v1');
+        errors.push(label + '.workload_contract must use workload-requirement v1 or v2');
       }
       if (contract.producer !== component.repo) errors.push(label + '.workload_contract.producer must equal repo');
       if (!DIGEST.test(contract.digest || '')) errors.push(label + '.workload_contract.digest must be a sha256 digest');
