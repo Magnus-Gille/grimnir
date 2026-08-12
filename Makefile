@@ -66,7 +66,7 @@ test-learning-task-contract-doc: ## Regression test: assert the learning seam an
 test-node-substrate-contract-doc: ## Regression test: assert the Node/Substrate authority boundary (issue #101)
 	@bash tests/scripts/test-node-substrate-contract-doc.sh
 
-test-node-substrate-contract: ## Validate the node/substrate v1 schemas and hermetic fixtures (issue #102)
+test-node-substrate-contract: ## Validate the node/substrate v1/v2 schemas and hermetic fixtures (issue #102)
 	@node tests/scripts/validate-node-substrate-contract.mjs
 
 test-maintenance-policy-contract: ## Validate the maintenance-policy v1 schema, DST/digest/decision fixtures (issue #134)

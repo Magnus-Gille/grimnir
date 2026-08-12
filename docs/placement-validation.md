@@ -6,7 +6,7 @@ not inspect a host, fetch a health endpoint, or authorize a lifecycle action.
 
 `nodes[].node_id` and `components[].workload_id` are stable public-safe IDs.
 Hosted components also carry `target_node_id` and an exact reference to the
-`workload-requirement` v1 contract: its owning-repository producer and immutable
+`workload-requirement` v1 or v2 contract: its owning-repository producer and immutable
 SHA-256 digest. A Brokkr capability assessment must echo kind, version, producer,
 and digest exactly. The registry therefore declares placement and pins the owner
 contract it expects without copying Brokkr's capabilities or an owner's
@@ -21,6 +21,19 @@ node scripts/validate-placement.js \
   --now 2026-07-23T10:15:00Z
 ```
 
+For a node-only Brokkr observation, use the explicit `--node-only` mode. The input must contain
+empty `workloads` and `capability_assessments` arrays, plus at least one node record; this prevents the mode from hiding
+workload-level drift in a full observation. It validates the same sealed v1 observation and
+registry membership without requiring unrelated workload evidence:
+
+```sh
+node scripts/validate-placement.js \
+  --registry services.json \
+  --observation tests/fixtures/placement-validation/munin-zero.json \
+  --now 2026-08-12T15:15:00Z \
+  --node-only
+```
+
 The input shape is documented by
 [`placement-validation-v1.schema.json`](placement-validation-v1.schema.json). Its
 top-level and each node capability evidence must name `brokkr`, bind their exact
@@ -28,10 +41,10 @@ observation timestamp, and carry a recomputable SHA-256 digest. Canonical
 serialization recursively sorts object keys, preserves array order, and uses JSON
 primitive serialization. The digest covers the complete record after removing
 only that record's `evidence.digest`; a top-level digest therefore includes the
-already sealed nested node records. The node capabilities are the existing
-Node/Substrate v1 records.
+already sealed nested node records. The node capabilities may be Node/Substrate v1 records
+or focused v2 node records.
 
-Runtime loads both tracked schemas from `docs/`, checks their pinned v1 identities,
+Runtime loads both tracked node/substrate schemas from `docs/`, checks their pinned v1/v2 identities,
 rejects JSON Schema keywords outside the dependency-free supported subset, resolves
 the placement schema's node/substrate reference, and validates the observation
 before semantic reconciliation. Unsupported schema versions or keywords,
@@ -54,3 +67,8 @@ The fixtures are synthetic and hermetic. They cover current desired placement on
 claim those fixtures are live state nor authorize that relocation. Brokkr remains
 the only producer of observed node and workload facts; component owners remain the
 authority for workload requirements.
+
+The `munin-zero.json` fixture is a node-only, public-safe observation. It demonstrates that a
+v2 `armv7l` node can be consumed and checked against the registry without inventing a
+workload placement or carrying private LAN locators. Heimdall's separate monitoring-agent
+contract may retain only bounded freshness evidence; it is not topology or workload authority.
