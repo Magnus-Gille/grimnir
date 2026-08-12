@@ -1,0 +1,57 @@
+{
+  "records": [
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
+      "observation_id": "obs-hugin-dup",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "hugin",
+        "producer_version": "git-3be19f7"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "slot_id": "service-live",
+      "check": {
+        "surface": "liveness"
+      },
+      "attempt_id": "att-hugin-dup-01",
+      "observed_at": "2026-07-31T10:30:00Z",
+      "collected_at": "2026-07-31T10:30:01Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T10:35:00Z",
+      "outcome": "ok",
+      "diagnostic_ref": "ref:hugin-dup-live",
+      "extensions": []
+    },
+    {
+      "kind": "service-observation",
+      "contract_version": "v1.0",
+      "observation_id": "obs-hugin-dup",
+      "source": {
+        "source_kind": "service_internal",
+        "producer": "hugin",
+        "producer_version": "git-3be19f7"
+      },
+      "service": {
+        "service_id": "hugin",
+        "instance_id": "hugin-user"
+      },
+      "slot_id": "service-ready",
+      "check": {
+        "surface": "readiness"
+      },
+      "attempt_id": "att-hugin-dup-02",
+      "observed_at": "2026-07-31T10:30:02Z",
+      "collected_at": "2026-07-31T10:30:03Z",
+      "freshness_window": "PT5M",
+      "fresh_until": "2026-07-31T10:35:02Z",
+      "outcome": "ok",
+      "diagnostic_ref": "ref:hugin-dup-ready",
+      "extensions": []
+    }
+  ],
+  "expected_error": "duplicate service-observation.observation_id obs-hugin-dup"
+}

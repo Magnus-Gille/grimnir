@@ -1,4 +1,4 @@
-.PHONY: docs clean security security-dry deploy test-autonomy-contract test-autonomy-contract-v2 test-autonomy-contract-doc test-autonomy-owner-authorization test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-portability-acceptance test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-fleet-seam-audit-2026-07-26 test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-physical-agent-control test-physical-agent-control-doc test-system-roi-ledger test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test-validation-staleness-evidence-doc test-doc-index test-architecture-component-table test-architecture-component-table-regression test-instruction-eval-sandbox test-skills-eval-sandbox test-telemetry-strategy-doc test
+.PHONY: docs clean security security-dry deploy test-autonomy-contract test-autonomy-contract-v2 test-autonomy-contract-doc test-autonomy-owner-authorization test-security-skip test-security-delta test-security-completeness test-security-namespace test-security-service-contract test-munin-rpc test-registry-smoke test-placement-validation test-portability-acceptance test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-fleet-seam-audit-2026-07-26 test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-operational-observability-contract test-operational-observability-contract-doc test-physical-agent-control test-physical-agent-control-doc test-system-roi-ledger test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test-validation-staleness-evidence-doc test-doc-index test-architecture-component-table test-architecture-component-table-regression test-instruction-eval-sandbox test-skills-eval-sandbox test-telemetry-strategy-doc test
 
 docs: ## Generate full architecture document
 	@./scripts/generate-architecture.sh
@@ -23,6 +23,9 @@ test-security-completeness: ## Fail closed when npm audit or repository coverage
 
 test-security-namespace: ## Keep security scan writes in canonical Munin namespaces (issue #98)
 	@bash scripts/tests/security-scan-namespace.test.sh
+
+test-security-service-contract: ## Keep scheduled scanner credentials private and explicit
+	@bash scripts/tests/security-scan-service-contract.test.sh
 
 test-munin-rpc: ## Reject HTTP, JSON-RPC, and MCP tool errors from scheduled writes
 	@bash scripts/tests/munin-rpc.test.sh
@@ -77,6 +80,12 @@ test-physical-agent-control: ## Validate Stream Deck controls and EP-2350 voice 
 
 test-physical-agent-control-doc: ## Preserve the physical-control authority and safety boundary (issue #179)
 	@bash tests/scripts/test-physical-agent-control-doc.sh
+
+test-operational-observability-contract: ## Validate the operational-observability v1 schema, privacy allowlist, and fail-closed aggregate fixtures (issue #183)
+	@node tests/scripts/validate-operational-observability-contract.mjs
+
+test-operational-observability-contract-doc: ## Regression test: assert the operational-observability boundary, inventory, and privacy rules (issue #183)
+	@bash tests/scripts/test-operational-observability-contract-doc.sh
 
 test-system-roi-ledger: ## Validate evidence status and provenance in the monthly system ROI ledger (issue #67)
 	@node tests/scripts/test-system-roi-ledger.mjs
@@ -144,7 +153,7 @@ test-autonomy-contract-doc: ## Preserve W0 autonomy-contract documentation bound
 test-autonomy-owner-authorization: ## Verify the owner-pinned Ed25519 authorization root (issue #172)
 	@bash tests/scripts/test-autonomy-owner-authorization.sh
 
-test: test-autonomy-contract test-autonomy-contract-v2 test-autonomy-contract-doc test-autonomy-owner-authorization test-security-skip test-security-delta test-security-completeness test-security-namespace test-munin-rpc test-registry-smoke test-placement-validation test-portability-acceptance test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-fleet-seam-audit-2026-07-26 test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-physical-agent-control test-physical-agent-control-doc test-system-roi-ledger test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test-validation-staleness-evidence-doc test-doc-index test-architecture-component-table test-architecture-component-table-regression test-instruction-eval-sandbox test-skills-eval-sandbox test-telemetry-strategy-doc ## Run all test suites
+test: test-autonomy-contract test-autonomy-contract-v2 test-autonomy-contract-doc test-autonomy-owner-authorization test-security-skip test-security-delta test-security-completeness test-security-namespace test-security-service-contract test-munin-rpc test-registry-smoke test-placement-validation test-portability-acceptance test-deploy-source-revision test-deploy-persistent-paths test-deploy-systemd-render test-deploy-unit-target-guard test-failure-recovery-doc test-cross-service-contract-doc test-fleet-seam-audit-2026-07-26 test-learning-task-contract-doc test-node-substrate-contract test-network-operating-model test-node-substrate-contract-doc test-maintenance-policy-contract test-maintenance-policy-contract-doc test-operational-observability-contract test-operational-observability-contract-doc test-physical-agent-control test-physical-agent-control-doc test-system-roi-ledger test-registry-checkout test-systemd-status test-runtime-state test-worktree-hygiene test-validate-exit test-claude-capacity-preflight test-github-project-preflight test-github-actions-policy test-github-actions-zero-step-preflight test-validation-staleness-evidence-doc test-doc-index test-architecture-component-table test-architecture-component-table-regression test-instruction-eval-sandbox test-skills-eval-sandbox test-telemetry-strategy-doc ## Run all test suites
 
 clean: ## Remove generated docs
 	rm -f docs/snapshot.md docs/full-architecture.md
