@@ -183,9 +183,8 @@ is not sufficient.
 An intent binds:
 
 - identity: `intent_id`, `trace_id`, and `idempotency_key`;
-- time: `occurred_at`, receiver-stamped `received_at`, and an `expires_at` no more than five
-  seconds later;
-- ordering: a boot-scoped `stream_id` and strictly increasing `sequence`;
+- time: whole-second UTC `Z` `occurred_at`, receiver-stamped `received_at`, and an `expires_at` no more than five seconds later;
+- ordering: a boot-scoped `stream_id` and strictly increasing `sequence`, represented as a safe integer;
 - configuration: profile ID, version, SHA-256 digest, and exact binding ID;
 - one closed Stream Deck source—EP–2350 is structurally impossible here;
 - one opaque session reference for `codex`, `claude-code`, or `pi`;
@@ -199,10 +198,10 @@ SHA-256 over the UTF-8 RFC 8785 canonical snapshot with only `snapshot_digest` o
 remap must mint a new immutable snapshot reference and digest.
 
 The adapter reconstructs PTT state from accepted intents plus validated cancellation records: a
-begin cannot overlap an active capture or reuse a completed/cancelled capture reference, and a
-release must close the same capture, control, target snapshot, stream, and adapter generation.
+begin cannot overlap any active capture on the profile's single capture source or reuse a completed/cancelled capture reference, and a release must close the same capture, control, target snapshot, stream, and adapter generation.
 The 30-second watchdog emits cancellation evidence, deletes buffered audio, creates no draft, and
-clears the active state. Releases after the ceiling, orphaned releases, cross-restart releases, and
+clears the active state. At the exact ceiling, watchdog cancellation has deterministic precedence
+over a simultaneous release. Releases after the ceiling, orphaned releases, cross-restart releases, and
 orphaned cancellations fail closed. Both profile and intent validation require a dedicated
 `key-*` control; Stream Deck dials cannot become PTT selectors.
 
@@ -260,9 +259,10 @@ Neither key-up, silence, a spoken word, nor an EP–2350 sample can submit conte
 ### Derived display state
 
 `physical-control-state` is a **derived-display** projection. Runtime, workflow, and freshness stay
-separate. The native source must resolve to the same adapter, harness, and session. Idle never means
-done. `done` requires a structured-report reference and digest for that same source, target, and
-workflow outcome. Missing evidence permits only `unknown`. The projection is display-only: it
+separate. The native source must resolve to the same adapter, harness, and session. An
+`adapter-event` must resolve to that same source, target, and workflow. Idle never means done.
+`done` requires a structured-report reference and digest for that same source, target, and workflow
+outcome. Missing evidence permits only `unknown`. The projection is display-only: it
 cannot authorize work, certify mutation, replace native records, or overwrite a Hugin result.
 
 ## Stream Deck baseline

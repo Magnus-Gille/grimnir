@@ -165,6 +165,20 @@ function validateContext(runtimeContext) {
     assert.ok(!contentRefs.has(ref), "volatile content references must be unique");
     contentRefs.add(ref);
   }
+
+  const eventRefs = new Set();
+  for (const [index, event] of runtimeContext.native_events.entries()) {
+    assertExactKeys(
+      event,
+      ["event_ref", "adapter", "source_ref", "harness", "session_ref", "workflow"],
+      `native event ${index}`
+    );
+    for (const field of ["event_ref", "source_ref", "session_ref"]) {
+      assert.match(event[field], idPattern, `native event ${field} must be an opaque id`);
+    }
+    assert.ok(!eventRefs.has(event.event_ref), "native event refs must be unique");
+    eventRefs.add(event.event_ref);
+  }
 }
 
 function validateVoicePolicyResolution(record, runtimeContext) {
@@ -268,7 +282,7 @@ function typeMatches(type, value) {
     object: plain(value),
     array: Array.isArray(value),
     string: typeof value === "string",
-    integer: Number.isInteger(value),
+    integer: Number.isSafeInteger(value),
     boolean: typeof value === "boolean",
     null: value === null
   }[type] === true;
@@ -429,7 +443,7 @@ function validateCaptureTransition(history, candidate, runtimeContext = context)
   const activeByTarget = new Map();
   const usedCaptureRefs = new Set();
   const cancellationEvents = voiceCancellations
-    .filter((record) => Date.parse(record.occurred_at) < Date.parse(candidate.occurred_at))
+    .filter((record) => Date.parse(record.occurred_at) <= Date.parse(candidate.occurred_at))
     .map((record) => ({ kind: "cancellation", record }));
   const timeline = history
     .map((entry) => ({ kind: "intent", record: entry.record }))
@@ -481,7 +495,7 @@ function validateCaptureTransition(history, candidate, runtimeContext = context)
   const targetKey = captureTargetKey(candidate);
   const active = activeByTarget.get(targetKey);
   if (candidate.action.name === "begin-voice-capture") {
-    if (active) throw new Error("voice capture is already active for the exact target");
+    if (activeByTarget.size > 0) throw new Error("voice capture is already active for the capture source");
     if (usedCaptureRefs.has(candidate.action.capture_ref)) {
       throw new Error("voice capture reference was already used");
     }
@@ -912,6 +926,18 @@ function validateState(record, evaluatedAt) {
   if (evidence.kind === "none" && record.workflow !== "unknown") {
     throw new Error("workflow evidence none is valid only for unknown workflow state");
   }
+  if (evidence.kind === "adapter-event") {
+    const event = context.native_events.find(
+      (candidate) =>
+        candidate.event_ref === evidence.event_ref &&
+        candidate.adapter === record.producer.adapter &&
+        candidate.source_ref === record.producer.source_ref &&
+        candidate.harness === record.target.harness &&
+        candidate.session_ref === record.target.session_ref &&
+        candidate.workflow === record.workflow
+    );
+    if (!event) throw new Error("adapter workflow event mismatch");
+  }
   if (evidence.kind === "structured-report") {
     const report = context.native_reports.find(
       (candidate) =>
@@ -1036,6 +1062,41 @@ for (const record of intents) {
 }
 for (const record of states) validateRecord(record, context.state_evaluated_at);
 validateVoiceDraftCollection(voiceDrafts, context);
+
+const crossTargetBegin = structuredClone(
+  intents.find((record) => record.intent_id === "streamdeck-ptt-begin-001")
+);
+crossTargetBegin.intent_id = "streamdeck-ptt-begin-cross-target";
+crossTargetBegin.action.capture_ref = "voice-capture-cross-target";
+crossTargetBegin.target = {
+  harness: "claude-code",
+  session_ref: "slot-2",
+  ownership: "adapter-owned"
+};
+assert.throws(
+  () => validateCaptureTransition(
+    acceptedHistory.filter((entry) => entry.record.sequence <= 2),
+    crossTargetBegin,
+    context
+  ),
+  /voice capture is already active for the capture source/,
+  "a second target cannot overlap the profile's single capture source"
+);
+
+const deadlineRelease = structuredClone(
+  intents.find((record) => record.intent_id === "streamdeck-ptt-end-004")
+);
+deadlineRelease.occurred_at = "2026-07-31T10:01:40Z";
+deadlineRelease.action.capture_ref = "voice-capture-watchdog-001";
+assert.throws(
+  () => validateCaptureTransition(
+    acceptedHistory.filter((entry) => entry.record.sequence <= 13),
+    deadlineRelease,
+    context
+  ),
+  /orphan voice capture end/,
+  "watchdog cancellation wins a same-timestamp key-up race"
+);
 
 const bases = new Map(
   [...intents, ...states, ...voiceDrafts, ...voiceCancellations].map((record) => [

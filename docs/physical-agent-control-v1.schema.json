@@ -18,7 +18,8 @@
     },
     "utc": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
     },
     "digest": {
       "type": "string",
@@ -240,7 +241,7 @@
         "received_at": { "$ref": "#/$defs/utc" },
         "expires_at": { "$ref": "#/$defs/utc" },
         "stream_id": { "$ref": "#/$defs/id" },
-        "sequence": { "type": "integer", "minimum": 1 },
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
         "idempotency_key": { "$ref": "#/$defs/id" },
         "binding": { "$ref": "#/$defs/binding" },
         "source": { "$ref": "#/$defs/stream-deck-source" },

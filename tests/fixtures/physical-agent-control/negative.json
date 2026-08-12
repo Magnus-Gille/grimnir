@@ -524,6 +524,24 @@
     "expected": "schema"
   },
   {
+    "name": "fractional UTC timestamps are outside the v1 wire format",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["occurred_at"], "value": "2026-07-31T10:00:00.250Z" }],
+    "expected": "schema"
+  },
+  {
+    "name": "offset timestamps are outside the v1 wire format",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["occurred_at"], "value": "2026-07-31T12:00:00+02:00" }],
+    "expected": "schema"
+  },
+  {
+    "name": "intent sequence must remain a safe integer",
+    "base": "streamdeck-refresh-001",
+    "mutations": [{ "path": ["sequence"], "value": 9007199254740992 }],
+    "expected": "schema"
+  },
+  {
     "name": "unknown profile digest fails closed",
     "base": "streamdeck-refresh-001",
     "mutations": [{ "path": ["binding", "profile_digest"], "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }],
@@ -613,6 +631,12 @@
     "base": "codex-state-001",
     "mutations": [{ "path": ["updated_at"], "value": "2026-07-31T10:02:00Z" }],
     "expected": "later than observation"
+  },
+  {
+    "name": "adapter workflow evidence must resolve to the exact native event",
+    "base": "codex-state-001",
+    "mutations": [{ "path": ["workflow_evidence", "event_ref"], "value": "codex-event-missing" }],
+    "expected": "adapter workflow event mismatch"
   },
   {
     "name": "freshness is recomputed rather than trusted",

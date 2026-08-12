@@ -89,6 +89,16 @@
     { "adapter": "claude-stream-json", "source_ref": "claude-session-001", "harness": "claude-code", "session_ref": "slot-2" },
     { "adapter": "pi-rpc", "source_ref": "pi-session-001", "harness": "pi", "session_ref": "slot-3" }
   ],
+  "native_events": [
+    {
+      "event_ref": "codex-event-001",
+      "adapter": "codex-app-server",
+      "source_ref": "codex-thread-001",
+      "harness": "codex",
+      "session_ref": "slot-1",
+      "workflow": "working"
+    }
+  ],
   "native_reports": [
     {
       "report_ref": "claude-report-001",
