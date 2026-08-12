@@ -52,7 +52,7 @@ validation_registry_freshness_evidence() {
   local origin_url="" local_objects="" graph_dir="" graph_git=""
 
   [[ -n "$checkout" ]] || { printf '||unreachable\n'; return 0; }
-  local_sha="$(git -C "$checkout" rev-parse HEAD 2>/dev/null)" || {
+  local_sha="$(git -C "$checkout" rev-parse "refs/heads/${branch}" 2>/dev/null)" || {
     printf '||unreachable\n'
     return 0
   }

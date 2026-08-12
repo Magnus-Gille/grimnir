@@ -42,6 +42,9 @@ assert.equal(current.compliant, true, "captured current huginmunin/nas/m5 fixtur
 assert.deepEqual(current.drift, [], "current fixture has no desired-vs-observed drift");
 assert.deepEqual(current.states.map((state) => state.workload_id), [...current.states.map((state) => state.workload_id)].sort((a, b) => a.localeCompare(b, "en", { numeric: true })), "states have stable natural ordering");
 assert.ok(current.states.every((state) => Object.hasOwn(state, "declared") && Object.hasOwn(state, "deployed") && Object.hasOwn(state, "running") && Object.hasOwn(state, "healthy")), "declared/deployed/running/healthy remain distinct");
+assert.deepEqual(current.states.find((state) => state.workload_id === "workload-grimnir").declared.units,
+  ["grimnir-security-scan", "grimnir-validate", "grimnir-validate-timer"],
+  "custom timer companions are part of desired live-unit reconciliation");
 
 const unsupportedSchema = JSON.parse(fs.readFileSync(path.join(root, "docs", "placement-validation-v1.schema.json"), "utf8"));
 unsupportedSchema.unevaluatedProperties = false;

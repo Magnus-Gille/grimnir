@@ -61,7 +61,8 @@ unit_rows() {
         unit.name,
         unit.type || "service",
         unit.scope || "system",
-        unit.type === "timer" ? (unit.service_name || unit.name) : ""
+        unit.type === "timer" ? (unit.service_name || unit.name) : "",
+        unit.type === "timer" && unit.service_name ? "true" : "false"
       ].join("|") + "\n");
     });
   '
@@ -111,11 +112,11 @@ render_one() {
 }
 
 rows=$(unit_rows)
-while IFS='|' read -r unit_name unit_kind unit_scope unit_service_name; do
+while IFS='|' read -r unit_name unit_kind unit_scope unit_service_name unit_companion_required; do
   [[ -n "$unit_name" ]] || continue
   render_one "${unit_name}.${unit_kind}" "$unit_scope" true
   if [[ "$unit_kind" == "timer" ]]; then
-    render_one "${unit_service_name:-$unit_name}.service" "$unit_scope" false
+    render_one "${unit_service_name:-$unit_name}.service" "$unit_scope" "$unit_companion_required"
   fi
 done <<< "$rows"
 

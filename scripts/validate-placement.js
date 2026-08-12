@@ -376,7 +376,13 @@ registry.components.forEach(function (component, index) {
   if (observed.node_id !== targetNodeId) add('missing-workload', { workload_id: workloadId, node_id: targetNodeId, observed_node_id: observed.node_id, detail: 'workload observed away from desired target' });
   if (observed.deployed === 'missing') add('missing-workload', { workload_id: workloadId, node_id: targetNodeId, detail: 'Brokkr observed workload missing' });
   var desiredState = component.desired_runtime_state || 'active';
-  var units = Array.isArray(component.systemd_units) ? component.systemd_units.map(function (unit) { return unit.name; }) : [];
+  var units = [];
+  if (Array.isArray(component.systemd_units)) {
+    component.systemd_units.forEach(function (unit) {
+      units.push(unit.name);
+      if (unit.type === 'timer' && unit.service_name && unit.service_name !== unit.name) units.push(unit.service_name);
+    });
+  }
   var deployedExpected = component.deploy === false ? 'not_applicable' : 'deployed';
   states.push({ workload_id: workloadId, node_id: targetNodeId, declared: { desired_runtime_state: desiredState, deployment: deployedExpected, units: units.sort(naturalCompare) }, deployed: observed.deployed, running: observed.running, healthy: observed.healthy });
   if (observed.deployed !== deployedExpected && !(component.deploy === false && observed.deployed === 'not_applicable')) add('deployment-state', { workload_id: workloadId, node_id: targetNodeId, expected: deployedExpected, observed: observed.deployed });

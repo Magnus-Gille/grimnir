@@ -154,6 +154,19 @@ else
   fail "rendered timer must install service_name companion, not timer base name"
 fi
 
+mv "$DEPLOY_TARGET/systemd/alpha-custom-worker.service" "$TMP_DIR/alpha-custom-worker.service"
+if RUNTIME_HOME="$RUNTIME_HOME" PATH="$TMP_DIR/bin:$PATH" \
+    SYSTEMD_SYSTEM_ROOT="$TMP_DIR/missing-custom-companion" \
+    bash "$RENDER_HELPER" "$DEPLOY_TARGET" "$runtime_json" \
+      "$custom_timer_units_json" "$persistent_json" >"$TMP_DIR/missing-custom-companion.out" 2>&1; then
+  fail "rendered timer must reject a missing explicitly declared companion"
+elif grep -Fq 'unit file missing: alpha-custom-worker.service' "$TMP_DIR/missing-custom-companion.out"; then
+  pass "rendered timer rejects a missing explicitly declared companion"
+else
+  fail "missing rendered companion failure must name the declared service"
+fi
+mv "$TMP_DIR/alpha-custom-worker.service" "$DEPLOY_TARGET/systemd/alpha-custom-worker.service"
+
 VERIFY_FAIL_ROOT="$TMP_DIR/verify-fail-systemd"
 mkdir -p "$VERIFY_FAIL_ROOT"
 printf '%s\n' 'OLD-VERIFIED-UNIT' > "$VERIFY_FAIL_ROOT/alpha.service"

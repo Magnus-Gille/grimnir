@@ -54,6 +54,12 @@ git -C "$FRESHNESS_TMP/checkout" commit -am ahead >/dev/null
 AHEAD_SHA="$(git -C "$FRESHNESS_TMP/checkout" rev-parse HEAD)"
 assert_eq "temp local-only commit is ahead" "$AHEAD_SHA|$BASE_SHA|ahead" \
   "$(validation_registry_freshness_evidence "$FRESHNESS_TMP/checkout")"
+git -C "$FRESHNESS_TMP/checkout" checkout -b feature >/dev/null
+printf 'feature\n' >> "$FRESHNESS_TMP/checkout/record"
+git -C "$FRESHNESS_TMP/checkout" commit -am feature >/dev/null
+assert_eq "freshness evidence reads local main, not checked-out HEAD" "$AHEAD_SHA|$BASE_SHA|ahead" \
+  "$(validation_registry_freshness_evidence "$FRESHNESS_TMP/checkout")"
+git -C "$FRESHNESS_TMP/checkout" checkout main >/dev/null
 git clone "$FRESHNESS_TMP/remote.git" "$FRESHNESS_TMP/remote-writer" >/dev/null
 git -C "$FRESHNESS_TMP/remote-writer" config user.email test@example.invalid
 git -C "$FRESHNESS_TMP/remote-writer" config user.name test
@@ -114,6 +120,11 @@ if grep -Fq 'Unit=grimnir-validate-timer.service' "$(dirname "$0")/../../systemd
 else
   echo "  FAIL: timer wiring must supply an explicit origin service and refuse manual starts"
   FAIL=$((FAIL + 1))
+fi
+if grep -Fq '[Install]' "$(dirname "$0")/../../systemd/grimnir-validate-timer.service"; then
+  echo "  FAIL: timer-only companion must not be independently enableable"; FAIL=$((FAIL + 1))
+else
+  echo "  PASS: timer-only companion has no independent install target"; PASS=$((PASS + 1))
 fi
 
 echo ""

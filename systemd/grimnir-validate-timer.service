@@ -29,6 +29,3 @@ ProtectClock=yes
 ProtectKernelLogs=yes
 ProtectKernelModules=yes
 SystemCallArchitectures=native
-
-[Install]
-WantedBy=default.target

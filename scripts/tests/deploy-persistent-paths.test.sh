@@ -484,6 +484,28 @@ EOF
 assert_rejected_before_remote "present timer companion template" "$TMP_DIR/companion-template.json" \
   "systemd/alpha-worker.service (unit alpha-worker.service contains unresolved placeholder <user>)"
 
+mkdir -p "$TMP_DIR/repos/missing-companion/systemd"
+cat > "$TMP_DIR/repos/missing-companion/systemd/alpha.timer" << 'EOF'
+[Timer]
+OnCalendar=daily
+Unit=alpha-worker.service
+EOF
+commit_fixture_repo "$TMP_DIR/repos/missing-companion"
+cat > "$TMP_DIR/missing-companion.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "missing-companion", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": false,
+      "systemd_units": [{ "name": "alpha", "type": "timer", "service_name": "alpha-worker" }]
+    }
+  ]
+}
+EOF
+assert_rejected_before_remote "missing declared timer companion" "$TMP_DIR/missing-companion.json" \
+  "install-ready unit source missing: alpha-worker.service"
+
 cat > "$TMP_DIR/safe.json" << 'EOF'
 {
   "components": [
