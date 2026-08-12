@@ -1,7 +1,7 @@
 # Grimnir — Observability and the Self-Improving Loop
 
 > Architectural status and roadmap for evidence-driven task delegation.
-> Last updated: 2026-07-26.
+> Last updated: 2026-07-30.
 
 ## Purpose
 
@@ -11,9 +11,10 @@ join is [LearningTaskContract v1](learning-task-contract.md); the meaning of “
 settled by [ADR-006](adr-006-learning-improvement-scope.md).
 
 This document replaces the older assumption that all components participated in one generic
-`trace → score → reflection → few-shot/routing` pipeline. The core Hugin↔`gille-inference` loop is
-implemented and has been exercised, while producer coverage, ground-truth breadth, and operating
-cadence still have explicit maturity gaps.
+`trace → score → reflection → few-shot/routing` pipeline. The core Hugin↔`gille-inference` software
+loop is implemented and its authenticated seam has been live-smoked, while producer coverage,
+ground-truth breadth, full-path operating evidence, and operating cadence still have explicit
+maturity gaps. ADR-008's production configuration is globally disarmed.
 
 ## Telemetry strategy
 
@@ -22,10 +23,16 @@ storage or visualization does not transfer authority:
 
 | Record class | Authoritative producer and facts | Aggregation and consumers | Current boundary |
 |---|---|---|---|
-| **Operational telemetry** | Each service owns its application health, latency, queue, throughput, and error facts; systemd owns unit lifecycle; Brokkr owns substrate observations. | Heimdall collects derived health time series and alerts for the operator. Skuld may consume an explicitly derived health summary, not raw logs or a new verdict. | Basic host/service/backup and Hugin task-health collection exists. Queue depth, Munin request rates, model-load timing, and cross-service throughput trends remain uneven or absent. |
+| **Operational telemetry** | Each service owns its application health, latency, queue, throughput, and error facts; systemd owns unit lifecycle; Brokkr owns substrate observations. Consumers own collector freshness caps and collector/exporter meta-observation requirements. | Heimdall collects derived health time series and alerts for the operator. Skuld may consume an explicitly derived health summary, not raw logs or a new verdict. | Basic host/service/backup and Hugin task-health collection exists. Queue depth, Munin request rates, model-load timing, and cross-service throughput trends remain uneven or absent. |
 | **Task and product evidence** | Hugin owns task/source identity, attempt lifecycle, execution/repository/publication outcomes, Quality Receipts, corrections, and macro-routing experiments. | Munin stores and exposes some Hugin records; Heimdall may render task status; governed evaluators, the autonomy controller, and the operator consume complete Hugin-owned facts. | The append-only all-outcome registry, native-v2 correction path, proposer, candidate packager, controlled experiments, and cadence tick are implemented. Product labels and certified intake coverage remain uneven across task surfaces. |
-| **Capability evidence** | `gille-inference` owns gateway request/exposure identity, effective model/runtime configuration, verifier results, the capability ledger, and micro-routing. | The gateway ledger aggregates per-model capability facts. Hugin and the autonomy controller may consume only compatible, independently verified evidence through the LearningTaskContract seam. | Authenticated stamp/echo, exposure/accounting, experiment import, routing lifecycle, watchdog, calibration, and autonomy controller are implemented. Refreshed served-model evidence and final production-shaped reviewer evidence remain open. |
+| **Capability evidence** | `gille-inference` owns gateway request/exposure identity, effective model/runtime configuration, verifier results, the capability ledger, and micro-routing. | The gateway ledger aggregates per-model capability facts. Hugin and the autonomy controller may consume only compatible, independently verified evidence through the LearningTaskContract seam. | Authenticated stamp/echo, exposure/accounting, experiment import, routing lifecycle, watchdog, calibration, and autonomy controller are implemented. The served-model and reviewer mechanisms are closed; end-to-end production evidence remains open. |
 | **Consequential-mutation receipts** | The mutating component or authoritative external system owns intent, observed outcome, final-state reference, and reversal evidence. A future accepted Verdandi receipt may bind those references without replacing them. | The operator, incident review, and autonomous-action gate consume minimal receipts and source references. This is accountability, not health monitoring or model evaluation. | Reversal conventions and some component provenance exist, but Verdandi production is recovery-gated and its narrow receipt purpose remains proposed. Do not claim a live fleet-wide receipt path. |
+
+The operational-telemetry plane's record shape is normative in
+[`operational-observability-contract.md`](operational-observability-contract.md): closed
+observation states, authority-bound expected-inventory aggregation, consumer-owned freshness caps,
+collector/exporter meta-slots, content-blind trace joins, and deny-by-default serialized
+attributes live there rather than in Heimdall tickets or dashboards.
 
 ### Purpose and data flow
 
@@ -33,7 +40,7 @@ storage or visualization does not transfer authority:
 |---|---|---|
 | **Debug — what went wrong?** | Owning service/systemd/Hugin attempt record → owner-local logs or an on-demand correlation view → operator and owning-repo maintainer | Preserve exit status, duration, bounded diagnostic context, and last known activity at the source. A dashboard summary links back; it does not become the forensic authority. |
 | **Monitor — is the system healthy?** | Service and Brokkr health signals → Heimdall → operator, alerts, and an explicitly bounded Skuld summary | Calculate uptime, rates, counts, percentiles, backlog, resource use, and staleness deterministically. Alert correctness and collection freshness are themselves monitored. |
-| **Governed improvement — what should change?** | Hugin task/product facts plus `gille-inference` capability facts → versioned LearningTaskContract join/evaluator → autonomy controller, operator, and owning route/prompt/harness policy | A complete, governed, independently verified bundle may support an experiment and a mechanically gated proposal or adoption. The armed controller is at Tier 0, so it currently records proposals but auto-adopts nothing. Operational correlation alone never becomes a capability or product verdict. |
+| **Governed improvement — what should change?** | Hugin task/product facts plus `gille-inference` capability facts → versioned LearningTaskContract join/evaluator → autonomy controller, operator, and owning route/prompt/harness policy | A complete, governed, independently verified bundle may support an experiment and a mechanically gated proposal. ADR-008's production configuration is globally disarmed. The separate owner ceremony must precede an exact `armed-canary` class; its real canary/watch/recovery evidence then gates any promotion beyond that canary. Operational correlation alone never becomes a capability or product verdict. |
 | **Accountability — what consequential mutation occurred and how is it reversed?** | Mutating authority plus authoritative readback → minimal receipt binding when implemented → operator, recovery tooling, and policy gate | Receipts reference action authority, observed effect, and reversal evidence; they do not ingest generic tool, session, or telemetry streams. |
 
 **Structured calculation comes first.** Counters, rates, averages, percentiles, durations, threshold
@@ -58,13 +65,15 @@ result. Another database or prose-analysis daemon would duplicate storage while 
 **Current gaps:** operational coverage is uneven; some desired metrics have no owning emitter;
 Heimdall does not supply learning verdicts; certified external Codex/Pi producer rollout remains
 incomplete under [#90](https://github.com/Magnus-Gille/grimnir/issues/90) and
-`claude-config#11`; refreshed served-model identity (`gille-inference#11`) and reviewed
-production-shaped ground truth (`gille-inference#13`) remain open; and the consequential-receipt
-path is not live. The core Hugin↔gateway join is live, but uncovered task paths fail closed instead
-of being counted as complete evidence. **Future work** stays in the owning repositories: services
-add bounded emitters, Heimdall adds health collectors/views, external surfaces complete certified
-adapters, the Tier-0 controller accumulates the required healthy-cycle record, and Verdandi remains
-unavailable until its recovery and purpose gates are separately satisfied.
+`claude-config#11`; `gille-inference#11` and `gille-inference#13` are closed but their completion
+does not supply the missing full-path operating proof; and the consequential-receipt path is not
+live. The core
+Hugin↔gateway join is live-smoked, but uncovered task paths fail closed instead of being counted as
+complete evidence. **Future work** stays in the owning repositories: services add bounded emitters,
+Heimdall adds health collectors/views, and external surfaces complete certified adapters. The owner
+ceremony must precede an exact ADR-008 `armed-canary` class; real canary/watch/recovery evidence must
+then precede promotion beyond it. Verdandi remains unavailable until its recovery and purpose gates
+are separately satisfied.
 
 ## The three evidence planes
 
@@ -100,11 +109,12 @@ joined, governed candidate
        --> subsequent production evidence checks the result
 ```
 
-The core path has completed one live human-approved routing adoption, and the autonomous controller
-is armed on M5 at **Tier 0** with its kill switch off. Tier 0 proposes and records only; Tier 1
-self-unlocks after the configured healthy-cycle predicate. This proves the Hugin↔gateway loop, not
-universal fleet coverage: direct external surfaces, raw loopback, unsupported task types, and
-missing/stale producer evidence remain uncovered and fail closed.
+The authenticated stamp/echo path has passed a live joint smoke. That proves the seam, not the
+program acceptance path: it is not evidence that one ordinary production task traversed the full
+experiment, reviewed-change, and canary/watch path with a tested rollback or recovery boundary,
+followed by subsequent measurement. The ADR-008
+controller is globally disarmed. Direct external surfaces, raw loopback, unsupported task types,
+and missing/stale producer evidence remain uncovered and fail closed.
 
 ## Evidence maturity vocabulary
 
@@ -129,11 +139,11 @@ local terms explicitly until adoption:
 | Hugin Quality Receipts v1/v2 | Implemented | Concurrency-safe receipts preserve v1 artifacts and support native-v2 attempt/rubric/correction binding. Human review remains supported but is not required by the operating controller. |
 | Hugin proposer, candidate packager, experiment store, and cadence | Implemented | Qualified candidates can enter frozen one-axis experiments; the reusable corpus and certified producer coverage are not universal. |
 | M5 exposure registry and cross-owner accounting | Implemented; coverage partial | Declared gateway lanes and authenticated external receipt intake fail closed. Direct loopback and the still-incomplete Codex/Pi adapters under #90 remain outside complete coverage. |
-| M5 capability ledger, verifiers, and experiment import | Implemented; ground truth partial | Capability truth and admissible Hugin imports are live. Served-model refresh (`gille-inference#11`) and reviewer adoption evidence (`gille-inference#13`) remain. |
+| M5 capability ledger, verifiers, and experiment import | Implemented; ground truth partial | Capability truth and admissible Hugin imports are live. `gille-inference#11` and `gille-inference#13` are closed; their merged mechanisms do not substitute for the still-missing end-to-end production evidence. |
 | M5 organic-judge calibration | Implemented, mechanically gated | Verifier-anchored rolling calibration controls admissibility; stale or below-threshold evidence holds automatically and cannot affect routing. |
 | Hugin↔M5 authenticated preflight/stamp/echo | Implemented and exercised | A live joint smoke passed the authenticated five-gate path. Unstamped or incompatible traffic fails closed rather than joining post hoc. |
 | Immutable pipeline accounting | Implemented on both owners | Hugin and `gille-inference` own append-only registries, natural keys, retries, complete partitions, and fail-closed period closes. This does not prove every external task emitted a receipt. |
-| Routing lifecycle, watchdog, and autonomy controller | Implemented; armed Tier 0 | Reviewed lifecycle, durable adoption, canary, auto-revert/quarantine, protected lanes, kill switch, and tier ladder are live. Tier 0 auto-adopts nothing while healthy-cycle evidence accumulates. |
+| Routing lifecycle, watchdog, and autonomy controller | Implemented; globally disarmed | Lifecycle, durable-adoption, canary, recovery/quarantine, protected-lane, kill-switch, and tier-ladder software seams exist. No production controller, target binding, owner authorization, canary, or live mutation is armed or evidenced. |
 | Model-weight training | Future, outside v1 | Requires the separate gates in ADR-006. |
 
 ## What a trustworthy observation requires
@@ -208,12 +218,15 @@ candidate-starvation rate rather than claiming the holdout is contamination-proo
 
 ### Promotion is mechanical and reversible
 
-The operating controller adopts only reversible route/roster/prompt/harness changes after every
-admissibility, confidence, risk-budget, protected-lane, canary, and tier predicate passes. Every
-adoption holds an exact rollback and enters a watchdog window with automatic revert/quarantine.
-Today the controller is armed at Tier 0, so no proposal can auto-adopt until the Tier-1 healthy-cycle
-predicate is satisfied. Software changes, protected-lane policy, and irreversible actions remain
-owner-controlled; see [the autonomous-improvement design](autonomous-improvement-design.md).
+The operating controller design admits only reversible route/roster/prompt/harness changes after
+every admissibility, confidence, risk-budget, protected-lane, canary, and tier predicate passes.
+Every future adoption must hold an exact rollback and enter a watchdog window with automatic
+revert/quarantine. The current ADR-008 configuration is globally disarmed. The separate owner
+ceremony may admit an exact `armed-canary` class after it binds exact revisions, targets, trust
+roots, and budget. Real canary/watch/recovery evidence from that class must then pass before any
+promotion beyond the canary; until then no broader proposal can auto-adopt. Software changes,
+protected-lane policy, and irreversible actions remain owner-controlled; see
+[the autonomous-improvement design](autonomous-improvement-design.md).
 
 ADR-008 now supplies the cross-domain supervision floor: mechanical promotion is only for an
 explicitly covered, digest-bound class with a domain journal and a disarming recovery worker.
@@ -227,15 +240,16 @@ the required posture outside ADR-008's seven future armed classes and while W0 i
 |---|---|---|
 | LearningTaskContract seam, canonical identity, authenticated stamp/echo | Implemented and live-smoked | Compatibility and missing evidence still fail closed; this is not proof of every producer path. |
 | Hugin receipts, all-outcome registry, corrections, candidate packaging, experiments | Implemented | Product-review and task-type breadth depend on available verifier/label evidence. |
-| Gateway exposure/accounting, capability import, routing lifecycle | Implemented and exercised | Exact served-model refresh and final ground-truth reviewer work remain under `gille-inference#11/#13`. |
-| Experiment/sampling cadence and autonomy controller | Implemented and armed at Tier 0 | Tier 1 waits for the configured healthy-cycle record; later tiers require their own operating evidence. |
+| Gateway exposure/accounting, capability import, routing lifecycle | Implemented; partial operating evidence | `gille-inference#11` and `gille-inference#13` are closed, but the full-path production acceptance evidence remains absent. |
+| Experiment/sampling cadence and autonomy controller | Implemented; globally disarmed | W0–W5 software seams are merged. The owner ceremony gates exact `armed-canary` admission; real canary/watch/recovery evidence gates promotion beyond it. |
 | External Codex App/CLI and Pi producers | Partial | Hugin/gateway intake exists, but installed/certified adapters remain open under #90 and `claude-config#11`. |
 | Consequential-mutation receipts | Future/recovery-gated | Verdandi cannot be claimed live until its separate recovery and purpose gates pass. |
 
-The core loop is closed and exercised, and the autonomous controller is armed. “Continuous” remains
-a measured coverage/cadence claim: incomplete producer epochs, insufficient eligible candidates,
-ground-truth gaps, or failed tier predicates are reported as such rather than promoted into evidence
-of continuous improvement.
+The software loop is assembled and its authenticated seam is exercised; the program acceptance loop
+is not yet proven, and the autonomous controller is disarmed. “Continuous” remains a measured
+coverage/cadence claim: incomplete producer epochs, insufficient eligible candidates, ground-truth
+gaps, failed tier predicates, or absent real canary evidence are reported as such rather than
+promoted into evidence of continuous improvement.
 
 ## Per-component signals outside the delegation loop
 
@@ -261,8 +275,8 @@ those signals do not automatically enter the task-delegation learning contract.
 5. **Store correction lineage.** A product verdict without the corrective successor cannot support
    the strongest forms of learning.
 6. **Independent verification beats model prose.** Self-reported success is never its own oracle.
-7. **Mechanical, reversible operating promotion.** The tiered controller may adopt only after every
-   proof and rollback gate passes; Tier 0 currently auto-adopts nothing. Code, protected lanes, and
-   irreversible actions remain owner-controlled.
+7. **Mechanical, reversible operating promotion.** A future tiered controller may adopt only after
+   every proof and rollback gate passes. The current ADR-008 configuration is globally disarmed;
+   code, protected lanes, and irreversible actions remain owner-controlled.
 8. **No hidden model training.** Evaluation/routing data is not a training dataset; ADR-006 governs
    any future exception.

@@ -91,6 +91,31 @@ assert_eq "valid registry -> exit 0" "0" "$(run_validator "$TMP_DIR/valid.json")
 REPO_REGISTRY="$SCRIPT_DIR/../../services.json"
 assert_eq "real services.json -> exit 0" "0" "$(run_validator "$REPO_REGISTRY")"
 
+# Managed legacy nodes remain observable without becoming workload deployment
+# targets. This is the Grimnir-side regression for issue #190.
+NODE_JSON="$(REGISTRY_PATH="$REPO_REGISTRY" QUERY=nodes-json node --input-type=commonjs "$SCRIPT_DIR/../lib/registry.js")"
+if NODE_JSON="$NODE_JSON" node -e '
+  const nodes = JSON.parse(process.env.NODE_JSON);
+  const node = nodes.find((candidate) => candidate.node_id === "node-munin-zero");
+  if (!node || node.name !== "munin-zero" || node.hostname !== "munin-zero.local" || node.role !== "memory-appliance" || node.status !== "active" || node.monitor !== true) process.exit(1);
+'; then
+  echo "  PASS: munin-zero is an active monitored managed node"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: munin-zero is an active monitored managed node"
+  FAIL=$((FAIL + 1))
+fi
+if REGISTRY_PATH="$REPO_REGISTRY" node -e '
+  const registry = require(process.env.REGISTRY_PATH);
+  if (registry.components.some((component) => component.target_node_id === "node-munin-zero")) process.exit(1);
+'; then
+  echo "  PASS: munin-zero is not a component deployment target"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: munin-zero is not a component deployment target"
+  FAIL=$((FAIL + 1))
+fi
+
 # ── Repository authority is bounded and machine-readable (#112) ───────────
 cat > "$TMP_DIR/bad-repository-authority.json" << 'EOF'
 {
@@ -579,8 +604,9 @@ assert_clean_failure "null entry in nodes" "$TMP_DIR/null-node.json"
 
 # ── registry.js structured deploy-query invariant (#43 / #33) ──────────────
 # The JSON Lines `deploy` projection derives each component's primary unit_type/scope from
-# systemd_units[0]. Pin Hugin's surviving user-scoped service after retirement
-# of the legacy system timer, plus the ordering contract on a synthetic fixture.
+# systemd_units[0]. Hugin's primary unit must stay a user-scoped rsync service
+# while its two user-scoped timers remain declared in the owning contract. Pin
+# the real services.json plus the ordering contract on a synthetic fixture.
 REGISTRY_JS="$SCRIPT_DIR/../lib/registry.js"
 repository_authority_rows="$(
   REGISTRY_PATH="$REPO_REGISTRY" QUERY=repository-authority \
@@ -614,9 +640,12 @@ assert_eq "real services.json: hugin primary unit remains service" "service" \
   "$(deploy_field "$REPO_REGISTRY" hugin unit_type)"
 assert_eq "real services.json: hugin deploy scope remains user" "user" \
   "$(deploy_field "$REPO_REGISTRY" hugin unit_scope)"
-assert_eq "real services.json: hugin declares only its user service after legacy timer retirement" \
-  '[{"name":"hugin","type":"service","scope":"user"}]' \
-  "$(deploy_field "$REPO_REGISTRY" hugin systemd_units)"
+hugin_units="$(deploy_field "$REPO_REGISTRY" hugin systemd_units)"
+assert_eq "real services.json: hugin declares the live service and timer contract" \
+  '[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-exam-factory","type":"timer","scope":"user"},{"name":"hugin-experiment-cadence","type":"timer","scope":"user"}]' \
+  "$hugin_units"
+assert_eq "real services.json: retired hugin daily-analysis timer is absent" \
+  "false" "$(printf '%s\n' "$hugin_units" | grep -Fq 'hugin-daily-analysis' && echo true || echo false)"
 
 assert_eq "real services.json: Heimdall deploy refreshes boot-check timer companion" \
   '[{"name":"heimdall","type":"service"},{"name":"heimdall-collect","type":"timer"},{"name":"heimdall-maintain","type":"timer"},{"name":"heimdall-boot-check","type":"timer"}]' \

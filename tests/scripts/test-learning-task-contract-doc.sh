@@ -11,6 +11,7 @@ ADR="$REPO_ROOT/docs/adr-006-learning-improvement-scope.md"
 OBS="$REPO_ROOT/docs/observability-and-improvement.md"
 README="$REPO_ROOT/README.md"
 SCHEMA="$REPO_ROOT/docs/learning-task-contract-v1.schema.json"
+RETIRED_TIER_CLAIM_RE="$(< "$REPO_ROOT/tests/fixtures/retired-autonomy-claims.regex")"
 
 PASS=0
 FAIL=0
@@ -179,8 +180,21 @@ assert_contains "$OBS" "three-plane architecture" 'three evidence planes'
 assert_contains "$OBS" "mechanical promotion boundary" 'Promotion is mechanical and reversible'
 assert_contains "$OBS" "native-v2 receipt correction is implemented" 'Quality Receipts v1/v2.*Implemented'
 assert_contains "$OBS" "authenticated stamp echo is live" 'authenticated preflight/stamp/echo.*Implemented and exercised'
-assert_contains "$OBS" "autonomy controller is armed at tier zero" 'armed at Tier 0'
+assert_contains "$OBS" "autonomy controller is globally disarmed" 'Routing lifecycle, watchdog, and autonomy controller.*Implemented; globally disarmed'
+assert_contains "$OBS" "owner ceremony precedes armed canary" 'owner ceremony.*precede.*`armed-canary`'
+assert_contains "$OBS" "canary evidence gates wider promotion" 'then precede promotion beyond'
 assert_contains "$OBS" "immutable late reviews are roadmap facts" 'Late reviews append; they do not patch observations'
+
+while IFS= read -r relative; do
+  if grep -qiE "$RETIRED_TIER_CLAIM_RE" <<< "$(tr '\n' ' ' < "$REPO_ROOT/$relative")"; then
+    echo "  FAIL: retired autonomy/current-truth claim remains in $relative"
+    FAIL=$((FAIL+1))
+  fi
+done < <(git -C "$REPO_ROOT" ls-files 'README.md' 'STATUS.md' 'docs/*.md')
+if [[ "$FAIL" -eq 0 ]]; then
+  echo "  PASS: retired autonomy/current-truth claims are absent from tracked project Markdown"
+  PASS=$((PASS+1))
+fi
 
 echo ""
 if [[ "$FAIL" -eq 0 ]]; then
