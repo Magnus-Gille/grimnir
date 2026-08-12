@@ -278,6 +278,27 @@ unit_rows() {
     '
 }
 
+timer_targets_declared_service() {
+  local timer_file=$1 expected_service=$2
+  awk -v expected="${expected_service}.service" '
+    /^[[:space:]]*\[[^]]+\][[:space:]]*$/ {
+      section = $0
+      gsub(/^[[:space:]]*\[|\][[:space:]]*$/, "", section)
+      in_timer = (section == "Timer")
+      next
+    }
+    in_timer && /^[[:space:]]*Unit[[:space:]]*=/ {
+      value = $0
+      sub(/^[[:space:]]*Unit[[:space:]]*=[[:space:]]*/, "", value)
+      sub(/[[:space:]]*$/, "", value)
+      count++
+      if (value != expected) valid = 0
+      else if (valid == 0 && count == 1) valid = 1
+    }
+    END { exit !(count == 1 && valid == 1) }
+  ' "$timer_file"
+}
+
 preflight_local_unit_sources() {
   local local_path=$1 units_json=$2 fallback_name=$3 fallback_type=$4 fallback_scope=$5 render_enabled=${6:-false} deploy_path=${7:-}
   local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required unit_file companion_file source
@@ -300,6 +321,13 @@ preflight_local_unit_sources() {
       fi
     fi
     if [[ "$unit_kind" == "timer" ]]; then
+      if [[ "$unit_companion_required" == "true" ]]; then
+        source=$(resolve_local_unit_source "$local_path" "$unit_file")
+        if ! timer_targets_declared_service "$source" "$unit_service_name"; then
+          echo "ERROR: timer $unit_file must declare Unit=${unit_service_name}.service" >&2
+          return 1
+        fi
+      fi
       companion_file="${unit_service_name:-$unit_name}.service"
       if ! preflight_local_install_ready_unit_source "$local_path" "$companion_file" "$unit_companion_required" "$render_enabled"; then
         return 1

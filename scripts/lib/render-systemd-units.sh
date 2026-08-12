@@ -111,11 +111,37 @@ render_one() {
   printf '%s|%s\n' "$unit_file" "$scope" >> "$manifest"
 }
 
+timer_targets_declared_service() {
+  local timer_file=$1 expected_service=$2
+  awk -v expected="${expected_service}.service" '
+    /^[[:space:]]*\[[^]]+\][[:space:]]*$/ {
+      section = $0
+      gsub(/^[[:space:]]*\[|\][[:space:]]*$/, "", section)
+      in_timer = (section == "Timer")
+      next
+    }
+    in_timer && /^[[:space:]]*Unit[[:space:]]*=/ {
+      value = $0
+      sub(/^[[:space:]]*Unit[[:space:]]*=[[:space:]]*/, "", value)
+      sub(/[[:space:]]*$/, "", value)
+      count++
+      if (value != expected) valid = 0
+      else if (valid == 0 && count == 1) valid = 1
+    }
+    END { exit !(count == 1 && valid == 1) }
+  ' "$timer_file"
+}
+
 rows=$(unit_rows)
 while IFS='|' read -r unit_name unit_kind unit_scope unit_service_name unit_companion_required; do
   [[ -n "$unit_name" ]] || continue
   render_one "${unit_name}.${unit_kind}" "$unit_scope" true
   if [[ "$unit_kind" == "timer" ]]; then
+    if [[ "$unit_companion_required" == "true" ]] &&
+       ! timer_targets_declared_service "$render_dir/${unit_name}.timer" "$unit_service_name"; then
+      echo "ERROR: timer ${unit_name}.timer must declare Unit=${unit_service_name}.service" >&2
+      exit 1
+    fi
     render_one "${unit_service_name:-$unit_name}.service" "$unit_scope" "$unit_companion_required"
   fi
 done <<< "$rows"

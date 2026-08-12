@@ -463,6 +463,7 @@ mkdir -p "$TMP_DIR/repos/companion-template/systemd"
 cat > "$TMP_DIR/repos/companion-template/systemd/alpha.timer" << 'EOF'
 [Timer]
 OnCalendar=daily
+Unit=alpha-worker.service
 EOF
 cat > "$TMP_DIR/repos/companion-template/systemd/alpha-worker.service" << 'EOF'
 [Service]
@@ -506,6 +507,32 @@ EOF
 assert_rejected_before_remote "missing declared timer companion" "$TMP_DIR/missing-companion.json" \
   "install-ready unit source missing: alpha-worker.service"
 
+mkdir -p "$TMP_DIR/repos/mismatched-companion/systemd"
+cat > "$TMP_DIR/repos/mismatched-companion/systemd/alpha.timer" << 'EOF'
+[Timer]
+OnCalendar=daily
+Unit=alpha-other.service
+EOF
+cat > "$TMP_DIR/repos/mismatched-companion/systemd/alpha-worker.service" << 'EOF'
+[Service]
+ExecStart=/bin/true
+EOF
+commit_fixture_repo "$TMP_DIR/repos/mismatched-companion"
+cat > "$TMP_DIR/mismatched-companion.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "mismatched-companion", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": false,
+      "systemd_units": [{ "name": "alpha", "type": "timer", "service_name": "alpha-worker" }]
+    }
+  ]
+}
+EOF
+assert_rejected_before_remote "mismatched timer companion target" "$TMP_DIR/mismatched-companion.json" \
+  "timer alpha.timer must declare Unit=alpha-worker.service"
+
 cat > "$TMP_DIR/safe.json" << 'EOF'
 {
   "components": [
@@ -546,6 +573,9 @@ for timer in heimdall-boot-check alpha-custom alpha-once alpha-recurring alpha-u
 OnCalendar=daily
 EOF
 done
+sed -i.bak '/OnCalendar=daily/a\
+Unit=alpha-custom-worker.service' "$TMP_DIR/repos/alpha/alpha-custom.timer"
+rm "$TMP_DIR/repos/alpha/alpha-custom.timer.bak"
 cat > "$TMP_DIR/repos/alpha/alpha-recurring.service" << 'EOF'
 [Service]
 ExecStart=/bin/true
