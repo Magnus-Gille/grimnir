@@ -12,7 +12,8 @@ changes here; `CLAUDE.md` is only a Claude Code import adapter.
 
 ## Agent workflow
 
-- Read `STATUS.md` first for current execution state and resumption context.
+- Read `STATUS.md` when resuming work or when the task depends on current execution state.
+  Bounded edits and read-only questions need only the context relevant to the task.
 - Treat `services.json` as the component-inventory authority; see `docs/authority.md` for the wider
   authority map.
 - **This file holds no reference material — every system document and script is indexed in
@@ -49,13 +50,15 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
   grimnir's.
 - **Subagents deliver completed work as PRs** in the owning repo. No direct pushes to default
   branches.
-- **Grimnir is the PR review gate.** Prefer a Codex review (sol, high effort) when available;
-  otherwise spawn a dedicated review subagent with suitable context using Fable or Opus.
+- **Grimnir is the PR review gate.** Prefer a Codex review (sol, high effort) when available and the owner has authorized sending
+  that scoped context to OpenAI; the Anthropic standing authorization does not cover OpenAI.
+  Otherwise use the standing read-only Claude authorization for an independent Fable or Opus review.
+  Exclude credentials, secrets, and unrelated context under either provider’s applicable authorization.
   Merge only after review plus green CI.
-- **Always dogfood.** Use M5 for bounded work at every level — orchestrator and subagents alike —
-  while remaining responsible for quality: verify M5 output before it reaches a decision or an
-  artifact. Log every learning durably (Munin friction signals, evidence notes, or ticket
-  comments) so the improvement loop actually receives it.
+- **Dogfood substantive implementation.** Apply the global M5 implementation default in the
+  orchestrator and implementation subagents: delegate an eligible leaf when M5 is healthy,
+  verify its output, and record actual model and usefulness. Use `m5-delegate` for mechanics.
+  Keep learning durable in Munin friction signals, evidence notes, or authorized ticket comments.
 - **Conservative subagent sizing.** Spawn subagents with the smallest model/effort that completes
   the work at quality. No overkill token usage.
 - **Friction becomes tickets.** Papercuts, tool failures, and doc drift encountered during work

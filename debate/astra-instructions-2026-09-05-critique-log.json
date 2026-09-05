@@ -1,0 +1,322 @@
+[
+  {
+    "id": "astra-instructions-C01",
+    "source": "claude-round-1",
+    "text": "Close activation broadened",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Restored explicit owner close/wrap-up/handoff request in the skill and Claude adapter."
+  },
+  {
+    "id": "astra-instructions-C02",
+    "source": "claude-round-1",
+    "text": "Fixed account ID remains despite self-review claim",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Removed the two remaining duplicates and native copies; the original self-review overstated completion."
+  },
+  {
+    "id": "astra-instructions-C03",
+    "source": "claude-round-1",
+    "text": "Rollback evidence only in volatile temporary storage",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Archive manifest, original backups, reviewed sources, and review evidence under ~/.local/state/codex/instruction-cleanup/2026-09-05 before activation; rollback is hash-guarded. No OS-specific purge timing is needed for this decision."
+  },
+  {
+    "id": "astra-instructions-C04",
+    "source": "claude-round-1",
+    "text": "Index promises missing debate outcome",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "The cleanup document now records R1; finalize R2 and activation evidence before installing. Removed the stray blank line."
+  },
+  {
+    "id": "astra-instructions-C05",
+    "source": "claude-round-1",
+    "text": "Possible reversal of Microsoft MCP prohibition",
+    "classification": "partially_valid",
+    "impact": "acknowledged",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Supplied current account-map evidence explicitly permits the dedicated Outlook connector. Older generic Microsoft MCP prohibition does not override that authority. Keep configured connector/CLI routing; no new account authority."
+  },
+  {
+    "id": "astra-instructions-C06",
+    "source": "claude-round-1",
+    "text": "Authentication workflow reference has no location",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Linked existing canonical skills-private/m365-auth/SKILL.md and retained just-in-time authentication authorization."
+  },
+  {
+    "id": "astra-instructions-C07",
+    "source": "claude-round-1",
+    "text": "Handoff-file precedence conflicts",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Close persistence now honors repository-declared handoff files before presence-based fallback."
+  },
+  {
+    "id": "astra-instructions-C08",
+    "source": "claude-round-1",
+    "text": "Reviewer/planner defaults contradict Claude adapter",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Planner and reviewer defaults aligned with adapter opus lane; simple implementation remains in smaller role."
+  },
+  {
+    "id": "astra-instructions-C09",
+    "source": "claude-round-1",
+    "text": "Provider review authorization asymmetric",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Did not invent standing OpenAI authorization. Grimnir Codex preference now requires owner authorization for scoped OpenAI disclosure; otherwise use existing read-only Anthropic authorization and its exclusions."
+  },
+  {
+    "id": "astra-instructions-C10",
+    "source": "claude-round-1",
+    "text": "Merge absent from mutation taxonomy",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Classified PR merge as reviewable publication; branch deletion remains sensitive/destructive."
+  },
+  {
+    "id": "astra-instructions-C11",
+    "source": "claude-round-1",
+    "text": "PR command lacks staged-secret check",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Added commit-workflow author/staged-secret checks and preservation of unrelated staged files."
+  },
+  {
+    "id": "astra-instructions-C12",
+    "source": "claude-round-1",
+    "text": "Issue preparation and roadmap ownership mismatch",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Added duplicate search, scoped preparation, body files, explicit publication authority and exact target preview; board mutation limited to owning Grimnir session."
+  },
+  {
+    "id": "astra-instructions-C13",
+    "source": "claude-round-1",
+    "text": "Shared debate skill assumes Codex conductor",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Scoped debate-claude activation to Codex conductor and explicitly disallowed relabeling Claude-on-Claude as cross-model review."
+  },
+  {
+    "id": "astra-instructions-C14",
+    "source": "claude-round-1",
+    "text": "Dropped CLI observations about stdin and output file",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Restored small dated compatibility notes, marked current behavior unverified, redirected positional-prompt stdin, required output/exit checks."
+  },
+  {
+    "id": "astra-instructions-C15",
+    "source": "claude-round-1",
+    "text": "ELI5 description/body and length drift",
+    "classification": "partially_valid",
+    "impact": "partially_changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Canonical now handles requested topics and previous responses. Harness-specific concise default is acceptable; preserve meaning and adapt length to task rather than force identical wording."
+  },
+  {
+    "id": "astra-instructions-C16",
+    "source": "claude-round-1",
+    "text": "Codex wording in newly shared M5/Presentify bodies",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Replaced those harness-specific phrases with agent/session wording in canonical and native copies."
+  },
+  {
+    "id": "astra-instructions-C17",
+    "source": "claude-round-1",
+    "text": "Reviewer safe baseline flags unverified",
+    "classification": "invalid",
+    "impact": "rejected",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Both flags were verified from installed claude --help before the probe and R1. R1 actual invocation succeeded with those flags, empty tools, strict empty MCP, no Chrome and no persistence. Supplied this evidence explicitly in R2."
+  },
+  {
+    "id": "astra-instructions-C18",
+    "source": "claude-round-1",
+    "text": "Uneven Cloudflare reference hardening",
+    "classification": "partially_valid",
+    "impact": "partially_changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Global dependency/auth/resource floors still govern retained upstream examples. Added overlay maintenance note. Removed Hyperdrive password/credential-string argv examples, clarified registry identifier versus secret input, and aligned troubleshooting/compatibility/provisioning notes with the root."
+  },
+  {
+    "id": "astra-instructions-C19",
+    "source": "claude-round-1",
+    "text": "Close numbering and authority residue",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Removed orphan step numbers; canonical instruction authority and debate-claude artifact names now consistent."
+  },
+  {
+    "id": "astra-instructions-C20",
+    "source": "claude-round-1",
+    "text": "Publication preview semantics ambiguous",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Global rule now says preview is informational when exact action/target already authorized; sensitive operations retain JIT confirmation."
+  },
+  {
+    "id": "astra-instructions-C21",
+    "source": "claude-round-1",
+    "text": "Routing improvements unmeasured",
+    "classification": "valid",
+    "impact": "deferred",
+    "severity": "minor",
+    "caught_by_self_review": true,
+    "response": "Static checks do not measure activation quality. Deferred the existing live symlink-swapping A/B evaluator because concurrent sessions exist; no performance claim."
+  },
+  {
+    "id": "astra-instructions-C22",
+    "source": "claude-round-1",
+    "text": "Commit generic push offer",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Root independently caught this while R1 ran. Reused commit authority, removed repeated message/staging confirmations for clear task-owned scope and generic push questions; preserved author/secret/amend/publish gates."
+  },
+  {
+    "id": "astra-instructions-C23",
+    "source": "claude-round-1",
+    "text": "Review command broad allowed tools",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Narrowed preauthorized patterns to read-only PR and git inspection; authorized fixes/merge use normal permission checks."
+  },
+  {
+    "id": "astra-instructions-C24",
+    "source": "claude-round-1",
+    "text": "Worker xhigh effort versus conservative sizing",
+    "classification": "partially_valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Kept existing effort. It is a quality/cost hypothesis without evidence for a lower setting, not a safety or instruction correctness blocker."
+  },
+  {
+    "id": "astra-instructions-C25",
+    "source": "claude-round-2",
+    "text": "Residual Outlook connector naming",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Named Outlook Email and discovered microsoft_outlook_email tool namespace in the account map; no account data accessed."
+  },
+  {
+    "id": "astra-instructions-C26",
+    "source": "claude-round-2",
+    "text": "Residual native issue-board instruction",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Removed the contradictory broad board instruction in native source and adapter."
+  },
+  {
+    "id": "astra-instructions-C27",
+    "source": "claude-round-2",
+    "text": "Residual Presentify harness wording",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Replaced the second Codex projectless phrase in both copies."
+  },
+  {
+    "id": "astra-instructions-C28",
+    "source": "claude-round-2",
+    "text": "Residual close reference numbering",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Removed orphan numbers from reference headings too."
+  },
+  {
+    "id": "astra-instructions-C29",
+    "source": "claude-round-2",
+    "text": "Validation evidence represented earlier revision",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "major",
+    "caught_by_self_review": false,
+    "response": "Regenerated the report at its canonical evidence path, reran full Grimnir/config and focused checks on final content, then prepared the final activation manifest. Earlier successful checks were real but the supplied report was stale."
+  },
+  {
+    "id": "astra-instructions-C30",
+    "source": "claude-round-2",
+    "text": "Identical adapter copies mislabeled",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Documented friction-triage and magnus-security-review as mirrors and verified complete directory equality."
+  },
+  {
+    "id": "astra-instructions-C31",
+    "source": "claude-round-2",
+    "text": "Reviewer evidence contradicts actual runs and omits no-chrome",
+    "classification": "valid",
+    "impact": "changed",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Recorded both successful invocations and added the verified no-chrome flag to baseline and evidence list."
+  },
+  {
+    "id": "astra-instructions-C32",
+    "source": "claude-round-2",
+    "text": "Auth link and adapter bodies not supplied to reviewer",
+    "classification": "valid",
+    "impact": "acknowledged",
+    "severity": "minor",
+    "caught_by_self_review": false,
+    "response": "Conductor verified existing m365-auth target and all native adapters byte-for-byte against their tracked source; reviewer remains accurately limited to supplied package."
+  }
+]

@@ -68,6 +68,7 @@ the annotation, not only the filename.
 
 ## Learning and improvement loop
 
+- `docs/astra-instruction-cleanup-2026-09-05.md` — Scope, verification, maintenance, and reversal notes for the September instruction cleanup; includes the Fable debate outcome.
 - `docs/observability-and-improvement.md` — Telemetry strategy and self-improvement architecture:
   operational health, task/product evidence, capability evidence, and consequential-mutation
   receipts remain separate; structured metrics precede advisory LLM interpretation, correlation
