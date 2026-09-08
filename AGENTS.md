@@ -57,7 +57,9 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
   Merge only after review plus green CI.
 - **Delegate bounded work aggressively.** Apply the global Luna delegation default in the
   orchestrator and implementation subagents. Use Luna High, or Extra High for harder bounded
-  leaves; use Codex headless from Claude Code. The conductor owns integration, verification,
+  leaves. Use the harness's native subagents whenever available, including OpenCode; Codex
+  headless is a gated fallback only for harnesses without native subagent support.
+  The conductor owns integration, verification,
   corrections, and final quality. Record actual model, effort, checks, and usefulness.
   Keep learning durable in Munin friction signals, evidence notes, or authorized ticket comments.
 - **Local inference is explicit.** Use M5 for owner-requested local inference or evaluation,

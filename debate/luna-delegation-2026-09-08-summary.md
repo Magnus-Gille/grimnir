@@ -2,8 +2,9 @@
 
 On 2026-09-08, Magnus requested aggressive delegation of implementation and other bounded
 tasks to Luna High, using Extra High for harder leaves, while retaining conductor accountability.
-The portable instructions use native Codex subagents and a gated Codex headless route for
-Claude Code and Pi. M5 remains available for explicitly requested local inference or evaluation.
+The portable instructions prefer each harness's native subagents, including OpenCode and
+Codex. Codex headless is a gated fallback only for harnesses without native subagent support.
+M5 remains available for explicitly requested local inference or evaluation.
 
 Magnus replaced the requested Fable review with Opus after Fable's account limit prevented a
 review. Two read-only review rounds completed using **`claude-opus-5`**, confirmed by structured
@@ -31,8 +32,8 @@ The first review led to these corrections:
   and equality of the installed worker override.
 
 The conductor declined automatic substitution with native Claude workers because the owner
-specified Luna. Safe inline execution is the fallback. Broader legacy-wrapper cleanup and host
-rollout remain outside this change. Opus accepted these scope decisions in the second round.
+specified Luna. Safe inline execution is the fallback. Broader legacy-wrapper cleanup remained outside the review. Host
+rollout was subsequently authorized by Magnus. Opus accepted these scope decisions in the second round.
 
 ## Verification and limits
 
@@ -45,9 +46,11 @@ rollout remain outside this change. Opus accepted these scope decisions in the s
   baseline plus one unrelated worktree that appeared during the session. The scoped checks and
   negative regressions pass. The full-audit baseline remains a limitation.
 - **Headless runtime readiness has not been established.** Claude/Pi must use safe inline
-  execution until their host passes the canonical boundary and readiness gates. Native Luna
+  execution when native Luna is unavailable; a harness without native subagents may use headless
+  only after its host passes the canonical boundary and readiness gates. Native Luna
   delegation was exercised in this session.
-- Changes are local and uncommitted; other hosts have not been synced.
+- At the initial review, changes were local and uncommitted; other hosts had not been synced.
+  Magnus subsequently authorized commit, push, and configuration rollout.
 
 Opus also suggested stronger protection of individual policy phrases, an environment-filtering
 launcher example, richer per-host readiness receipts, and runtime telemetry checks. These are
@@ -72,4 +75,15 @@ Only after that succeeds, the original activation can be reversed with:
 python3 ~/.local/state/codex/luna-delegation/2026-09-08/activate.py rollback
 ```
 
-Both refuse intervening edits. Neither publishes changes or synchronizes another host.
+Both refuse intervening edits. Neither publishes changes or synchronizes another host. After
+publication, reverse the merged policy through reviewed revert PRs in claude-config and Grimnir,
+then synchronize the installed instructions and verify the worker override. The earlier local
+rollback scripts are historical receipts and will refuse the clarified policy hashes.
+
+## Owner clarification before publication
+
+Magnus clarified that any harness with native subagents, including OpenCode, must delegate
+directly through its own mechanism rather than launching Codex headless. This rule is capability
+based, not a fixed mapping from harness names to CLIs. If the native mechanism cannot select
+Luna with the required effort, report the limitation and use safe inline execution. Headless
+is reserved for harnesses without native subagent support and still requires all readiness gates.
