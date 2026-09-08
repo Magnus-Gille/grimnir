@@ -2,7 +2,7 @@
 
 On 2026-09-08, Magnus requested aggressive delegation of implementation and other bounded
 tasks to Luna High, using Extra High for harder leaves, while retaining conductor accountability.
-The portable instructions prefer each harness's native subagents, including OpenCode and
+The portable instructions require each harness's native subagents whenever available, including OpenCode and
 Codex. Codex headless is a gated fallback only for harnesses without native subagent support.
 M5 remains available for explicitly requested local inference or evaluation.
 
@@ -87,3 +87,17 @@ directly through its own mechanism rather than launching Codex headless. This ru
 based, not a fixed mapping from harness names to CLIs. If the native mechanism cannot select
 Luna with the required effort, report the limitation and use safe inline execution. Headless
 is reserved for harnesses without native subagent support and still requires all readiness gates.
+
+
+The third independent read-only review used `claude-opus-5` (xhigh requested; effective effort
+unknown) and approved the native-first delta with no blockers. The conductor accepted its
+provider-path and native-permission clarification: native routing retains OpenAI as the recipient
+and does not authorize an intermediary or expand child permissions. Remaining optional suggestions
+about deeper adapter mutation tests, review-route wording, and telemetry remain follow-ups.
+
+Post-clarification checks passed: focused tests **13/13**, full suite **51/51**, scoped instruction
+audit **0 errors, 0 warnings**, Bash syntax, no new ShellCheck diagnostics, and Grimnir `make test`.
+Luna High performed the bounded audit/test update; usefulness **pass**. OpenCode's documented
+Claude fallback does not expand the adapter's `@AGENTS.md`, so its missing global instruction
+file was installed as a direct symlink to the canonical source. The symlink has an audit/reversal
+receipt; it keeps new OpenCode sessions synchronized as that source changes.
