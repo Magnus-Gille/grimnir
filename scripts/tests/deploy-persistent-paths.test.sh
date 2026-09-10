@@ -950,6 +950,145 @@ else
   fail "git-pull upstream mismatch must report expected and actual revisions"
 fi
 
+# ── Heimdall fleet-agent host state (issue #195) ──────────────────────────
+# Central deploy uses `rsync --delete` with a generic `--exclude=.env` policy.
+# That pattern matches only files literally named `.env`, so the host-owned
+# fleet-agent state at agent/config.env and agent/VERSION inside the Heimdall
+# deploy target would be deleted whenever the source tree lacks them. Both
+# paths are registered as persistent_paths with anchored rsync_excludes; the
+# blocks below prove the exact flags deploy.sh emits keep both files alive
+# under --delete, and that the generic .env policy alone does not.
+cat > "$TMP_DIR/heimdall-agent.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "heimdall", "repo": "heimdall-agent", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/home/magnus/repos/heimdall",
+      "persistent_paths": ["/home/magnus/.heimdall", "/home/magnus/repos/heimdall/agent/config.env", "/home/magnus/repos/heimdall/agent/VERSION"],
+      "rsync_excludes": ["/agent/config.env", "/agent/VERSION"],
+      "needs_build": false,
+      "systemd_units": [{ "name": "heimdall", "type": "service" }]
+    }
+  ]
+}
+EOF
+mkdir -p "$TMP_DIR/repos/heimdall-agent/systemd"
+cat > "$TMP_DIR/repos/heimdall-agent/systemd/heimdall.service" << 'EOF'
+[Service]
+ExecStart=/bin/true
+EOF
+commit_fixture_repo "$TMP_DIR/repos/heimdall-agent"
+HEIMDALL_SHA=$(git -C "$TMP_DIR/repos/heimdall-agent" rev-parse HEAD)
+HEIMDALL_REQUEST="heimdall=$TMP_DIR/repos/heimdall-agent@$HEIMDALL_SHA"
+
+# Without the anchored exclusions the registry must fail closed before any
+# remote call (the existing in-target persistent-path rule).
+cat > "$TMP_DIR/heimdall-agent-unguarded.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "heimdall", "repo": "heimdall-agent", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/home/magnus/repos/heimdall",
+      "persistent_paths": ["/home/magnus/.heimdall", "/home/magnus/repos/heimdall/agent/config.env", "/home/magnus/repos/heimdall/agent/VERSION"],
+      "needs_build": false,
+      "systemd_units": [{ "name": "heimdall", "type": "service" }]
+    }
+  ]
+}
+EOF
+assert_rejected_before_remote "unguarded fleet-agent persistent paths" "$TMP_DIR/heimdall-agent-unguarded.json"
+
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
+if REGISTRY_PATH="$TMP_DIR/heimdall-agent.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
+    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "$HEIMDALL_REQUEST" \
+      >"$TMP_DIR/heimdall-agent.out" 2>&1; then
+  pass "guarded fleet-agent registry completes mocked deploy"
+else
+  fail "guarded fleet-agent registry completes mocked deploy"
+  sed -n '1,80p' "$TMP_DIR/heimdall-agent.out"
+fi
+if grep -Fxq -- '--exclude=/agent/config.env' "$RSYNC_CAPTURE"; then
+  pass "fleet-agent config exclusion reaches rsync"
+else
+  fail "fleet-agent config exclusion must reach rsync"
+fi
+if grep -Fxq -- '--exclude=/agent/VERSION' "$RSYNC_CAPTURE"; then
+  pass "fleet-agent VERSION exclusion reaches rsync"
+else
+  fail "fleet-agent VERSION exclusion must reach rsync"
+fi
+
+# Hermetic --delete survival proof with the real rsync transport. The source
+# tree deliberately lacks both fleet-agent files (as the central source does);
+# the destination seeds them with sentinel placeholder content (never
+# credentials) plus one unexcluded stray file that --delete must still collect
+# (proving deletion was actually armed, so survival is not vacuous).
+seed_fleet_agent_target() {
+  local dest=$1
+  rm -rf "$dest"
+  mkdir -p "$dest/agent"
+  printf '%s\n' "guard-sentinel fleet-agent config (not a credential)" > "$dest/agent/config.env"
+  printf '%s\n' "9.9.9-guard-sentinel" > "$dest/agent/VERSION"
+  printf '%s\n' stale > "$dest/stray.txt"
+}
+
+REAL_RSYNC="$(command -v rsync || true)"
+if [[ -z "$REAL_RSYNC" ]]; then
+  fail "rsync transport must exist for the fleet-agent survival proof"
+else
+  pass "rsync transport is available for the fleet-agent survival proof"
+  AGENT_SRC="$TMP_DIR/fleet-agent-src"
+  AGENT_DEST="$TMP_DIR/fleet-agent-dest"
+  rm -rf "$AGENT_SRC"
+  mkdir -p "$AGENT_SRC"
+  printf '%s\n' keep > "$AGENT_SRC/app.js"
+  if [[ -e "$AGENT_SRC/agent/config.env" || -e "$AGENT_SRC/agent/VERSION" ]]; then
+    fail "survival fixture source must lack both fleet-agent files"
+  else
+    pass "survival fixture source lacks both fleet-agent files"
+  fi
+  # Reuse the exact flag set deploy.sh emitted (captured above), minus the
+  # source/destination operands, so the proof tracks the shipped command.
+  RSYNC_FLAGS=()
+  while IFS= read -r flag; do
+    [[ -n "$flag" ]] && RSYNC_FLAGS+=("$flag")
+  done < <(grep -E '^-' "$RSYNC_CAPTURE")
+  CONTROL_FLAGS=()
+  while IFS= read -r flag; do
+    case "$flag" in
+      --exclude=/agent/config.env|--exclude=/agent/VERSION) continue ;;
+      *) [[ -n "$flag" ]] && CONTROL_FLAGS+=("$flag") ;;
+    esac
+  done < <(grep -E '^-' "$RSYNC_CAPTURE")
+  # Control: generic policy only (deploy.sh defaults incl. --exclude=.env).
+  seed_fleet_agent_target "$AGENT_DEST"
+  control_rc=0
+  "$REAL_RSYNC" "${CONTROL_FLAGS[@]}" "$AGENT_SRC/" "$AGENT_DEST/" || control_rc=$?
+  if [[ "$control_rc" == 0 && ! -e "$AGENT_DEST/agent/config.env" && ! -e "$AGENT_DEST/agent/VERSION" ]]; then
+    pass "generic .env policy alone deletes unmirrored fleet-agent state (the #195 hazard)"
+  else
+    fail "control run must reproduce the #195 deletion hazard"
+  fi
+  # Guarded: full emitted flag set keeps both files byte-identical while
+  # --delete still collects the unexcluded stray file.
+  seed_fleet_agent_target "$AGENT_DEST"
+  guarded_rc=0
+  "$REAL_RSYNC" "${RSYNC_FLAGS[@]}" "$AGENT_SRC/" "$AGENT_DEST/" || guarded_rc=$?
+  if [[ "$guarded_rc" == 0 && -f "$AGENT_DEST/agent/config.env" && -f "$AGENT_DEST/agent/VERSION" ]] &&
+     grep -Fxq "guard-sentinel fleet-agent config (not a credential)" "$AGENT_DEST/agent/config.env" &&
+     grep -Fxq "9.9.9-guard-sentinel" "$AGENT_DEST/agent/VERSION"; then
+    pass "anchored exclusions preserve both fleet-agent files under --delete"
+  else
+    fail "anchored exclusions must preserve both fleet-agent files under --delete"
+  fi
+  if [[ ! -e "$AGENT_DEST/stray.txt" && -f "$AGENT_DEST/app.js" ]]; then
+    pass "--delete stays armed for unexcluded paths while fleet-agent state survives"
+  else
+    fail "--delete must still collect unexcluded stray files"
+  fi
+fi
+
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
 if [[ "$FAIL" -gt 0 ]]; then

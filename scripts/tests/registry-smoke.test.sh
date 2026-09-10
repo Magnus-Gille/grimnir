@@ -689,6 +689,13 @@ assert_eq "real services.json: Verdandi protects legacy data and declares canoni
 assert_eq "real services.json: Verdandi deploy carries legacy data exclusion" \
   '["/data/"]' "$(deploy_field "$REPO_REGISTRY" verdandi rsync_excludes)"
 
+assert_eq "real services.json: Heimdall protects host-owned fleet-agent state" \
+  '["/home/magnus/.heimdall","/home/magnus/repos/heimdall/agent/config.env","/home/magnus/repos/heimdall/agent/VERSION"]' \
+  "$(component_persistent_paths "$REPO_REGISTRY" heimdall)"
+
+assert_eq "real services.json: Heimdall deploy carries fleet-agent exclusions" \
+  '["/agent/config.env","/agent/VERSION"]' "$(deploy_field "$REPO_REGISTRY" heimdall rsync_excludes)"
+
 validate_field() {  # $1 = registry path, $2 = component name, $3 = zero-based field
   REGISTRY_PATH="$1" QUERY=validate node --input-type=commonjs "$REGISTRY_JS" 2>/dev/null \
     | COMPONENT_NAME="$2" COMPONENT_FIELD="$3" node --input-type=commonjs -e '
