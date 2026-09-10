@@ -272,7 +272,8 @@ unit_rows() {
           u.scope || "system",
           u.type === "timer" ? (u.timer_semantics || "recurring") : "",
           u.type === "timer" ? (u.service_name || u.name) : "",
-          u.type === "timer" && u.service_name ? "true" : "false"
+          u.type === "timer" && u.service_name ? "true" : "false",
+          u.boot_enable === true ? "true" : "false"
         ].join("|") + "\n");
       });
     '
@@ -301,10 +302,10 @@ timer_targets_declared_service() {
 
 preflight_local_unit_sources() {
   local local_path=$1 units_json=$2 fallback_name=$3 fallback_type=$4 fallback_scope=$5 render_enabled=${6:-false} deploy_path=${7:-}
-  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required unit_file companion_file source
+  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required unit_boot_enable unit_file companion_file source
 
   rows="$(unit_rows "$units_json" "$fallback_name" "$fallback_type" "$fallback_scope")"
-  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required; do
+  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required unit_boot_enable; do
     [[ -n "$unit_name" ]] || continue
     unit_file="${unit_name}.${unit_kind}"
     if ! preflight_local_install_ready_unit_source "$local_path" "$unit_file" true "$render_enabled"; then
@@ -636,15 +637,16 @@ deploy_service() {
   fi
 
   local cmd="cd ${q_deploy_path} && "
-  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required unit_file companion_file
+  local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required unit_boot_enable unit_file companion_file
   local timer_entry timer_name timer_semantics timer_next_check
   local q_unit_src q_unit_root q_user_dest q_system_dest q_unit_label unit_guard companion_guard
   local unit_target_guard companion_target_guard
   local user_needs_reload=false system_needs_reload=false
   local user_services=() system_services=() user_timers=() system_timers=()
+  local user_boot_services=() system_boot_services=()
 
   rows="$(unit_rows "$units_json" "$name" "$unit_type" "$unit_scope")"
-  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required; do
+  while IFS='|' read -r unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required unit_boot_enable; do
     [[ -n "$unit_name" ]] || continue
     unit_file="${unit_name}.${unit_kind}"
     q_unit_src=$(posix_shell_quote "systemd/${unit_file}")
@@ -667,6 +669,9 @@ deploy_service() {
       user_needs_reload=true
       if [[ "$unit_kind" == "service" ]]; then
         user_services+=("$unit_name")
+        if [[ "$unit_boot_enable" == "true" ]]; then
+          user_boot_services+=("$unit_name")
+        fi
       elif [[ "$unit_kind" == "timer" ]]; then
         if [[ "$render_enabled" != "true" ]]; then
           companion_file="${unit_service_name:-$unit_name}.service"
@@ -697,6 +702,9 @@ deploy_service() {
       system_needs_reload=true
       if [[ "$unit_kind" == "service" ]]; then
         system_services+=("$unit_name")
+        if [[ "$unit_boot_enable" == "true" ]]; then
+          system_boot_services+=("$unit_name")
+        fi
       elif [[ "$unit_kind" == "timer" ]]; then
         if [[ "$render_enabled" != "true" ]]; then
           companion_file="${unit_service_name:-$unit_name}.service"
@@ -722,6 +730,17 @@ deploy_service() {
   if [[ "$system_needs_reload" == "true" ]]; then
     cmd+="sudo systemctl daemon-reload && "
   fi
+  # Explicit boot-enablement policy (issue #194): only services declaring
+  # boot_enable=true are ever enabled. Default is never-enable, so static,
+  # triggered, oneshot, or stopped services are preserved untouched. Enable
+  # runs before restart so a fresh install persists across reboot, and the
+  # is-enabled readback below gates the deployed marker.
+  for unit_name in ${user_boot_services[@]+"${user_boot_services[@]}"}; do
+    cmd+="systemctl --user enable $(posix_shell_quote "${unit_name}.service") && "
+  done
+  for unit_name in ${system_boot_services[@]+"${system_boot_services[@]}"}; do
+    cmd+="sudo systemctl enable $(posix_shell_quote "${unit_name}.service") && "
+  done
   for unit_name in ${user_services[@]+"${user_services[@]}"}; do
     cmd+="systemctl --user restart $(posix_shell_quote "${unit_name}.service") && "
   done
@@ -750,6 +769,15 @@ deploy_service() {
   done
   for unit_name in ${system_services[@]+"${system_services[@]}"}; do
     cmd+="sudo systemctl is-active --quiet $(posix_shell_quote "${unit_name}.service") && "
+  done
+  # Boot-enablement readback (issue #194): a boot-enabled service must read
+  # back enabled as well as active, in its own scope. Any failure chains with
+  # && so the .deployed-commit stamp below never runs.
+  for unit_name in ${user_boot_services[@]+"${user_boot_services[@]}"}; do
+    cmd+="systemctl --user is-enabled --quiet $(posix_shell_quote "${unit_name}.service") && "
+  done
+  for unit_name in ${system_boot_services[@]+"${system_boot_services[@]}"}; do
+    cmd+="sudo systemctl is-enabled --quiet $(posix_shell_quote "${unit_name}.service") && "
   done
   for timer_entry in ${user_timers[@]+"${user_timers[@]}"}; do
     IFS='|' read -r timer_name timer_semantics <<< "$timer_entry"

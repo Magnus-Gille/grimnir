@@ -110,6 +110,7 @@ if (data.repository_authority !== undefined && !isPlainObject(data.repository_au
 var VALID_UNIT_TYPES = ['service', 'timer'];
 var VALID_UNIT_SCOPES = ['system', 'user'];
 var VALID_TIMER_SEMANTICS = ['recurring', 'one-shot'];
+var VALID_UNIT_FIELDS = ['name', 'type', 'scope', 'timer_semantics', 'service_name', 'boot_enable'];
 var VALID_RUNTIME_STATES = ['active', 'stopped', 'not-applicable'];
 var VALID_UNIT_NAME = /^[A-Za-z0-9_.@-]+$/;
 var VALID_COMPONENT_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
@@ -391,6 +392,12 @@ data.components.forEach(function (c, i) {
         fail(uLabel + ': unit must be an object');
         return;
       }
+      Object.keys(u).forEach(function (field) {
+        if (VALID_UNIT_FIELDS.indexOf(field) === -1) {
+          fail(uLabel + ': unknown field "' + field + '" (fail-closed: only ' +
+            VALID_UNIT_FIELDS.join('/') + ' are allowed)');
+        }
+      });
       if (typeof u.name !== 'string' || !u.name) {
         fail(uLabel + ': missing/invalid "name"');
       } else if (!VALID_UNIT_NAME.test(u.name)) {
@@ -415,6 +422,13 @@ data.components.forEach(function (c, i) {
           fail(uLabel + ': "service_name" is only valid for timer units');
         } else if (typeof u.service_name !== 'string' || !VALID_UNIT_NAME.test(u.service_name)) {
           fail(uLabel + ': "service_name" must be a valid systemd service base name');
+        }
+      }
+      if (u.boot_enable !== undefined) {
+        if (u.type !== 'service') {
+          fail(uLabel + ': "boot_enable" is only valid for service units (timers are enabled via their own timer path)');
+        } else if (typeof u.boot_enable !== 'boolean') {
+          fail(uLabel + ': "boot_enable" must be a boolean when present, got "' + u.boot_enable + '"');
         }
       }
     });
