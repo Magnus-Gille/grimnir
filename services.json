@@ -57,7 +57,8 @@
       "deploy": true,
       "scan": true,
       "deploy_path": "/home/magnus/repos/heimdall",
-      "persistent_paths": ["/home/magnus/.heimdall"],
+      "persistent_paths": ["/home/magnus/.heimdall", "/home/magnus/repos/heimdall/agent/config.env", "/home/magnus/repos/heimdall/agent/VERSION"],
+      "rsync_excludes": ["/agent/config.env", "/agent/VERSION"],
       "needs_build": false,
       "systemd_runtime": {
         "user": "magnus",
