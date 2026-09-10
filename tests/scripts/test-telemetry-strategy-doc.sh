@@ -82,7 +82,7 @@ HUGIN_UNITS="$(
     process.stdout.write(JSON.stringify(hugin && hugin.systemd_units));
   ' "$REGISTRY"
 )"
-[[ "$HUGIN_UNITS" == '[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-exam-factory","type":"timer","scope":"user"},{"name":"hugin-experiment-cadence","type":"timer","scope":"user"}]' ]] || {
+[[ "$HUGIN_UNITS" == '[{"name":"hugin","type":"service","scope":"user","boot_enable":true},{"name":"hugin-daily-exam-factory","type":"timer","scope":"user"},{"name":"hugin-experiment-cadence","type":"timer","scope":"user"}]' ]] || {
   echo "services.json does not declare the authoritative Hugin user-unit contract: $HUGIN_UNITS" >&2
   exit 1
 }

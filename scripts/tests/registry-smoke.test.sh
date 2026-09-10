@@ -653,13 +653,13 @@ assert_eq "real services.json: hugin deploy scope remains user" "user" \
   "$(deploy_field "$REPO_REGISTRY" hugin unit_scope)"
 hugin_units="$(deploy_field "$REPO_REGISTRY" hugin systemd_units)"
 assert_eq "real services.json: hugin declares the live service and timer contract" \
-  '[{"name":"hugin","type":"service","scope":"user"},{"name":"hugin-daily-exam-factory","type":"timer","scope":"user"},{"name":"hugin-experiment-cadence","type":"timer","scope":"user"}]' \
+  '[{"name":"hugin","type":"service","scope":"user","boot_enable":true},{"name":"hugin-daily-exam-factory","type":"timer","scope":"user"},{"name":"hugin-experiment-cadence","type":"timer","scope":"user"}]' \
   "$hugin_units"
 assert_eq "real services.json: retired hugin daily-analysis timer is absent" \
   "false" "$(printf '%s\n' "$hugin_units" | grep -Fq 'hugin-daily-analysis' && echo true || echo false)"
 
 assert_eq "real services.json: Heimdall deploy refreshes boot-check timer companion" \
-  '[{"name":"heimdall","type":"service"},{"name":"heimdall-collect","type":"timer"},{"name":"heimdall-maintain","type":"timer"},{"name":"heimdall-boot-check","type":"timer"}]' \
+  '[{"name":"heimdall","type":"service","boot_enable":true},{"name":"heimdall-collect","type":"timer"},{"name":"heimdall-maintain","type":"timer"},{"name":"heimdall-boot-check","type":"timer"}]' \
   "$(deploy_field "$REPO_REGISTRY" heimdall systemd_units)"
 assert_eq "real services.json: Heimdall deploy carries its health port" \
   "3033" "$(deploy_field "$REPO_REGISTRY" heimdall port)"

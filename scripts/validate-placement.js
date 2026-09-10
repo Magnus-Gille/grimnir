@@ -195,7 +195,7 @@ function validateDesiredRegistry(registry, errors) {
         var unitLabel = label + '.systemd_units[' + unitIndex + ']';
         if (!plain(unit)) { errors.push(unitLabel + ' must be an object'); return; }
         Object.keys(unit).forEach(function (field) {
-          if (['name', 'type', 'scope', 'timer_semantics', 'service_name'].indexOf(field) === -1) {
+          if (['name', 'type', 'scope', 'timer_semantics', 'service_name', 'boot_enable'].indexOf(field) === -1) {
             errors.push(unitLabel + '.' + field + ' is not a placement field');
           }
         });
@@ -213,6 +213,10 @@ function validateDesiredRegistry(registry, errors) {
         if (own(unit, 'service_name') &&
             (unit.type !== 'timer' || typeof unit.service_name !== 'string' || !/^[a-z0-9@._-]+$/.test(unit.service_name))) {
           errors.push(unitLabel + '.service_name is invalid');
+        }
+        if (own(unit, 'boot_enable') &&
+            (unit.type !== 'service' || typeof unit.boot_enable !== 'boolean')) {
+          errors.push(unitLabel + '.boot_enable is invalid (service-only boolean)');
         }
       });
     }
