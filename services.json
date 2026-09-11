@@ -159,6 +159,7 @@
       "deploy_path": "/home/magnus/repos/grimnir",
       "needs_build": false,
       "deploy_mode": "git-pull",
+      "external_environment_files": ["/home/magnus/.config/grimnir/security-scan.env"],
       "systemd_units": [
         { "name": "grimnir-security-scan", "type": "timer" },
         { "name": "grimnir-validate", "type": "timer", "service_name": "grimnir-validate-timer" }

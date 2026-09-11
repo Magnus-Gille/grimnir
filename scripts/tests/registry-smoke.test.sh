@@ -274,6 +274,59 @@ cat > "$TMP_DIR/unsafe-rsync-exclude.json" << 'EOF'
 EOF
 assert_eq "wildcard rsync exclusion -> exit 1" "1" "$(run_validator "$TMP_DIR/unsafe-rsync-exclude.json")"
 
+# ── external_environment_files (issue #200) ─────────────────────────────────
+cat > "$TMP_DIR/valid-external-env.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": [], "needs_build": false,
+      "deploy_mode": "git-pull",
+      "external_environment_files": ["/etc/alpha/owner.env"],
+      "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "canonical external environment file declaration -> exit 0" "0" "$(run_validator "$TMP_DIR/valid-external-env.json")"
+
+cat > "$TMP_DIR/nonarray-external-env.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": [], "needs_build": false,
+      "external_environment_files": "/etc/alpha/owner.env",
+      "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "non-array external_environment_files -> exit 1" "1" "$(run_validator "$TMP_DIR/nonarray-external-env.json")"
+
+cat > "$TMP_DIR/relative-external-env.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": null, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": [], "needs_build": false,
+      "external_environment_files": ["../etc/owner.env"],
+      "systemd_units": [] }
+  ]
+}
+EOF
+assert_eq "non-canonical external environment file -> exit 1" "1" "$(run_validator "$TMP_DIR/relative-external-env.json")"
+
+cat > "$TMP_DIR/rendered-external-env.json" << 'EOF'
+{
+  "components": [
+    { "name": "alpha", "repo": "alpha", "host": "h1", "port": 3030, "deploy": true, "scan": false,
+      "deploy_path": "/srv/alpha", "persistent_paths": [], "needs_build": false,
+      "external_environment_files": ["/etc/alpha/owner.env"],
+      "systemd_runtime": { "user": "alpha", "home": "/home/alpha", "deploy_target": "/srv/alpha",
+        "environment_files": [], "sandbox_paths": [] },
+      "health_check": { "boundary": "host", "paths": ["/health"] },
+      "systemd_units": [{ "name": "alpha", "type": "service" }] }
+  ]
+}
+EOF
+assert_eq "external_environment_files with systemd_runtime -> exit 1" "1" "$(run_validator "$TMP_DIR/rendered-external-env.json")"
+
 # ── Malformed JSON ──────────────────────────────────────────────────────────
 echo '{ not valid json' > "$TMP_DIR/bad-json.json"
 assert_eq "malformed JSON -> exit 1" "1" "$(run_validator "$TMP_DIR/bad-json.json")"
@@ -695,6 +748,9 @@ assert_eq "real services.json: Heimdall protects host-owned fleet-agent state" \
 
 assert_eq "real services.json: Heimdall deploy carries fleet-agent exclusions" \
   '["/agent/config.env","/agent/VERSION"]' "$(deploy_field "$REPO_REGISTRY" heimdall rsync_excludes)"
+
+assert_eq "real services.json: grimnir deploy carries the declared external environment file" \
+  '["/home/magnus/.config/grimnir/security-scan.env"]' "$(deploy_field "$REPO_REGISTRY" grimnir external_environment_files)"
 
 validate_field() {  # $1 = registry path, $2 = component name, $3 = zero-based field
   REGISTRY_PATH="$1" QUERY=validate node --input-type=commonjs "$REGISTRY_JS" 2>/dev/null \

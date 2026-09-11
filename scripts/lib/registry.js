@@ -79,6 +79,7 @@ switch (query) {
         systemd_units: c.systemd_units || [],
         rsync_excludes: c.rsync_excludes || [],
         persistent_paths: c.persistent_paths || [],
+        external_environment_files: c.external_environment_files || [],
         systemd_runtime: c.systemd_runtime || null,
         health_check: c.health_check || null
       }) + '\n');

@@ -272,6 +272,26 @@ data.components.forEach(function (c, i) {
     }
   });
 
+  // Explicit allowlist for byte-for-byte units whose EnvironmentFile must
+  // live outside the registry deploy_path (e.g. an owner-managed credential
+  // file that deliberately never enters the repository). Undeclared external
+  // files still fail the deploy containment guard (issue #200); declaration
+  // is exact-path, never a prefix or glob.
+  if (c.external_environment_files !== undefined) {
+    if (!Array.isArray(c.external_environment_files)) {
+      fail(label + ': "external_environment_files" must be an array when present');
+    } else {
+      c.external_environment_files.forEach(function (allowedPath, ai) {
+        if (!isCanonicalAbsolutePath(allowedPath)) {
+          fail(label + '.external_environment_files[' + ai + ']: must be a canonical absolute path below / with no trailing slash');
+        }
+      });
+      if (c.systemd_runtime !== undefined) {
+        fail(label + ': "external_environment_files" is only valid without "systemd_runtime" (rendered units declare environment files via systemd_runtime.environment_files)');
+      }
+    }
+  }
+
   if (c.deploy === true && deployMode === 'rsync' && typeof c.deploy_path === 'string' &&
       c.deploy_path && persistentPathsValid && rsyncExcludesValid) {
     var normalizedDeployPath = path.posix.normalize(c.deploy_path);

@@ -157,7 +157,7 @@ read_unit_service_directives() {
 # memory, and nothing refused the contradiction before systemd was told to
 # restart into a path that did not exist on the host.
 preflight_unit_target_containment() {
-  local source=$1 unit_file=$2 deploy_path=$3 component=$4
+  local source=$1 unit_file=$2 deploy_path=$3 component=$4 allowed_env_files=${5:-}
   local WORKING_DIRECTORY ENV_FILES env_file
   # shellcheck disable=SC2034 # set by read_unit_service_directives; User= is not a path, unused here
   local UNIT_USER
@@ -174,6 +174,14 @@ preflight_unit_target_containment() {
   for env_file in "${ENV_FILES[@]+"${ENV_FILES[@]}"}"; do
     if [[ "$env_file" == /* ]] &&
        [[ "$env_file" != "$deploy_path" && "$env_file" != "$deploy_path"/* ]]; then
+      # An exact registry declaration (external_environment_files, issue
+      # #200) exempts this one path from containment. Anything else outside
+      # deploy_path still fails closed below. The remote install fragment
+      # still requires the file to exist on the deploy target.
+      if [[ -n "$allowed_env_files" ]] &&
+         printf '%s\n' "$allowed_env_files" | grep -Fxq -- "$env_file"; then
+        continue
+      fi
       printf 'ERROR: unit %s (component %s) declares EnvironmentFile=%s, which does not resolve under the registry deploy_path %s. A deploy that rsyncs code to %s and installs a unit pointing at %s must never restart the service -- reconcile services.json and the unit before redeploying (issue #146).\n' \
         "$unit_file" "$component" "$env_file" "$deploy_path" "$deploy_path" "$env_file" >&2
       return 1

@@ -301,7 +301,7 @@ timer_targets_declared_service() {
 }
 
 preflight_local_unit_sources() {
-  local local_path=$1 units_json=$2 fallback_name=$3 fallback_type=$4 fallback_scope=$5 render_enabled=${6:-false} deploy_path=${7:-}
+  local local_path=$1 units_json=$2 fallback_name=$3 fallback_type=$4 fallback_scope=$5 render_enabled=${6:-false} deploy_path=${7:-} allowed_env_files=${8:-}
   local rows unit_name unit_kind unit_actual_scope unit_timer_semantics unit_service_name unit_companion_required unit_boot_enable unit_file companion_file source
 
   rows="$(unit_rows "$units_json" "$fallback_name" "$fallback_type" "$fallback_scope")"
@@ -317,7 +317,7 @@ preflight_local_unit_sources() {
     # remote call when either contradicts this component's deploy_path
     # (issue #146).
     if [[ "$render_enabled" != "true" ]] && source=$(resolve_local_unit_source "$local_path" "$unit_file"); then
-      if ! preflight_unit_target_containment "$source" "$unit_file" "$deploy_path" "$fallback_name"; then
+      if ! preflight_unit_target_containment "$source" "$unit_file" "$deploy_path" "$fallback_name" "$allowed_env_files"; then
         return 1
       fi
     fi
@@ -334,7 +334,7 @@ preflight_local_unit_sources() {
         return 1
       fi
       if [[ "$render_enabled" != "true" ]] && source=$(resolve_local_unit_source "$local_path" "$companion_file"); then
-        if ! preflight_unit_target_containment "$source" "$companion_file" "$deploy_path" "$fallback_name"; then
+        if ! preflight_unit_target_containment "$source" "$companion_file" "$deploy_path" "$fallback_name" "$allowed_env_files"; then
           return 1
         fi
       fi
@@ -435,6 +435,7 @@ deploy_service() {
   local rsync_excludes_json=${10:-[]} health_port=${11:-}
   local persistent_paths_json=${12:-[]} systemd_runtime_json=${13:-null} health_check_json=${14:-null}
   local expected_revision=${15:-}
+  local external_env_files=${16:-}
   local local_path
   local remote_host
   local remote
@@ -500,7 +501,7 @@ deploy_service() {
   # the incident stopped a healthy service and only then discovered the
   # rsync-target vs. unit-target contradiction; the same check now runs
   # before either target is ever touched.
-  if ! preflight_local_unit_sources "$local_path" "$units_json" "$name" "$unit_type" "$unit_scope" "$render_enabled" "$deploy_path"; then
+  if ! preflight_local_unit_sources "$local_path" "$units_json" "$name" "$unit_type" "$unit_scope" "$render_enabled" "$deploy_path" "$external_env_files"; then
     results+=("${RED}✗${NC} ${name}")
     fail=$((fail + 1))
     return
@@ -527,7 +528,7 @@ deploy_service() {
     fi
     # The build may generate or rewrite unit files. Revalidate the exact
     # artifacts that will be shipped before the first remote mutation.
-    if ! preflight_local_unit_sources "$local_path" "$units_json" "$name" "$unit_type" "$unit_scope" "$render_enabled" "$deploy_path"; then
+    if ! preflight_local_unit_sources "$local_path" "$units_json" "$name" "$unit_type" "$unit_scope" "$render_enabled" "$deploy_path" "$external_env_files"; then
       results+=("${RED}✗${NC} ${name}")
       fail=$((fail + 1))
       return
@@ -903,11 +904,22 @@ for entry in "${SERVICES[@]}"; do
   persistent_paths_json=$(service_field "$entry" persistent_paths)
   systemd_runtime_json=$(service_field "$entry" systemd_runtime)
   health_check_json=$(service_field "$entry" health_check)
+  external_env_json=$(service_field "$entry" external_environment_files)
+  # Newline-separated exact-path allowlist for the containment guard. The
+  # registry validator runs before any deploy, so a non-array here can only
+  # mean "absent" (service_field prints "undefined") and yields an empty
+  # list, which changes nothing: undeclared external files still fail.
+  external_env_files=$(EXTERNAL_ENV_JSON="$external_env_json" node --input-type=commonjs -e '
+    var list = [];
+    try { list = JSON.parse(process.env.EXTERNAL_ENV_JSON || "[]"); } catch (_) { list = []; }
+    if (!Array.isArray(list)) list = [];
+    list.forEach(function (p) { if (typeof p === "string" && p) process.stdout.write(p + "\n"); });
+  ')
 
   request_matches_service "$name" || continue
 
   expected_revision=$(expected_revision_for_service "$name")
-  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}" "${rsync_excludes_json:-[]}" "${health_port:-}" "${persistent_paths_json:-[]}" "${systemd_runtime_json:-null}" "${health_check_json:-null}" "$expected_revision"
+  deploy_service "$name" "$repo" "$host" "$deploy_path" "$unit_type" "$needs_build" "${unit_scope:-system}" "${deploy_mode:-rsync}" "${units_json:-[]}" "${rsync_excludes_json:-[]}" "${health_port:-}" "${persistent_paths_json:-[]}" "${systemd_runtime_json:-null}" "${health_check_json:-null}" "$expected_revision" "$external_env_files"
 done
 
 # Summary
