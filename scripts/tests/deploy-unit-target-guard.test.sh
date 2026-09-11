@@ -338,6 +338,116 @@ else
   cat "$TMP_DIR/guard-badenv.out"
 fi
 
+# ---------------------------------------------------------------------------
+# Part 5: declared external EnvironmentFiles (issue #200). A byte-for-byte
+# unit may legitimately read an owner-managed credential file that must never
+# enter the repository (e.g. grimnir-security-scan.service reading
+# /home/magnus/.config/grimnir/security-scan.env). The registry can declare
+# such paths exactly via external_environment_files; the declaration exempts
+# only that exact path from containment, never a prefix, and the remote
+# install fragment still requires the file to exist on the deploy target.
+# ---------------------------------------------------------------------------
+
+mkdir -p "$TMP_DIR/repos/extenv/systemd"
+cat > "$TMP_DIR/repos/extenv/systemd/alpha.service" << 'EOF'
+[Service]
+Type=oneshot
+User=magnus
+WorkingDirectory=/srv/alpha
+ExecStart=/usr/bin/bash scripts/run.sh
+EnvironmentFile=/etc/alpha/owner.env
+EOF
+commit_fixture_repo "$TMP_DIR/repos/extenv"
+EXTENV_SHA=$(git -C "$TMP_DIR/repos/extenv" rev-parse HEAD)
+
+# 5a: exact declaration -> deploy proceeds, and the remote command still
+# gates on the file's presence on the target.
+cat > "$TMP_DIR/extenv-registry.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "extenv", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": false,
+      "external_environment_files": ["/etc/alpha/owner.env"],
+      "systemd_units": [{ "name": "alpha", "type": "service" }]
+    }
+  ]
+}
+EOF
+
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE"
+rc=0
+REGISTRY_PATH="$TMP_DIR/extenv-registry.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
+  PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "alpha=$TMP_DIR/repos/extenv@$EXTENV_SHA" \
+    >"$TMP_DIR/extenv.out" 2>&1 || rc=$?
+
+if [[ "$rc" == 0 ]]; then
+  pass "declared external EnvironmentFile passes the containment guard"
+else
+  fail "declared external EnvironmentFile must pass the containment guard"
+  sed -n '1,60p' "$TMP_DIR/extenv.out"
+fi
+if grep -Fq -- "[ -f '/etc/alpha/owner.env' ]" "$SSH_CAPTURE"; then
+  pass "declared external EnvironmentFile is still presence-checked on the deploy target"
+else
+  fail "declared external EnvironmentFile must still be presence-checked on the deploy target"
+fi
+
+# 5b: same unit, no declaration -> still fails before any remote call.
+cat > "$TMP_DIR/extenv-undeclared-registry.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "extenv", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": false,
+      "systemd_units": [{ "name": "alpha", "type": "service" }]
+    }
+  ]
+}
+EOF
+
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE"
+rc=0
+REGISTRY_PATH="$TMP_DIR/extenv-undeclared-registry.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
+  PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "alpha=$TMP_DIR/repos/extenv@$EXTENV_SHA" \
+    >"$TMP_DIR/extenv-undeclared.out" 2>&1 || rc=$?
+
+if [[ "$rc" != 0 && ! -e "$SSH_CAPTURE" && ! -e "$RSYNC_CAPTURE" ]]; then
+  pass "undeclared external EnvironmentFile still fails before any remote call"
+else
+  fail "undeclared external EnvironmentFile must still fail before any remote call"
+fi
+
+# 5c: declaration for a different path does not exempt the unit's path
+# (exact match only -- no prefix or sibling coverage).
+cat > "$TMP_DIR/extenv-mismatch-registry.json" << 'EOF'
+{
+  "components": [
+    {
+      "name": "alpha", "repo": "extenv", "host": "h1", "port": null,
+      "deploy": true, "scan": false, "deploy_path": "/srv/alpha",
+      "persistent_paths": [], "needs_build": false,
+      "external_environment_files": ["/etc/alpha/other.env"],
+      "systemd_units": [{ "name": "alpha", "type": "service" }]
+    }
+  ]
+}
+EOF
+
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE"
+rc=0
+REGISTRY_PATH="$TMP_DIR/extenv-mismatch-registry.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
+  PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "alpha=$TMP_DIR/repos/extenv@$EXTENV_SHA" \
+    >"$TMP_DIR/extenv-mismatch.out" 2>&1 || rc=$?
+if [[ "$rc" != 0 && ! -e "$SSH_CAPTURE" && ! -e "$RSYNC_CAPTURE" ]] &&
+   grep -Fq -- "EnvironmentFile=/etc/alpha/owner.env" "$TMP_DIR/extenv-mismatch.out"; then
+  pass "declaration for a different path does not exempt the unit's EnvironmentFile"
+else
+  fail "exemption must be an exact path match -- a sibling declaration must not pass"
+fi
+
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
 if [[ "$FAIL" -gt 0 ]]; then
