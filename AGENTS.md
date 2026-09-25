@@ -55,15 +55,15 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
   Otherwise use the standing read-only Claude authorization for an independent Fable or Opus review.
   Exclude credentials, secrets, and unrelated context under either provider’s applicable authorization.
   Merge only after review plus green CI.
-- **Delegate bounded work aggressively.** Apply the global Luna delegation default in the
-  orchestrator and implementation subagents. Use Luna High, or Extra High for harder bounded
-  leaves. Use the harness's native subagents whenever available, including OpenCode; Codex
-  headless is a gated fallback only for harnesses without native subagent support.
-  The conductor owns integration, verification,
+- **Delegate bounded work aggressively.** Apply the global delegation default in the
+  orchestrator and implementation subagents: the cheapest native subagent of the current
+  harness whose model is cheaper than the conductor's and capable enough for the leaf
+  (in Codex, the Luna `worker`); otherwise work inline. Never launch a separate CLI as a
+  delegation route. The conductor owns integration, verification,
   corrections, and final quality. Record actual model, effort, checks, and usefulness.
   Keep learning durable in Munin friction signals, evidence notes, or authorized ticket comments.
 - **Local inference is explicit.** Use M5 for owner-requested local inference or evaluation,
-  following `m5-delegate`; ordinary bounded implementation follows the Luna default.
+  following `m5-delegate`; ordinary bounded implementation follows the global delegation default.
 - **Friction becomes tickets.** Papercuts, tool failures, and doc drift encountered during work
   are filed as issues in the owning repo (with `from:grimnir` attribution), not left to evaporate.
 - **Repository visibility changes are owner-only.** Public→private permanently destroys stars and
