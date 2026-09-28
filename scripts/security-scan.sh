@@ -48,7 +48,7 @@ if [[ -z "$COMPONENTS" ]]; then
 fi
 
 # ─── CLI args ────────────────────────────────────────────────
-MUNIN_TOKEN=""
+MUNIN_TOKEN="${MUNIN_TOKEN:-}"  # systemd EnvironmentFile supplies it (grimnir#206); --munin-token overrides
 DRY_RUN=false
 VERBOSE=false
 FILTER_REPO=""
