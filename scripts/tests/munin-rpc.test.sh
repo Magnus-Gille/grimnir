@@ -68,6 +68,41 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# grimnir#206: the bearer token must never appear in curl's argv (visible in the
+# process list); it must arrive through a header file descriptor instead.
+mkdir -p "$TMP_DIR/argv-bin"
+argv_stub="$TMP_DIR/argv-bin/curl"
+# shellcheck disable=SC2016 # runtime stub expands its own variables, not this test shell
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s\n" "$@" > "$ARGV_LOG"' \
+  ': > "$HEADER_LOG"' \
+  'prev=""' \
+  'for arg in "$@"; do' \
+  '  if [[ "$prev" == "-H" && "$arg" == @* ]]; then cat "${arg#@}" >> "$HEADER_LOG"; fi' \
+  '  prev="$arg"' \
+  'done' \
+  'printf '\''data: {"jsonrpc":"2.0","result":{"content":[{"type":"text","text":"{\\"ok\\":true}"}]}}\n\n'\''' \
+  > "$argv_stub"
+chmod +x "$argv_stub"
+secret_token="tok-$$-do-not-leak"
+rc=0
+ARGV_LOG="$TMP_DIR/argv.log" HEADER_LOG="$TMP_DIR/header.log" PATH="$TMP_DIR/argv-bin:$PATH" \
+  munin_http_jsonrpc "$secret_token" '{"jsonrpc":"2.0"}' >/dev/null 2>&1 || rc=$?
+if [[ "$rc" == 0 ]] && ! grep -Fq "$secret_token" "$TMP_DIR/argv.log"; then
+  echo "  PASS: bearer token is absent from curl argv"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: bearer token must not appear in curl argv (rc=$rc)"
+  FAIL=$((FAIL + 1))
+fi
+if grep -Fqx "Authorization: Bearer $secret_token" "$TMP_DIR/header.log"; then
+  echo "  PASS: bearer token is sent via a header file descriptor"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: bearer token must be sent via a -H @<fd> header file"
+  FAIL=$((FAIL + 1))
+fi
+
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
 [[ "$FAIL" -eq 0 ]]

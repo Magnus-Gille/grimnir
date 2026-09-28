@@ -33,8 +33,10 @@ munin_http_jsonrpc() {
     -X POST "$url" \
     -H "Content-Type: application/json" \
     -H "Accept: application/json, text/event-stream" \
-    -H "Authorization: Bearer $token" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$token") \
     -d "$payload" 2>/dev/null)" || return 1
+  # The header is read from a file descriptor (printf is a shell builtin) so
+  # the bearer token never appears in curl's argv / the process list (#206).
 
   if [[ "$raw" == data:* ]] || [[ "$raw" == *$'\ndata:'* ]]; then
     data="$(printf '%s\n' "$raw" | awk 'sub(/^data:[[:space:]]?/, "") { print; exit }')"
