@@ -102,9 +102,9 @@ build_locally() {
   (
     cd "$repo_path"
     if [[ -f package-lock.json ]]; then
-      npm ci
+      npm ci --ignore-scripts
     else
-      npm install
+      npm install --ignore-scripts
     fi
     npm run build
   )
