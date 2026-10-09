@@ -43,7 +43,8 @@ admission, and `aggregateRecords` with optional `contextRecords` and full-identi
 incompatible time series). These are conformance/reference helpers, not store APIs. Incremental
 context supplies authenticated source records, not invented placeholders. Consumers deduplicate
 persistently by record ID and recompute views over the retained set; never sum overlapping batch
-aggregates or count a transport retry as another observation.
+aggregates or count a transport retry as another observation. `replay_count` is batch-local;
+`contextRecords` is reference-validation context, not a persistent admission ledger.
 
 Passing the shape alone is insufficient: adopters must implement the semantic rules and pass the
 same fixtures. No network, live stores or real task material is required to run conformance.
@@ -156,7 +157,8 @@ The maintainer resolves ambiguous classification and records corrections.
 
 Pilot observation window per release: the first 14 days after publication, `[published, +14 days)`.
 Only fully observed release windows with a reviewed complete issue survey can supply a measured
-count. The release cohort selects publications in `[cohort_start, cohort_end)`, independently of each
+count. A complete cohort with no published releases is a measured zero with population zero
+and a sparse label; incomplete release enumeration remains unknown. The release cohort selects publications in `[cohort_start, cohort_end)`, independently of each
 release's 14-day observation window. Record both windows, release inventory, per-issue severity
 and first-observed time; every observation window must have ended by the snapshot's as-of time.
 Count a confirmed issue once in its introducing release, not once per affected release, fix or
@@ -202,7 +204,12 @@ record, reporter, worker, attempt, parent and source reference. A parent or Clos
 to the existing source occurrence: it does not add a finding. A distinct retry retains its own
 attempt and, for a newly experienced occurrence, a new occurrence ID. Do not merge by wording.
 Conflicting polarity, dimension or cause remains one conflicted occurrence requiring investigation;
-newest-wins is forbidden. Dangling or cyclic summary references cannot be admitted as complete.
+newest-wins is forbidden. Dangling or cyclic source-observation, correction and
+assessment-observation references cannot be admitted as complete. Native `parent_attempt_id`
+and `child_attempt_ids` instead resolve through the task owner: a known-but-unassessed child
+need not have an agent record in the batch/context. Validation rejects contradictions among
+supplied lineage records; absent child assessments neither add participation nor prove that
+the child completed. A complete parent assessment describes that parent attempt only.
 
 Known expected attempt identities (repository, task and attempt together) provide the participation
 denominator; a reused short attempt ID in another task or repo is a different identity. Count assessed applicable
@@ -270,6 +277,8 @@ automatic promotion to permanent personal memory. Raw local collection/trial art
 unless deliberately promoted as owned research evidence. Synthetic schemas/fixtures are durable
 contract artifacts. Existing source issues/releases retain their own lifecycle.
 
+Objective corrections pair `supersedes_ref` with `correction_ref`; agent corrections pair
+`supersedes_record_id` with `correction_ref`. Both links are null for an original record.
 Corrections append a successor bound to the original ID and correction evidence; preserve original
 provenance and flag conflicting reports. An assessment correction must not increment participation.
 The owning store authenticates the writer and serializes correction/idempotency admission; schema

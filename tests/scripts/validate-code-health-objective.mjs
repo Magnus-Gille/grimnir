@@ -35,6 +35,21 @@ assert.equal(aggregate.metrics.unused_candidates.status, 'measured');
 assert.equal(aggregate.metrics.unused_candidates.candidate_count, 0, 'measured zero remains a numeric zero');
 assert.equal(aggregate.metrics.unused_candidates.graph_status, 'unqualified', 'unqualified candidates remain candidate counts');
 assert.deepEqual(aggregate.state_counts, { measured: 5, unknown: 0, unsupported: 0, failed: 0, stale: 0 });
+assert.deepEqual({
+  repository: aggregate.repository,
+  commit: aggregate.commit,
+  observed_at: aggregate.observed_at,
+  contract_version: aggregate.contract_version,
+  supersedes_ref: aggregate.supersedes_ref,
+  correction_ref: aggregate.correction_ref
+}, {
+  repository: positive.repository,
+  commit: positive.commit,
+  observed_at: positive.observed_at,
+  contract_version: positive.contract_version,
+  supersedes_ref: positive.supersedes_ref,
+  correction_ref: positive.correction_ref
+}, 'aggregate retains exact envelope binding');
 assert.notEqual(aggregate.metrics.complex_functions.source.run_ref, aggregate.metrics.coverage.source.run_ref);
 assert.equal(aggregate.metrics.coverage.unit, 'lines');
 assert.equal(aggregate.metrics.coverage.observed_at, '2026-10-09T09:30:00Z');
@@ -93,6 +108,16 @@ for (const testCase of casesFixture.cases) {
       assert.equal(result.aggregate.metrics.ci_first_attempt.denominator, 0);
       assert.equal(result.aggregate.metrics.ci_first_attempt.fraction, null);
     }
+    if (testCase.name === 'complete-zero-release-cohort-is-measured-sparse-zero') {
+      assert.equal(result.aggregate.metrics.confirmed_regressions.status, 'measured');
+      assert.equal(result.aggregate.metrics.confirmed_regressions.eligible, 0);
+      assert.equal(result.aggregate.metrics.confirmed_regressions.regression_count, 0);
+      assert.equal(result.aggregate.metrics.confirmed_regressions.sparse, true);
+    }
+    if (testCase.name === 'complete-declared-inventory-can-record-zero-coverage-with-no-emitted-files') {
+      assert.equal(result.aggregate.metrics.coverage.numerator, 0);
+      assert.equal(result.aggregate.metrics.coverage.denominator, positive.metrics.coverage.payload.eligible);
+    }
   } else if (testCase.expected === 'schema') {
     assert.equal(result.valid, false, `${testCase.name} should fail schema validation`);
     assert.ok(result.schemaErrors.length > 0, `${testCase.name} must be classified as a schema failure`);
@@ -129,11 +154,31 @@ assert.equal(validateObjectiveSeries(schema, [positive, collision]).valid, false
 const danglingCorrection = structuredClone(positive);
 danglingCorrection.snapshot_id = 'ref:successor';
 danglingCorrection.supersedes_ref = 'ref:missing';
+danglingCorrection.correction_ref = 'ref:correction-evidence';
 assert.equal(validateObjectiveSeries(schema, [danglingCorrection]).valid, false, 'correction requires its target in context');
 const correction = structuredClone(positive);
 correction.snapshot_id = 'ref:successor';
 correction.supersedes_ref = positive.snapshot_id;
+correction.correction_ref = 'ref:correction-evidence';
 assert.equal(validateObjectiveSeries(schema, [positive, correction]).valid, true);
+const missingCorrectionEvidence = structuredClone(positive);
+delete missingCorrectionEvidence.correction_ref;
+assert.equal(validateObjective(schema, missingCorrectionEvidence).valid, false, 'root correction evidence is required');
+const absentCorrectionOnSuccessor = structuredClone(correction);
+absentCorrectionOnSuccessor.correction_ref = null;
+assert.equal(validateObjective(schema, absentCorrectionOnSuccessor).valid, false, 'superseding snapshots require correction evidence');
+const unpairedCorrectionEvidence = structuredClone(positive);
+unpairedCorrectionEvidence.correction_ref = 'ref:orphan-correction-evidence';
+assert.equal(validateObjective(schema, unpairedCorrectionEvidence).valid, false, 'non-superseding snapshots cannot claim correction evidence');
 const missingSlot = structuredClone(positive);
 delete missingSlot.metrics.coverage.slot_ref;
 assert.equal(validateObjective(schema, missingSlot).valid, false, 'unknown provenance still needs stable expected-slot identity');
+
+const cycleStart = structuredClone(positive);
+cycleStart.supersedes_ref = correction.snapshot_id;
+cycleStart.correction_ref = 'ref:cycle-evidence';
+assert.equal(validateObjectiveSeries(schema, [cycleStart, correction]).valid, false, 'correction cycles are rejected');
+assert.equal(validateObjectiveSeries(schema, [correction], { context: [positive] }).valid, true, 'explicit context resolves incremental correction');
+const wrongRepoCorrection = structuredClone(correction);
+wrongRepoCorrection.repository.name = 'other-repo';
+assert.equal(validateObjectiveSeries(schema, [wrongRepoCorrection], { context: [positive] }).valid, false, 'corrections cannot retarget repository');

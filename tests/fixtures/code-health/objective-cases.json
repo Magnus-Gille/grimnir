@@ -154,6 +154,29 @@
       ]
     },
     {
+      "name": "covered-items-require-emitted-source-files",
+      "expected": "semantic",
+      "operations": [
+        { "op": "set", "path": ["metrics", "coverage", "payload", "emitted_source_files"], "value": 0 }
+      ]
+    },
+    {
+      "name": "complete-declared-inventory-can-record-zero-coverage-with-no-emitted-files",
+      "expected": "valid",
+      "operations": [
+        { "op": "set", "path": ["metrics", "coverage", "payload", "covered"], "value": 0 },
+        { "op": "set", "path": ["metrics", "coverage", "payload", "emitted_source_files"], "value": 0 }
+      ]
+    },
+    {
+      "name": "exported-only-cannot-claim-eligible-items-without-emitted-files",
+      "expected": "semantic",
+      "operations": [
+        { "op": "set", "path": ["metrics", "coverage", "payload", "source_inventory"], "value": "exported-only" },
+        { "op": "set", "path": ["metrics", "coverage", "payload", "emitted_source_files"], "value": 0 }
+      ]
+    },
+    {
       "name": "mixed-coverage-profiles",
       "expected": "schema",
       "operations": [
@@ -289,6 +312,23 @@
           ],
           "value": "ref:release-unobserved"
         }
+      ]
+    },
+    {
+      "name": "complete-zero-release-cohort-is-measured-sparse-zero",
+      "expected": "valid",
+      "operations": [
+        { "op": "set", "path": ["metrics", "confirmed_regressions", "payload", "eligible_releases"], "value": 0 },
+        { "op": "set", "path": ["metrics", "confirmed_regressions", "payload", "releases"], "value": [] },
+        { "op": "set", "path": ["metrics", "confirmed_regressions", "payload", "regressions"], "value": [] }
+      ]
+    },
+    {
+      "name": "regressions-with-no-release-remain-invalid",
+      "expected": "semantic",
+      "operations": [
+        { "op": "set", "path": ["metrics", "confirmed_regressions", "payload", "eligible_releases"], "value": 0 },
+        { "op": "set", "path": ["metrics", "confirmed_regressions", "payload", "releases"], "value": [] }
       ]
     },
     {

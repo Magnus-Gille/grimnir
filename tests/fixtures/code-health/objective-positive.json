@@ -2,6 +2,7 @@
   "contract_version": "1.0",
   "snapshot_id": "ref:objective-2026-10-09-a",
   "supersedes_ref": null,
+  "correction_ref": null,
   "repository": {
     "owner": "example-org",
     "name": "example-repo"

@@ -9,6 +9,7 @@
     "contract_version",
     "snapshot_id",
     "supersedes_ref",
+    "correction_ref",
     "repository",
     "commit",
     "observed_at",
@@ -35,6 +36,12 @@
         {
           "type": "null"
         }
+      ]
+    },
+    "correction_ref": {
+      "oneOf": [
+        { "$ref": "#/$defs/refId" },
+        { "type": "null" }
       ]
     },
     "repository": {
@@ -605,14 +612,13 @@
         },
         "eligible_releases": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 0
         },
         "releases": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/releaseWindow"
           },
-          "minItems": 1,
           "maxItems": 500
         },
         "regressions": {

@@ -11,9 +11,12 @@ const inWindow = (stamp, start, end) => Date.parse(stamp) >= Date.parse(start) &
 function semanticErrorsFor(objective) {
   const errors = [];
   const fail = (path, message) => errors.push(`${path}: ${message}`);
-  const { metrics, snapshot_id: snapshotId, supersedes_ref: supersedesRef } = objective;
+  const { metrics, snapshot_id: snapshotId, supersedes_ref: supersedesRef, correction_ref: correctionRef } = objective;
 
   if (supersedesRef === snapshotId) fail('$.supersedes_ref', 'cannot refer to this snapshot');
+  if ((supersedesRef === null) !== (correctionRef === null)) {
+    fail('$.correction_ref', 'must be present exactly when supersedes_ref is present');
+  }
   for (const name of METRIC_NAMES) {
     const metric = metrics[name];
     if (Date.parse(metric.observed_at) > Date.parse(objective.observed_at)) {
@@ -55,8 +58,12 @@ function semanticErrorsFor(objective) {
     if (coverage.unit !== p.measure) fail('$.metrics.coverage.unit', 'must equal payload.measure');
     if (p.eligible < 1) fail('$.metrics.coverage.payload.eligible', 'measured coverage requires at least one eligible item');
     if (p.covered > p.eligible) fail('$.metrics.coverage.payload.covered', 'cannot exceed eligible');
+    if (p.covered > 0 && p.emitted_source_files === 0) fail('$.metrics.coverage.payload.emitted_source_files', 'positive coverage requires at least one emitted source file');
     if (p.eligible_source_files < 1) fail('$.metrics.coverage.payload.eligible_source_files', 'measured coverage requires at least one eligible source file');
     if (p.emitted_source_files > p.eligible_source_files) fail('$.metrics.coverage.payload.emitted_source_files', 'cannot exceed eligible_source_files');
+    if (p.source_inventory === 'exported-only' && p.eligible > 0 && p.emitted_source_files === 0) {
+      fail('$.metrics.coverage.payload.emitted_source_files', 'exported-only inventory requires emitted source files for a positive eligible denominator');
+    }
   }
 
   const ciMetric = metrics.ci_first_attempt;
@@ -159,7 +166,13 @@ function aggregateObjective(objective) {
   if (isMeasured(regressions)) for (const item of regressions.payload.regressions) severityCounts[item.severity] += 1;
 
   return {
+    contract_version: objective.contract_version,
     snapshot_id: objective.snapshot_id,
+    supersedes_ref: objective.supersedes_ref,
+    correction_ref: objective.correction_ref,
+    repository: objective.repository,
+    commit: objective.commit,
+    observed_at: objective.observed_at,
     state_counts: stateCounts,
     metrics: {
       complex_functions: aggregateMetric('complex_functions', p => ({

@@ -146,3 +146,8 @@ assert.throws(() => validateRecord(missingObservationRubric), TypeError, 'observ
 const tooManyChildren = structuredClone(positive.records.find(record => record.record_kind === 'assessment'));
 tooManyChildren.child_attempt_ids = Array.from({ length: 129 }, (_, n) => `child-${n}`);
 assert.throws(() => validateRecord(tooManyChildren), TypeError, 'child lineage is bounded');
+
+const externalChildren = structuredClone(positive.records);
+for (const record of externalChildren) if (record.record_kind === 'assessment' && record.attempt_id === 'parent-attempt') record.child_attempt_ids.push('native-unassessed-child');
+const withExternalChildren = aggregateRecords(externalChildren);
+assert.equal(withExternalChildren.assessment_coverage.numerator, unknownCoverage.assessment_coverage.numerator, 'owner-resolved unassessed child lineage does not invent participation');
