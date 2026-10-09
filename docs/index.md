@@ -68,6 +68,12 @@ the annotation, not only the filename.
 
 ## Learning and improvement loop
 
+- `docs/code-health-contract.md`, `docs/code-health-objective-v1.schema.json`, and
+  `docs/code-health-agent-v1.schema.json` — Frozen advisory v1 pilot contract for five bounded
+  code-health metrics and agent changeability observations; source ownership, comparable series,
+  replay/Close deduplication, unknown populations, lifecycle and pilot budgets. Synthetic fixtures
+  and semantic checks run with `make test-code-health`; downstream collection/skills/dashboard
+  adoption remains in owning tickets. This contract does not grant mutation authority.
 - `docs/astra-instruction-cleanup-2026-09-05.md` — Scope, verification, maintenance, and reversal notes for the September instruction cleanup; includes the Fable debate outcome.
 - `docs/observability-and-improvement.md` — Telemetry strategy and self-improvement architecture:
   operational health, task/product evidence, capability evidence, and consequential-mutation

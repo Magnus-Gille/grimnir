@@ -253,6 +253,13 @@ promoted into evidence of continuous improvement.
 
 ## Per-component signals outside the delegation loop
 
+The [code-health and agent changeability contract](code-health-contract.md) defines a separate
+advisory pilot for simplification sprints. Product repositories own objective measurements; skills
+own grounded observations; Hugin contributes only its own lifecycle facts; Munin persists subjective
+evidence; Heimdall derives history and display. No aggregate quality score, capability verdict,
+automatic routing or mutation authority follows from these records. Its shared schemas are frozen;
+producer/consumer adoption and live collection remain future owning-repository work.
+
 Every component should still expose operational and product signals appropriate to its role, but
 those signals do not automatically enter the task-delegation learning contract.
 

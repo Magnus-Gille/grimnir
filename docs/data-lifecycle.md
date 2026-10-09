@@ -38,6 +38,20 @@ automation, or compliance claim. Cross-store erasure orchestration does not exis
 
 ## Erasure workflow
 
+### Code-health pilot evidence
+
+The future [code-health pilot](code-health-contract.md) uses **six months from collection** for
+objective snapshots, subjective observations/assessments, corrections and derived history, with no
+automatic promotion to permanent personal memory. Raw unpromoted collection/trial artifacts use
+**30 days**; deliberately promoted research and synthetic contract fixtures are durable owned
+artifacts. Source issues and releases retain their own lifecycle. Product repositories own objective
+sources, skills/harnesses own subjective sources, Munin persists subjective evidence, and Heimdall
+owns derived history. Before collection, owning stores must implement retention, idempotency,
+correction lineage and verified erasure/backup-expiry handling. The contract does not create those
+mechanisms or authorize deletion jobs.
+
+### Owning-store procedure
+
 1. Identify the authoritative store and any derived copies using the map above.
 2. Check for a narrow statutory, contractual, incident, or legal-hold exception.
 3. Use the authoritative store's **current** mechanism first. If no safe mechanism exists, record
