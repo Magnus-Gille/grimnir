@@ -1089,6 +1089,38 @@ else
   fi
 fi
 
+# Hermetic --delete regression for the central test-directory exclusion. A
+# source root `tests/` tree is intentionally omitted, while the runtime's
+# nested code-health contract fixture must still ship.
+if [[ -n "$REAL_RSYNC" ]]; then
+  CODE_HEALTH_SRC="$TMP_DIR/code-health-src"
+  CODE_HEALTH_DEST="$TMP_DIR/code-health-dest"
+  rm -rf "$CODE_HEALTH_SRC" "$CODE_HEALTH_DEST"
+  mkdir -p "$CODE_HEALTH_SRC/tests" \
+    "$CODE_HEALTH_SRC/src/code-health/contract/tests/fixtures/code-health" \
+    "$CODE_HEALTH_DEST"
+  printf '%s\n' "root-only test fixture" > "$CODE_HEALTH_SRC/tests/root-test-fixture.json"
+  printf '%s\n' "nested runtime contract fixture" \
+    > "$CODE_HEALTH_SRC/src/code-health/contract/tests/fixtures/code-health/agent-adversarial.json"
+  printf '%s\n' stale > "$CODE_HEALTH_DEST/stale.txt"
+  code_health_rc=0
+  "$REAL_RSYNC" "${RSYNC_FLAGS[@]}" "$CODE_HEALTH_SRC/" "$CODE_HEALTH_DEST/" || code_health_rc=$?
+  if [[ "$code_health_rc" == 0 &&
+        ! -e "$CODE_HEALTH_DEST/tests/root-test-fixture.json" &&
+        -f "$CODE_HEALTH_DEST/src/code-health/contract/tests/fixtures/code-health/agent-adversarial.json" ]] &&
+     grep -Fxq "nested runtime contract fixture" \
+       "$CODE_HEALTH_DEST/src/code-health/contract/tests/fixtures/code-health/agent-adversarial.json"; then
+    pass "root tests are omitted while nested code-health runtime fixture survives --delete"
+  else
+    fail "root tests must be omitted while nested code-health runtime fixture survives --delete"
+  fi
+  if [[ ! -e "$CODE_HEALTH_DEST/stale.txt" ]]; then
+    pass "nested code-health fixture regression keeps --delete armed"
+  else
+    fail "nested code-health fixture regression must keep --delete armed"
+  fi
+fi
+
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
 if [[ "$FAIL" -gt 0 ]]; then
