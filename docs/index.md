@@ -34,6 +34,10 @@ the annotation, not only the filename.
 
 ## Roles, deployment, and hygiene
 
+- `docs/delivery-mandates.md` — Ownership and migration of the owner-approved bounded delivery
+  mandate: portable policy in claude-config, workflow/batches in ship-it, ticket-fleet compatibility,
+  adapter boundaries, evidence, activation and reversal; does not arm ADR-008 production coverage
+
 - `docs/role-separation.md` — Why the canonical grimnir checkout must not double as a deploy target
   or hugin workspace, and the validate check that alarms on drift (issue #47)
 - `docs/worktree-hygiene.md` — Multi-agent worktree/deployment hygiene protocol: stale/dirty/orphaned

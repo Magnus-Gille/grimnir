@@ -8,6 +8,20 @@ The expected SHA must come from the accepted release decision (for example the
 merged PR result), not from `git rev-parse HEAD` in whichever checkout happens
 to be current at deploy time.
 
+## Authorization and revision evidence
+
+Global `claude-config/AGENTS.md` owns authorization. Either exact-revision confirmation or an
+explicit bounded release mandate may cover the action. In both cases the execution still needs
+the exact accepted revision and all checks below. Ordinary repair changes the evidence that must
+be regenerated; it does not automatically cancel an otherwise valid task mandate. A changed
+release effect or target requires the authorization delta specified by that policy.
+
+A merge, push or tag that automatically deploys or installs is the release trigger. Prepare and
+bind the candidate before that action; when a future merge SHA is not yet available, use an
+accepted candidate binding and verify the resulting integration receipt before manual rollout.
+An executor unable to enforce that binding must leave its trigger pending. This document does
+not change executor behavior, grant automatic deployment, or arm ADR-008 coverage.
+
 ## Centrally deployable components
 
 `scripts/deploy.sh` requires one bound request for every selected component:

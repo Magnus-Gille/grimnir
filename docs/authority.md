@@ -7,6 +7,10 @@
 
 | Fact type | Authoritative source | Derived by / consumers |
 |-----------|---------------------|------------------------|
+| **Portable task authority, mutation tiers and bounded mandates** | `claude-config/AGENTS.md` | Harness adapters, repository instructions, skills and task handoffs; no consumer grants wider authority |
+| **Delivery procedure, independent-review defaults and batch coordination** | `claude-skills/ship-it/SKILL.md` and its references | `ticket-fleet` compatibility entry, private deploy/submit-task adapters, Grimnir orchestration |
+| **Installed instruction/skill exposure** | `claude-config` bootstrap and link manifest | Host-local links; automatic sync is an activation trigger, not deployment evidence |
+| **Repository checks, acceptance and deployment mechanics** | Owning repository `AGENTS.md` and executable contracts | `ship-it`, CI and Hugin; global trust and protected-action floors still apply |
 | **Port assignments** | `services.json` | `generate-architecture.sh`, `deploy.sh`, `security-scan.sh`, `docs/architecture.md` |
 | **SSH and consumer-health hostnames** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
 | **Deploy paths, targets, desired runtime state, systemd units & timer semantics** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
@@ -20,7 +24,7 @@
 | **Service patterns / conventions** | `docs/conventions.md` | per-repo CLAUDE.md |
 | **Component roles (short)** | `docs/conventions.md` | `docs/architecture.md`, generator |
 | **System design philosophy / rationale** | `docs/architecture.md` | per-repo CLAUDE.md (may reference) |
-| **Component design rationale** | Per-repo `CLAUDE.md` | `docs/architecture.md` (may summarize), generator (inlines) |
+| **Component design rationale** | Per-repo `AGENTS.md` (legacy `CLAUDE.md` until migrated) | `docs/architecture.md` (may summarize), generator (inlines) |
 | **Live deployment state** | `generate-architecture.sh` output | Skuld, Heimdall |
 | **Project status / roadmap** | Munin `projects/*/status` | Skuld briefing, workbench |
 | **Cross-component data flow** | `docs/architecture.md` | generator (may diagram) |
@@ -56,7 +60,7 @@
 
 4. **Munin is live state, not architecture.** Munin project statuses reflect current work and blockers. They are not authoritative for system design, ports, or conventions.
 
-5. **Per-repo CLAUDE.md owns component-level detail.** If `docs/architecture.md` and a component's `CLAUDE.md` disagree on how that component works, the component's `CLAUDE.md` wins (it's closer to the code).
+5. **Per-repo AGENTS.md owns component-level detail.** If `docs/architecture.md` and a component's `AGENTS.md` (or unmigrated `CLAUDE.md`) disagree on how that component works, the component's canonical instruction file wins (it's closer to the code).
 
 6. **Persistent paths mean runtime data, not globally protected deploy metadata.** Each
    rsync-deployed component declares its mutable runtime/data locations in `persistent_paths`.
@@ -203,3 +207,10 @@ When a fact changes (e.g., a service moves to a new port):
 1. Update the authoritative source first (`services.json` for ports/hosts/deploy paths/units, `conventions.md` for patterns/naming)
 2. Update all derived sources (or note them for the next session)
 3. No script should need updating — they all read from `services.json` via `scripts/lib/registry.js`
+
+## Delivery mandate boundary
+
+See [delivery-mandates.md](delivery-mandates.md) for the system integration and migration
+record. The portable policy is owned by `claude-config/AGENTS.md`; this map does not create
+another authorization mechanism. Existing ADR-008 signed-controller contracts and disarmed
+production coverage remain unchanged.
