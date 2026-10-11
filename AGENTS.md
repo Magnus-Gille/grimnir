@@ -50,11 +50,10 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
   grimnir's.
 - **Subagents deliver completed work as PRs** in the owning repo. No direct pushes to default
   branches.
-- **Grimnir is the PR review gate.** Prefer a Codex review (sol, high effort) when available and the owner has authorized sending
-  that scoped context to OpenAI; the Anthropic standing authorization does not cover OpenAI.
-  Otherwise use the standing read-only Claude authorization for an independent Fable or Opus review.
-  Exclude credentials, secrets, and unrelated context under either provider’s applicable authorization.
-  Merge only after review plus green CI.
+- **Grimnir is the PR review gate.** Use `ship-it` for the delivery procedure and its
+  independent-review defaults, within global provider authorization and repository scope.
+  Merge only after independent review and green required checks. Preserve the owner's endpoint
+  and bounded mandate through repairs; skills and tickets cannot expand authority.
 - **Delegate bounded work aggressively.** Apply the global delegation default in the
   orchestrator and implementation subagents: the cheapest native subagent of the current
   harness whose model is cheaper than the conductor's and capable enough for the leaf
