@@ -587,7 +587,7 @@ deploy_service() {
     --exclude='.git'
     --exclude='.git/'
     --exclude='.env'
-    --exclude='tests/'
+    --exclude='/tests/'
     --exclude='.DS_Store'
     --exclude='.deployed-commit')
   while IFS= read -r rsync_exclude; do
