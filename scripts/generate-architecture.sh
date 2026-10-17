@@ -6,7 +6,8 @@
 # and concatenates both into docs/full-architecture.md.
 #
 # Usage:
-#   ./scripts/generate-architecture.sh [--munin-token TOKEN]
+#   ./scripts/generate-architecture.sh [--validate] [--munin-token-stdin]
+#   Set MUNIN_TOKEN in the environment, or pipe one token line to --munin-token-stdin.
 #
 # Idempotent, safe to run repeatedly. Completes in <60s.
 # NEVER includes secret values — env var names only.
@@ -43,14 +44,18 @@ source "$SCRIPT_DIR/lib/munin-rpc.sh"
 read -ra COMPONENTS <<< "$(REGISTRY_PATH="$REGISTRY" QUERY=components node --input-type=commonjs "$REGISTRY_JS")"
 
 # ─── CLI args ───────────────────────────────────────────────
-MUNIN_TOKEN=""
+MUNIN_TOKEN="${MUNIN_TOKEN:-}"
 VALIDATE_MODE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --munin-token) MUNIN_TOKEN="$2"; shift 2 ;;
+    --munin-token)
+      echo "ERROR: pass the token through --munin-token-stdin" >&2
+      exit 1
+      ;;
+    --munin-token-stdin) munin_token_read_stdin; shift ;;
     --validate) VALIDATE_MODE=true; shift ;;
-    *) echo "Unknown arg: $1"; exit 1 ;;
+    *) echo "ERROR: unknown option" >&2; exit 1 ;;
   esac
 done
 

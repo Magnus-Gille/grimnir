@@ -6,6 +6,21 @@
 # a readable body. Callers use this helper so failed validation/security writes
 # never masquerade as durable.
 
+munin_token_read_stdin() {
+  local token="" read_status=0
+  IFS= read -r token || read_status=$?
+  # Bash read returns 1 for EOF, including EOF after bytes without a newline.
+  # Accept that case only when it supplied a non-empty token; reject other
+  # read failures and empty input with the same non-sensitive diagnostic.
+  if [[ "$read_status" -gt 1 || -z "$token" ]]; then
+    echo "ERROR: --munin-token-stdin requires a non-empty line on stdin" >&2
+    return 1
+  fi
+  # Intentional output to the sourcing script's token variable.
+  # shellcheck disable=SC2034
+  MUNIN_TOKEN="$token"
+}
+
 munin_rpc_response_ok() {
   node --input-type=commonjs -e '
     var input = require("fs").readFileSync("/dev/stdin", "utf8");

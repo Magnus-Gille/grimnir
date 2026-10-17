@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Regression tests for grimnir#206: security-scan.sh must honour MUNIN_TOKEN
-# from the environment (the systemd unit supplies it via EnvironmentFile=)
-# instead of discarding it, while --munin-token still takes precedence.
+# Regression tests for grimnir#206: security-scan.sh honours MUNIN_TOKEN from
+# the environment (the systemd unit supplies it via EnvironmentFile=).
 
 set -euo pipefail
 
@@ -29,18 +28,11 @@ else
   pass "scanner has exactly one CLI args block to exercise"
 fi
 
-got="$(MUNIN_TOKEN=from-environment resolve_token)"
+got="$(MUNIN_TOKEN=from-environment resolve_token --dry-run)"
 if [[ "$got" == "from-environment" ]]; then
   pass "MUNIN_TOKEN from the environment is kept"
 else
   fail "MUNIN_TOKEN from the environment is kept (got: '${got}')"
-fi
-
-got="$(MUNIN_TOKEN=from-environment resolve_token --munin-token from-flag)"
-if [[ "$got" == "from-flag" ]]; then
-  pass "--munin-token overrides the environment"
-else
-  fail "--munin-token overrides the environment (got: '${got}')"
 fi
 
 got="$(env -u MUNIN_TOKEN bash -c "$(declare -f resolve_token); SCANNER='$SCANNER'; resolve_token")"
