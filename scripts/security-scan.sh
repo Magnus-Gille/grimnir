@@ -2,7 +2,8 @@
 # security-scan.sh — Scan Grimnir service repos for dependency vulnerabilities and secrets
 #
 # Usage:
-#   ./scripts/security-scan.sh [--munin-token TOKEN] [--dry-run] [--verbose] [--repo <name>]
+#   ./scripts/security-scan.sh [--munin-token-stdin] [--dry-run] [--verbose] [--repo <name>]
+#   Set MUNIN_TOKEN in the environment, or pipe one token line to --munin-token-stdin.
 #
 # Checks:
 #   Phase 1: npm audit --json for each repo with package-lock.json
@@ -48,18 +49,22 @@ if [[ -z "$COMPONENTS" ]]; then
 fi
 
 # ─── CLI args ────────────────────────────────────────────────
-MUNIN_TOKEN="${MUNIN_TOKEN:-}"  # systemd EnvironmentFile supplies it (grimnir#206); --munin-token overrides
+MUNIN_TOKEN="${MUNIN_TOKEN:-}"  # systemd EnvironmentFile supplies it (grimnir#206)
 DRY_RUN=false
 VERBOSE=false
 FILTER_REPO=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --munin-token) MUNIN_TOKEN="$2"; shift 2 ;;
+    --munin-token)
+      echo "ERROR: pass the token through --munin-token-stdin" >&2
+      exit 1
+      ;;
+    --munin-token-stdin) munin_token_read_stdin; shift ;;
     --dry-run)     DRY_RUN=true; shift ;;
     --verbose)     VERBOSE=true; shift ;;
     --repo)        FILTER_REPO="$2"; shift 2 ;;
-    *) echo "Unknown arg: $1"; exit 1 ;;
+    *) echo "ERROR: unknown option" >&2; exit 1 ;;
   esac
 done
 

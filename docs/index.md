@@ -213,9 +213,10 @@ the annotation, not only the filename.
 |--------|---------|----------|
 | `scripts/deploy.sh` | Deploy registered services from explicitly bound revisions | `make deploy ARGS="service=/absolute/worktree@FULL_COMMIT_SHA"` |
 | `scripts/guarded-deploy.sh` | Bind arbitrary owning-repo deploy commands to an expected worktree + revision | See `docs/deployment-source-binding.md` |
-| `scripts/generate-architecture.sh` | Generate deployment snapshot + full-architecture.md | `make docs` (Pi only) |
+| `scripts/generate-architecture.sh` | Generate deployment snapshot + full-architecture.md; reads `MUNIN_TOKEN` from the environment or `--munin-token-stdin` | `make docs` (Pi only) |
 | `scripts/output-audit.py` | Audit owner+AI repository output over a date window | `python3 scripts/output-audit.py` (reads an untracked local identities config; see `scripts/output-audit-identities.example.json`) |
-| `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets | `make security` |
+| `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets; reads `MUNIN_TOKEN` from the environment or `--munin-token-stdin` | `make security` |
+| `scripts/tests/munin-token-cli.test.sh` | Check environment/stdin precedence and non-disclosing CLI token errors for Munin callers | `make test-munin-token-cli` |
 | `scripts/worktree-hygiene-audit.sh` | Read-only audit of stale/dirty/orphaned worktrees, canonical-checkout drift, and deploy-target role violations across owned repos | `scripts/worktree-hygiene-audit.sh` (also wired into `scripts/generate-architecture.sh --validate`); tests via `make test-worktree-hygiene` |
 | `scripts/tests/ab-instructions-eval.sh` | A/B a change to the agent-instruction files against a frozen retrieval probe set | `scripts/tests/ab-instructions-eval.sh --before DIR --after DIR` |
 | `scripts/tests/ab-rescore.sh` | Recompute A/B verdicts from retained raw streams after a detector fix, instead of re-running the eval | `scripts/tests/ab-rescore.sh RAW_DIR` |

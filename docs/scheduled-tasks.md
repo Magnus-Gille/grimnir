@@ -119,6 +119,10 @@ not scan deployment trees or claim deployment/runtime integrity. A missing
 checkout, unreadable commit, or unusable audit result makes the entire run
 incomplete and non-zero rather than silently omitting a repository.
 
+Manual runs take `MUNIN_TOKEN` from the environment or one line from standard
+input with `--munin-token-stdin`. Do not pass the token as a command-line value;
+the legacy `--munin-token VALUE` form is rejected.
+
 ### Claude CLI Update
 
 | Field | Value |
