@@ -790,6 +790,148 @@ assert_eq "deploy JSON derives type from systemd_units[0]" "service" \
 assert_eq "deploy JSON derives scope from systemd_units[0]" "user" \
   "$(deploy_field "$TMP_DIR/order.json" svc unit_scope)"
 
+# ── Owning-repository deployments (mimir search reader) ───────────────────
+# Owning-repo deploy entry points are a separate registry section: they route
+# through scripts/guarded-deploy.sh and are never selected by deploy.sh.
+GUARDED_DEPLOY="$SCRIPT_DIR/../guarded-deploy.sh"
+
+owning_query() {  # $1 = registry path; prints JSON Lines
+  REGISTRY_PATH="$1" QUERY=owning-deploys node --input-type=commonjs "$REGISTRY_JS"
+}
+owning_field() {  # $1 = registry, $2 = entry name, $3 = JS expression over `entry`
+  owning_query "$1" | ENTRY_NAME="$2" FIELD_EXPR="$3" node --input-type=commonjs -e '
+    var input = "";
+    process.stdin.on("data", function (chunk) { input += chunk; });
+    process.stdin.on("end", function () {
+      var entry = input.trim().split("\n").filter(Boolean).map(function (l) { return JSON.parse(l); })
+        .filter(function (e) { return e.name === process.env.ENTRY_NAME; })[0];
+      if (!entry) process.exit(1);
+      process.stdout.write(String(eval(process.env.FIELD_EXPR)));
+    });
+  '
+}
+
+assert_eq "real services.json: mimir-search-reader owns its deploy command" \
+  "./scripts/deploy-search-reader.sh" \
+  "$(owning_field "$REPO_REGISTRY" mimir-search-reader 'entry.command.join(" ")')"
+assert_eq "real services.json: mimir-search-reader targets node-m5 in the mimir repo" \
+  "mimir@node-m5" \
+  "$(owning_field "$REPO_REGISTRY" mimir-search-reader 'entry.repo + "@" + entry.target_node_id')"
+assert_eq "real services.json: mimir-search-reader couples the Mac client pin" \
+  "node-laptop:.config/mimir-search/client.json:release,package_sha256" \
+  "$(owning_field "$REPO_REGISTRY" mimir-search-reader 'entry.coupled_state.map(function (s) { return s.node_id + ":" + s.home_relative_path + ":" + s.fields.join(","); }).join(";")')"
+assert_eq "real services.json: reader listener is the registered loopback port" \
+  "8791" "$(owning_field "$REPO_REGISTRY" mimir-search-reader 'entry.loopback_port')"
+
+# The central deploy query must never select an owning-repo deployment.
+CENTRAL_DEPLOY_NAMES="$(REGISTRY_PATH="$REPO_REGISTRY" QUERY=deploy node --input-type=commonjs "$REGISTRY_JS" \
+  | node --input-type=commonjs -e '
+      var input = "";
+      process.stdin.on("data", function (chunk) { input += chunk; });
+      process.stdin.on("end", function () {
+        process.stdout.write(input.trim().split("\n").map(function (l) { return JSON.parse(l).name; }).join(" "));
+      });
+    ')"
+case " $CENTRAL_DEPLOY_NAMES " in
+  *" mimir-search-reader "*) echo "  FAIL: central deploy query must not select mimir-search-reader"; FAIL=$((FAIL + 1)) ;;
+  *) echo "  PASS: central deploy query does not select mimir-search-reader"; PASS=$((PASS + 1)) ;;
+esac
+assert_eq "registries without owning_repo_deployments yield no owning-deploys rows" "" \
+  "$(owning_query "$TMP_DIR/valid.json")"
+
+# Each mutation of the real registry must fail validation cleanly.
+mutate_owning() {  # $1 = fixture name, $2 = JS mutation over `entry` and `registry`
+  REPO_REGISTRY="$REPO_REGISTRY" OUTPUT="$TMP_DIR/$1.json" MUTATION="$2" node --input-type=commonjs -e '
+    var fs = require("fs");
+    var registry = JSON.parse(fs.readFileSync(process.env.REPO_REGISTRY, "utf8"));
+    var entry = registry.owning_repo_deployments[0];
+    eval(process.env.MUTATION);
+    fs.writeFileSync(process.env.OUTPUT, JSON.stringify(registry));
+  '
+}
+reject_owning() {  # $1 = description, $2 = JS mutation
+  local fixture
+  fixture="owning-$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '-')"
+  mutate_owning "$fixture" "$2"
+  assert_clean_failure "owning deploy: $1" "$TMP_DIR/$fixture.json"
+}
+
+reject_owning "unknown field"                "entry.shell = \"bash -c x\""
+reject_owning "repo not registered"          "entry.repo = \"not-a-repo\""
+reject_owning "target node not registered"   "entry.target_node_id = \"node-missing\""
+reject_owning "missing target node"          "delete entry.target_node_id"
+reject_owning "command escapes the repo"     "entry.command = [\"./scripts/../../evil.sh\"]"
+reject_owning "command is absolute"          "entry.command = [\"/usr/bin/evil\"]"
+reject_owning "command is a bare name"       "entry.command = [\"deploy.sh\"]"
+reject_owning "command has shell metachar"   "entry.command = [\"./scripts/deploy-search-reader.sh\", \"x;reboot\"]"
+reject_owning "command is a string"          "entry.command = \"./scripts/deploy-search-reader.sh\""
+reject_owning "command is empty"             "entry.command = []"
+reject_owning "command repeats revision arg" "entry.command.push(\"--release\")"
+reject_owning "revision argument missing"    "delete entry.revision_argument"
+reject_owning "revision argument malformed"  "entry.revision_argument = \"release\""
+reject_owning "release root not canonical"   "entry.release_root = \"/home/magnus/releases/\""
+reject_owning "marker inside release root"   "entry.deployed_marker = entry.release_root + \"/.deployed-commit\""
+reject_owning "marker missing"               "delete entry.deployed_marker"
+reject_owning "port collides with component" "entry.loopback_port = 3031"
+reject_owning "port out of range"            "entry.loopback_port = 70000"
+reject_owning "no units"                     "entry.systemd_units = []"
+reject_owning "bad unit type"                "entry.systemd_units[0].type = \"socket\""
+reject_owning "unknown unit field"           "entry.systemd_units[0].extra = true"
+reject_owning "duplicate name"               "registry.owning_repo_deployments.push(JSON.parse(JSON.stringify(entry)))"
+reject_owning "name collides with component" "entry.name = \"mimir\""
+reject_owning "coupled node not registered"  "entry.coupled_state[0].node_id = \"node-missing\""
+reject_owning "coupled path escapes home"    "entry.coupled_state[0].home_relative_path = \"../etc/passwd\""
+reject_owning "coupled path is absolute"     "entry.coupled_state[0].home_relative_path = \"/etc/passwd\""
+reject_owning "coupled fields empty"         "entry.coupled_state[0].fields = []"
+reject_owning "coupled unknown field"        "entry.coupled_state[0].mode = \"0600\""
+reject_owning "section is not an array"      "registry.owning_repo_deployments = {}"
+reject_owning "null entry"                   "registry.owning_repo_deployments = [null]"
+
+# Routing: the registered command runs only through guarded-deploy.sh, with
+# the accepted full SHA appended as the registered revision argument.
+ROUTE_REPO="$TMP_DIR/route-mimir"
+mkdir -p "$ROUTE_REPO/scripts"
+git -C "$ROUTE_REPO" init -q
+git -C "$ROUTE_REPO" config user.email test@example.invalid
+git -C "$ROUTE_REPO" config user.name test
+cat > "$ROUTE_REPO/scripts/deploy-search-reader.sh" << 'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" > "$ROUTE_CAPTURE"
+EOF
+chmod +x "$ROUTE_REPO/scripts/deploy-search-reader.sh"
+git -C "$ROUTE_REPO" add scripts
+git -C "$ROUTE_REPO" commit -q -m fixture
+ROUTE_SHA="$(git -C "$ROUTE_REPO" rev-parse HEAD)"
+export ROUTE_CAPTURE="$TMP_DIR/route-capture"
+
+route_argv() {  # one argv element per line: registered command..., then revision_argument
+  owning_query "$REPO_REGISTRY" | node --input-type=commonjs -e '
+    var input = "";
+    process.stdin.on("data", function (chunk) { input += chunk; });
+    process.stdin.on("end", function () {
+      var entry = input.trim().split("\n").map(function (l) { return JSON.parse(l); })
+        .filter(function (e) { return e.name === "mimir-search-reader"; })[0];
+      process.stdout.write(entry.command.concat([entry.revision_argument]).join("\n") + "\n");
+    });
+  '
+}
+ROUTE_ARGV=()
+while IFS= read -r line; do ROUTE_ARGV+=("$line"); done < <(route_argv)
+
+rm -f "$ROUTE_CAPTURE"
+route_rc=0
+(cd "$ROUTE_REPO" && bash "$GUARDED_DEPLOY" "$ROUTE_REPO" "$ROUTE_SHA" -- "${ROUTE_ARGV[@]}" "$ROUTE_SHA") >/dev/null 2>&1 || route_rc=$?
+assert_eq "guarded routing: matching worktree + SHA runs the registered command" "0" "$route_rc"
+assert_eq "guarded routing: command receives the registered revision argument and SHA" \
+  "--release $ROUTE_SHA" "$(cat "$ROUTE_CAPTURE" 2>/dev/null || echo missing)"
+
+rm -f "$ROUTE_CAPTURE"
+route_rc=0
+WRONG_SHA="0000000000000000000000000000000000000000"
+(cd "$ROUTE_REPO" && bash "$GUARDED_DEPLOY" "$ROUTE_REPO" "$WRONG_SHA" -- "${ROUTE_ARGV[@]}" "$WRONG_SHA") >/dev/null 2>&1 || route_rc=$?
+assert_eq "guarded routing: SHA mismatch refuses the registered command" "1" "$route_rc"
+assert_eq "guarded routing: refused command never ran" "missing" "$(cat "$ROUTE_CAPTURE" 2>/dev/null || echo missing)"
+
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
 if [[ "$FAIL" -gt 0 ]]; then

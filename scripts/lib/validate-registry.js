@@ -514,6 +514,169 @@ if (data.nodes !== undefined) {
   }
 }
 
+// Owning-repository deployments are an additive registry extension for
+// runtimes whose deploy entry point lives in the owning repository and is
+// intentionally outside the centrally deployable component set. They are not
+// components: they carry no workload_contract, placement evidence, rsync
+// target or deploy=true flag, so scripts/deploy.sh never selects them. They
+// exist so /deploy can find the owning repository's command and run it only
+// through scripts/guarded-deploy.sh. See docs/deployment-source-binding.md.
+var OWNING_DEPLOYMENT_FIELDS = ['name', 'repo', 'target_node_id', 'command', 'revision_argument',
+  'release_root', 'deployed_marker', 'loopback_port', 'systemd_units', 'coupled_state'];
+var COUPLED_STATE_FIELDS = ['node_id', 'home_relative_path', 'fields'];
+var VALID_REPO_COMMAND = /^\.\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+$/;
+var VALID_COMMAND_ARG = /^[A-Za-z0-9._@%+,=:\/-]+$/;
+var VALID_REVISION_ARGUMENT = /^--[a-z][a-z0-9-]*$/;
+var VALID_RELATIVE_PATH = /^[A-Za-z0-9._@%+,=-]+(?:\/[A-Za-z0-9._@%+,=-]+)*$/;
+var VALID_STATE_FIELD = /^[a-z][a-z0-9_]*$/;
+
+if (data.owning_repo_deployments !== undefined) {
+  validateOwningRepoDeployments(data.owning_repo_deployments);
+}
+
+function validateOwningRepoDeployments(entries) {
+  if (!Array.isArray(entries)) {
+    fail('top-level "owning_repo_deployments" must be an array when present');
+    return;
+  }
+  var knownRepos = {};
+  var componentNames = {};
+  var componentPorts = {};
+  data.components.forEach(function (component) {
+    if (!isPlainObject(component)) return;
+    if (typeof component.repo === 'string') knownRepos[component.repo] = true;
+    if (typeof component.name === 'string') componentNames[component.name] = true;
+    if (typeof component.port === 'number') componentPorts[component.port] = component.name;
+  });
+  if (isPlainObject(data.repository_authority) &&
+      Array.isArray(data.repository_authority.additional_repositories)) {
+    data.repository_authority.additional_repositories.forEach(function (entry) {
+      if (isPlainObject(entry) && typeof entry.repo === 'string') knownRepos[entry.repo] = true;
+    });
+  }
+  var nodeIds = {};
+  if (Array.isArray(data.nodes)) {
+    data.nodes.forEach(function (node) {
+      if (isPlainObject(node) && typeof node.node_id === 'string') nodeIds[node.node_id] = true;
+    });
+  }
+
+  var seen = {};
+  entries.forEach(function (entry, i) {
+    var label = 'owning_repo_deployments[' + i + ']';
+    if (!isPlainObject(entry)) {
+      fail(label + ': entry must be an object');
+      return;
+    }
+    if (typeof entry.name === 'string' && VALID_COMPONENT_ID.test(entry.name)) {
+      label = 'owning_repo_deployments.' + entry.name;
+      if (seen[entry.name]) fail('duplicate owning_repo_deployments name: "' + entry.name + '"');
+      seen[entry.name] = true;
+      if (componentNames[entry.name]) {
+        fail(label + ': name collides with a component name');
+      }
+    } else {
+      fail(label + ': missing/invalid required field "name" (safe identifier)');
+    }
+    Object.keys(entry).forEach(function (field) {
+      if (OWNING_DEPLOYMENT_FIELDS.indexOf(field) === -1) {
+        fail(label + ': unknown field "' + field + '" (fail-closed: only ' +
+          OWNING_DEPLOYMENT_FIELDS.join('/') + ' are allowed)');
+      }
+    });
+
+    if (typeof entry.repo !== 'string' || !VALID_COMPONENT_ID.test(entry.repo)) {
+      fail(label + ': missing/invalid required field "repo" (safe identifier)');
+    } else if (!knownRepos[entry.repo]) {
+      fail(label + ': repo "' + entry.repo + '" is not a registered component or repository_authority repository');
+    }
+
+    if (typeof entry.target_node_id !== 'string' || !VALID_PLACEMENT_ID.test(entry.target_node_id)) {
+      fail(label + ': missing/invalid required field "target_node_id" (stable public-safe id)');
+    } else if (!nodeIds[entry.target_node_id]) {
+      fail(label + ': target_node_id does not reference a registered node: ' + entry.target_node_id);
+    }
+
+    var revisionArgumentValid = typeof entry.revision_argument === 'string' &&
+      VALID_REVISION_ARGUMENT.test(entry.revision_argument);
+    if (!revisionArgumentValid) {
+      fail(label + ': revision_argument must be a long option such as "--release"; the executor appends it and the full commit SHA to the command');
+    }
+
+    if (!Array.isArray(entry.command) || entry.command.length === 0) {
+      fail(label + ': command must be a non-empty argv array whose first element is a repo-relative executable');
+    } else {
+      entry.command.forEach(function (arg, ci) {
+        if (ci === 0) {
+          if (typeof arg !== 'string' || !VALID_REPO_COMMAND.test(arg) ||
+              arg.split('/').slice(1).some(function (part) { return part === '.' || part === '..'; })) {
+            fail(label + '.command[0]: must be a "./"-prefixed repo-relative path with no "." or ".." segment');
+          }
+        } else if (typeof arg !== 'string' || !VALID_COMMAND_ARG.test(arg)) {
+          fail(label + '.command[' + ci + ']: must be a literal argument without whitespace or shell metacharacters');
+        } else if (revisionArgumentValid && arg === entry.revision_argument) {
+          fail(label + '.command[' + ci + ']: must not repeat revision_argument; the executor supplies the revision');
+        }
+      });
+    }
+
+    ['release_root', 'deployed_marker'].forEach(function (field) {
+      if (!isCanonicalAbsolutePath(entry[field])) {
+        fail(label + '.' + field + ': must be a canonical absolute path below / with no trailing slash');
+      }
+    });
+    if (isCanonicalAbsolutePath(entry.release_root) && isCanonicalAbsolutePath(entry.deployed_marker) &&
+        isWithinPath(entry.deployed_marker, entry.release_root)) {
+      fail(label + '.deployed_marker: must live outside release_root so a release directory cannot overwrite its own acceptance marker');
+    }
+
+    if (!Number.isInteger(entry.loopback_port) || entry.loopback_port < 1 || entry.loopback_port > 65535) {
+      fail(label + ': loopback_port must be an integer from 1 through 65535');
+    } else if (componentPorts[entry.loopback_port] !== undefined) {
+      fail(label + ': loopback_port ' + entry.loopback_port + ' is already registered to component "' +
+        componentPorts[entry.loopback_port] + '"');
+    }
+
+    if (!Array.isArray(entry.systemd_units) || entry.systemd_units.length === 0) {
+      fail(label + ': systemd_units must be a non-empty array');
+    } else {
+      validateUnits(entry.systemd_units, label);
+    }
+
+    if (entry.coupled_state !== undefined) {
+      if (!Array.isArray(entry.coupled_state)) {
+        fail(label + ': coupled_state must be an array when present');
+      } else {
+        entry.coupled_state.forEach(function (state, si) {
+          var sLabel = label + '.coupled_state[' + si + ']';
+          if (!isPlainObject(state)) {
+            fail(sLabel + ': must be an object');
+            return;
+          }
+          Object.keys(state).forEach(function (field) {
+            if (COUPLED_STATE_FIELDS.indexOf(field) === -1) {
+              fail(sLabel + ': unknown field "' + field + '" (fail-closed: only ' +
+                COUPLED_STATE_FIELDS.join('/') + ' are allowed)');
+            }
+          });
+          if (typeof state.node_id !== 'string' || !nodeIds[state.node_id]) {
+            fail(sLabel + '.node_id: must reference a registered node');
+          }
+          if (typeof state.home_relative_path !== 'string' ||
+              !VALID_RELATIVE_PATH.test(state.home_relative_path) ||
+              state.home_relative_path.split('/').some(function (part) { return part === '.' || part === '..'; })) {
+            fail(sLabel + '.home_relative_path: must be a relative path below the node user home with no "." or ".." segment');
+          }
+          if (!Array.isArray(state.fields) || state.fields.length === 0 ||
+              !state.fields.every(function (field) { return typeof field === 'string' && VALID_STATE_FIELD.test(field); })) {
+            fail(sLabel + '.fields: must be a non-empty array of field names the rollout updates');
+          }
+        });
+      }
+    }
+  });
+}
+
 printAndExit();
 
 function printAndExit() {
@@ -523,6 +686,8 @@ function printAndExit() {
     process.exit(1);
   }
   console.log('services.json OK: ' + data.components.length + ' component(s)' +
-    (Array.isArray(data.nodes) ? ', ' + data.nodes.length + ' node(s)' : '') + ' — no consistency issues found');
+    (Array.isArray(data.nodes) ? ', ' + data.nodes.length + ' node(s)' : '') +
+    (Array.isArray(data.owning_repo_deployments) ? ', ' + data.owning_repo_deployments.length + ' owning-repo deployment(s)' : '') +
+    ' — no consistency issues found');
   process.exit(0);
 }

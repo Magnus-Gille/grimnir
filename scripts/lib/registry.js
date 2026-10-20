@@ -16,6 +16,9 @@
 //   nodes        — infra/inference hosts (data.nodes): name|hostname|ssh_alias|role|status|llm|monitor per line
 //   nodes-json   — full JSON array of all nodes (data.nodes)
 //   repository-authority — canonical local checkout|GitHub owner/repo rows
+//   owning-deploys — owning_repo_deployments entries (deploy entry points that live in the
+//                  owning repository and run only through scripts/guarded-deploy.sh), one
+//                  JSON object per line. Never part of the `deploy` query.
 
 var fs = require('fs');
 var path = require('path');
@@ -186,6 +189,15 @@ switch (query) {
     });
     break;
   }
+  case 'owning-deploys': {
+    // Owning-repository deploy entry points are deliberately a separate
+    // registry section: the central `deploy` query must never select them.
+    var owningDeploys = Array.isArray(data.owning_repo_deployments) ? data.owning_repo_deployments : [];
+    owningDeploys.forEach(function (entry) {
+      process.stdout.write(JSON.stringify(entry) + '\n');
+    });
+    break;
+  }
   default: {
     // json:<field>=<value> — filter and return JSON
     var match = query.match(/^json:(\w+)=(.+)$/);
@@ -199,7 +211,7 @@ switch (query) {
       process.stdout.write(JSON.stringify(filtered) + '\n');
     } else {
       process.stderr.write('ERROR: Unknown query: ' + query + '\n');
-      process.stderr.write('Valid queries: deploy, scan, components, systemd, ports, validate, all, nodes, nodes-json, repository-authority, json:<field>=<value>\n');
+      process.stderr.write('Valid queries: deploy, scan, components, systemd, ports, validate, all, nodes, nodes-json, repository-authority, owning-deploys, json:<field>=<value>\n');
       process.exit(1);
     }
   }
