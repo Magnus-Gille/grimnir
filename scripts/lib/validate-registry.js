@@ -145,6 +145,55 @@ function isCanonicalAbsolutePath(value) {
     value.charAt(value.length - 1) !== '/' && path.posix.normalize(value) === value;
 }
 
+function validateUnits(units, label) {
+  units.forEach(function (u, ui) {
+    var uLabel = label + '.systemd_units[' + ui + ']';
+    if (!isPlainObject(u)) {
+      fail(uLabel + ': unit must be an object');
+      return;
+    }
+    Object.keys(u).forEach(function (field) {
+      if (VALID_UNIT_FIELDS.indexOf(field) === -1) {
+        fail(uLabel + ': unknown field "' + field + '" (fail-closed: only ' +
+          VALID_UNIT_FIELDS.join('/') + ' are allowed)');
+      }
+    });
+    if (typeof u.name !== 'string' || !u.name) {
+      fail(uLabel + ': missing/invalid "name"');
+    } else if (!VALID_UNIT_NAME.test(u.name)) {
+      fail(uLabel + ': "name" must be a valid systemd unit base name, got "' + u.name + '"');
+    }
+    if (VALID_UNIT_TYPES.indexOf(u.type) === -1) {
+      fail(uLabel + ': "type" must be one of ' + VALID_UNIT_TYPES.join('/') + ', got "' + u.type + '"');
+    }
+    if (u.scope !== undefined && VALID_UNIT_SCOPES.indexOf(u.scope) === -1) {
+      fail(uLabel + ': "scope" must be one of ' + VALID_UNIT_SCOPES.join('/') + ', got "' + u.scope + '"');
+    }
+    if (u.timer_semantics !== undefined) {
+      if (u.type !== 'timer') {
+        fail(uLabel + ': "timer_semantics" is only valid for timer units');
+      } else if (VALID_TIMER_SEMANTICS.indexOf(u.timer_semantics) === -1) {
+        fail(uLabel + ': "timer_semantics" must be one of ' + VALID_TIMER_SEMANTICS.join('/') +
+          ', got "' + u.timer_semantics + '"');
+      }
+    }
+    if (u.service_name !== undefined) {
+      if (u.type !== 'timer') {
+        fail(uLabel + ': "service_name" is only valid for timer units');
+      } else if (typeof u.service_name !== 'string' || !VALID_UNIT_NAME.test(u.service_name)) {
+        fail(uLabel + ': "service_name" must be a valid systemd service base name');
+      }
+    }
+    if (u.boot_enable !== undefined) {
+      if (u.type !== 'service') {
+        fail(uLabel + ': "boot_enable" is only valid for service units (timers are enabled via their own timer path)');
+      } else if (typeof u.boot_enable !== 'boolean') {
+        fail(uLabel + ': "boot_enable" must be a boolean when present, got "' + u.boot_enable + '"');
+      }
+    }
+  });
+}
+
 var seenNames = {};
 var seenPorts = {};
 var seenWorkloadIds = {};
@@ -406,52 +455,7 @@ data.components.forEach(function (c, i) {
         (c.systemd_units.length > 0 || (c.port !== undefined && c.port !== null))) {
       fail(label + ': desired_runtime_state "not-applicable" cannot declare systemd units or a health port');
     }
-    c.systemd_units.forEach(function (u, ui) {
-      var uLabel = label + '.systemd_units[' + ui + ']';
-      if (!isPlainObject(u)) {
-        fail(uLabel + ': unit must be an object');
-        return;
-      }
-      Object.keys(u).forEach(function (field) {
-        if (VALID_UNIT_FIELDS.indexOf(field) === -1) {
-          fail(uLabel + ': unknown field "' + field + '" (fail-closed: only ' +
-            VALID_UNIT_FIELDS.join('/') + ' are allowed)');
-        }
-      });
-      if (typeof u.name !== 'string' || !u.name) {
-        fail(uLabel + ': missing/invalid "name"');
-      } else if (!VALID_UNIT_NAME.test(u.name)) {
-        fail(uLabel + ': "name" must be a valid systemd unit base name, got "' + u.name + '"');
-      }
-      if (VALID_UNIT_TYPES.indexOf(u.type) === -1) {
-        fail(uLabel + ': "type" must be one of ' + VALID_UNIT_TYPES.join('/') + ', got "' + u.type + '"');
-      }
-      if (u.scope !== undefined && VALID_UNIT_SCOPES.indexOf(u.scope) === -1) {
-        fail(uLabel + ': "scope" must be one of ' + VALID_UNIT_SCOPES.join('/') + ', got "' + u.scope + '"');
-      }
-      if (u.timer_semantics !== undefined) {
-        if (u.type !== 'timer') {
-          fail(uLabel + ': "timer_semantics" is only valid for timer units');
-        } else if (VALID_TIMER_SEMANTICS.indexOf(u.timer_semantics) === -1) {
-          fail(uLabel + ': "timer_semantics" must be one of ' + VALID_TIMER_SEMANTICS.join('/') +
-            ', got "' + u.timer_semantics + '"');
-        }
-      }
-      if (u.service_name !== undefined) {
-        if (u.type !== 'timer') {
-          fail(uLabel + ': "service_name" is only valid for timer units');
-        } else if (typeof u.service_name !== 'string' || !VALID_UNIT_NAME.test(u.service_name)) {
-          fail(uLabel + ': "service_name" must be a valid systemd service base name');
-        }
-      }
-      if (u.boot_enable !== undefined) {
-        if (u.type !== 'service') {
-          fail(uLabel + ': "boot_enable" is only valid for service units (timers are enabled via their own timer path)');
-        } else if (typeof u.boot_enable !== 'boolean') {
-          fail(uLabel + ': "boot_enable" must be a boolean when present, got "' + u.boot_enable + '"');
-        }
-      }
-    });
+    validateUnits(c.systemd_units, label);
   }
 });
 
