@@ -20,6 +20,8 @@
 | **Global rsync safety exclusions** (`.env`, `.git`, dependencies, tests, deploy marker) | `scripts/deploy.sh` | deploy persistence tests |
 | **Deployment source identity** (expected worktree + immutable revision) | `scripts/lib/deploy-source.sh` | deploy source-revision tests |
 | **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |
+| **Owning-repository deploy entry points (command, target node, revision argument, release root, marker, loopback port, units, coupled client state)** | `services.json` `owning_repo_deployments` | `/deploy`, `scripts/lib/validate-registry.js`; execution only through `scripts/guarded-deploy.sh` |
+| **Owning-repository deploy procedure (preflight, install, acceptance, rollback internals)** | Owning repository (for example `mimir` `scripts/deploy-search-reader.sh`) | Grimnir records the entry point and binds source identity only |
 | **Repo names / GitHub ownership / canonical local checkout mapping** | `services.json` (`components[].repo` plus `repository_authority`) | `docs/conventions.md`, worktree-hygiene audit |
 | **Service patterns / conventions** | `docs/conventions.md` | per-repo CLAUDE.md |
 | **Component roles (short)** | `docs/conventions.md` | `docs/architecture.md`, generator |
