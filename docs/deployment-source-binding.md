@@ -85,3 +85,56 @@ outer source-identity boundary, not a replacement for them.
 Use this wrapper for any component-local deployment, including repositories
 listed only under `repository_authority.additional_repositories` and peers
 with `deploy: false`.
+
+### Registered owning-repository deployments
+
+An owning-repository deploy entry point that /deploy must be able to find is
+registered in `services.json` under the top-level `owning_repo_deployments`
+array. These entries are deliberately **not components**: they carry no
+`deploy: true`, `workload_contract`, `deploy_path` or rsync fields, so
+`scripts/deploy.sh` and `QUERY=deploy` never select them, and no placement
+evidence is implied. `scripts/lib/validate-registry.js` validates the closed
+field set, and `QUERY=owning-deploys` (`scripts/lib/registry.js`) prints one JSON
+object per entry.
+
+| Field | Meaning |
+|-------|---------|
+| `name` | Unique identifier; must not collide with a component name |
+| `repo` | Owning repository; must be a registered component or `repository_authority` repository |
+| `target_node_id` | Registered node the rollout mutates |
+| `command` | argv array; first element is a `./`-prefixed repo-relative executable, remaining elements are literal arguments |
+| `revision_argument` | Long option under which the executor passes the accepted full SHA, for example `--release` |
+| `release_root` | Absolute directory on the target holding immutable per-SHA release directories |
+| `deployed_marker` | Absolute path of the acceptance marker; must live outside `release_root` |
+| `loopback_port` | The only listener the runtime may expose (loopback); must not collide with a component port |
+| `systemd_units` | Units the entry point owns, validated by the same rules as component units |
+| `coupled_state` | Optional state on other nodes that the same rollout must update (`node_id`, `home_relative_path`, `fields`) |
+
+Run a registered entry only through the generic guard, appending the registered
+revision argument and the accepted SHA. For `mimir-search-reader`:
+
+```sh
+cd /private/tmp/mimir-release
+/absolute/path/to/grimnir/scripts/guarded-deploy.sh \
+  /private/tmp/mimir-release \
+  <accepted-full-sha> \
+  -- ./scripts/deploy-search-reader.sh --release <accepted-full-sha>
+```
+
+The registered command is the contract. The executor builds the argv from the
+registry and never substitutes a guessed command; if the entry point does not
+exist at the accepted SHA, or the component has no registered entry, stop and
+report the missing contract. A registration grants no authority: a production
+rollout still needs just-in-time confirmation or a bounded release mandate, and
+the entry point repeats its own source, preflight and acceptance checks. The
+registered `deployed_marker` is the entry point's acceptance record; Grimnir does
+not yet read it, so a marker is not fleet validation evidence.
+
+The Mimir search reader is `mimir-search-reader` (node-m5, user units, loopback
+`:8791`, Mac client pin `~/.config/mimir-search/client.json` updated in the same
+rollout). The mimir-side contract is
+[`plans/mimir-search-deploy-entrypoint.md`](plans/mimir-search-deploy-entrypoint.md).
+The NAS publisher (`mimir-search-publish` service and timer, rendered with
+`--role publisher`) is a second component of the same runtime. It has no
+registered entry point yet, so /deploy must treat a publisher rollout as an
+uncovered contract until mimir implements and Grimnir registers one.

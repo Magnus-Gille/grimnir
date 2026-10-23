@@ -206,6 +206,30 @@
       ]
     }
   ],
+  "owning_repo_deployments": [
+    {
+      "name": "mimir-search-reader",
+      "repo": "mimir",
+      "target_node_id": "node-m5",
+      "command": ["./scripts/deploy-search-reader.sh"],
+      "revision_argument": "--release",
+      "release_root": "/home/magnus/.local/share/mimir-search/releases",
+      "deployed_marker": "/home/magnus/.local/share/mimir-search/.deployed-commit",
+      "loopback_port": 8791,
+      "systemd_units": [
+        { "name": "mimir-search", "type": "service", "scope": "user" },
+        { "name": "mimir-search-refresh", "type": "timer", "scope": "user" },
+        { "name": "mimir-search-semantic-check", "type": "timer", "scope": "user" }
+      ],
+      "coupled_state": [
+        {
+          "node_id": "node-laptop",
+          "home_relative_path": ".config/mimir-search/client.json",
+          "fields": ["release", "package_sha256"]
+        }
+      ]
+    }
+  ],
   "nodes": [
     {
       "name": "huginmunin",
@@ -245,7 +269,7 @@
         { "type": "homeserver-gateway", "port": 8080, "protocol": "openai" }
       ],
       "monitor": false,
-      "notes": "Flagship local inference — LIVE. homeserver gateway :8080 fronts llama-swap :8091 (loopback); public via Cloudflare at inference.gille.ai. Tailnet 100.76.72.59 (MagicDNS/ssh alias `m5`). Under Brokkr apt patching + memory limits. See home-server-inference-evaluation docs/adr-004-m5-routing-ownership.md + docs/bosgame-m5-architecture.md."
+      "notes": "Flagship local inference — LIVE. homeserver gateway :8080 fronts llama-swap :8091 (loopback); public via Cloudflare at inference.gille.ai. Tailnet 100.76.72.59 (MagicDNS/ssh alias `m5`). Under Brokkr apt patching + memory limits. Also hosts the Mímir search reader (loopback :8791, user units) deployed by the mimir repo through `owning_repo_deployments`. See home-server-inference-evaluation docs/adr-004-m5-routing-ownership.md + docs/bosgame-m5-architecture.md."
     },
     {
       "name": "orin",

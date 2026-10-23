@@ -77,13 +77,13 @@ if (data.repository_authority !== undefined && !isPlainObject(data.repository_au
   if (!Array.isArray(authority.additional_repositories)) {
     fail('repository_authority.additional_repositories must be an array');
   } else {
-    var seenAuthorityCheckouts = {};
+    var seenAuthorityCheckouts = new Set();
     data.components.forEach(function (component) {
       if (isPlainObject(component) && typeof component.repo === 'string') {
-        if (seenAuthorityCheckouts[component.repo]) {
+        if (seenAuthorityCheckouts.has(component.repo)) {
           fail('duplicate repository-authority checkout: "' + component.repo + '"');
         }
-        seenAuthorityCheckouts[component.repo] = true;
+        seenAuthorityCheckouts.add(component.repo);
       }
     });
     authority.additional_repositories.forEach(function (entry, i) {
@@ -98,10 +98,10 @@ if (data.repository_authority !== undefined && !isPlainObject(data.repository_au
         }
       });
       if (typeof entry.checkout === 'string') {
-        if (seenAuthorityCheckouts[entry.checkout]) {
+        if (seenAuthorityCheckouts.has(entry.checkout)) {
           fail('duplicate repository-authority checkout: "' + entry.checkout + '"');
         }
-        seenAuthorityCheckouts[entry.checkout] = true;
+        seenAuthorityCheckouts.add(entry.checkout);
       }
     });
   }
@@ -145,9 +145,58 @@ function isCanonicalAbsolutePath(value) {
     value.charAt(value.length - 1) !== '/' && path.posix.normalize(value) === value;
 }
 
-var seenNames = {};
-var seenPorts = {};
-var seenWorkloadIds = {};
+function validateUnits(units, label) {
+  units.forEach(function (u, ui) {
+    var uLabel = label + '.systemd_units[' + ui + ']';
+    if (!isPlainObject(u)) {
+      fail(uLabel + ': unit must be an object');
+      return;
+    }
+    Object.keys(u).forEach(function (field) {
+      if (VALID_UNIT_FIELDS.indexOf(field) === -1) {
+        fail(uLabel + ': unknown field "' + field + '" (fail-closed: only ' +
+          VALID_UNIT_FIELDS.join('/') + ' are allowed)');
+      }
+    });
+    if (typeof u.name !== 'string' || !u.name) {
+      fail(uLabel + ': missing/invalid "name"');
+    } else if (!VALID_UNIT_NAME.test(u.name)) {
+      fail(uLabel + ': "name" must be a valid systemd unit base name, got "' + u.name + '"');
+    }
+    if (VALID_UNIT_TYPES.indexOf(u.type) === -1) {
+      fail(uLabel + ': "type" must be one of ' + VALID_UNIT_TYPES.join('/') + ', got "' + u.type + '"');
+    }
+    if (u.scope !== undefined && VALID_UNIT_SCOPES.indexOf(u.scope) === -1) {
+      fail(uLabel + ': "scope" must be one of ' + VALID_UNIT_SCOPES.join('/') + ', got "' + u.scope + '"');
+    }
+    if (u.timer_semantics !== undefined) {
+      if (u.type !== 'timer') {
+        fail(uLabel + ': "timer_semantics" is only valid for timer units');
+      } else if (VALID_TIMER_SEMANTICS.indexOf(u.timer_semantics) === -1) {
+        fail(uLabel + ': "timer_semantics" must be one of ' + VALID_TIMER_SEMANTICS.join('/') +
+          ', got "' + u.timer_semantics + '"');
+      }
+    }
+    if (u.service_name !== undefined) {
+      if (u.type !== 'timer') {
+        fail(uLabel + ': "service_name" is only valid for timer units');
+      } else if (typeof u.service_name !== 'string' || !VALID_UNIT_NAME.test(u.service_name)) {
+        fail(uLabel + ': "service_name" must be a valid systemd service base name');
+      }
+    }
+    if (u.boot_enable !== undefined) {
+      if (u.type !== 'service') {
+        fail(uLabel + ': "boot_enable" is only valid for service units (timers are enabled via their own timer path)');
+      } else if (typeof u.boot_enable !== 'boolean') {
+        fail(uLabel + ': "boot_enable" must be a boolean when present, got "' + u.boot_enable + '"');
+      }
+    }
+  });
+}
+
+var seenNames = new Set();
+var seenPorts = new Map();
+var seenWorkloadIds = new Set();
 
 data.components.forEach(function (c, i) {
   var label = '(index ' + i + ')';
@@ -170,10 +219,10 @@ data.components.forEach(function (c, i) {
   if (placementEnabled) {
     if (typeof c.workload_id !== 'string' || !VALID_PLACEMENT_ID.test(c.workload_id)) {
       fail(label + ': missing/invalid required field "workload_id" (stable public-safe id)');
-    } else if (seenWorkloadIds[c.workload_id]) {
+    } else if (seenWorkloadIds.has(c.workload_id)) {
       fail('duplicate workload_id: "' + c.workload_id + '"');
     } else {
-      seenWorkloadIds[c.workload_id] = true;
+      seenWorkloadIds.add(c.workload_id);
     }
     if (!isPlainObject(c.workload_contract) ||
         Object.keys(c.workload_contract).length !== 4 ||
@@ -210,17 +259,17 @@ data.components.forEach(function (c, i) {
     fail(label + ': field "port" must be an integer from 1 through 65535 or null');
   }
 
-  if (c.name && seenNames[c.name]) {
+  if (c.name && seenNames.has(c.name)) {
     fail('duplicate component name: "' + c.name + '"');
   } else if (c.name) {
-    seenNames[c.name] = true;
+    seenNames.add(c.name);
   }
 
   if (typeof c.port === 'number') {
-    if (seenPorts[c.port] !== undefined) {
-      fail('duplicate port ' + c.port + ' used by "' + seenPorts[c.port] + '" and "' + label + '"');
+    if (seenPorts.has(c.port)) {
+      fail('duplicate port ' + c.port + ' used by "' + seenPorts.get(c.port) + '" and "' + label + '"');
     } else {
-      seenPorts[c.port] = label;
+      seenPorts.set(c.port, label);
     }
   }
 
@@ -406,52 +455,7 @@ data.components.forEach(function (c, i) {
         (c.systemd_units.length > 0 || (c.port !== undefined && c.port !== null))) {
       fail(label + ': desired_runtime_state "not-applicable" cannot declare systemd units or a health port');
     }
-    c.systemd_units.forEach(function (u, ui) {
-      var uLabel = label + '.systemd_units[' + ui + ']';
-      if (!isPlainObject(u)) {
-        fail(uLabel + ': unit must be an object');
-        return;
-      }
-      Object.keys(u).forEach(function (field) {
-        if (VALID_UNIT_FIELDS.indexOf(field) === -1) {
-          fail(uLabel + ': unknown field "' + field + '" (fail-closed: only ' +
-            VALID_UNIT_FIELDS.join('/') + ' are allowed)');
-        }
-      });
-      if (typeof u.name !== 'string' || !u.name) {
-        fail(uLabel + ': missing/invalid "name"');
-      } else if (!VALID_UNIT_NAME.test(u.name)) {
-        fail(uLabel + ': "name" must be a valid systemd unit base name, got "' + u.name + '"');
-      }
-      if (VALID_UNIT_TYPES.indexOf(u.type) === -1) {
-        fail(uLabel + ': "type" must be one of ' + VALID_UNIT_TYPES.join('/') + ', got "' + u.type + '"');
-      }
-      if (u.scope !== undefined && VALID_UNIT_SCOPES.indexOf(u.scope) === -1) {
-        fail(uLabel + ': "scope" must be one of ' + VALID_UNIT_SCOPES.join('/') + ', got "' + u.scope + '"');
-      }
-      if (u.timer_semantics !== undefined) {
-        if (u.type !== 'timer') {
-          fail(uLabel + ': "timer_semantics" is only valid for timer units');
-        } else if (VALID_TIMER_SEMANTICS.indexOf(u.timer_semantics) === -1) {
-          fail(uLabel + ': "timer_semantics" must be one of ' + VALID_TIMER_SEMANTICS.join('/') +
-            ', got "' + u.timer_semantics + '"');
-        }
-      }
-      if (u.service_name !== undefined) {
-        if (u.type !== 'timer') {
-          fail(uLabel + ': "service_name" is only valid for timer units');
-        } else if (typeof u.service_name !== 'string' || !VALID_UNIT_NAME.test(u.service_name)) {
-          fail(uLabel + ': "service_name" must be a valid systemd service base name');
-        }
-      }
-      if (u.boot_enable !== undefined) {
-        if (u.type !== 'service') {
-          fail(uLabel + ': "boot_enable" is only valid for service units (timers are enabled via their own timer path)');
-        } else if (typeof u.boot_enable !== 'boolean') {
-          fail(uLabel + ': "boot_enable" must be a boolean when present, got "' + u.boot_enable + '"');
-        }
-      }
-    });
+    validateUnits(c.systemd_units, label);
   }
 });
 
@@ -459,8 +463,8 @@ if (data.nodes !== undefined) {
   if (!Array.isArray(data.nodes)) {
     fail('top-level "nodes" must be an array when present');
   } else {
-    var seenNodeNames = {};
-    var seenNodeIds = {};
+    var seenNodeNames = new Set();
+    var seenNodeIds = new Set();
     data.nodes.forEach(function (n, i) {
       var label = '(nodes index ' + i + ')';
       if (!isPlainObject(n)) {
@@ -473,18 +477,18 @@ if (data.nodes !== undefined) {
       }
       if (placementEnabled && (typeof n.node_id !== 'string' || !VALID_PLACEMENT_ID.test(n.node_id))) {
         fail(label + ': missing/invalid required field "node_id" (stable public-safe id)');
-      } else if (placementEnabled && seenNodeIds[n.node_id]) {
+      } else if (placementEnabled && seenNodeIds.has(n.node_id)) {
         fail('duplicate node_id: "' + n.node_id + '"');
       } else if (placementEnabled) {
-        seenNodeIds[n.node_id] = true;
+        seenNodeIds.add(n.node_id);
       }
       if (typeof n.hostname !== 'string' && n.hostname !== null) {
         fail(label + ': field "hostname" must be a string or null');
       }
-      if (n.name && seenNodeNames[n.name]) {
+      if (n.name && seenNodeNames.has(n.name)) {
         fail('duplicate node name: "' + n.name + '"');
       } else if (n.name) {
-        seenNodeNames[n.name] = true;
+        seenNodeNames.add(n.name);
       }
     });
     if (placementEnabled) data.components.forEach(function (component) {
@@ -510,6 +514,184 @@ if (data.nodes !== undefined) {
   }
 }
 
+// Owning-repository deployments are an additive registry extension for
+// runtimes whose deploy entry point lives in the owning repository and is
+// intentionally outside the centrally deployable component set. They are not
+// components: they carry no workload_contract, placement evidence, rsync
+// target or deploy=true flag, so scripts/deploy.sh never selects them. They
+// exist so /deploy can find the owning repository's command and run it only
+// through scripts/guarded-deploy.sh. See docs/deployment-source-binding.md.
+var OWNING_DEPLOYMENT_FIELDS = ['name', 'repo', 'target_node_id', 'command', 'revision_argument',
+  'release_root', 'deployed_marker', 'loopback_port', 'systemd_units', 'coupled_state'];
+var COUPLED_STATE_FIELDS = ['node_id', 'home_relative_path', 'fields'];
+var VALID_REPO_COMMAND = /^\.\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+$/;
+var VALID_COMMAND_ARG = /^[A-Za-z0-9._@%+,=:\/-]+$/;
+var VALID_REVISION_ARGUMENT = /^--[a-z][a-z0-9-]*$/;
+var VALID_RELATIVE_PATH = /^[A-Za-z0-9._@%+,=-]+(?:\/[A-Za-z0-9._@%+,=-]+)*$/;
+var VALID_STATE_FIELD = /^[a-z][a-z0-9_]*$/;
+
+if (data.owning_repo_deployments !== undefined) {
+  validateOwningRepoDeployments(data.owning_repo_deployments);
+}
+
+function validateOwningRepoDeployments(entries) {
+  if (!Array.isArray(entries)) {
+    fail('top-level "owning_repo_deployments" must be an array when present');
+    return;
+  }
+  var knownRepos = new Set();
+  var componentNames = new Set();
+  // port -> component name (components own a port globally, as in the
+  // component duplicate-port check above)
+  var componentPorts = new Map();
+  // "<target_node_id>:<port>" -> owning deployment name
+  var owningPorts = new Map();
+  data.components.forEach(function (component) {
+    if (!isPlainObject(component)) return;
+    if (typeof component.repo === 'string') knownRepos.add(component.repo);
+    if (typeof component.name === 'string') componentNames.add(component.name);
+    if (typeof component.port === 'number') componentPorts.set(component.port, component.name);
+  });
+  if (isPlainObject(data.repository_authority) &&
+      Array.isArray(data.repository_authority.additional_repositories)) {
+    data.repository_authority.additional_repositories.forEach(function (entry) {
+      if (isPlainObject(entry) && typeof entry.repo === 'string') knownRepos.add(entry.repo);
+    });
+  }
+  var nodeIds = new Set();
+  if (Array.isArray(data.nodes)) {
+    data.nodes.forEach(function (node) {
+      if (isPlainObject(node) && typeof node.node_id === 'string') nodeIds.add(node.node_id);
+    });
+  }
+
+  var seen = new Set();
+  entries.forEach(function (entry, i) {
+    var label = 'owning_repo_deployments[' + i + ']';
+    if (!isPlainObject(entry)) {
+      fail(label + ': entry must be an object');
+      return;
+    }
+    if (typeof entry.name === 'string' && VALID_COMPONENT_ID.test(entry.name)) {
+      label = 'owning_repo_deployments.' + entry.name;
+      if (seen.has(entry.name)) fail('duplicate owning_repo_deployments name: "' + entry.name + '"');
+      seen.add(entry.name);
+      if (componentNames.has(entry.name)) {
+        fail(label + ': name collides with a component name');
+      }
+    } else {
+      fail(label + ': missing/invalid required field "name" (safe identifier)');
+    }
+    Object.keys(entry).forEach(function (field) {
+      if (OWNING_DEPLOYMENT_FIELDS.indexOf(field) === -1) {
+        fail(label + ': unknown field "' + field + '" (fail-closed: only ' +
+          OWNING_DEPLOYMENT_FIELDS.join('/') + ' are allowed)');
+      }
+    });
+
+    if (typeof entry.repo !== 'string' || !VALID_COMPONENT_ID.test(entry.repo)) {
+      fail(label + ': missing/invalid required field "repo" (safe identifier)');
+    } else if (!knownRepos.has(entry.repo)) {
+      fail(label + ': repo "' + entry.repo + '" is not a registered component or repository_authority repository');
+    }
+
+    if (typeof entry.target_node_id !== 'string' || !VALID_PLACEMENT_ID.test(entry.target_node_id)) {
+      fail(label + ': missing/invalid required field "target_node_id" (stable public-safe id)');
+    } else if (!nodeIds.has(entry.target_node_id)) {
+      fail(label + ': target_node_id does not reference a registered node: ' + entry.target_node_id);
+    }
+
+    var revisionArgumentValid = typeof entry.revision_argument === 'string' &&
+      VALID_REVISION_ARGUMENT.test(entry.revision_argument);
+    if (!revisionArgumentValid) {
+      fail(label + ': revision_argument must be a long option such as "--release"; the executor appends it and the full commit SHA to the command');
+    }
+
+    if (!Array.isArray(entry.command) || entry.command.length === 0) {
+      fail(label + ': command must be a non-empty argv array whose first element is a repo-relative executable');
+    } else {
+      entry.command.forEach(function (arg, ci) {
+        if (ci === 0) {
+          if (typeof arg !== 'string' || !VALID_REPO_COMMAND.test(arg) ||
+              arg.split('/').slice(1).some(function (part) { return part === '.' || part === '..'; })) {
+            fail(label + '.command[0]: must be a "./"-prefixed repo-relative path with no "." or ".." segment');
+          }
+        } else if (typeof arg !== 'string' || !VALID_COMMAND_ARG.test(arg)) {
+          fail(label + '.command[' + ci + ']: must be a literal argument without whitespace or shell metacharacters');
+        } else if (revisionArgumentValid && arg === entry.revision_argument) {
+          fail(label + '.command[' + ci + ']: must not repeat revision_argument; the executor supplies the revision');
+        }
+      });
+    }
+
+    ['release_root', 'deployed_marker'].forEach(function (field) {
+      if (!isCanonicalAbsolutePath(entry[field])) {
+        fail(label + '.' + field + ': must be a canonical absolute path below / with no trailing slash');
+      }
+    });
+    if (isCanonicalAbsolutePath(entry.release_root) && isCanonicalAbsolutePath(entry.deployed_marker) &&
+        isWithinPath(entry.deployed_marker, entry.release_root)) {
+      fail(label + '.deployed_marker: must live outside release_root so a release directory cannot overwrite its own acceptance marker');
+    }
+
+    if (!Number.isInteger(entry.loopback_port) || entry.loopback_port < 1 || entry.loopback_port > 65535) {
+      fail(label + ': loopback_port must be an integer from 1 through 65535');
+    } else {
+      if (componentPorts.has(entry.loopback_port)) {
+        fail(label + ': loopback_port ' + entry.loopback_port + ' is already registered to component "' +
+          componentPorts.get(entry.loopback_port) + '"');
+      }
+      if (typeof entry.target_node_id === 'string') {
+        var portKey = entry.target_node_id + ':' + entry.loopback_port;
+        if (owningPorts.has(portKey)) {
+          fail(label + ': loopback_port ' + entry.loopback_port + ' on ' + entry.target_node_id +
+            ' is already registered to owning deployment "' + owningPorts.get(portKey) + '"');
+        } else {
+          owningPorts.set(portKey, typeof entry.name === 'string' ? entry.name : label);
+        }
+      }
+    }
+
+    if (!Array.isArray(entry.systemd_units) || entry.systemd_units.length === 0) {
+      fail(label + ': systemd_units must be a non-empty array');
+    } else {
+      validateUnits(entry.systemd_units, label);
+    }
+
+    if (entry.coupled_state !== undefined) {
+      if (!Array.isArray(entry.coupled_state)) {
+        fail(label + ': coupled_state must be an array when present');
+      } else {
+        entry.coupled_state.forEach(function (state, si) {
+          var sLabel = label + '.coupled_state[' + si + ']';
+          if (!isPlainObject(state)) {
+            fail(sLabel + ': must be an object');
+            return;
+          }
+          Object.keys(state).forEach(function (field) {
+            if (COUPLED_STATE_FIELDS.indexOf(field) === -1) {
+              fail(sLabel + ': unknown field "' + field + '" (fail-closed: only ' +
+                COUPLED_STATE_FIELDS.join('/') + ' are allowed)');
+            }
+          });
+          if (typeof state.node_id !== 'string' || !nodeIds.has(state.node_id)) {
+            fail(sLabel + '.node_id: must reference a registered node');
+          }
+          if (typeof state.home_relative_path !== 'string' ||
+              !VALID_RELATIVE_PATH.test(state.home_relative_path) ||
+              state.home_relative_path.split('/').some(function (part) { return part === '.' || part === '..'; })) {
+            fail(sLabel + '.home_relative_path: must be a relative path below the node user home with no "." or ".." segment');
+          }
+          if (!Array.isArray(state.fields) || state.fields.length === 0 ||
+              !state.fields.every(function (field) { return typeof field === 'string' && VALID_STATE_FIELD.test(field); })) {
+            fail(sLabel + '.fields: must be a non-empty array of field names the rollout updates');
+          }
+        });
+      }
+    }
+  });
+}
+
 printAndExit();
 
 function printAndExit() {
@@ -519,6 +701,8 @@ function printAndExit() {
     process.exit(1);
   }
   console.log('services.json OK: ' + data.components.length + ' component(s)' +
-    (Array.isArray(data.nodes) ? ', ' + data.nodes.length + ' node(s)' : '') + ' — no consistency issues found');
+    (Array.isArray(data.nodes) ? ', ' + data.nodes.length + ' node(s)' : '') +
+    (Array.isArray(data.owning_repo_deployments) ? ', ' + data.owning_repo_deployments.length + ' owning-repo deployment(s)' : '') +
+    ' — no consistency issues found');
   process.exit(0);
 }

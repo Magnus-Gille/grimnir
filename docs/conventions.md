@@ -26,7 +26,7 @@ Remote install paths live in `services.json` as `deploy_path`. Most services liv
 
 Deploy selectively from the laptop with an explicitly bound source and full commit SHA, for example `make deploy ARGS="heimdall=/private/tmp/heimdall-release@<accepted-full-sha>"`. Bare service names and no-argument deploys fail closed. The centralized script validates every selected source before any component mutation, deploys via rsync or the registered git-pull mode, runs a local build when `needs_build: true`, installs production dependencies on the target host, and restarts primary service units. Declared units are install-ready by default. A component may opt into the bounded host renderer with `systemd_runtime`; see [`systemd-runtime-rendering.md`](systemd-runtime-rendering.md) for the registry contract, preflight, migration, and rollback procedure.
 
-For owning-repository deploy commands outside the centrally deployable set, use `scripts/guarded-deploy.sh` as the outer source-identity boundary. See [`deployment-source-binding.md`](deployment-source-binding.md) for both contracts and examples.
+For owning-repository deploy commands outside the centrally deployable set, use `scripts/guarded-deploy.sh` as the outer source-identity boundary. See [`deployment-source-binding.md`](deployment-source-binding.md) for both contracts and examples. Entry points that /deploy must discover (for example the Mimir search reader) are registered under `owning_repo_deployments` in `services.json`; they are not components and are never selected by `deploy.sh`.
 
 ## GitHub ownership
 

@@ -53,7 +53,8 @@ the annotation, not only the filename.
   GitHub Actions jobs that never reach a workflow step (issue #138)
 - `docs/validation-staleness-evidence-2026-07-26.md` — Measured Git sync staleness evidence and the
   boundary between local validation results and current remote state (issue #2)
-- `docs/deployment-source-binding.md` — Binding deploys to an explicit worktree + revision
+- `docs/deployment-source-binding.md` — Binding deploys to an explicit worktree + revision, including the registered `owning_repo_deployments` entry points (Mimir search reader)
+- `docs/plans/mimir-search-deploy-entrypoint.md` — Specification for the mimir-side `scripts/deploy-search-reader.sh` (arguments, preflight, install, acceptance, idempotency, rollback, marker/SHA binding)
 - `docs/systemd-runtime-rendering.md` — How systemd units are rendered at runtime
 - `docs/placement-validation.md` — Validating desired placement against explicit Brokkr
   observations; schema in `docs/placement-validation-v1.schema.json`
