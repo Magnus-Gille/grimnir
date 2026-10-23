@@ -77,13 +77,13 @@ if (data.repository_authority !== undefined && !isPlainObject(data.repository_au
   if (!Array.isArray(authority.additional_repositories)) {
     fail('repository_authority.additional_repositories must be an array');
   } else {
-    var seenAuthorityCheckouts = {};
+    var seenAuthorityCheckouts = new Set();
     data.components.forEach(function (component) {
       if (isPlainObject(component) && typeof component.repo === 'string') {
-        if (seenAuthorityCheckouts[component.repo]) {
+        if (seenAuthorityCheckouts.has(component.repo)) {
           fail('duplicate repository-authority checkout: "' + component.repo + '"');
         }
-        seenAuthorityCheckouts[component.repo] = true;
+        seenAuthorityCheckouts.add(component.repo);
       }
     });
     authority.additional_repositories.forEach(function (entry, i) {
@@ -98,10 +98,10 @@ if (data.repository_authority !== undefined && !isPlainObject(data.repository_au
         }
       });
       if (typeof entry.checkout === 'string') {
-        if (seenAuthorityCheckouts[entry.checkout]) {
+        if (seenAuthorityCheckouts.has(entry.checkout)) {
           fail('duplicate repository-authority checkout: "' + entry.checkout + '"');
         }
-        seenAuthorityCheckouts[entry.checkout] = true;
+        seenAuthorityCheckouts.add(entry.checkout);
       }
     });
   }
@@ -194,9 +194,9 @@ function validateUnits(units, label) {
   });
 }
 
-var seenNames = {};
-var seenPorts = {};
-var seenWorkloadIds = {};
+var seenNames = new Set();
+var seenPorts = new Map();
+var seenWorkloadIds = new Set();
 
 data.components.forEach(function (c, i) {
   var label = '(index ' + i + ')';
@@ -219,10 +219,10 @@ data.components.forEach(function (c, i) {
   if (placementEnabled) {
     if (typeof c.workload_id !== 'string' || !VALID_PLACEMENT_ID.test(c.workload_id)) {
       fail(label + ': missing/invalid required field "workload_id" (stable public-safe id)');
-    } else if (seenWorkloadIds[c.workload_id]) {
+    } else if (seenWorkloadIds.has(c.workload_id)) {
       fail('duplicate workload_id: "' + c.workload_id + '"');
     } else {
-      seenWorkloadIds[c.workload_id] = true;
+      seenWorkloadIds.add(c.workload_id);
     }
     if (!isPlainObject(c.workload_contract) ||
         Object.keys(c.workload_contract).length !== 4 ||
@@ -259,17 +259,17 @@ data.components.forEach(function (c, i) {
     fail(label + ': field "port" must be an integer from 1 through 65535 or null');
   }
 
-  if (c.name && seenNames[c.name]) {
+  if (c.name && seenNames.has(c.name)) {
     fail('duplicate component name: "' + c.name + '"');
   } else if (c.name) {
-    seenNames[c.name] = true;
+    seenNames.add(c.name);
   }
 
   if (typeof c.port === 'number') {
-    if (seenPorts[c.port] !== undefined) {
-      fail('duplicate port ' + c.port + ' used by "' + seenPorts[c.port] + '" and "' + label + '"');
+    if (seenPorts.has(c.port)) {
+      fail('duplicate port ' + c.port + ' used by "' + seenPorts.get(c.port) + '" and "' + label + '"');
     } else {
-      seenPorts[c.port] = label;
+      seenPorts.set(c.port, label);
     }
   }
 
@@ -463,8 +463,8 @@ if (data.nodes !== undefined) {
   if (!Array.isArray(data.nodes)) {
     fail('top-level "nodes" must be an array when present');
   } else {
-    var seenNodeNames = {};
-    var seenNodeIds = {};
+    var seenNodeNames = new Set();
+    var seenNodeIds = new Set();
     data.nodes.forEach(function (n, i) {
       var label = '(nodes index ' + i + ')';
       if (!isPlainObject(n)) {
@@ -477,18 +477,18 @@ if (data.nodes !== undefined) {
       }
       if (placementEnabled && (typeof n.node_id !== 'string' || !VALID_PLACEMENT_ID.test(n.node_id))) {
         fail(label + ': missing/invalid required field "node_id" (stable public-safe id)');
-      } else if (placementEnabled && seenNodeIds[n.node_id]) {
+      } else if (placementEnabled && seenNodeIds.has(n.node_id)) {
         fail('duplicate node_id: "' + n.node_id + '"');
       } else if (placementEnabled) {
-        seenNodeIds[n.node_id] = true;
+        seenNodeIds.add(n.node_id);
       }
       if (typeof n.hostname !== 'string' && n.hostname !== null) {
         fail(label + ': field "hostname" must be a string or null');
       }
-      if (n.name && seenNodeNames[n.name]) {
+      if (n.name && seenNodeNames.has(n.name)) {
         fail('duplicate node name: "' + n.name + '"');
       } else if (n.name) {
-        seenNodeNames[n.name] = true;
+        seenNodeNames.add(n.name);
       }
     });
     if (placementEnabled) data.components.forEach(function (component) {
@@ -539,29 +539,33 @@ function validateOwningRepoDeployments(entries) {
     fail('top-level "owning_repo_deployments" must be an array when present');
     return;
   }
-  var knownRepos = {};
-  var componentNames = {};
-  var componentPorts = {};
+  var knownRepos = new Set();
+  var componentNames = new Set();
+  // port -> component name (components own a port globally, as in the
+  // component duplicate-port check above)
+  var componentPorts = new Map();
+  // "<target_node_id>:<port>" -> owning deployment name
+  var owningPorts = new Map();
   data.components.forEach(function (component) {
     if (!isPlainObject(component)) return;
-    if (typeof component.repo === 'string') knownRepos[component.repo] = true;
-    if (typeof component.name === 'string') componentNames[component.name] = true;
-    if (typeof component.port === 'number') componentPorts[component.port] = component.name;
+    if (typeof component.repo === 'string') knownRepos.add(component.repo);
+    if (typeof component.name === 'string') componentNames.add(component.name);
+    if (typeof component.port === 'number') componentPorts.set(component.port, component.name);
   });
   if (isPlainObject(data.repository_authority) &&
       Array.isArray(data.repository_authority.additional_repositories)) {
     data.repository_authority.additional_repositories.forEach(function (entry) {
-      if (isPlainObject(entry) && typeof entry.repo === 'string') knownRepos[entry.repo] = true;
+      if (isPlainObject(entry) && typeof entry.repo === 'string') knownRepos.add(entry.repo);
     });
   }
-  var nodeIds = {};
+  var nodeIds = new Set();
   if (Array.isArray(data.nodes)) {
     data.nodes.forEach(function (node) {
-      if (isPlainObject(node) && typeof node.node_id === 'string') nodeIds[node.node_id] = true;
+      if (isPlainObject(node) && typeof node.node_id === 'string') nodeIds.add(node.node_id);
     });
   }
 
-  var seen = {};
+  var seen = new Set();
   entries.forEach(function (entry, i) {
     var label = 'owning_repo_deployments[' + i + ']';
     if (!isPlainObject(entry)) {
@@ -570,9 +574,9 @@ function validateOwningRepoDeployments(entries) {
     }
     if (typeof entry.name === 'string' && VALID_COMPONENT_ID.test(entry.name)) {
       label = 'owning_repo_deployments.' + entry.name;
-      if (seen[entry.name]) fail('duplicate owning_repo_deployments name: "' + entry.name + '"');
-      seen[entry.name] = true;
-      if (componentNames[entry.name]) {
+      if (seen.has(entry.name)) fail('duplicate owning_repo_deployments name: "' + entry.name + '"');
+      seen.add(entry.name);
+      if (componentNames.has(entry.name)) {
         fail(label + ': name collides with a component name');
       }
     } else {
@@ -587,13 +591,13 @@ function validateOwningRepoDeployments(entries) {
 
     if (typeof entry.repo !== 'string' || !VALID_COMPONENT_ID.test(entry.repo)) {
       fail(label + ': missing/invalid required field "repo" (safe identifier)');
-    } else if (!knownRepos[entry.repo]) {
+    } else if (!knownRepos.has(entry.repo)) {
       fail(label + ': repo "' + entry.repo + '" is not a registered component or repository_authority repository');
     }
 
     if (typeof entry.target_node_id !== 'string' || !VALID_PLACEMENT_ID.test(entry.target_node_id)) {
       fail(label + ': missing/invalid required field "target_node_id" (stable public-safe id)');
-    } else if (!nodeIds[entry.target_node_id]) {
+    } else if (!nodeIds.has(entry.target_node_id)) {
       fail(label + ': target_node_id does not reference a registered node: ' + entry.target_node_id);
     }
 
@@ -632,9 +636,20 @@ function validateOwningRepoDeployments(entries) {
 
     if (!Number.isInteger(entry.loopback_port) || entry.loopback_port < 1 || entry.loopback_port > 65535) {
       fail(label + ': loopback_port must be an integer from 1 through 65535');
-    } else if (componentPorts[entry.loopback_port] !== undefined) {
-      fail(label + ': loopback_port ' + entry.loopback_port + ' is already registered to component "' +
-        componentPorts[entry.loopback_port] + '"');
+    } else {
+      if (componentPorts.has(entry.loopback_port)) {
+        fail(label + ': loopback_port ' + entry.loopback_port + ' is already registered to component "' +
+          componentPorts.get(entry.loopback_port) + '"');
+      }
+      if (typeof entry.target_node_id === 'string') {
+        var portKey = entry.target_node_id + ':' + entry.loopback_port;
+        if (owningPorts.has(portKey)) {
+          fail(label + ': loopback_port ' + entry.loopback_port + ' on ' + entry.target_node_id +
+            ' is already registered to owning deployment "' + owningPorts.get(portKey) + '"');
+        } else {
+          owningPorts.set(portKey, typeof entry.name === 'string' ? entry.name : label);
+        }
+      }
     }
 
     if (!Array.isArray(entry.systemd_units) || entry.systemd_units.length === 0) {
@@ -659,7 +674,7 @@ function validateOwningRepoDeployments(entries) {
                 COUPLED_STATE_FIELDS.join('/') + ' are allowed)');
             }
           });
-          if (typeof state.node_id !== 'string' || !nodeIds[state.node_id]) {
+          if (typeof state.node_id !== 'string' || !nodeIds.has(state.node_id)) {
             fail(sLabel + '.node_id: must reference a registered node');
           }
           if (typeof state.home_relative_path !== 'string' ||

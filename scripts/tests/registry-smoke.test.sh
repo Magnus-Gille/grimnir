@@ -887,6 +887,32 @@ reject_owning "coupled unknown field"        "entry.coupled_state[0].mode = \"06
 reject_owning "section is not an array"      "registry.owning_repo_deployments = {}"
 reject_owning "null entry"                   "registry.owning_repo_deployments = [null]"
 
+# Inherited Object.prototype names must never satisfy a membership check.
+reject_owning "repo is inherited constructor"      "entry.repo = \"constructor\""
+reject_owning "repo is inherited __proto__"        "entry.repo = \"__proto__\""
+reject_owning "target node is inherited constructor" "entry.target_node_id = \"constructor\""
+reject_owning "target node is inherited toString"  "entry.target_node_id = \"toString\""
+reject_owning "coupled node is inherited __proto__" "entry.coupled_state[0].node_id = \"__proto__\""
+reject_owning "coupled node is inherited constructor" "entry.coupled_state[0].node_id = \"constructor\""
+
+# Port collisions are tracked across owning deployments and components.
+reject_owning "port collides with another owning deployment on the same node" \
+  "var twin = JSON.parse(JSON.stringify(entry)); twin.name = \"mimir-search-twin\"; registry.owning_repo_deployments.push(twin)"
+reject_owning "port collides with a component on the same node" \
+  "var squatter = JSON.parse(JSON.stringify(registry.components.filter(function (c) { return c.name === \"mimir\"; })[0])); squatter.name = \"m5-port-squatter\"; squatter.host = \"100.76.72.59\"; squatter.target_node_id = \"node-m5\"; squatter.port = 8791; registry.components.push(squatter)"
+
+# The same loopback port on a different node is not a collision.
+mutate_owning owning-same-port-other-node \
+  "var other = JSON.parse(JSON.stringify(entry)); other.name = \"mimir-search-other-node\"; other.target_node_id = \"node-orin\"; registry.owning_repo_deployments.push(other)"
+assert_eq "owning deploy: same port on a different node is accepted" "0" \
+  "$(run_validator "$TMP_DIR/owning-same-port-other-node.json")"
+
+# Component names are data, not prototype keys.
+mutate_owning component-named-constructor \
+  "registry.components.filter(function (x) { return x.name === \"fortnox-mcp\"; })[0].name = \"constructor\""
+assert_eq "component named like an Object.prototype member is not a false duplicate" "0" \
+  "$(run_validator "$TMP_DIR/component-named-constructor.json")"
+
 # Routing: the registered command runs only through guarded-deploy.sh, with
 # the accepted full SHA appended as the registered revision argument.
 ROUTE_REPO="$TMP_DIR/route-mimir"
