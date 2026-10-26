@@ -49,6 +49,7 @@
 | **Node/workload reconciliation lifecycle result** | Brokkr for substrate steps; owning component for workload hooks | Grimnir promotion decision, Heimdall presentation |
 | **Desired-vs-observed placement drift view** | Grimnir's read-only validator over `services.json` plus explicit Brokkr evidence | Brokkr planning, Heimdall presentation |
 | **Desired unattended-maintenance policy (schedule, timezone/DST, missed-window/overdue/deferral rules, allowed update classes/sources, reboot/failure limits) and its deterministic digest** | `docs/maintenance-policy-contract.md` plus `docs/maintenance-policy-v1.schema.json` | Brokkr scheduling/execution, Grimnir planning, Heimdall presentation |
+| **Host-native OS update origins, Raspberry Pi EEPROM application and the guarded-reboot job on the approved hosts (`huginmunin`, `m5`) — a separate owner host policy that `maintenance-policy` v1 does not express and does not widen** | [ADR-009](adr-009-host-os-updates-and-guarded-reboots.md) (owner decision); deployment only under the existing exact-revision or bounded-release authorization | Brokkr implementation and deploy, Grimnir planning, Heimdall presentation |
 | **Maintenance decision-effect projection (bound to a policy digest and explicit Brokkr evidence)** | Brokkr or an execution controller, per `docs/maintenance-policy-contract.md`'s decision-effect rules | Grimnir planning, Heimdall presentation |
 | **Norse naming / mythology mapping** | `docs/conventions.md` | all docs |
 
