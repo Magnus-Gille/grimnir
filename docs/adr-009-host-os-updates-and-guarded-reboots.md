@@ -65,14 +65,21 @@ Applied daily by the stock apt timers through unattended-upgrades, as Brokkr-man
 distribution pattern is bound to the host's **release codename** (`${distro_codename}`), never to a
 moving alias such as `stable`, so a release upgrade can never happen automatically.
 
-- **`huginmunin` (Debian / Raspberry Pi OS):** Debian `origin=Debian` for the release codename and
-  its `-updates` and `-security` pockets; the Raspberry Pi archive
-  (`origin=Raspberry Pi Foundation`, release codename), which carries the kernel, boot firmware
-  files and `rpi-eeprom`; the Claude Code repository (`origin=Anthropic`, `stable` channel);
-  Tailscale (`origin=Tailscale`); GitHub CLI (`origin=gh`, `stable` channel).
+- **`huginmunin` (Debian / Raspberry Pi OS):** Debian (`origin=Debian,label=Debian`) for the
+  release codename and its `-updates` pocket, plus the existing `-security` baseline
+  (`label=Debian-Security`); the Raspberry Pi archive
+  (`origin=Raspberry Pi Foundation,label=Raspberry Pi Foundation`, release codename), which carries
+  the kernel, boot firmware files and `rpi-eeprom`; the Claude Code repository
+  (`origin=Anthropic,label=Anthropic,codename=stable`); GitHub CLI
+  (`origin=gh,label=gh,codename=stable`).
 - **`m5` (Ubuntu):** the distribution defaults (release, `-security`, ESM) plus `-updates`
-  (`origin=Ubuntu`, `archive=<codename>-updates`); Tailscale; the Claude Code repository. Not
-  `-backports` and not `-proposed`.
+  (`origin=Ubuntu,label=Ubuntu,archive=<codename>-updates`); Tailscale
+  (`origin=Tailscale,label=Tailscale`, release codename); the Claude Code repository (as above).
+  Not `-backports` and not `-proposed`.
+
+Every vendor repository is admitted only by this exact origin, label and codename/channel match;
+a repository or channel not listed here is never admitted, and each host's
+`unattended-upgrade --dry-run -d` must show exactly this allowlist.
 
 Phased updates are honoured. Packages that would prompt about a configuration file are skipped by
 unattended-upgrades and show up in the maintenance report. Nothing is ever downgraded (package
@@ -87,17 +94,20 @@ Two different things are called firmware here:
   driver firmware blobs (`linux-firmware`, `firmware-*`) — are ordinary package contents installed
   by apt like any other file. They take effect at the next boot.
 - **Flashing non-volatile firmware.** The only flashing this policy allows is the **Raspberry Pi
-  bootloader EEPROM on `huginmunin`**: apt installs the updated `rpi-eeprom` package and the stock
-  `rpi-eeprom-update` boot service writes it at the next boot (default release channel). The owner
-  accepts the power-interruption risk without a UPS; recovery is the bootloader recovery image,
-  which needs physical access.
+  bootloader EEPROM on `huginmunin`** (default release channel). apt installs the updated
+  `rpi-eeprom` package. `rpi-eeprom-update -a` stages an update on the boot partition and the
+  bootloader's recovery program writes it during the following reboot. The stock boot-time service
+  that stages updates on every boot is disabled, so staging happens **only** inside an admitted
+  guarded reboot, after its attempt record is written. The owner accepts the power-interruption
+  risk without a UPS; recovery is the bootloader recovery image, which needs physical access.
 - **Everything else stays detect-and-report only**: UEFI/BIOS, Secure Boot dbx, fwupd devices and
   any other flashing mechanism, including when delivered through an otherwise allowed origin. On
   `m5` a boot-chain change can also break TPM-bound unlock once the root volume is encrypted.
 
-A staged EEPROM update is applied by **any** boot, manual or guarded; the guarded-reboot kill switch
-does not cancel it. Suspending firmware means holding the `rpi-eeprom` package and/or disabling the
-`rpi-eeprom-update` service.
+A staged EEPROM update is written by **any** reboot, manual or guarded. Because only the guarded
+path stages, the kill switch and the latch also prevent new staging. An update found staged when no
+guarded attempt is in progress is cancelled with `rpi-eeprom-update -r` and alerted. Firmware writes
+count as suspended only when nothing is staged.
 
 ### 4. Guarded reboot
 
@@ -110,8 +120,7 @@ fixed `sudo -n` invocations (read-only status probes, appending the audit record
   flavour* (identity: that expected kernel version); a pending EEPROM update (identity: the
   available bootloader version). needrestart's raw kernel status is not a trigger: it compares
   different Raspberry Pi kernel flavours and reports a false positive.
-- **Window:** nightly, staggered per host and at least two hours apart, so a host and the host that
-  monitors it are never down together.
+- **Window:** nightly, staggered per host and at least two hours apart.
 - **Guards.** Any one defers the reboot to the next night, and a missing, stale or ambiguous guard
   observation counts as a deferral, not as "clear":
   - a configured workload unit has spawned work (for example a running Hugin task);
@@ -120,14 +129,19 @@ fixed `sudo -n` invocations (read-only status probes, appending the audit record
   - an interactive terminal used within the last 60 minutes;
   - the host kill-switch file;
   - an encrypted volume needed at boot that would need interactive unlock;
-  - the alert path cannot deliver the pre-reboot notice (alerts route through the control node, so
-    this also holds a host while its alert path or peer is down);
+  - the alert path cannot deliver the pre-reboot notice;
+  - the other approved host does not answer a fresh reachability probe (so the two are never down
+    together; delivering a notice alone does not prove the peer is up);
+  - an earlier guarded-reboot attempt on this host is still unresolved;
   - the host is latched (below).
   All guards and the kill switch are checked again immediately before the reboot. Idle interactive
   sessions may be terminated by a reboot. The remaining race — work admitted in the seconds between
   the last check and the reboot — is accepted until a workload-owned drain hook exists.
-- **Latch:** if any trigger identity is still pending after a guarded reboot, or the post-boot check
-  reports issues, automatic reboots on that host stay off until the owner clears the latch. New
+- **Attempts and latch:** each guarded reboot is persisted as an unresolved attempt before it
+  starts. The host is eligible for another automatic reboot only after a successful post-boot
+  result is recorded for that attempt and that boot. A trigger identity still pending after the
+  reboot, post-boot issues, a missing or overdue post-boot result, or a reboot command that did not
+  take effect latches the host: automatic reboots stay off until the owner clears the latch. New
   triggers do not clear it, and escalation never overrides a guard.
 - **Escalation:** after three deferred nights the job alerts (a kill switch is intentional and does
   not escalate).
@@ -136,9 +150,12 @@ fixed `sudo -n` invocations (read-only status probes, appending the audit record
 - **After boot:** a check about ten minutes after boot verifies the kernel, that the trigger
   identities cleared, that no unit failed, and that the services running before the reboot run
   again; any deviation alerts and latches.
-- **Failure to come back:** a host that does not report its post-boot check is flagged by an
-  independent observer — the off-box dead-man probe for the control node, and the daily maintenance
-  report (which also alerts on a reboot record with no matching post-boot record) for the others.
+- **Failure to come back:** a host that does not come back is flagged by an independent observer.
+  For the control node that is the off-box dead-man probe (minutes). For `m5` it is the daily
+  maintenance report, which alerts on an unreachable host and on a reboot record without a matching
+  post-boot record — so an `m5` that fails to boot can stay unnoticed for up to a day. The owner
+  accepts that residual; a peer's in-progress attempt is not visible across hosts, which the
+  two-hour stagger and the reachability guard cover.
 
 ### 5. Regressions without a reboot
 
@@ -152,11 +169,16 @@ Under [failure-recovery.md](failure-recovery.md), executed reboots, EEPROM appli
 unattended package transactions are autonomous mutations. While Verdandi is stopped, this policy
 uses the narrow exception recorded there:
 
-- **Record:** a durable, append-only local mutation record on each host, carrying target, action,
-  outcome and the reversal recipe. It covers each guarded reboot and its post-boot outcome
-  (including whether an EEPROM update was applied), each health check that found a regression, and
-  refers to `/var/log/apt/history.log` for the package transactions themselves. If the record
-  cannot be written, the reboot does not happen.
+- **Guarded reboots and EEPROM staging:** a durable, append-only local mutation record on each
+  host. An attempt record (target, action, triggers, reversal recipe) is written before the
+  mutation and an outcome record after it, including whether an EEPROM update was written. If the
+  attempt record cannot be written, neither staging nor the reboot happens. An attempt without an
+  outcome stays unresolved until reconciled (section 4). Cancelled out-of-path EEPROM staging and
+  health regressions are recorded the same way.
+- **Package transactions:** performed by the distribution's unattended-upgrades. Their durable
+  record is the distribution's own logs (`/var/log/apt/history.log`, `dpkg.log` and the
+  unattended-upgrades log). This policy adds no admission gate in front of them; the owner accepts
+  that.
 - **Projections:** a Telegram notice before each reboot and after each post-boot check, and
   projection into Munin `maintenance/os/<host>` by the daily `brokkr-maintenance-os` report.
 - **Reversal:** `irreversible` for reboots and EEPROM writes; mitigation is the post-boot check,
@@ -167,8 +189,9 @@ uses the narrow exception recorded there:
 ### 7. Turning it off
 
 - **Stop reboots now:** create the host's kill-switch file.
-- **Stop firmware writes:** hold `rpi-eeprom` and/or disable the `rpi-eeprom-update` service; the
-  kill switch alone does not cancel a staged EEPROM update.
+- **Stop firmware writes:** the kill switch stops new staging; then confirm nothing is staged
+  (`rpi-eeprom-update` reports no pending update, or cancel it with `rpi-eeprom-update -r`). Until
+  nothing is staged, any reboot can still write the EEPROM.
 - **Back to security-only updates:** remove the Brokkr origin drop-ins.
 
 ## Consequences
@@ -208,6 +231,8 @@ uses the narrow exception recorded there:
 
 - Each host's `unattended-upgrade --dry-run -d` lists exactly the origins in section 2.
 - Brokkr's hermetic tests cover the guarded-reboot decision table: triggers and identities, every
-  guard, the latch, escalation, report mode, the unlock guard, the post-boot and daily health
-  checks, and a blocked reboot when the audit record or the alert cannot be written.
+  guard (including the peer probe), unresolved attempts and the latch, escalation, report mode, the
+  unlock guard, EEPROM staging only inside an admitted reboot and cancellation outside it, the
+  post-boot and daily health checks, and a blocked reboot when the attempt record or the alert
+  cannot be written.
 - The first week's report-only record is reviewed before reboot mode is switched on.
