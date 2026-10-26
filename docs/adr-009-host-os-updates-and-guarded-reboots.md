@@ -44,8 +44,8 @@ hosts, with reboots that wait for a safe moment.
 ### 1. Scope and authority
 
 This ADR sets **owner host policy** for the operating system's own deterministic update mechanisms
-(unattended-upgrades and the stock `rpi-eeprom-update` boot service) plus one deterministic Brokkr
-job that reboots when it is safe, on the approved hosts only.
+(unattended-upgrades and `rpi-eeprom-update`) plus one deterministic Brokkr job that stages the
+Raspberry Pi EEPROM and reboots when it is safe, on the approved hosts only.
 
 - No model or agent decides anything in this path. This ADR arms no controller, no ADR-008 coverage row
   changes, and ADR-008's constitution and protected lanes stay exactly as they are. Nothing here is
@@ -111,9 +111,12 @@ count as suspended only when nothing is staged.
 
 ### 4. Guarded reboot
 
-One Brokkr job per approved host, running as the operator user; its only privileged actions are
-fixed `sudo -n` invocations (read-only status probes, appending the audit record, and
-`systemctl reboot`).
+One Brokkr job per approved host, running as the operator user. Its only privileged actions are
+fixed `sudo -n` invocations with fixed arguments: read-only status probes, appending the audit
+record, EEPROM staging (`rpi-eeprom-update -a`, only inside an admitted attempt whose record is
+written) and cancellation (`rpi-eeprom-update -r`, section 3), and `systemctl reboot`. Its
+deployment additionally disables the stock boot-time EEPROM staging service. Nothing fetched or
+read from a file is ever interpolated into a privileged command.
 
 - **Triggers**, each with a recorded identity: `/var/run/reboot-required` (identity: the set of
   packages that requested it); a running kernel older than the newest installed kernel *of the same
