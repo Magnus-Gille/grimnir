@@ -53,6 +53,15 @@ not an acceptable gap. Neither piece is optional — a legacy mutation with an a
 event but no reversal recipe is exactly the gap this convention exists to
 close.
 
+**Narrow exception (ADR-009 only):** for the guarded reboots and Raspberry Pi EEPROM staging that
+[ADR-009](adr-009-host-os-updates-and-guarded-reboots.md) defines, and only while Verdandi is
+stopped, the audit event's transport is a durable, append-only local mutation record on the host
+instead of a Verdandi event. It still carries target, action, outcome and the structured reversal
+recipe; a failed write of the attempt record blocks the mutation. For the distribution package
+transactions that policy admits, the record is the distribution's own durable logs, without an
+admission gate, as ADR-009 states. Telegram and Munin are projections, not substitutes. No other
+actor may cite this exception.
+
 ### The three reversal recipe kinds
 
 | Kind | When to use | What it records |

@@ -102,6 +102,12 @@ the annotation, not only the filename.
 - `docs/adr-008-autonomy-constitution.md` — Normative Level 4/5 autonomy floor: digest-bound
   constitution, `R-exact`/`R-forward` recovery, content-blind domain journal, protected lanes, and
   coverage states. W0.2 is disarmed; Heimdall is read-only and Verdandi is optional projection.
+- `docs/adr-009-host-os-updates-and-guarded-reboots.md` — Owner host policy for `huginmunin` and
+  `m5`, outside the ADR-008 lane and separate from `maintenance-policy` v1: codename-bound
+  unattended-upgrades origins (incl. the Raspberry Pi archive and Ubuntu `-updates`), Pi bootloader
+  EEPROM as the only flashed firmware, Brokkr's guarded nightly reboot (workload, package, load,
+  terminal, unlock and alert-path guards, latch, post-boot and daily health checks), no agent
+  deployment authority, and the audit/reversal exception while Verdandi is stopped.
 - `docs/autonomy-constitution-v1.schema.json`, `docs/autonomous-mutation-journal-v1.schema.json`,
   `docs/autonomy-coverage-registry-v1.schema.json`, `docs/autonomy-coverage-registry-v1.json`,
   `docs/autonomy-owner-attestation-registry-v1.schema.json`, and
