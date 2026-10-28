@@ -40,9 +40,12 @@ changes here; `CLAUDE.md` is only a Claude Code import adapter.
 Roadmap → tickets → implementation → review, with grimnir as the orchestrator:
 
 - **Grimnir owns the roadmap and writes the tickets.** Scoping, prioritization, milestones, and
-  the Grimnir Roadmap board are grimnir-session responsibilities.
-- **Tickets live in the owning repo.** A cross-repo need becomes a GitHub issue in the component's
-  own repository (with `from:grimnir` attribution) — never a direct edit from here.
+  the Grimnir Roadmap board (Plane label `board:grimnir-roadmap`) are grimnir-session
+  responsibilities.
+- **Tickets live in the owning repo's Plane project** (tickets.gille.ai, key `IDENT-N`, via the
+  `tickets` MCP tools or `tix`). A cross-repo need becomes a ticket there with `from:grimnir`
+  attribution — never a direct edit from here. No new GitHub issues; PRs cite `Refs <KEY>` plus
+  the Plane URL (`docs/plane-roadmap.md`).
 - **Implementation happens in the owning repo, by a subagent spawned by the grimnir session.**
   One task = one subagent = one dedicated worktree in the owning repository.
 - **Spawn subagents into the owning repo** (working directory and instruction files of that repo)
@@ -64,7 +67,8 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 - **Local inference is explicit.** Use M5 for owner-requested local inference or evaluation,
   following `m5-delegate`; ordinary bounded implementation follows the global delegation default.
 - **Friction becomes tickets.** Papercuts, tool failures, and doc drift encountered during work
-  are filed as issues in the owning repo (with `from:grimnir` attribution), not left to evaporate.
+  are filed as tickets in the owning repo's Plane project (with `from:grimnir` attribution), not
+  left to evaporate.
 - **Repository visibility changes are owner-only.** Public→private permanently destroys stars and
   watchers and detaches forks; private→public is unrecallable exposure. No agent flips visibility
   in either direction without explicit, per-repository owner approval in the current session —

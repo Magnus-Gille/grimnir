@@ -123,7 +123,7 @@ test-github-actions-policy: ## Enforce immutable Action pins, provenance, and ap
 test-claude-capacity-preflight: ## Classify cheap Claude probe failures and preserve deterministic fallback (issue #136)
 	@bash scripts/tests/claude-capacity-preflight.test.sh
 
-test-github-project-preflight: ## Classify GitHub Project scopes, absence, and API failures (issue #135)
+test-github-project-preflight: ## Plane ticket creation and readiness classification via tix (issue #135, Plane cutover)
 	@bash scripts/tests/github-project-preflight.test.sh
 
 test-github-actions-zero-step-preflight: ## Distinguish runner startup failures from workflow-step failures (issue #138)

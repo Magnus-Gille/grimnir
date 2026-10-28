@@ -4,6 +4,10 @@
 **Participants:** Claude Opus 4.6 (plan author), Codex gpt-5.4 (adversarial reviewer)
 **Rounds:** 2
 
+> **Tracker note (2026-10-28):** this debate was held when findings were tracked as GitHub
+> Issues. Tracking has since moved to self-hosted Plane CE and the tracker wording below says
+> Plane tickets. The decision itself (one tracker, no dual tracking) is unchanged.
+
 ## What was being reviewed
 
 A 5-phase ecosystem review program for Grimnir (9 repos, ~89K LOC, solo
@@ -14,7 +18,7 @@ runner), Phase 1 integration-risk audit (shared packages in
 quality sweep (including heimdall JS→TS migration), Phase 4 architecture
 review doc, Phase 5 maintenance loop (weekly timer, Skuld briefing integration,
 Heimdall dashboard card, auto-fix Hugin tasks, two new skills). Findings dual-
-tracked in GitHub Issues and Munin.
+tracked in Plane tickets and Munin.
 
 ## Concessions accepted by Claude
 
@@ -30,7 +34,7 @@ Claude fully conceded on the biggest structural errors Codex identified:
 4. **5 phases → 2 active + 1 conditional.** Per-repo quality sweep,
    architecture review doc, maintenance loop, weekly runner, shared
    tooling, heimdall TS migration, and knip all dropped or deferred.
-5. **Dual tracking killed.** GitHub Issues only; Munin used only for
+5. **Dual tracking killed.** Plane tickets only; Munin used only for
    contract documentation.
 6. **Ordering loosened.** Phase A (integration) and Phase B (security)
    made concurrent where capacity allows.
@@ -46,7 +50,7 @@ Codex accepted these defenses from Claude:
 - **Targeted security on munin-memory, hugin, ratatoskr** is necessary
   regardless of everything else, and sharding `/security-review` across
   modules if the codebase is too large is acceptable.
-- **Finding schema in GitHub Issues** is a reasonable lightweight artifact
+- **Finding schema in Plane tickets** is a reasonable lightweight artifact
   for tracking.
 
 ## New issues Codex raised in Round 2 (not in Round 1)
