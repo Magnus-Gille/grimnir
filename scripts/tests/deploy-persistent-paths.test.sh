@@ -1203,11 +1203,13 @@ if [[ -n "$REAL_RSYNC" ]]; then
   fi
 
   # Guarded: the registry-derived flags keep the existing backup untouched.
+  # Compare byte for byte, so appended or rewritten content cannot pass.
+  printf '%s\n' "$BACKUP_CONTENT" > "$TMP_DIR/backup-expected"
   seed_backup_target "$BACKUP_DEST" present
   guarded_rc=0
   "$REAL_RSYNC" "${BACKUP_FLAGS[@]}" "$BACKUP_SRC/" "$BACKUP_DEST/" || guarded_rc=$?
   if [[ "$guarded_rc" == 0 && -f "$BACKUP_DEST/$BACKUP_REL" ]] &&
-     grep -Fxq "$BACKUP_CONTENT" "$BACKUP_DEST/$BACKUP_REL"; then
+     cmp -s "$TMP_DIR/backup-expected" "$BACKUP_DEST/$BACKUP_REL"; then
     pass "producer-token backup survives --delete with identical content"
   else
     fail "producer-token backup must survive --delete with identical content"
