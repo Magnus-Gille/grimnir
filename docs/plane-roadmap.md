@@ -87,7 +87,7 @@ This makes exactly one call:
 
 ```sh
 tix new -p brokkr -t Example -f /path/to/body.md \
-  -l board:grimnir-roadmap -l component:Hugin --priority urgent --from grimnir
+  -l board:grimnir-roadmap -l component:Hugin --priority high --from grimnir
 ```
 
 `--repo` takes `OWNER/REPO`, a bare repo name, or a Plane identifier. `--priority` accepts
