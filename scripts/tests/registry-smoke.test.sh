@@ -742,12 +742,12 @@ assert_eq "real services.json: Verdandi protects legacy data and declares canoni
 assert_eq "real services.json: Verdandi deploy carries legacy data exclusion" \
   '["/data/"]' "$(deploy_field "$REPO_REGISTRY" verdandi rsync_excludes)"
 
-assert_eq "real services.json: Heimdall protects host-owned fleet-agent state" \
-  '["/home/magnus/.heimdall","/home/magnus/repos/heimdall/agent/config.env","/home/magnus/repos/heimdall/agent/VERSION"]' \
+assert_eq "real services.json: Heimdall protects host-owned fleet-agent state and its producer-token rollback backup" \
+  '["/home/magnus/.heimdall","/home/magnus/repos/heimdall/agent/config.env","/home/magnus/repos/heimdall/agent/VERSION","/home/magnus/repos/heimdall/agent/config.env.pre-producer-tokens"]' \
   "$(component_persistent_paths "$REPO_REGISTRY" heimdall)"
 
 assert_eq "real services.json: Heimdall deploy carries fleet-agent exclusions" \
-  '["/agent/config.env","/agent/VERSION"]' "$(deploy_field "$REPO_REGISTRY" heimdall rsync_excludes)"
+  '["/agent/config.env","/agent/VERSION","/agent/config.env.pre-producer-tokens"]' "$(deploy_field "$REPO_REGISTRY" heimdall rsync_excludes)"
 
 assert_eq "real services.json: grimnir deploy carries the declared external environment file" \
   '["/home/magnus/.config/grimnir/security-scan.env"]' "$(deploy_field "$REPO_REGISTRY" grimnir external_environment_files)"
