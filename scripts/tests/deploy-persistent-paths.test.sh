@@ -1089,6 +1089,159 @@ else
   fi
 fi
 
+# ── Heimdall producer-token rollback backup (issue #221) ──────────────────
+# The producer-token rollout leaves a one-time rollback copy of the agent env
+# file beside it: agent/config.env.pre-producer-tokens. It is not in the
+# source tree, so an rsync deploy deletes it unless the registry lists the
+# exact path. The #195 fixture above hard-codes its own path lists and so
+# cannot notice a registry that omits the backup. This block derives the
+# fixture's persistent_paths and rsync_excludes from the real services.json
+# Heimdall entry, then proves the flags deploy.sh emits for them keep an
+# existing backup content- and mode-identical under --delete and never create
+# one when it is absent. The registry stays explicit: exact paths, no wildcard.
+BACKUP_PATH="/home/magnus/repos/heimdall/agent/config.env.pre-producer-tokens"
+BACKUP_EXCLUDE="/agent/config.env.pre-producer-tokens"
+BACKUP_REL="agent/config.env.pre-producer-tokens"
+BACKUP_CONTENT="guard-sentinel producer-token rollback copy (not a credential)"
+
+REAL_REGISTRY="$SCRIPT_DIR/../../services.json"
+REAL_REGISTRY="$REAL_REGISTRY" OUTPUT="$TMP_DIR/heimdall-real-state.json" node --input-type=commonjs -e '
+  var fs = require("fs");
+  var heimdall = JSON.parse(fs.readFileSync(process.env.REAL_REGISTRY, "utf8"))
+    .components.filter(function (c) { return c.name === "heimdall"; })[0];
+  if (!heimdall) process.exit(1);
+  fs.writeFileSync(process.env.OUTPUT, JSON.stringify({ components: [{
+    name: "heimdall", repo: "heimdall-agent", host: "h1", port: null,
+    deploy: true, scan: false, deploy_path: heimdall.deploy_path,
+    persistent_paths: heimdall.persistent_paths,
+    rsync_excludes: heimdall.rsync_excludes,
+    needs_build: false,
+    systemd_units: [{ name: "heimdall", type: "service" }]
+  }] }));
+'
+
+fixture_array_has() {  # $1 = fixture, $2 = field, $3 = exact value
+  FIXTURE="$1" FIELD="$2" VALUE="$3" node --input-type=commonjs -e '
+    var data = JSON.parse(require("fs").readFileSync(process.env.FIXTURE, "utf8"));
+    var list = data.components[0][process.env.FIELD] || [];
+    process.exit(list.indexOf(process.env.VALUE) === -1 ? 1 : 0);
+  '
+}
+if fixture_array_has "$TMP_DIR/heimdall-real-state.json" persistent_paths "$BACKUP_PATH"; then
+  pass "real registry lists the producer-token backup as a Heimdall persistent path"
+else
+  fail "real registry must list $BACKUP_PATH as a Heimdall persistent path"
+fi
+if fixture_array_has "$TMP_DIR/heimdall-real-state.json" rsync_excludes "$BACKUP_EXCLUDE"; then
+  pass "real registry lists the exact producer-token backup rsync exclusion"
+else
+  fail "real registry must list $BACKUP_EXCLUDE in Heimdall rsync_excludes"
+fi
+
+rm -f "$SSH_CAPTURE" "$RSYNC_CAPTURE" "$ORDER_CAPTURE"
+printf '%s\n' "$PRIOR_SHA" > "$REMOTE_MARKER_STATE"
+if REGISTRY_PATH="$TMP_DIR/heimdall-real-state.json" LOCAL_REPOS_ROOT="$TMP_DIR/repos" \
+    PATH="$TMP_DIR/bin:$PATH" bash "$DEPLOY" "$HEIMDALL_REQUEST" \
+      >"$TMP_DIR/heimdall-real-state.out" 2>&1; then
+  pass "registry-derived Heimdall state paths complete mocked deploy"
+else
+  fail "registry-derived Heimdall state paths complete mocked deploy"
+  sed -n '1,80p' "$TMP_DIR/heimdall-real-state.out"
+fi
+if grep -Fxq -- "--exclude=$BACKUP_EXCLUDE" "$RSYNC_CAPTURE"; then
+  pass "producer-token backup exclusion reaches rsync"
+else
+  fail "producer-token backup exclusion must reach rsync"
+fi
+if grep -Eq '^--exclude=.*[*?[]' "$RSYNC_CAPTURE"; then
+  fail "emitted rsync exclusions must be exact paths, not wildcards"
+else
+  pass "emitted rsync exclusions are exact paths, not wildcards"
+fi
+
+file_mode() {
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"
+}
+
+if [[ -n "$REAL_RSYNC" ]]; then
+  BACKUP_SRC="$TMP_DIR/backup-src"
+  BACKUP_DEST="$TMP_DIR/backup-dest"
+  rm -rf "$BACKUP_SRC"
+  mkdir -p "$BACKUP_SRC"
+  printf '%s\n' keep > "$BACKUP_SRC/app.js"
+  # Same approach as above: replay the exact flags deploy.sh emitted.
+  BACKUP_FLAGS=()
+  BACKUP_CONTROL_FLAGS=()
+  while IFS= read -r flag; do
+    [[ -n "$flag" ]] || continue
+    BACKUP_FLAGS+=("$flag")
+    [[ "$flag" == "--exclude=$BACKUP_EXCLUDE" ]] || BACKUP_CONTROL_FLAGS+=("$flag")
+  done < <(grep -E '^-' "$RSYNC_CAPTURE")
+
+  seed_backup_target() {
+    local dest=$1 with_backup=$2
+    rm -rf "$dest"
+    mkdir -p "$dest/agent"
+    printf '%s\n' "guard-sentinel fleet-agent config (not a credential)" > "$dest/agent/config.env"
+    printf '%s\n' "9.9.9-guard-sentinel" > "$dest/agent/VERSION"
+    printf '%s\n' stale > "$dest/stray.txt"
+    if [[ "$with_backup" == present ]]; then
+      printf '%s\n' "$BACKUP_CONTENT" > "$dest/$BACKUP_REL"
+      # A mode other than the umask default, so a recreated copy cannot pass.
+      chmod 640 "$dest/$BACKUP_REL"
+    fi
+  }
+
+  # Control: without the backup exclusion --delete removes it (the #221 hazard).
+  seed_backup_target "$BACKUP_DEST" present
+  control_rc=0
+  "$REAL_RSYNC" "${BACKUP_CONTROL_FLAGS[@]}" "$BACKUP_SRC/" "$BACKUP_DEST/" || control_rc=$?
+  if [[ "$control_rc" == 0 && ! -e "$BACKUP_DEST/$BACKUP_REL" ]]; then
+    pass "without its exclusion --delete removes the producer-token backup (the #221 hazard)"
+  else
+    fail "control run must reproduce the #221 deletion hazard"
+  fi
+
+  # Guarded: the registry-derived flags keep the existing backup untouched.
+  # Compare byte for byte, so appended or rewritten content cannot pass.
+  printf '%s\n' "$BACKUP_CONTENT" > "$TMP_DIR/backup-expected"
+  seed_backup_target "$BACKUP_DEST" present
+  guarded_rc=0
+  "$REAL_RSYNC" "${BACKUP_FLAGS[@]}" "$BACKUP_SRC/" "$BACKUP_DEST/" || guarded_rc=$?
+  if [[ "$guarded_rc" == 0 && -f "$BACKUP_DEST/$BACKUP_REL" ]] &&
+     cmp -s "$TMP_DIR/backup-expected" "$BACKUP_DEST/$BACKUP_REL"; then
+    pass "producer-token backup survives --delete with identical content"
+  else
+    fail "producer-token backup must survive --delete with identical content"
+  fi
+  if [[ -f "$BACKUP_DEST/$BACKUP_REL" && "$(file_mode "$BACKUP_DEST/$BACKUP_REL")" == 640 ]]; then
+    pass "producer-token backup survives --delete with identical file mode"
+  else
+    fail "producer-token backup must survive --delete with identical file mode"
+  fi
+  if [[ ! -e "$BACKUP_DEST/stray.txt" && -f "$BACKUP_DEST/app.js" ]]; then
+    pass "--delete stays armed for unexcluded paths while the backup survives"
+  else
+    fail "--delete must still collect unexcluded stray files"
+  fi
+
+  # Absent: a host that never ran the rollout has no backup. The deploy must
+  # still succeed and must not invent one.
+  seed_backup_target "$BACKUP_DEST" absent
+  absent_rc=0
+  "$REAL_RSYNC" "${BACKUP_FLAGS[@]}" "$BACKUP_SRC/" "$BACKUP_DEST/" || absent_rc=$?
+  if [[ "$absent_rc" == 0 ]]; then
+    pass "absent producer-token backup does not fail the deploy"
+  else
+    fail "absent producer-token backup must not fail the deploy"
+  fi
+  if [[ ! -e "$BACKUP_DEST/$BACKUP_REL" && ! -e "$BACKUP_SRC/$BACKUP_REL" ]]; then
+    pass "absent producer-token backup is not created by the deploy"
+  else
+    fail "deploy must not create an absent producer-token backup"
+  fi
+fi
+
 # Hermetic --delete regression for the central test-directory exclusion. A
 # source root `tests/` tree is intentionally omitted, while the runtime's
 # nested code-health contract fixture must still ship.
