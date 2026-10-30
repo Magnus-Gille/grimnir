@@ -37,6 +37,10 @@ the annotation, not only the filename.
 - `docs/delivery-mandates.md` — Ownership and migration of the owner-approved bounded delivery
   mandate: portable policy in claude-config, workflow/batches in ship-it, ticket-fleet compatibility,
   adapter boundaries, evidence, activation and reversal; does not arm ADR-008 production coverage
+- `docs/orchestration-playbook.md` — How one orchestration session routes owner questions across
+  parallel sessions: kickoff mandates, one question queue, who acts, permission modes, and other
+  harnesses. Grants no authority; the orchestration session routes and verifies, and does not run
+  consequential mutations itself
 
 - `docs/role-separation.md` — Why the canonical grimnir checkout must not double as a deploy target
   or hugin workspace, and the validate check that alarms on drift (issue #47)
