@@ -128,6 +128,12 @@ usage_error 'unreadable body file' ticket --repo brokkr --title T --body-file "$
 usage_error 'invalid component' ticket --repo brokkr --title T --body-file "$TMP/body.md" --component 'a/b'
 usage_error 'invalid repo' ticket --repo 'a b' --title T --body-file "$TMP/body.md"
 usage_error 'conflicting senders' ticket --repo brokkr --title T --body-file "$TMP/body.md" --from alice --label from:bob
+usage_error 'no-board followed by roadmap label' ticket --repo brokkr --title T --body-file "$TMP/body.md" \
+  --no-board --label board:grimnir-roadmap
+usage_error 'roadmap label followed by no-board' ticket --repo brokkr --title T --body-file "$TMP/body.md" \
+  --label board:grimnir-roadmap --no-board
+usage_error 'repeated roadmap labels with no-board' ticket --repo brokkr --title T --body-file "$TMP/body.md" \
+  --no-board --label board:grimnir-roadmap --label board:grimnir-roadmap
 usage_error 'option without a value' ticket --repo brokkr --body-file "$TMP/body.md" --title
 usage_error 'unknown option' ticket --repo brokkr --title T --body-file "$TMP/body.md" --bogus
 usage_error 'unknown subcommand' bogus

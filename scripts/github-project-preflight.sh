@@ -187,13 +187,18 @@ case "$mode" in
     preflight "${repo##*/}"
     ;;
   ticket)
-    repo=''; title=''; body_file=''; component=''; priority=''; sender=''; board=yes; labels=()
+    repo=''; title=''; body_file=''; component=''; priority=''; sender=''; board=yes; roadmap_label_requested=no; labels=()
     while [[ "$#" -gt 0 ]]; do
       case "$1" in
         --repo) need_value "$#"; repo="${2:-}"; shift 2 ;;
         --title) need_value "$#"; title="${2:-}"; shift 2 ;;
         --body-file) need_value "$#"; body_file="${2:-}"; shift 2 ;;
-        --label) need_value "$#"; labels+=("${2:-}"); shift 2 ;;
+        --label)
+          need_value "$#"
+          labels+=("${2:-}")
+          if [[ "${2:-}" == "$BOARD_LABEL" ]]; then roadmap_label_requested=yes; fi
+          shift 2
+          ;;
         --component) need_value "$#"; component="${2:-}"; shift 2 ;;
         --priority) need_value "$#"; priority="${2:-}"; shift 2 ;;
         --from) need_value "$#"; sender="${2:-}"; shift 2 ;;
@@ -203,6 +208,7 @@ case "$mode" in
         *) usage; exit 2 ;;
       esac
     done
+    if [[ "$board" == no ]] && [[ "$roadmap_label_requested" == yes ]]; then usage; exit 2; fi
     if ! safe_repo "$repo" || ! safe_text "$title" || ! safe_text "$body_file" || ! [[ -r "$body_file" ]]; then usage; exit 2; fi
     if [[ -n "$component" ]] && ! safe_component "$component"; then usage; exit 2; fi
     if [[ -n "$sender" ]] && ! safe_sender "$sender"; then usage; exit 2; fi

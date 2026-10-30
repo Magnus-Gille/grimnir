@@ -102,6 +102,9 @@ ticket_url=https://tickets.gille.ai/gille/browse/BROKKR-99/
 board_label=board:grimnir-roadmap
 ```
 
+`--no-board` cannot be combined with `--label board:grimnir-roadmap`; the script rejects that
+conflict as a usage error before invoking `tix`.
+
 On failure it prints `status=failed` and the `class` above, exits with that class's code, and
 leaves tix's message on stderr. There is no `pending_board_addition` any more: the board label
 travels with the create call. If a ticket was created before the cutover with a pending board
