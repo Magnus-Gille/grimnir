@@ -108,8 +108,11 @@ anything.
    git ls-remote --heads https://github.com/OWNER/REPOSITORY.git main
    gh repo view OWNER/REPOSITORY --json nameWithOwner,isArchived,defaultBranchRef,url
    gh pr list --repo OWNER/REPOSITORY --state all --limit 10
-   gh issue list --repo OWNER/REPOSITORY --state all --limit 10
+   tix ls -p REPOSITORY -s open
    ```
+
+   Tickets live in Plane (one project per repository), so the `tix` line replaces the retired
+   `gh issue list` check; GitHub Issues are closed with a link and receive no new activity.
 
    Stop if the declared target is archived, has a different active workflow
    from the predecessor, or otherwise does not own the work being reconciled.

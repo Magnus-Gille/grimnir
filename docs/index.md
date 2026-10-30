@@ -45,8 +45,9 @@ the annotation, not only the filename.
   remediation recipes, and how to run the audit (`scripts/worktree-hygiene-audit.sh`, issue #87)
 - `docs/claude-capacity-preflight.md` — Deterministic Claude-capacity probe and fallback policy
   (issue #136)
-- `docs/github-project-roadmap.md` — GitHub Project scope preflight and roadmap-board ownership
-  contract (issue #135)
+- `docs/plane-roadmap.md` — Plane ticket workflow and Grimnir Roadmap (labels `board:grimnir-roadmap`
+  and `component:*`, Plane priority/state), ticket-creation preflight, and roadmap-board ownership
+  contract (issue #135; replaced the GitHub Project on 2026-10-28)
 - `docs/github-actions-policy.md` — Central read-only fleet policy for immutable Action pins,
   release provenance, exact upstream runtime evidence, and owner-routed findings (issue #139)
 - `docs/github-actions-zero-step-recovery.md` — Read-only classification and owner recovery path for

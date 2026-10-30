@@ -7,6 +7,11 @@
 > re-confirmed this plan's motivating findings (divergent MuninClients, skuld's direct
 > SQLite writes, hand-rolled JSON-RPC in heimdall) are still live.
 
+> ℹ️ **Tracker note (2026-10-28):** this plan was written when findings were filed as GitHub
+> Issues on the "Grimnir Roadmap" GitHub Project. Tickets now live in self-hosted Plane CE and
+> roadmap membership is the label `board:grimnir-roadmap`; the workflow below is updated to
+> match (see `docs/plane-roadmap.md`).
+
 ## Context
 
 The Grimnir ecosystem has grown to 9 repos (~89K LOC) and cross-agent bugs are
@@ -48,7 +53,7 @@ revision below is the outcome of the debate and supersedes the original
 
 **User decisions captured (2026-04-09):**
 - Full program was originally chosen, then narrowed after debate.
-- Findings go to GitHub Issues only (dual-tracking dropped).
+- Findings go to Plane tickets only (dual-tracking dropped).
 - **This turn is plan-only.** No code changes. Execution happens in follow-up
   sessions.
 
@@ -284,10 +289,10 @@ explicitly deferred.)
 
 **Per-repo workflow:**
 1. Run `/security-review` on the repo, sharded if needed.
-2. Open one GitHub issue on the repo titled `security review: <repo>` with
+2. Open one ticket in the repo's Plane project titled `security review: <repo>` with
    severity-grouped checklist (blocker/major/minor).
 3. Label: `review/security`, severity labels.
-4. Add to Grimnir Roadmap project via `gh project item-add`.
+4. Put it on the Grimnir Roadmap: label `board:grimnir-roadmap`, set when the ticket is created.
 5. Fix blockers + majors immediately in a follow-up PR.
 
 **Critical coupling with Phase A:** if munin-memory's security review
@@ -301,7 +306,7 @@ per reviewed repo) listing trust boundaries, data flows, LLM Top 10
 mappings, and the consolidated fix list. Not a full ecosystem threat model —
 just the three repos.
 
-**Exit criterion:** threat-model.md exists; three GitHub issues exist; zero
+**Exit criterion:** threat-model.md exists; three tickets exist; zero
 blockers open; any security finding that invalidates Phase A has been
 applied to the canonical client.
 
@@ -362,7 +367,7 @@ runs on PR and blocks merge on test failure.
 | Per-repo quality sweep (Phase 3 in v1) | Project-completion work, not bug-fix work. 8 sessions of lint cleanup is not what the user needs. |
 | Architecture review document (Phase 4 in v1) | Speculative. Do it if Phase A+B surface a real need. |
 | Maintenance loop (Phase 5 in v1) | Weekly review runner, Skuld briefing integration, Heimdall dashboard card, auto-fix Hugin tasks, `/review-repo` skill, `/review-integration` skill — all deferred indefinitely. |
-| Dual tracking (GitHub + Munin findings) | Divergence risk. GitHub Issues only. |
+| Dual tracking (tickets + Munin findings) | Divergence risk. Plane tickets only. |
 | Weekly `grimnir-review.timer` | Part of the dropped maintenance loop. |
 | Full 9-repo security review | Narrowed to the 3 repos with catastrophic blast radius (munin-memory, hugin, ratatoskr). The others can wait. |
 | mimir security review in this pass | Explicitly deferred. It's important but lower-blast-radius than the central hub. Open a separate issue to track. |
@@ -398,12 +403,13 @@ provide enough coverage.
   benefits from focused context per repo.
 - Phase C: one implementer subagent if run.
 
-**Findings workflow (GitHub Issues only):**
-1. Open one GitHub issue per reviewed repo per phase.
+**Findings workflow (Plane tickets only):**
+1. Open one ticket per reviewed repo per phase, in that repo's Plane project.
 2. Title format: `<phase>: <scope> — <repo>`.
 3. Labels: `review/<dimension>`, `severity/<level>`.
-4. Add to Grimnir Roadmap project: `gh project item-add 1 --owner Magnus-Gille --url <issue-url>`.
-5. Issue body links to the relevant contract in
+4. Put it on the Grimnir Roadmap with label `board:grimnir-roadmap`, set at creation
+   (`scripts/github-project-preflight.sh ticket ...` or `tix new ... -l board:grimnir-roadmap`).
+5. Ticket body links to the relevant contract in
    `grimnir/docs/architecture.md#cross-service-contracts`.
 
 ---
@@ -458,7 +464,7 @@ That's it. This is **bug-fix done**, not **project-completion done**.
   `npm test -- --grep=contract`. CI runs them on PR.
 - **Phase A #5:** Every implementation file has a header comment pointing
   to the contract section.
-- **Phase B:** `threat-model.md` exists. Three GitHub issues exist. Zero
+- **Phase B:** `threat-model.md` exists. Three tickets exist. Zero
   blockers open on the three reviewed repos.
 - **Phase C (if run):** CI workflow files exist in the repo. PRs fail if
   tests fail.
