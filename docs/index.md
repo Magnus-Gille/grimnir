@@ -175,7 +175,7 @@ the annotation, not only the filename.
 - `docs/interactive-session-posture.md` — Required Hugin handoff (or constrained fresh-session
   fallback) for consequential mutations after untrusted input, judged by who could have written
   it; the default merge route, and why orchestration sessions do not merge and the owner merges
-  third-party PRs
+  third-party PRs and any PR with an exposed or unknown commit author
 - `docs/succession-checklist.md` — Public, non-secret export-and-shutdown checklist for the emergency
   delegate; private-envelope contents stay out of git
 - `docs/data-lifecycle.md` — Store-by-store retention, correction, erasure, and backup-expiry map

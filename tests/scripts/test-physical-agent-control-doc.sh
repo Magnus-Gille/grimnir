@@ -2,6 +2,15 @@
 # Preserve the authority and safety boundary adopted by grimnir#179.
 set -euo pipefail
 
+# The contract uses en dashes, so `.` in a pattern must match one character rather than one byte.
+# Pin a UTF-8 locale instead of inheriting the caller's, which may be C/POSIX (GRIM-226).
+UTF8_LOCALE="$(locale -a 2>/dev/null | grep -iE '^(c|en_us)\.utf-?8$' | head -n 1 || true)"
+if [[ -z "$UTF8_LOCALE" ]]; then
+  echo "FAIL: no C.UTF-8 or en_US.UTF-8 locale is installed; install one to run this test" >&2
+  exit 1
+fi
+export LC_ALL="$UTF8_LOCALE"
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONTRACT="$REPO_ROOT/docs/physical-agent-control-contract.md"
 SCHEMA="$REPO_ROOT/docs/physical-agent-control-v1.schema.json"
