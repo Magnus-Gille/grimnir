@@ -92,7 +92,7 @@ session only when Hugin cannot perform the action. This reduces routine exposure
 T2 below **High** until the boundary is technically enforced and evidenced.
 
 GRIM-227 narrowed what triggers the handoff, so first-party material no longer does. This keeps
-ordinary delivery and the review gate workable. It leaves two tracked gaps under T2 that this posture
-does not detect: an instruction planted in first-party material, and a session wrongly judging its
-inputs to be first-party. Like everything in §5, they are tracked gaps, not accepted risks. T2 stays
-**High**.
+ordinary delivery and the review gate workable. It leaves two tracked gaps under T2 that this
+posture does not detect: an instruction planted in material judged first-party, for example by an
+author whose exposure went unnoticed, and a session wrongly judging its inputs to be first-party.
+Like everything in §5, they are tracked gaps, not accepted risks. T2 stays **High**.
