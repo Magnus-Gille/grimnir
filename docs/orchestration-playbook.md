@@ -74,8 +74,8 @@ and the exact action, and link the session.
 | Status, advice, drafts | Any session | Not needed |
 | Ticket or comment | Owning session | Explicit request or mandate |
 | Merge, first-party input only | Owning session | Mandate, or the owner's word in its chat |
-| Merge after untrusted input, or requested in the queue | Fresh session, for PRs by the owner or the owner's agents | Owner's approval of the handoff |
-| Merge a third-party PR | Owner, with the pinned command | Owner's own terminal |
+| Merge after untrusted input, or requested in the queue | Fresh session, for PRs by the owner or the owner's agents when the author read no untrusted material | Owner's approval of the handoff |
+| Merge a third-party PR, or one whose author was exposed or unknown | Owner, with the pinned command | Owner's own terminal |
 | Merge a harness check refuses | Owner, with the pinned command | Owner's own terminal |
 | Production deploy | Owning session | Bounded release mandate, or exact-revision confirmation |
 | Credentials, destructive actions, payments, consequential messages | Acting session | Just-in-time confirmation |
@@ -96,7 +96,8 @@ Hugin has no documented merge path, so start a fresh session with a restated goa
 exact head SHA, required checks, a statement that independent review passed at that exact head SHA
 and names the reviewer, and the owner's words, with no raw transcript or review text. This route is
 only for PRs written by the owner or the owner's agents. A third-party PR's paths and check names can
-carry outside text, so the owner merges it by hand with the pinned command below. The fresh session
+carry outside text, so the owner merges it by hand with the pinned command below. The same applies
+when the author was exposed to untrusted material or its exposure is unknown. The fresh session
 reads structured fields only, rechecks head, checks and mergeability, merges pinned to that head,
 and records why the fallback was used. A fresh session separates reasoning context only. Without
 narrowed capabilities it is not a security boundary.

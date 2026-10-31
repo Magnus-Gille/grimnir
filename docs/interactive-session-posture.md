@@ -59,7 +59,9 @@ a merge after untrusted input. That is the reason step 5 records until Hugin gai
 
 The fresh-session route is only for PRs written by the owner or the owner's agents. A third-party
 PR's changed paths and check names can carry outside text, so the owner merges it by hand with the
-pinned merge command in [`orchestration-playbook.md`](orchestration-playbook.md).
+pinned merge command in [`orchestration-playbook.md`](orchestration-playbook.md). The route also
+needs a PR author that read no untrusted material; if the author was exposed or its exposure is
+unknown, the owner merges by hand in the same way.
 
 - The brief gives the repository, PR, exact head SHA, required checks, a statement that independent
   review passed at that exact head SHA and names the reviewer, and the owner's approval in the
