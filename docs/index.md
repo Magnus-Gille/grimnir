@@ -173,7 +173,8 @@ the annotation, not only the filename.
   (Codex CLI, grimnir#58): seams A/B/C passed on transport, D blocked, per-tenant identity missing
   everywhere; harness in `scripts/tenant-validation/`
 - `docs/interactive-session-posture.md` — Required Hugin handoff (or constrained fresh-session
-  fallback) for consequential mutations after untrusted input
+  fallback) for consequential mutations after untrusted input, judged by who could have written
+  it; the default merge route, and why orchestration sessions do not merge
 - `docs/succession-checklist.md` — Public, non-secret export-and-shutdown checklist for the emergency
   delegate; private-envelope contents stay out of git
 - `docs/data-lifecycle.md` — Store-by-store retention, correction, erasure, and backup-expiry map

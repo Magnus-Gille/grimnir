@@ -57,7 +57,7 @@
 | # | Threat | Vector | Current control | Residual | Tracked |
 |---|---|---|---|---|---|
 | T1 | Exfiltration via the **lethal trifecta** | Injection in ingested content → agent with memory+files+exec → egress | Hugin queue-path scanners plus permission profiles: default/read-only requests use `dontAsk`; only explicit `Capabilities: code` + `trusted-code` uses `bypassPermissions` | **H** — trusted-code remains deliberately powerful and content scanners are detective | hugin#149 shipped; continue review |
-| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | Operator posture requires Hugin handoff for consequential mutations after untrusted input, with a constrained fresh-session fallback | **H** — procedural, not enforced | grimnir#70 |
+| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | Operator posture requires Hugin handoff for consequential mutations after untrusted input, judged by who could have written it, with a constrained fresh-session fallback that is the default merge route | **H** — procedural, not enforced | grimnir#70, GRIM-227 |
 | T3 | Command injection → fleet code-exec | Ratatoskr `/repo` path-traversal; LLM-produced repo context | Owner allowlist plus task-writer validation; live probes reject traversal and newline/field injection before task creation | **M** — an owner-authorized task can still execute within an allowed repo | ratatoskr#36 shipped |
 | T4 | Autonomous action unattributable / unlogged | Hugin mutates (commits/deploys/writes) without end-to-end tenant identity or Verdandi receipt | Signed submitter provenance now survives Hugin lifecycle transitions and is logged in Munin | **H** — Verdandi/per-tenant chain is still missing | hugin#148, verdandi#15 |
 | T5 | Audit-chain forgery or loss | Attacker owns Pi 1, or the only credible chain is lost | Recovery-gated Verdandi safeguards and verify/anchor code are merged | **H** — production is intentionally disabled pending image-first recovery; no recovered chain or routine export may be claimed | Verdandi recovery block |
@@ -90,3 +90,8 @@ The owner-approved handling rule for T2 is defined in
 non-mutating context, route consequential mutations through Hugin, and use a narrowly restated fresh
 session only when Hugin cannot perform the action. This reduces routine exposure but does not lower
 T2 below **High** until the boundary is technically enforced and evidenced.
+
+GRIM-227 narrowed what triggers the handoff, so first-party material no longer does. This keeps
+ordinary delivery and the review gate workable. It accepts two residual risks that this posture does
+not detect: an instruction planted in first-party material, and a session wrongly judging its inputs
+to be first-party. T2 stays **High**.
