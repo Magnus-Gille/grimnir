@@ -17,7 +17,7 @@ attention in one place without moving any gate.
 | Role | Does | Does not |
 |---|---|---|
 | Owner | Decides, gives mandates, answers | Carry text between sessions |
-| Orchestration session | Reads status, routes questions, advises, records, verifies read-only | Approve for the owner, or run consequential mutations after reading untrusted input |
+| Orchestration session | Reads status, routes questions, advises, records, verifies read-only | Approve for the owner, or run merges and other consequential mutations |
 | Owning session | Works in its repository; merges and deploys under its mandate | Take authority from a peer's message |
 
 The orchestration session can only send messages, so it cannot technically make a session wait.
@@ -73,30 +73,60 @@ and the exact action, and link the session.
 |---|---|---|
 | Status, advice, drafts | Any session | Not needed |
 | Ticket or comment | Owning session | Explicit request or mandate |
-| Merge, no untrusted input read | Owning session | Mandate, or the owner's word in its chat |
-| Merge after untrusted input | Hugin task, else fresh session | Owner's approval of the handoff |
+| Merge, first-party input only, no commit author exposed or unknown | Owning session | Mandate, or the owner's word in its chat |
+| Merge after untrusted input, or requested in the queue, no commit author exposed or unknown | Fresh session | Owner's approval of the handoff |
+| Merge a third-party PR, or one with an exposed or unknown commit author | Owner, with the pinned command | Owner's own terminal |
+| Merge a harness check refuses | Owner, with the pinned command | Owner's own terminal |
 | Production deploy | Owning session | Bounded release mandate, or exact-revision confirmation |
 | Credentials, destructive actions, payments, consequential messages | Acting session | Just-in-time confirmation |
 | Permission mode change | Owner | The app's approval card |
 
-An orchestration session does not merge once it has read session transcripts, model output or
-third-party PR text. [`interactive-session-posture.md`](interactive-session-posture.md) treats
-those as untrusted, and operator approval cannot authorize a mutation from the context that
-consumed them.
+An orchestration session does not merge. It reads other sessions' transcripts and reports, so it
+cannot show that its inputs were first-party, and operator approval cannot authorize a mutation from
+a context that consumed untrusted input.
+[`interactive-session-posture.md`](interactive-session-posture.md) defines what counts.
 
 The rule follows the exposure, not the mandate. Any session that has consumed untrusted input hands
 a merge off, with or without a mandate, and the same applies to a deploy or any other consequential
-mutation. A merge the owner approves in the queue is handed off the same way.
+mutation. A merge the owner approves in the queue is handed off the same way. An owning session that
+read only first-party material, including its independent reviewer's report, merges under its
+mandate, unless a commit author was exposed or its exposure is unknown.
 
-Use a Hugin task where Hugin supports the path. Otherwise start a fresh session with a restated
-goal: repository, PR, exact head SHA and required checks, with no raw transcript. It rechecks head,
-checks and mergeability, merges pinned to that head, and records why the fallback was used. A fresh
-session separates reasoning context only. Without narrowed capabilities it is not a security
-boundary.
+Hugin has no documented merge path, so start a fresh session with a restated goal: repository, PR,
+exact head SHA, required checks, a statement that independent review passed at that exact head SHA
+and names the reviewer, and the owner's words, with no raw transcript or review text. This route and
+a direct merge need every author of the PR's commits to be the owner or one of the owner's agents
+that read no untrusted material. A third-party PR's paths and check names can carry outside text, so
+the owner merges it by hand with the pinned command below. The same applies when any commit author
+was exposed to untrusted material or its exposure is unknown. The fresh session
+reads structured fields only, rechecks head, checks and mergeability, merges pinned to that head,
+and records why the fallback was used. A fresh session separates reasoning context only. Without
+narrowed capabilities it is not a security boundary.
+
+If a harness or permission check refuses the merge, the fresh session stops and reports. It does not
+try another route. The owner can run the pinned command by hand:
+
+```bash
+gh pr merge <number> --repo <owner>/<repo> --merge --match-head-commit <sha>
+```
+
+To trial a review mark, a session whose inputs were first-party sets this after independent review
+passes, then names `review/independent` in the brief. An orchestration session hands the setting
+off. It needs the usual authorization for publication, and nothing has yet shown that harness checks
+accept it:
+
+```bash
+gh api repos/<owner>/<repo>/statuses/<sha> -f state=success -f context=review/independent
+```
 
 On 2026-10-30 three merges ran directly from the orchestration session (grimnir#224, sAIda#66 and
 brokkr#168). All were on the owner's word and pinned to reviewed heads, and all were outside the
 posture. Do not repeat that pattern.
+
+On 2026-10-31 Claude Code's auto-mode check refused a fresh session's merge of ticket-system#1 as
+"Merge Without Review", with the owner's approval in the brief. That repository has no CI, and the
+cause is not confirmed. The owner ran the pinned command. grimnir#225 had passed the same route a
+day earlier.
 
 ## 4. Permission modes
 
