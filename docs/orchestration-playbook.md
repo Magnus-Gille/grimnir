@@ -104,9 +104,10 @@ try another route. The owner can run the pinned command by hand:
 gh pr merge <number> --repo <owner>/<repo> --merge --match-head-commit <sha>
 ```
 
-To trial a review mark, set this after independent review passes, then name `review/independent` in
-the brief. It needs the usual authorization for publication, and nothing has yet shown that harness
-checks accept it:
+To trial a review mark, a session whose inputs were first-party sets this after independent review
+passes, then names `review/independent` in the brief. An orchestration session hands the setting
+off. It needs the usual authorization for publication, and nothing has yet shown that harness checks
+accept it:
 
 ```bash
 gh api repos/<owner>/<repo>/statuses/<sha> -f state=success -f context=review/independent
