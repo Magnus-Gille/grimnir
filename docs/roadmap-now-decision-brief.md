@@ -139,7 +139,9 @@ enforcement framework.
 Suggested posture:
 
 - Treat raw email, Telegram forwards, web pages, PDFs, and documents as untrusted until summarized
-  or inspected in a read-only pass.
+  or inspected in a read-only pass. *Superseded (GRIM-227, GRIM-228): a summary or read-only pass
+  does not make material trusted; see
+  [`interactive-session-posture.md`](interactive-session-posture.md).*
 - Do not combine untrusted-content reading with external sends, credential use, deploys, or broad
   filesystem edits in the same reasoning context.
 - Mutating work that follows untrusted input must use a Hugin-mediated task path. If Hugin cannot
