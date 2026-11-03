@@ -104,7 +104,7 @@ LearningTaskContract.
 
 | Field | Value |
 |-------|-------|
-| **Schedule** | Weekly, Sunday 03:00 UTC (+10 min jitter) |
+| **Schedule** | Weekly, Sunday 03:00 in the host timezone (up to 10 min jitter) |
 | **Unit** | `grimnir-security-scan.timer` / `grimnir-security-scan.service` |
 | **Repo** | `grimnir` |
 | **Script** | `scripts/security-scan.sh` |
@@ -112,12 +112,22 @@ LearningTaskContract.
 | **Output** | Munin: `security/scans/{date}`, per-repo results in `security/repos/*` |
 | **Why it exists** | Automated dependency vulnerability and secret leak detection |
 
-The service must have an authoritative Git checkout for every `scan: true`
-repository beneath its configured checkout root. The scanner materializes each
-checked-out commit into a private snapshot and audits that snapshot; it does
-not scan deployment trees or claim deployment/runtime integrity. A missing
-checkout, unreadable commit, or unusable audit result makes the entire run
-incomplete and non-zero rather than silently omitting a repository.
+The service uses `--source upstream`: for every `scan: true` repository it reads
+the registry-owned GitHub origin's advertised HEAD and fetches that exact commit
+into temporary Git objects. It then materializes every tracked blob into the
+same private, read-only snapshot used for dependency and secret checks. It never
+checks out source or alters canonical/deployment directories. Receipts bind the
+source authority, captured upstream commit/time, tree and snapshot digest. A
+failed fetch, revision mismatch, unreadable source or unusable audit result makes
+the entire run incomplete and non-zero, with no stale-source fallback. Runtime
+state is independent: stopped or runtime-not-applicable components still scan
+when `scan: true`, and source coverage does not establish deployment integrity.
+
+Manual runs default to `--source local` for offline reproduction from local
+authoritative checkouts; `--source upstream` selects the scheduled behavior.
+Git's child environment excludes the Munin token and unrelated provider tokens.
+The unit retains its existing sandbox, private temporary directory and 300-second
+overall limit; each source Git command has its own 45-second limit.
 
 Manual runs take `MUNIN_TOKEN` from the environment or one line from standard
 input with `--munin-token-stdin`. Do not pass the token as a command-line value;
