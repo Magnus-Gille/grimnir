@@ -746,6 +746,26 @@ the run if it cannot construct any required snapshot. Deployment and runtime
 integrity require separate host-local evidence; they are not inferred from
 source coverage.
 
+Secret scanning includes test and evaluation files. The scanner reads a tracked
+`.gitleaks.toml` only from that same immutable snapshot; an untracked or dirty
+working-tree policy cannot affect the result. Its deliberately narrow allowlist
+adapter accepts `[[allowlists]]` with finite literal `regexes` (including finite
+character sets and non-capturing alternatives), matched against the entire
+credential, with `regexTarget = "match"` or `"secret"`. Optional `paths` must be
+exact anchored paths combined with `condition = "AND"`. It does not implement
+the full Gitleaks policy language: wildcards, repetition, path-only exceptions,
+custom rules and external extensions fail coverage visibly. Exact configured
+values are also exempt in the configuration itself; unrelated configuration
+contents are still scanned. There is no whole-line placeholder or test-directory
+exception. Missing configuration means no synthetic exceptions; malformed,
+unreadable or unsupported configuration makes the scan incomplete.
+
+This adapter uses Python 3.11+ and the standard-library TOML parser, without
+additional packages. The scanner continues to emit only file, line and category,
+never matched credential values. Snapshot verification still runs before and
+after secret detection. Run `make test-security-allowlist` for the integration
+regressions.
+
 **Munin schema:**
 
 | Namespace | Key | Type | Purpose |

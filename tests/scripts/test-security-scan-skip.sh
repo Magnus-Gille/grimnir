@@ -1,161 +1,132 @@
 #!/usr/bin/env bash
-# tests/scripts/test-security-scan-skip.sh
+# End-to-end regression coverage for GRIM-233's committed secret allowlist.
 #
-# Regression test for security-scan.sh Phase-2 test-file exclusion.
-#
-# Issue #22: test files containing intentional secret-like fixtures were
-# being flagged by the secret scan despite the case-based skip.  This test
-# creates a minimal fake git repo containing:
-#   - tests/foo.test.ts          (a *.test.ts file with a fake secret)
-#   - tests/nested/bar.test.ts   (nested under tests/)
-#   - eval/fixtures/pii.jsonl    (evaluation fixture with fake patterns — SKIPPED)
-#   - eval/runner.ts             (non-fixture eval file — should be SCANNED, not skipped)
-#   - src/real.ts                (a non-test file WITHOUT secrets)
-#
-# It then runs the Phase-2 scan logic directly (without npm audit) and asserts
-# that secrets_found == 0 and that non-test files are still scanned.
-#
-# Usage:
-#   bash tests/scripts/test-security-scan-skip.sh
-#
-# Exit codes:  0 = all assertions passed, 1 = at least one assertion failed.
+# This deliberately invokes the real scanner. The fixture is a throwaway
+# committed repository and npm is a local deterministic stub; no network,
+# credentials, or real checkout is involved.
 
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCANNER="$SCRIPT_DIR/../../scripts/security-scan.sh"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 PASS=0
 FAIL=0
 
-assert_eq() {
-  local desc="$1" expected="$2" actual="$3"
-  if [[ "$actual" == "$expected" ]]; then
-    echo "  PASS: $desc"
-    PASS=$((PASS+1))
-  else
-    echo "  FAIL: $desc — expected '$expected', got '$actual'"
-    FAIL=$((FAIL+1))
-  fi
+pass() { echo "  PASS: $1"; PASS=$((PASS + 1)); }
+fail() { echo "  FAIL: $1"; FAIL=$((FAIL + 1)); }
+
+assert_output() {
+  local description=$1 pattern=$2 output=$3
+  if grep -Fq -- "$pattern" "$output"; then pass "$description"; else fail "$description"; fi
 }
 
-# ── Create a temp fake git repo ────────────────────────────────────────────
-TMP_REPO="$(mktemp -d)"
-trap 'rm -rf "$TMP_REPO"' EXIT
+assert_not_output() {
+  local description=$1 pattern=$2 output=$3
+  if grep -Fq -- "$pattern" "$output"; then fail "$description"; else pass "$description"; fi
+}
 
-git -C "$TMP_REPO" init -q
-git -C "$TMP_REPO" config user.email "test@example.com"
-git -C "$TMP_REPO" config user.name "Test"
+mkdir -p "$TMP_DIR/bin" "$TMP_DIR/repos/alpha/src" "$TMP_DIR/repos/alpha/tests"
 
-# Test file: *.test.ts at top level of tests/
-mkdir -p "$TMP_REPO/tests/nested"
-cat > "$TMP_REPO/tests/foo.test.ts" << 'EOF'
-// Intentional fake key for testing the sensitivity scanner
-const fakeKey = 'sk-ant-api03-FakeAnthropicTestKey1234567890ABCDEFGHIJKLMNOPQRST';
+cat > "$TMP_DIR/bin/npm" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' '{"auditReportVersion":2,"vulnerabilities":{},"metadata":{"vulnerabilities":{"info":0,"low":0,"moderate":0,"high":0,"critical":0,"total":0}}}'
+EOF
+chmod +x "$TMP_DIR/bin/npm"
+
+cat > "$TMP_DIR/registry.json" <<'EOF'
+{
+  "repository_authority": {"default_owner":"Magnus-Gille"},
+  "components": [
+    {"name":"alpha","repo":"alpha","host":null,"port":null,"deploy":false,"scan":true,"needs_build":false,"systemd_units":[]}
+  ]
+}
 EOF
 
-# Test file: nested under tests/
-cat > "$TMP_REPO/tests/nested/bar.test.ts" << 'EOF'
-const fakeGHToken = 'ghp_FakeGitHubTokenABCDEFGHIJKLMNOPQRSTUVWX';
+cat > "$TMP_DIR/repos/alpha/package-lock.json" <<'EOF'
+{"name":"alpha","lockfileVersion":3,"packages":{}}
 EOF
 
-# Evaluation fixture (should be skipped via eval/fixtures/* pattern)
-mkdir -p "$TMP_REPO/eval/fixtures"
-cat > "$TMP_REPO/eval/fixtures/pii.jsonl" << 'EOF'
-{"text":"CI echoed GH_TOKEN=ghp_FakeGitHubTokenABCDEFGHIJKLMNOPQRSTUVWX","spans":{}}
+cat > "$TMP_DIR/repos/alpha/.gitleaks.toml" <<'EOF'
+[[allowlists]]
+description = "Synthetic fixture values only"
+regexTarget = "secret"
+regexes = ["sk-ant-ALLOWEDTOKEN1234567890"]
+
+[[allowlists]]
+description = "Path-bound fixture value"
+regexTarget = "secret"
+regexes = ["sk-ant-PATHALLOWEDTOKEN1234567"]
+condition = "AND"
+paths = ["^src/path-allowed\\.ts$"]
 EOF
 
-# Non-fixture eval file — NOT a fixture, must be scanned (no secrets in it)
-cat > "$TMP_REPO/eval/runner.ts" << 'EOF'
-export function runEval() { return "ok"; }
+# The exact allowlisted candidate is present in source and tests. Both are
+# scanned; neither is an excuse to skip test files.
+cat > "$TMP_DIR/repos/alpha/src/allowed.ts" <<'EOF'
+export const fixture = "sk-ant-ALLOWEDTOKEN1234567890";
+EOF
+cat > "$TMP_DIR/repos/alpha/tests/allowed.test.ts" <<'EOF'
+const fixture = "sk-ant-ALLOWEDTOKEN1234567890";
 EOF
 
-# Real source file WITHOUT secrets (should be scanned but produce 0 findings)
-mkdir -p "$TMP_REPO/src"
-cat > "$TMP_REPO/src/real.ts" << 'EOF'
-export function hello() { return "hello"; }
+# Every value below must remain a finding: new test token, same-line mixed
+# content, and prefix/suffix mutations of an otherwise allowed candidate.
+cat > "$TMP_DIR/repos/alpha/tests/new.test.ts" <<'EOF'
+const newToken = "sk-ant-NEWUNALLOWLISTEDTOKEN123456";
+EOF
+cat > "$TMP_DIR/repos/alpha/src/same-line.ts" <<'EOF'
+const mixed = "sk-ant-ALLOWEDTOKEN1234567890" + " sk-ant-NEWUNALLOWLISTEDTOKEN123456";
+EOF
+cat > "$TMP_DIR/repos/alpha/src/mutations.ts" <<'EOF'
+const prefixMutation = "sk-ant-XALLOWEDTOKEN1234567890";
+const suffixMutation = "sk-ant-ALLOWEDTOKEN1234567890X";
+EOF
+cat > "$TMP_DIR/repos/alpha/src/path-allowed.ts" <<'EOF'
+export const fixture = "sk-ant-PATHALLOWEDTOKEN1234567";
+EOF
+cat > "$TMP_DIR/repos/alpha/tests/path-denied.test.ts" <<'EOF'
+const fixture = "sk-ant-PATHALLOWEDTOKEN1234567";
 EOF
 
-# Track everything
-git -C "$TMP_REPO" add .
-git -C "$TMP_REPO" commit -q -m "test fixture"
+git -C "$TMP_DIR/repos/alpha" init -q -b main
+git -C "$TMP_DIR/repos/alpha" config user.email test@example.invalid
+git -C "$TMP_DIR/repos/alpha" config user.name GrimnirTest
+git -C "$TMP_DIR/repos/alpha" add .
+GIT_AUTHOR_NAME=GrimnirTest GIT_AUTHOR_EMAIL=test@example.invalid \
+GIT_COMMITTER_NAME=GrimnirTest GIT_COMMITTER_EMAIL=test@example.invalid \
+  git -C "$TMP_DIR/repos/alpha" commit -q -m fixture
+git -C "$TMP_DIR/repos/alpha" remote add origin https://github.com/Magnus-Gille/alpha.git
 
-# ── Replicate the Phase-2 loop logic ──────────────────────────────────────
-SCAN_TMP2="$(mktemp -d)"
-trap 'rm -rf "$TMP_REPO" "$SCAN_TMP2"' EXIT
+run_scan() {
+  local output=$1 rc=0
+  REPOS_DIR="$TMP_DIR/repos" REGISTRY_PATH="$TMP_DIR/registry.json" \
+    PATH="$TMP_DIR/bin:$PATH" bash "$SCANNER" --dry-run --verbose >"$output" 2>&1 || rc=$?
+  printf '%s\n' "$rc"
+}
 
-SECRET_PATTERNS_FILE="$SCAN_TMP2/patterns.txt"
-cat > "$SECRET_PATTERNS_FILE" << 'PATTERNS'
-Bearer [A-Za-z0-9_/+=-]{20,}	bearer-token
-sk-ant-[a-zA-Z0-9_-]{20,}	anthropic-key
-sk-[a-zA-Z0-9]{20,}	openai-key
-ghp_[a-zA-Z0-9]{36}	github-pat
-AKIA[A-Z0-9]{16}	aws-access-key
-PATTERNS
+echo "security scan integration tests"
+echo "=============================="
 
-ALLOWLIST_PATTERN='\*\*\*|<TOKEN>|<key>|example|EXAMPLE|sample|your[-_]|YOUR_'
+output="$TMP_DIR/findings.out"
+rc="$(run_scan "$output")"
+if [[ "$rc" == "0" ]]; then pass "scanner completes with findings"; else fail "scanner completes with findings (exit $rc)"; fi
+assert_output "findings make overall status critical" "Overall status: critical" "$output"
+assert_output "findings retain complete coverage" "COVERAGE: complete=true" "$output"
 
-finding_count=0
-processed_count=0
-skipped_count=0
-
-tracked_files="$(git -C "$TMP_REPO" ls-files 2>/dev/null)" || true
-
-while IFS= read -r relfile; do
-  absfile="$TMP_REPO/$relfile"
-  [[ -f "$absfile" ]] || continue
-
-  basename_file="$(basename "$relfile")"
-  if [[ "$relfile" == *".env.example"* ]] || [[ "$basename_file" == ".env.example" ]]; then
-    continue
-  fi
-
-  # ── This is the block under test ──────────────────────────────────────
-  case "$relfile" in
-    tests/*|test/*|*/tests/*|*/test/*|\
-    __tests__/*|*/__tests__/*|*/__mocks__/*|\
-    eval/fixtures/*|eval/*/fixtures/*|*/eval/fixtures/*|*/eval/*/fixtures/*|\
-    *.test.ts|*.test.tsx|*.test.js|*.test.jsx|*.test.mjs|*.test.cjs|\
-    *.spec.ts|*.spec.tsx|*.spec.js|*.spec.jsx|*.spec.mjs|*.spec.cjs|\
-    *_test.py|*_test.go)
-      skipped_count=$((skipped_count+1))
-      continue
-      ;;
-  esac
-  # ──────────────────────────────────────────────────────────────────────
-
-  processed_count=$((processed_count+1))
-
-  while IFS='	' read -r pattern _category; do
-    [[ -z "$pattern" ]] && continue
-    matched_lines="$(grep -nE "$pattern" "$absfile" 2>/dev/null)" || true
-    [[ -z "$matched_lines" ]] && continue
-    real_matches="$(echo "$matched_lines" | grep -vE "$ALLOWLIST_PATTERN" 2>/dev/null)" || true
-    [[ -z "$real_matches" ]] && continue
-    while IFS= read -r _match_line; do
-      finding_count=$((finding_count+1))
-    done <<< "$real_matches"
-  done < "$SECRET_PATTERNS_FILE"
-
-done <<< "$tracked_files"
-
-# ── Assertions ────────────────────────────────────────────────────────────
-echo ""
-echo "Running assertions..."
-
-# 1. test files (tests/foo.test.ts, tests/nested/bar.test.ts) and
-#    eval fixture (eval/fixtures/pii.jsonl) must all be skipped — 3 files.
-#    eval/runner.ts is NOT a fixture and must NOT be skipped.
-assert_eq "skipped_count == 3 (tests/ + nested tests/ + eval/fixtures/)" "3" "$skipped_count"
-
-# 2. No secrets must be reported (even though test files contain fake keys)
-assert_eq "finding_count == 0 (no secrets from test/eval files)" "0" "$finding_count"
-
-# 3. Both src/real.ts and eval/runner.ts (non-fixture eval) were scanned
-assert_eq "processed_count == 2 (src/real.ts and eval/runner.ts are scanned)" "2" "$processed_count"
+# These are all real scanner metadata locations. If the old blanket test
+# exclusion returns, new.test.ts and path-denied.test.ts disappear.
+assert_output "unallowlisted token in tests is detected" "tests/new.test.ts:1" "$output"
+assert_output "same-line allowed plus new token is detected" "src/same-line.ts:1" "$output"
+assert_output "prefix mutation is detected" "src/mutations.ts:1" "$output"
+assert_output "suffix mutation is detected" "src/mutations.ts:2" "$output"
+assert_output "path-restricted exception does not apply in tests" "tests/path-denied.test.ts:1" "$output"
+assert_not_output "metadata does not print the allowlisted token" "ALLOWEDTOKEN1234567890" "$output"
+assert_not_output "metadata does not print the unallowlisted token" "NEWUNALLOWLISTEDTOKEN123456" "$output"
 
 echo ""
-if [[ "$FAIL" -eq 0 ]]; then
-  echo "All $PASS assertion(s) passed."
-  exit 0
-else
-  echo "$FAIL of $((PASS+FAIL)) assertion(s) FAILED."
-  exit 1
-fi
+echo "Results: ${PASS} passed, ${FAIL} failed"
+[[ "$FAIL" -eq 0 ]]

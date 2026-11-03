@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-SCANNER_VERSION="1.5.0"
+SCANNER_VERSION="1.6.0"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
@@ -438,9 +438,6 @@ npm_[a-zA-Z0-9]{36}	npm-token
 [0-9]{8,10}:[A-Za-z0-9_-]{35}	telegram-bot-token
 PATTERNS
 
-# Allowlist: lines matching these are NOT flagged
-ALLOWLIST_PATTERN='\*\*\*|<TOKEN>|<key>|example|EXAMPLE|sample|your[-_]|YOUR_'
-
 for repo in $SCAN_COMPONENTS; do
   dir="$(repo_get "$repo" snapshot_dir)"
   tracked_list="$(repo_get "$repo" tracked_files)"
@@ -455,88 +452,29 @@ for repo in $SCAN_COMPONENTS; do
 
   log_verbose "  $repo: scanning immutable source snapshot for secrets..."
 
-  findings_tsv=""   # accumulates: repo<TAB>file<TAB>line<TAB>category, one per line
-  finding_count=0
-
-  while IFS= read -r relfile; do
-    absfile="$dir/$relfile"
-    [[ -f "$absfile" ]] || continue
-
-    # Skip .env.example files
-    basename_file="$(basename "$relfile")"
-    if [[ "$relfile" == *".env.example"* ]] || [[ "$basename_file" == ".env.example" ]]; then
-      log_verbose "    Skipping .env.example: $relfile"
-      continue
-    fi
-
-    # Skip test and evaluation fixture files. These directories intentionally
-    # embed realistic-looking patterns (e.g. sk-ant-... in
-    # tests/sensitivity.test.ts, synthetic PII in eval/privacy-filter/fixtures/)
-    # to verify the sensitivity / exfiltration scanners.  Real secrets should
-    # never live in tests or eval fixtures — use env vars or placeholder values.
-    #
-    # NOTE: In bash `case`, `*` matches any string INCLUDING `/`, so
-    # `tests/*` correctly skips nested paths like
-    # tests/broker/openrouter-executor.test.ts.
-    # eval/: only skip fixture subdirectories (eval/fixtures/*, eval/*/fixtures/*),
-    # NOT entire eval/ trees — runner scripts or configs under eval/ are still scanned.
-    case "$relfile" in
-      tests/*|test/*|*/tests/*|*/test/*|\
-      __tests__/*|*/__tests__/*|*/__mocks__/*|\
-      eval/fixtures/*|eval/*/fixtures/*|*/eval/fixtures/*|*/eval/*/fixtures/*|\
-      *.test.ts|*.test.tsx|*.test.js|*.test.jsx|*.test.mjs|*.test.cjs|\
-      *.spec.ts|*.spec.tsx|*.spec.js|*.spec.jsx|*.spec.mjs|*.spec.cjs|\
-      *_test.py|*_test.go)
-        log_verbose "    Skipping test/fixture file: $relfile"
-        continue
-        ;;
-    esac
-
-    # Skip by extension (fast path)
-    case "$relfile" in
-      *.png|*.jpg|*.jpeg|*.gif|*.ico|*.woff|*.woff2|*.ttf|*.eot|\
-      *.zip|*.tar|*.gz|*.bz2|*.xz|*.7z|*.rar|\
-      *.pdf|*.doc|*.docx|*.xls|*.xlsx|\
-      *.min.js|*.map)
-        log_verbose "    Skipping by extension: $relfile"
-        continue
-        ;;
-    esac
-
-    # Skip true binary files by checking for NUL bytes in first 512 bytes
-    # This correctly handles .sh, .ts, .json, and other text files that
-    # the `file` command may label ambiguously (e.g., "JSON data" has no "text")
-    if LC_ALL=C grep -qP '\x00' "$absfile" 2>/dev/null; then
-      log_verbose "    Skipping binary (NUL bytes): $relfile"
-      continue
-    fi
-
-    # Scan against each pattern
-    while IFS='	' read -r pattern category; do
-      [[ -z "$pattern" ]] && continue
-
-      # grep exits 1 on no match — suppress with || true
-      matched_lines="$(grep -nE "$pattern" "$absfile" 2>/dev/null)" || true
-      [[ -z "$matched_lines" ]] && continue
-
-      # Filter allowlist
-      real_matches="$(echo "$matched_lines" | grep -vE "$ALLOWLIST_PATTERN" 2>/dev/null)" || true
-      [[ -z "$real_matches" ]] && continue
-
-      # Record file:line:category ONLY — never the actual secret value
-      # Accumulate as TSV; convert to JSON array in one node call after loops
-      while IFS= read -r match_line; do
-        line_num="$(echo "$match_line" | cut -d: -f1)"
-        finding_count=$((finding_count + 1))
-        if [[ -z "$findings_tsv" ]]; then
-          findings_tsv="${repo}	${relfile}	${line_num}	${category}"
-        else
-          findings_tsv="${findings_tsv}
-${repo}	${relfile}	${line_num}	${category}"
-        fi
-      done <<< "$real_matches"
-    done < "$SECRET_PATTERNS_FILE"
-  done < "$tracked_list"
+  # The helper reads policy and source from this same immutable snapshot.
+  # Failure (including missing Python/TOML support) is incomplete coverage.
+  secret_result="$SCAN_TMP/${repo//-/_}__secret-result.json"
+  if ! python3 "$SCRIPT_DIR/lib/secret-scan.py" "$dir" "$tracked_list" "$SECRET_PATTERNS_FILE" "$repo" > "$secret_result"; then
+    repo_set "$repo" "secret_status" "error:secret-scan"
+    repo_set "$repo" "secret_count" "0"
+    repo_set "$repo" "secret_findings" "[]"
+    echo "  $repo: ERROR (secret source/configuration scan failed)"
+    continue
+  fi
+  findings_json="$(cat "$secret_result")"
+  if ! finding_count="$(node --input-type=commonjs -e '
+    const fs = require("fs");
+    const result = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    if (!Array.isArray(result)) process.exit(1);
+    process.stdout.write(String(result.length));
+  ' "$secret_result")"; then
+    repo_set "$repo" "secret_status" "error:secret-result"
+    repo_set "$repo" "secret_count" "0"
+    repo_set "$repo" "secret_findings" "[]"
+    echo "  $repo: ERROR (invalid secret scan result)"
+    continue
+  fi
 
   # npm is an external command. Recheck after every file scan so a delayed
   # child cannot mutate the snapshot after the pre-scan verification and leave
@@ -550,21 +488,6 @@ ${repo}	${relfile}	${line_num}	${category}"
   fi
 
   repo_set "$repo" "secret_count" "$finding_count"
-  # Convert accumulated TSV findings to JSON array in a single node call
-  findings_json=""
-  if [[ -z "$findings_tsv" ]]; then
-    findings_json="[]"
-  else
-    findings_json="$(printf '%s' "$findings_tsv" | OUTDIR="$SCAN_TMP" node --input-type=commonjs -e '
-      var lines = require("fs").readFileSync("/dev/stdin", "utf8").split("\n").filter(Boolean);
-      var arr = lines.map(function(l) {
-        var p = l.split("\t");
-        return { repo: p[0], file: p[1], line: parseInt(p[2]) || 0, category: p[3] };
-      });
-      process.stdout.write(JSON.stringify(arr));
-    ')"
-  fi
-
   repo_set "$repo" "secret_findings" "$findings_json"
   TOTAL_SECRETS=$((TOTAL_SECRETS + finding_count))
 
