@@ -39,8 +39,8 @@ the annotation, not only the filename.
   adapter boundaries, evidence, activation and reversal; does not arm ADR-008 production coverage
 - `docs/orchestration-playbook.md` — How one orchestration session routes owner questions across
   parallel sessions: kickoff mandates, one question queue, who acts, permission modes, and other
-  harnesses. Grants no authority; any session that has read untrusted input hands consequential
-  mutations off, with or without a mandate
+  harnesses. Grants no authority; sessions act within owner mandates and preserve review,
+  permission and release gates after reading untrusted input
 
 - `docs/role-separation.md` — Why the canonical grimnir checkout must not double as a deploy target
   or hugin workspace, and the validate check that alarms on drift (issue #47)
@@ -74,7 +74,7 @@ the annotation, not only the filename.
   `tests/fixtures/maintenance-policy` and `tests/scripts/validate-maintenance-policy-contract.mjs`
 - `docs/failure-recovery.md` — The autonomous-mutation undo convention: every autonomous mutation
   leaves a reversal recipe (`git_revert`, snapshot, or irreversible plus mitigation) and an audit
-  event (issue #46)
+  event in a durable sink; Verdandi is optional (issue #46, GRIM-234)
 
 ## Learning and improvement loop
 
@@ -112,7 +112,7 @@ the annotation, not only the filename.
   unattended-upgrades origins (incl. the Raspberry Pi archive and Ubuntu `-updates`), Pi bootloader
   EEPROM as the only flashed firmware, Brokkr's guarded nightly reboot (workload, package, load,
   terminal, unlock and alert-path guards, latch, post-boot and daily health checks), no agent
-  deployment authority, and the audit/reversal exception while Verdandi is stopped.
+  deployment authority, and its specific host audit/reversal contract while Verdandi is stopped.
 - `docs/autonomy-constitution-v1.schema.json`, `docs/autonomous-mutation-journal-v1.schema.json`,
   `docs/autonomy-coverage-registry-v1.schema.json`, `docs/autonomy-coverage-registry-v1.json`,
   `docs/autonomy-owner-attestation-registry-v1.schema.json`, and
@@ -172,10 +172,9 @@ the annotation, not only the filename.
 - `docs/tenant-validation-2026-07-04.md` — Evidence note from the first real non-Claude tenant run
   (Codex CLI, grimnir#58): seams A/B/C passed on transport, D blocked, per-tenant identity missing
   everywhere; harness in `scripts/tenant-validation/`
-- `docs/interactive-session-posture.md` — Required Hugin handoff (or constrained fresh-session
-  fallback) for consequential mutations after untrusted input, judged by who could have written
-  it; the default merge route, and why orchestration sessions do not merge and the owner merges
-  third-party PRs and any PR with an exposed or unknown commit author
+- `docs/interactive-session-posture.md` — Owner decision 2026-11-03: content remains data, not
+  authority; reading untrusted input does not require Hugin or a fresh session. Authorized
+  owning and orchestration sessions retain the normal review, permission and release gates
 - `docs/succession-checklist.md` — Public, non-secret export-and-shutdown checklist for the emergency
   delegate; private-envelope contents stay out of git
 - `docs/data-lifecycle.md` — Store-by-store retention, correction, erasure, and backup-expiry map

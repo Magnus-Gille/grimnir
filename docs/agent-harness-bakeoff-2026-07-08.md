@@ -158,6 +158,8 @@ What must be true to decouple from Claude:
 - **Gating stays outside the harness:** prompt-injection scanning, egress policy, provenance,
   sensitivity classification, and credentials remain Hugin/Grimnir responsibilities.
 - **Audit emission:** consequential actions need Verdandi events under the tenant/harness identity.
+  *Superseded by owner decision 2026-11-03 (GRIM-234): durable audit records are required;
+  Verdandi is optional. See [failure-recovery.md](failure-recovery.md) for the current contract.*
 - **Reversal recipe:** any autonomous mutation still needs the `failure-recovery.md` undo convention.
 
 This means the main missing piece is a **Hugin HarnessAdapter**, not more Claude-specific prompt

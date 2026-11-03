@@ -17,6 +17,12 @@ grep -Fq 'revert/reverted' "$ROOT/docs/adr-008-autonomy-constitution.md"
 grep -Fq 'recover/recovered' "$ROOT/docs/adr-008-autonomy-constitution.md"
 grep -Fq 'Historical recovery only' "$ROOT/docs/autonomy-journal-conformance-v1.md"
 grep -Fq 'out-of-band watchdog heartbeat' "$ROOT/docs/autonomy-journal-conformance-v2.md"
-grep -Fq 'Legacy actors retain mandatory Verdandi receipts and no automatic rollback' "$ROOT/docs/adr-008-autonomy-constitution.md"
+grep -Fq 'For these ADR-008 classes only, the domain journal is authoritative and Verdandi is an optional' "$ROOT/docs/adr-008-autonomy-constitution.md"
+grep -Fq 'Legacy actors retain durable audit records and no automatic rollback' "$ROOT/docs/adr-008-autonomy-constitution.md"
+grep -Fq 'optional audit transport does not authorize its activation' "$ROOT/docs/adr-008-autonomy-constitution.md"
+if grep -Fq 'Legacy actors retain mandatory Verdandi receipts' "$ROOT/docs/adr-008-autonomy-constitution.md"; then
+  echo "obsolete mandatory Verdandi transport rule remains" >&2
+  exit 1
+fi
 grep -Fq 'Heimdall is read-only' "$ROOT/docs/adr-008-autonomy-constitution.md"
 echo "autonomy-contract documentation checks passed"

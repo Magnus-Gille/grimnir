@@ -5,7 +5,8 @@
 # define the minimal failure-recovery convention referenced by
 # docs/vision.md's "Failure recovery" open question — every autonomous
 # mutation leaves a reversal recipe (git revert ref, pre-state snapshot, or
-# an explicit "irreversible" flag) plus a Verdandi audit event.
+# an explicit "irreversible" flag) plus a durable audit record. Verdandi is
+# an optional projection, not the required transport.
 #
 # This test asserts structural presence of the required concepts, not prose
 # wording — it's a contract check, not a style check.
@@ -54,8 +55,35 @@ assert_contains "documents a git-revert reversal recipe" "git revert"
 assert_contains "documents a pre-state snapshot reversal recipe" "pre-state snapshot|snapshot"
 assert_contains "documents an explicit irreversible flag" "irreversible"
 
-# Must tie every mutation to a Verdandi audit event.
-assert_contains "requires a Verdandi audit event per mutation" "verdandi"
+# Every mutation still needs a durable audit record, while Verdandi remains optional.
+assert_contains "requires a durable audit record per mutation" "durable audit record"
+assert_contains "allows an optional Verdandi projection" "verdandi is optional"
+
+# Agent-driven mutations are blocked until their pre-action attempt record is durable.
+assert_contains "requires the attempt record before acting" "persist the attempt record before acting"
+assert_contains "defines failed audit writes as a gate" "failed audit write"
+assert_contains "blocks mutation when the audit write fails" "blocks the mutation"
+
+# Legacy actors retain reversal visibility but not automatic rollback execution.
+assert_contains "keeps legacy rollback execution manual" "no automatic rollback execution for legacy actors"
+
+# Current summaries must not resurrect the retired transport requirement. Keep the
+# historical bake-off claim only with its explicit supersession note.
+if grep -Fq '(reversal recipe + Verdandi event)' "$REPO_ROOT/docs/vision.md"; then
+  echo "  FAIL: vision retains the retired Verdandi-only convention"
+  FAIL=$((FAIL+1))
+else
+  echo "  PASS: vision does not retain the retired transport requirement"
+  PASS=$((PASS+1))
+fi
+if grep -A2 -F '**Audit emission:** consequential actions need Verdandi events' \
+  "$REPO_ROOT/docs/agent-harness-bakeoff-2026-07-08.md" | grep -qF 'Verdandi is optional'; then
+  echo "  PASS: historical harness audit requirement is explicitly superseded"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL: historical harness audit requirement lacks supersession"
+  FAIL=$((FAIL+1))
+fi
 
 # Must map the convention onto the three Phase-2 actors named in the issue.
 assert_contains "covers auto dependency bumps" "dep(endency)?[ -]bump"

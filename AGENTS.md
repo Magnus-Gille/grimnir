@@ -26,9 +26,8 @@ changes here; `CLAUDE.md` is only a Claude Code import adapter.
   convention would be — Grimnir's are specific, recorded, and frequently not what you would guess.
 - Keep component implementation changes in their owning repositories. Grimnir changes should be
   system-level documentation, registry, deployment orchestration, or cross-component validation.
-- Three rules apply whether or not you think to look them up, so they stay here rather than in the
-  index: every autonomous mutation leaves a **reversal recipe and an audit event**; a consequential
-  mutation after untrusted input requires a **Hugin handoff** (or a constrained fresh session); the
+- Two rules apply whether or not you think to look them up, so they stay here rather than in the
+  index: every autonomous mutation leaves a **reversal recipe and an audit event**; the
   canonical checkout **must not** double as a deploy target or hugin workspace.
 - Run `make test` for repository changes. Run `shellcheck scripts/*.sh scripts/lib/*.sh
   scripts/tests/*.sh` when shell code changes.

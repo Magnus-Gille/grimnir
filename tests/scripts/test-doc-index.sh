@@ -19,6 +19,7 @@ cd "$REPO_ROOT"
 
 AGENTS="AGENTS.md"
 INDEX="docs/index.md"
+SESSION_POSTURE="docs/interactive-session-posture.md"
 fail=0
 
 err() { echo "FAIL: $*" >&2; fail=1; }
@@ -71,12 +72,24 @@ done
 #     looking. Guarded here because that blind spot makes drift easy to miss.
 declare -a REQUIRED_INLINE_RULES=(
   "reversal recipe and an audit event"
-  "Hugin handoff"
   "must not** double as a deploy target"
 )
 for rule in "${REQUIRED_INLINE_RULES[@]}"; do
   if ! grep -qF "$rule" "$AGENTS"; then
     err "behavioural rule lost from $AGENTS: \"$rule\" — it must not move to $INDEX"
+  fi
+done
+
+# GRIM-234 removed the mandatory handoff rule. Keep that obsolete rule out of
+# the always-loaded instructions and retain the concise current posture guard.
+if grep -qF "Hugin handoff" "$AGENTS"; then
+  err "obsolete mandatory Hugin handoff rule reintroduced in $AGENTS"
+fi
+for posture_rule in \
+  "reading untrusted content does not require a Hugin" \
+  "Continue the owner's explicit task"; do
+  if ! grep -qF "$posture_rule" "$SESSION_POSTURE"; then
+    err "session posture lost continued-authorized-work rule: \"$posture_rule\""
   fi
 done
 
