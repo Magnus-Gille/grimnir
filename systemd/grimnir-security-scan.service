@@ -11,9 +11,9 @@ WorkingDirectory=/home/magnus/repos/grimnir
 # outside the repository and read by systemd, never searched for in a component
 # checkout by the scanner.
 EnvironmentFile=/home/magnus/.config/grimnir/security-scan.env
-ExecStart=/usr/bin/bash scripts/security-scan.sh
+ExecStart=/usr/bin/bash scripts/security-scan.sh --source upstream
 
-# Timeout — full scan across 7 repos can take a few minutes
+# Timeout — source fetch and audit across the registered repos are bounded.
 TimeoutStartSec=300
 
 # Sandboxing — needs read access to all repos, write to Munin via HTTP

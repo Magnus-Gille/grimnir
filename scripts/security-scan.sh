@@ -2,7 +2,7 @@
 # security-scan.sh — Scan Grimnir service repos for dependency vulnerabilities and secrets
 #
 # Usage:
-#   ./scripts/security-scan.sh [--munin-token-stdin] [--dry-run] [--verbose] [--repo <name>]
+#   ./scripts/security-scan.sh [--munin-token-stdin] [--dry-run] [--verbose] [--repo <name>] [--source local|upstream]
 #   Set MUNIN_TOKEN in the environment, or pipe one token line to --munin-token-stdin.
 #
 # Checks:
@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-SCANNER_VERSION="1.6.0"
+SCANNER_VERSION="1.7.0"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GRIMNIR_DIR="$(dirname "$SCRIPT_DIR")"
@@ -53,6 +53,7 @@ MUNIN_TOKEN="${MUNIN_TOKEN:-}"  # systemd EnvironmentFile supplies it (grimnir#2
 DRY_RUN=false
 VERBOSE=false
 FILTER_REPO=""
+SOURCE_MODE="local"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -64,6 +65,12 @@ while [[ $# -gt 0 ]]; do
     --dry-run)     DRY_RUN=true; shift ;;
     --verbose)     VERBOSE=true; shift ;;
     --repo)        FILTER_REPO="$2"; shift 2 ;;
+    --source)
+      if [[ $# -lt 2 || ( "$2" != local && "$2" != upstream ) ]]; then
+        echo "ERROR: --source must be local or upstream" >&2
+        exit 1
+      fi
+      SOURCE_MODE="$2"; shift 2 ;;
     *) echo "ERROR: unknown option" >&2; exit 1 ;;
   esac
 done
@@ -245,6 +252,57 @@ verify_source_snapshot() {
   [[ "$actual" == "$expected" ]]
 }
 
+# Scheduled scans fetch current registered sources without modifying canonical
+# checkouts or deployment targets. Manual local scans retain their old contract.
+prepare_scan_source() {
+  local repo=$1 checkout="$REPOS_DIR/$1" result fields upstream_commit captured_at authority
+  repo_set "$repo" source_mode "$SOURCE_MODE"
+  if [[ "$SOURCE_MODE" == upstream ]]; then
+    authority="$(repo_get "$repo" source_authority)"
+    checkout="$SCAN_TMP/${repo//-/_}__upstream"
+    result="$SCAN_TMP/${repo//-/_}__upstream-result.json"
+    if ! node "$SCRIPT_DIR/lib/scan-source.js" "$authority" "$checkout" > "$result"; then
+      repo_set "$repo" source_status "error:source-fetch"
+      return 1
+    fi
+    if ! fields="$(node --input-type=commonjs -e '
+      const fs = require("fs");
+      const r = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      if (!/^[0-9a-f]{40}$/.test(r.commit) || typeof r.captured_at !== "string" ||
+          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(r.captured_at)) process.exit(1);
+      process.stdout.write(r.commit + "\t" + r.captured_at);
+    ' "$result" 2>/dev/null)"; then
+      repo_set "$repo" source_status "error:source-fetch-receipt"
+      return 1
+    fi
+    IFS=$'\t' read -r upstream_commit captured_at <<< "$fields"
+    repo_set "$repo" upstream_commit "$upstream_commit"
+    repo_set "$repo" source_fetched_at "$captured_at"
+  fi
+  if [[ "$SOURCE_MODE" == upstream ]]; then
+    # The fetch helper strips unrelated environment variables; retain that
+    # boundary for every Git process that materializes the fetched objects.
+    # Receipt state lives in SCAN_TMP files, so no shell state must escape.
+    (
+      while IFS= read -r exported_name; do
+        case "$exported_name" in
+          PATH|HOME|XDG_CONFIG_HOME|TMPDIR|LANG|LC_ALL|SSH_AUTH_SOCK) ;;
+          *) export -n "${exported_name?}" ;;
+        esac
+      done < <(compgen -e)
+      export GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=Never
+      prepare_source_snapshot "$repo" "$checkout"
+    ) || return 1
+  else
+    prepare_source_snapshot "$repo" "$checkout" || return 1
+  fi
+  if [[ "$SOURCE_MODE" == upstream && "$(repo_get "$repo" commit)" != "$upstream_commit" ]]; then
+    repo_set "$repo" source_status "error:source-revision-mismatch"
+    return 1
+  fi
+  log_verbose "  $repo: source $SOURCE_MODE $(repo_get "$repo" source_authority) @ $(repo_get "$repo" commit)"
+}
+
 # Component repo names are resolved through the repository authority rather
 # than inferred from a checkout directory.  A missing or mismatched origin is
 # incomplete coverage, not an acceptable local convenience.
@@ -277,6 +335,7 @@ echo ""
 echo "Grimnir Security Scan v${SCANNER_VERSION}"
 echo "Timestamp: $TIMESTAMP"
 echo "Host:      $HOSTNAME_VAL"
+echo "Source:    $SOURCE_MODE"
 if [[ "$DRY_RUN" == "true" ]]; then
   echo "Mode:      DRY RUN (no Munin writes)"
 else
@@ -290,8 +349,7 @@ echo "Phase 1: Dependency audit (npm audit)"
 echo "--------------------------------------"
 
 for repo in $SCAN_COMPONENTS; do
-  checkout="$REPOS_DIR/$repo"
-  if ! prepare_source_snapshot "$repo" "$checkout"; then
+  if ! prepare_scan_source "$repo"; then
     log_verbose "  $repo: authoritative source checkout/snapshot unavailable"
     repo_set "$repo" "audit_status" "error:source-snapshot"
     repo_set "$repo" "audit_critical" "0"
@@ -697,10 +755,16 @@ for repo in $SCAN_COMPONENTS; do
   branch="$(repo_get "$repo" branch)"; [[ -z "$branch" ]] && branch="unknown"
   tree="$(repo_get "$repo" tree)"; [[ -z "$tree" ]] && tree="unknown"
   snapshot_digest="$(repo_get "$repo" snapshot_digest)"; [[ -z "$snapshot_digest" ]] && snapshot_digest="unknown"
+  source_status="$(repo_get "$repo" source_status)"
+  source_authority="$(repo_get "$repo" source_authority)"
+  upstream_commit="$(repo_get "$repo" upstream_commit)"
+  source_fetched_at="$(repo_get "$repo" source_fetched_at)"
 
   printf '%s' "$audit_data"     > "$SCAN_TMP/_ro_audit"
   printf '%s' "$secret_findings" > "$SCAN_TMP/_ro_secrets"
   REPO_VAL="$repo" AUDIT_ST="$audit_st" SECRET_ST="$secret_st" \
+    SOURCE_MODE_VAL="$SOURCE_MODE" SOURCE_STATUS_VAL="$source_status" SOURCE_AUTHORITY_VAL="$source_authority" \
+    UPSTREAM_COMMIT_VAL="$upstream_commit" SOURCE_FETCHED_AT_VAL="$source_fetched_at" \
     COMMIT_VAL="$commit" BRANCH_VAL="$branch" TREE_VAL="$tree" SNAPSHOT_DIGEST_VAL="$snapshot_digest" OUTDIR="$SCAN_TMP" \
     node --input-type=commonjs -e '
       var fs = require("fs"), out = process.env.OUTDIR;
@@ -713,6 +777,11 @@ for repo in $SCAN_COMPONENTS; do
         commit:        process.env.COMMIT_VAL,
         branch:        process.env.BRANCH_VAL,
         source_tree:   process.env.TREE_VAL,
+        source_mode:   process.env.SOURCE_MODE_VAL,
+        source_status: process.env.SOURCE_STATUS_VAL,
+        source_authority: process.env.SOURCE_AUTHORITY_VAL,
+        upstream_commit: process.env.UPSTREAM_COMMIT_VAL || null,
+        source_fetched_at: process.env.SOURCE_FETCHED_AT_VAL || null,
         snapshot_digest: process.env.SNAPSHOT_DIGEST_VAL,
         audit:         audit,
         secrets:       secrets
@@ -821,6 +890,11 @@ for repo in $SCAN_COMPONENTS; do
 
 Last scan: ${TIMESTAMP}
 Commit: ${commit} (${branch})
+Source mode: ${SOURCE_MODE}
+Source authority: $(repo_get "$repo" source_authority)
+Source status: $(repo_get "$repo" source_status)
+Upstream commit: $(repo_get "$repo" upstream_commit)
+Source captured at: $(repo_get "$repo" source_fetched_at)
 Audit status: ${audit_st}
 Secret scan status: ${secret_st}
 Secrets found: ${secrets_count}

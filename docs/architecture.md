@@ -739,12 +739,26 @@ A weekly security scan runs across all Grimnir repos via `scripts/security-scan.
 | Results | Munin (`security/scans/<date>`, `security/repos/<repo>`) + stdout |
 | Dashboard | Heimdall deploy status card (timer type: last run, next run, exit status) |
 
-The scan's coverage claim is source-only: every registered `scan: true`
-repository must be present as an authoritative local Git checkout on the
-scheduled host. The scanner records the commit/tree/snapshot digest and fails
-the run if it cannot construct any required snapshot. Deployment and runtime
-integrity require separate host-local evidence; they are not inferred from
-source coverage.
+The scan's coverage claim is source-only. Scheduled runs use `--source upstream`
+to read the advertised HEAD of every registered `scan: true` repository from
+its registry-owned GitHub origin, fetch that exact commit into a disposable
+Git object repository, and materialize the immutable snapshot from its blobs.
+No checkout, smudge filter or repository hook runs; `export-ignore` cannot omit
+tracked files. Canonical checkouts and deployment directories are untouched.
+Git gets only the existing authentication-related environment it needs, never
+the scanner's Munin token or unrelated provider tokens. No new credentials or
+provider routes are provisioned.
+
+Receipts record source mode, authoritative owner/repository, upstream commit and
+capture time as well as commit/tree/snapshot digest. A fetch, authentication or
+revision mismatch fails coverage; there is no fallback to an older local source.
+The overall service timeout and existing sandbox remain in force. Every
+`scan: true` component stays covered, including stopped Verdandi and Fortnox's
+runtime-not-applicable registration. This does not start or deploy either.
+Manual runs default to `--source local`, which retains the authoritative local
+checkout contract for offline reproduction and labels its source mode clearly.
+Deployment and runtime integrity require separate host-local evidence; they are
+not inferred from source coverage.
 
 Secret scanning includes test and evaluation files. The scanner reads a tracked
 `.gitleaks.toml` only from that same immutable snapshot; an untracked or dirty
