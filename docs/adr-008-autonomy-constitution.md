@@ -194,8 +194,9 @@ all of its bindings remain `shadow`.
 For these ADR-008 classes only, the domain journal is authoritative and Verdandi is an optional
 asynchronous projection: unavailable/rejected Verdandi must not weaken the journal or cause an
 unrecorded mutation. Heimdall is read-only and outside admission, mutation, recovery, rollback, and
-re-arm. Legacy actors retain mandatory Verdandi receipts and no automatic rollback; Verdandi's
-separate recovery/purpose gate remains in force for them.
+re-arm. Legacy actors retain durable audit records and no automatic rollback; their transport
+follows [failure-recovery.md](failure-recovery.md). Verdandi's separate recovery/purpose gate
+remains in force; optional audit transport does not authorize its activation.
 
 ## Consequences
 

@@ -9,8 +9,10 @@
 > adopt it — each repo wires it into its own mutation paths. Companion to
 > [`observability-and-improvement.md`](observability-and-improvement.md)
 > (traces/scores) and the Verdandi section of
-> [`architecture.md`](architecture.md) (the audit log this convention writes
-> to).
+> [`architecture.md`](architecture.md) (an optional audit transport).
+> Owner decision 2026-11-03 (GRIM-234) removes the Verdandi-only transport requirement.
+> Durable audit and reversal remain required; another supported durable sink needs no per-task
+> transport exception.
 
 ---
 
@@ -38,14 +40,14 @@ For the seven bounded Level 4/5 ADR-008 classes only, [ADR-008](adr-008-autonomy
 adds a digest-bound authoritative domain journal. `R-exact` restores an immutable baseline;
 `R-forward` is only a bounded, separately authorized compensating recovery. Unknown state fails
 closed into recovery and controller disarm. Verdandi is an optional projection for those seven
-classes only, and Heimdall remains an observer rather than an admission or recovery actor.
+classes, and Heimdall remains an observer rather than an admission or recovery actor.
 
 **Every legacy autonomous mutation must leave two things behind:**
 
 1. A **reversal recipe** — machine-followable instructions for undoing the
    mutation, chosen from exactly three kinds (see below). Exactly one kind
    applies to any given mutation; there is no partial or "best effort" state.
-2. A **Verdandi audit event** recording what happened and which reversal
+2. A **durable audit record** recording what happened and which reversal
    recipe covers it.
 
 Outside ADR-008's seven closed classes, a mutation without both is a bug in the actor that made it,
@@ -53,14 +55,23 @@ not an acceptable gap. Neither piece is optional — a legacy mutation with an a
 event but no reversal recipe is exactly the gap this convention exists to
 close.
 
-**Narrow exception (ADR-009 only):** for the guarded reboots and Raspberry Pi EEPROM staging that
-[ADR-009](adr-009-host-os-updates-and-guarded-reboots.md) defines, and only while Verdandi is
-stopped, the audit event's transport is a durable, append-only local mutation record on the host
-instead of a Verdandi event. It still carries target, action, outcome and the structured reversal
-recipe; a failed write of the attempt record blocks the mutation. For the distribution package
-transactions that policy admits, the record is the distribution's own durable logs, without an
-admission gate, as ADR-009 states. Telegram and Munin are projections, not substitutes. No other
-actor may cite this exception.
+### Durable audit transport
+
+A durable task artifact or host journal may be the audit sink; Verdandi is optional. Record the
+sink and its durable receipt, a unique attempt identifier, the owner's authorization or mandate,
+target, exact revision or identifier, action, verification, outcome and structured reversal recipe.
+For agent-driven external mutations, persist the attempt record before acting; a failed audit write
+blocks the mutation. Append the outcome after readback. Unknown or partial outcomes remain unresolved
+until reconciled; never blindly repeat a mutation. A transcript alone is not a durable audit sink.
+
+Do not store secrets or claim tamper-evidence or per-tenant identity that the chosen sink does not
+provide. This transport choice neither authorizes the mutation nor starts Verdandi. Existing actor
+implementations still need evidence of adoption; this convention does not claim they emit records.
+
+[ADR-009](adr-009-host-os-updates-and-guarded-reboots.md) retains its specific host-operation contract:
+guarded reboots and Raspberry Pi EEPROM staging use the durable, append-only host record with the
+pre-action write gate; admitted distribution package transactions use the distribution's durable
+logs without that admission gate. Telegram and Munin projections do not replace those host records.
 
 ### The three reversal recipe kinds
 
@@ -75,11 +86,11 @@ convention working as designed: the vision's fallback ("undo, or at least
 make visible before it propagates") is satisfied by the mitigation note, not
 by pretending an unreversible action is reversible.
 
-### The Verdandi audit event
+### Audit record and optional Verdandi projection
 
-Every legacy autonomous mutation emits one event to Verdandi (`POST /api/events`,
-per [`architecture.md`](architecture.md#verdandi--audit-log)) carrying the
-reversal recipe as structured data:
+The durable record carries the reversal recipe as structured data. If an authorized actor uses
+Verdandi (`POST /api/events`, per [`architecture.md`](architecture.md#verdandi--audit-log)), the
+following is an example projection shape, not a prerequisite for mutation:
 
 ```jsonc
 {
@@ -104,7 +115,7 @@ For a `snapshot` mutation, `reversal` instead carries `{ "kind": "snapshot",
 
 `trace_id` links the audit event to the execution trace defined in
 [`observability-and-improvement.md`](observability-and-improvement.md) —
-the trace says *what ran*, the Verdandi event says *what it changed and how
+the trace says *what ran*, the audit record says *what it changed and how
 to undo it*. They are two views of the same action, not competing records.
 
 ### Grading
@@ -190,7 +201,7 @@ reversal pointer exists on task output today, on either record type.
 
 - **Reversal recipe:** `git_revert` for the overwhelming majority — task
   output is a commit or PR. Until Hugin trace instrumentation lands, the
-  Verdandi event should reference the Hugin task id/result ref directly;
+  audit record should reference the Hugin task id/result ref directly;
   once `trace_id` is implemented, link the event via `trace_id` instead and
   add the commit/PR ref to that same trace record. Either way, adding the
   reversal pointer is the adoption path here, not a new mechanism.
@@ -215,7 +226,7 @@ and does not yet write fixes) land as commits to a docs-only repo.
 ## What this convention explicitly does not cover
 
 - **No new service.** This is not a "Syn"-style rollback engine. It is a
-  data shape (the reversal recipe) and a rule (emit it to Verdandi). Each
+  data shape (the reversal recipe) and a rule (persist a durable audit record). Each
   owning repo implements it in its own mutation path.
 - **No automatic rollback execution for legacy actors.** The convention makes undo *possible
   and visible*; it does not decide *when* to actually run a revert. That
@@ -233,5 +244,5 @@ and does not yet write fixes) land as commits to a docs-only repo.
 ---
 
 *This document is a companion to [vision.md](vision.md) (the open question
-it answers) and [architecture.md](architecture.md) (the Verdandi mechanism
-it writes to). Filed against issue #46.*
+it answers) and [architecture.md](architecture.md) (an optional Verdandi projection). Filed against issue #46; transport requirement updated by
+GRIM-234 on 2026-11-03.*

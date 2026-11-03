@@ -39,7 +39,7 @@ What's here:
 - **[docs/roadmap-now-decision-brief.md](docs/roadmap-now-decision-brief.md)** — Index of the adopted owner decisions for succession, data lifecycle, ROI/off-ramp, Skuld, and interactive-session trust
 - **[docs/succession-checklist.md](docs/succession-checklist.md)** — Non-secret emergency export-and-shutdown procedure
 - **[docs/data-lifecycle.md](docs/data-lifecycle.md)** — Practical store, retention, correction, and erasure map
-- **[docs/interactive-session-posture.md](docs/interactive-session-posture.md)** — Hugin/fresh-session handoff after untrusted input
+- **[docs/interactive-session-posture.md](docs/interactive-session-posture.md)** — Content-as-data handling and continued work within owner mandates
 - **[docs/agent-harness-bakeoff-2026-07-08.md](docs/agent-harness-bakeoff-2026-07-08.md)** — Evidence note on open-source, model-agnostic agent harnesses for moving Hugin/Grimnir beyond Claude-only execution
 - **[services.json](services.json)** — Single source of truth for the component inventory (`components`) and the infrastructure/inference-node inventory (`nodes` — hosts, hardware, role, LLM servers). Query via `scripts/lib/registry.js` (`QUERY=nodes`).
 - **[Placement validation](docs/placement-validation.md)** — Read-only desired-vs-observed workload placement comparison using explicit Brokkr evidence.

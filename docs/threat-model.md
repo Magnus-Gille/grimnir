@@ -57,9 +57,9 @@
 | # | Threat | Vector | Current control | Residual | Tracked |
 |---|---|---|---|---|---|
 | T1 | Exfiltration via the **lethal trifecta** | Injection in ingested content → agent with memory+files+exec → egress | Hugin queue-path scanners plus permission profiles: default/read-only requests use `dontAsk`; only explicit `Capabilities: code` + `trusted-code` uses `bypassPermissions` | **H** — trusted-code remains deliberately powerful and content scanners are detective | hugin#149 shipped; continue review |
-| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | Operator posture requires Hugin handoff for consequential mutations after untrusted input, judged by who could have written it, with a constrained fresh-session fallback that is the default merge route | **H** — procedural, not enforced | grimnir#70, GRIM-227 |
+| T2 | Same trifecta on **interactive sessions** | Claude Code / Desktop reading raw email/Telegram with full Munin+Mimir access | Owner mandates, content-as-data handling, review and harness permission gates; no exposure-triggered handoff | **H** — prompt-injection containment is not demonstrated | GRIM-234; grimnir#70/GRIM-227 superseded |
 | T3 | Command injection → fleet code-exec | Ratatoskr `/repo` path-traversal; LLM-produced repo context | Owner allowlist plus task-writer validation; live probes reject traversal and newline/field injection before task creation | **M** — an owner-authorized task can still execute within an allowed repo | ratatoskr#36 shipped |
-| T4 | Autonomous action unattributable / unlogged | Hugin mutates (commits/deploys/writes) without end-to-end tenant identity or Verdandi receipt | Signed submitter provenance now survives Hugin lifecycle transitions and is logged in Munin | **H** — Verdandi/per-tenant chain is still missing | hugin#148, verdandi#15 |
+| T4 | Autonomous action unattributable / unlogged | Hugin mutates (commits/deploys/writes) without end-to-end tenant identity or durable audit receipt | Signed submitter provenance now survives Hugin lifecycle transitions and is logged in Munin | **H** — end-to-end audit and per-tenant attribution remain unproven | hugin#148, verdandi#15 |
 | T5 | Audit-chain forgery or loss | Attacker owns Pi 1, or the only credible chain is lost | Recovery-gated Verdandi safeguards and verify/anchor code are merged | **H** — production is intentionally disabled pending image-first recovery; no recovered chain or routine export may be claimed | Verdandi recovery block |
 | T6 | Supply-chain compromise | Malicious transitive npm dep in a Node service | Weekly `security-scan.sh`, incomplete-scan failure, systemd sandbox, immutable CI action pins | **M** — audit databases and dependency provenance are not complete prevention | per-repo dependency triage |
 | T7 | Physical theft → plaintext data at rest | Stolen Pi / SD card / NAS disk | file perms `0600`; **SD cards likely NOT encrypted — verify** | **H** if unencrypted | brokkr#40 |
@@ -85,15 +85,13 @@
 
 ## 8. Interactive-session posture
 
-The owner-approved handling rule for T2 is defined in
-[`interactive-session-posture.md`](interactive-session-posture.md): inspect untrusted content in a
-non-mutating context, route consequential mutations through Hugin, and use a narrowly restated fresh
-session only when Hugin cannot perform the action. This reduces routine exposure but does not lower
-T2 below **High** until the boundary is technically enforced and evidenced.
+The owner decision of 2026-11-03 (GRIM-234) is recorded in
+[`interactive-session-posture.md`](interactive-session-posture.md). Sessions continue authorized
+work after reading untrusted input; Hugin or a fresh session is no longer required for that reason.
+Content, summaries and model reports remain data rather than authority. Owner mandates, independent
+review, harness permissions, exact release binding and durable audit/reversal still apply.
 
-GRIM-227 narrowed what triggers the handoff, so first-party material no longer does. This keeps
-ordinary delivery and the review gate workable. It leaves three tracked gaps under T2 that this
-posture does not detect: an instruction planted in material judged first-party, for example by an
-author whose exposure went unnoticed; a session wrongly judging its inputs to be first-party; and a
-check or status name produced by something exposed, which the merging session reads. Like everything
-in §5, they are tracked gaps, not accepted risks. T2 stays **High**.
+The earlier grimnir#70/GRIM-227 exposure-based procedure is superseded. Removing it does not prove
+technical containment: injected instructions, poisoned repository or memory content, misleading
+review output and malicious tool-returned names remain potential inputs to a capable session.
+T2 stays **High**. These are tracked gaps, not accepted risks or evidence that a control shipped.

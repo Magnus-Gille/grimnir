@@ -53,6 +53,7 @@ reviewed revert PR for the specific change; installed rollback restores the reco
 revision/link through its authorized host path and verifies it. Never restore data destructively
 as part of code rollback. Unknown or partial activation stays unresolved until readback.
 
-The existing Hugin handoff or constrained fresh-session requirement remains in force after
-untrusted input. This migration does not arm the ADR-008 autonomy controller, install signing
-keys, alter protected lanes or authorize unattended maintenance. Those retain their own contracts.
+Reading untrusted input does not revoke a mandate or require a handoff; embedded content never
+becomes authority (see `interactive-session-posture.md`, owner decision 2026-11-03). This migration
+does not arm the ADR-008 autonomy controller, install signing keys, alter protected lanes or
+authorize unattended maintenance. Those retain their own contracts.

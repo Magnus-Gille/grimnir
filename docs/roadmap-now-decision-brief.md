@@ -136,35 +136,25 @@ egress. Hugin queue gating does not protect those sessions.
 **Smallest useful artifact:** an operator-facing trust posture for interactive sessions, not a new
 enforcement framework.
 
-Suggested posture:
-
-- Treat raw email, Telegram forwards, web pages, PDFs, and documents as untrusted until summarized
-  or inspected in a read-only pass. *Superseded (GRIM-227, GRIM-228): a summary or read-only pass
-  does not make material trusted; see
-  [`interactive-session-posture.md`](interactive-session-posture.md).*
-- Do not combine untrusted-content reading with external sends, credential use, deploys, or broad
-  filesystem edits in the same reasoning context.
-- Mutating work that follows untrusted input must use a Hugin-mediated task path. If Hugin cannot
-  perform the action, use a fresh session with a narrowly restated trusted goal.
-- Record the reason whenever the fresh-session fallback is used; operator approval selects a safe
-  handoff path and does not permit mutation in the tainted context.
-
-**Decision:** route consequential mutations after untrusted input through Hugin, with a constrained
-fresh-session fallback when Hugin cannot perform the action. See
+**Current owner decision, 2026-11-03 (GRIM-234):** remove the mandatory Hugin/fresh-session
+handoff after untrusted input and the related exposure-based merge restrictions. Continue within
+the owner's authorized mandate while treating content as data, preserving review, harness
+permissions, release binding and durable audit/reversal. See
 [`interactive-session-posture.md`](interactive-session-posture.md).
 
-**Architecture fit:** this protects Sovereign Memory from the current lethal-trifecta gap while
-avoiding premature policy bloat. The later technical fix can be narrower once the desired friction
-level is explicit.
+**History:** grimnir#70 adopted the handoff requirement; GRIM-227/GRIM-228 refined its exposure
+rules. Those procedural restrictions are superseded, not evidence of technical containment.
+T2 remains High.
 
 ## grimnir#58 - Tenant validation status
 
-grimnir#58 remains blocked by verdandi#15. The Grimnir-side docs should not claim end-to-end tenant
-conformance until off-Pi Verdandi intake and key provisioning exist, and Seam D has been rerun.
+The 2026-07-04 validation failed Seam D under the former Verdandi-only contract. GRIM-234 makes
+Verdandi optional: a fresh validation may use a durable task artifact or host journal under the
+updated [tenant contract](tenant-contract.md). End-to-end tenant conformance remains unproven;
+removing a transport requirement does not resolve the recorded identity gaps or rerun the checks.
 
-**Owner decision required:** none in Grimnir before verdandi#15. The next Grimnir action is to rerun
-and update [`tenant-validation-2026-07-04.md`](tenant-validation-2026-07-04.md) after the Verdandi
-blocker lands.
+No Verdandi restart is authorized. Retain [the original evidence](tenant-validation-2026-07-04.md)
+as history and record any future validation separately against the contract it actually tests.
 
 ## Adopted artifacts
 

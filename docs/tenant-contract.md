@@ -8,7 +8,9 @@
 >
 > **This is spec-only. No code ships from this document** — mirroring the ecosystem-review
 > Step-0 pattern. Proving the contract with a real non-Claude agent is tracked as validation
-> work (§5), not delivered here.
+> work (§5), not delivered here. The 2026-11-03 update makes Seam D transport-independent;
+> it does not change Seam C for substrate-dispatched tasks or impose that seam on ordinary
+> interactive sessions, which follow [interactive-session-posture.md](interactive-session-posture.md).
 >
 > **Validation status (2026-07-04):** the §5 run was executed for grimnir#58 with the Codex
 > CLI as tenant (`codex-cli`). Seam A/B/C transports **passed**; Seam D was **blocked**
@@ -50,8 +52,10 @@ are guarded by *shared static tokens*, so — as the 2026-07-03 gap analysis put
 substrate cannot attribute *which* tenant did what." Attribution, quota, safety provenance, and
 audit all collapse to a single undifferentiated actor.
 
-> **Contract axiom.** Every tenant presents a **distinct identity credential** at all four
-> seams. One tenant ⇒ one key per seam (or one federated identity resolvable to per-seam keys).
+> **Contract axiom.** Every tenant has distinct, verifiable attribution at each seam. At an
+> authenticated service seam it presents a **distinct identity credential**: one tenant ⇒ one key
+> per seam (or one federated identity resolvable to per-seam keys). A local Seam D record identifies
+> its actor and states how attribution was verified; self-report alone does not prove identity.
 > A tenant that borrows another tenant's key is not conforming — it is impersonation, and it
 > defeats the substrate's ability to route, meter, gate, and audit per actor.
 
@@ -199,35 +203,35 @@ tenant's task is caught and blocked.
 > tenant-readable contract artifact; and the injection/exfiltration canary was deliberately
 > not exercised against the production queue, so that clause remains unvalidated.
 
-### Seam D — Audit emission *(Verdandi — Memory pillar)*
+### Seam D — Durable audit emission *(Memory pillar)*
 
-**Substrate provides:** Verdandi (`:3036`, Pi 1) — a tamper-evident, hash-chained
-(SHA-256 / RFC 8785) event log. `POST /api/events` (single) / `POST /api/events/batch` (≤1000),
-Bearer **per-component key**, server-authoritative derived fields (timestamp, identity, hash),
-redact-before-persist (14-rule pipeline), severity taxonomy (`critical` / `significant` /
-`routine` / `debug`), retention classes, and an honesty grade on every event —
-`mechanism` (proven/automatic) vs `convention` (self-reported).
+**Owner update, 2026-11-03 (GRIM-234):** a durable audit record is required; Verdandi is an optional
+transport, not a conformance prerequisite. Follow [failure-recovery.md](failure-recovery.md) for
+record contents, receipts, pre-action writes, outcome reconciliation and reversal recipes.
+Verdandi remains stopped under its separate recovery/purpose decision; this contract does not
+activate it or claim any current tenant has passed the updated seam.
 
 **Tenant MUST:**
-- **Emit a Verdandi event for every consequential action** it takes (before/after a mutation, a
-  spend, an external send, an autonomous decision), correlated by `trace_id`.
-- Emit under **its own per-component key**, so audit attribution is per-tenant. (Shared static
-  tokens are exactly why audit can't currently say which actor acted — gap §1.3 / §1.5.)
-- Report an honest evidence grade: claim `mechanism` only when the event is automatically proven;
-  otherwise `convention`.
+- Persist a durable audit record for every consequential action, correlated by `trace_id` when
+  available, with an identifiable actor, target, action, outcome and reversal recipe.
+- Record and verify the chosen sink's receipt. A transcript alone is insufficient. Preserve the
+  distinction between self-reported actor identity and identity enforced by the sink.
+- Report an honest evidence grade: claim `mechanism` only when automatically proven; otherwise
+  `convention`. Do not silently suppress an audit gap.
 
-**Tenant MUST NOT:** fabricate server-authoritative fields (identity, hash, timestamp) — they are
-recomputed server-side and client values are advisory only; suppress an audit gap silently
-(Verdandi is fail-loud for audit).
+**Optional Verdandi transport:** its API contract is `POST /api/events` (single) /
+`POST /api/events/batch` (≤1000), Bearer **per-component key**, server-authoritative derived fields
+(timestamp, identity, hash), redact-before-persist, severity and retention classes. If used, emit
+under the tenant's own key; never fabricate server-authoritative fields or claim chain integrity
+without verification. The API is plain authenticated HTTP, independent of the tenant's model.
 
-**Model-agnostic already:** the intake is plain authenticated HTTP with a documented event shape
-— any runtime can emit. **Claude-coupled today:** the only live emitter is the laptop Claude Code
-hook (gap §1.3); no sibling-repo or non-Claude emitter exists, so per-tenant audit attribution is
-unproven.
+**Conformance check:** read back the action's durable record and reversal recipe from the selected
+sink and verify the claimed attribution. For a separately authorized Verdandi transport, also use
+`GET /api/verify` and `GET /api/events?component=<tenant>` to verify the chain and attribution.
+A task artifact or host journal need not impersonate Verdandi's API or claim its tamper-evidence.
 
-**Conformance check:** the tenant's action produces a Verdandi event under its own key;
-`GET /api/verify` confirms the hash chain; `GET /api/events?component=<tenant>` returns the
-event attributed to the non-Claude tenant.
+The following is historical evidence against the former Verdandi-only contract, not a requirement
+to restore Verdandi or proof of current conformance:
 
 > **`validated-by-run-2026-07-04`:** **blocked before auth was even reachable.** "The intake
 > is plain authenticated HTTP — any runtime can emit" implicitly assumed a reachable intake;
@@ -241,8 +245,9 @@ event attributed to the non-Claude tenant.
 
 ## 4. What today's Claude-specific integrations must change
 
-Three of the four seams are directly reachable today as authenticated HTTP (Munin, gateway,
-Verdandi). **Seam C is not a standalone tenant-callable API** — safety gating is Hugin's internal
+Munin and gateway use authenticated HTTP. Seam D may use a durable task artifact or host journal;
+Verdandi is optional and its historical reachability failure remains recorded above.
+**Seam C is not a standalone tenant-callable API** — safety gating is Hugin's internal
 task-pipeline layer, reached by routing work *through Hugin's task / delegation execution path*,
 which applies the gate. A conforming non-Hugin tenant must therefore either submit its mutating
 actions through Hugin (inheriting the gate) or wait for the gate to be exposed as its own seam
@@ -254,7 +259,7 @@ integrations are Claude-coupled and the seams share static tokens. Minimal chang
 | `ratatoskr/src/concierge.ts` (~108) | `new Anthropic(...)` direct cloud call | Route the triage LLM call through **Seam B** (gateway) behind an injectable provider; emit the routing-outcome verdict (also closes gap §1.2(c) / ratatoskr#27's dataset need). |
 | `skuld/src/synthesizer.ts` (~12) | Direct Anthropic SDK for synthesis | Same gateway indirection at Seam B. Independently, skuld's **direct SQLite read** must move to **Seam A** (authenticated Munin HTTP — skuld#3). |
 | Hugin dispatcher | Agent loop defaults to the Claude Agent SDK; a `runtime-registry`/`router` already selects Ollama/OpenRouter/M5 per task, but no non-Claude tenant has been proven across the four seams | Finish making the runtime a first-class **tenant provider** (the vision already caps Hugin's loop as a reusable *tenant*), and prove one non-Claude runtime end-to-end. The in-flight `feat/orchestrator-homeserver-provider` work (gap §1.2(a)) is the corrective seam. |
-| All four seams | Shared static bearer tokens | Issue **per-tenant keys** (Munin, gateway, Verdandi, gating provenance) so §2's identity axiom holds and attribution/quota/audit become per-actor. |
+| All four seams | Shared static bearer tokens | Issue **per-tenant keys** (Munin, gateway, optional Verdandi transport, gating provenance) so §2's identity axiom holds and attribution/quota/audit become per-actor. |
 
 None of these are landed here — they are the downstream code work this spec unblocks, filed
 against their owning repos.
@@ -289,8 +294,9 @@ the Claude Agent SDK.
    `(task_type, model)`. (Plain, non-recorded inference would use `POST /v1/chat/completions`.)
 3. **Seam C** — the write-back / task-enqueue step passes Hugin's **gating layer** and is
    provenance-stamped with the tenant's identity.
-4. **Seam D** — the tenant emits **Verdandi events** under its own key; `GET /api/verify` passes;
-   the events are attributed to the M5 tenant.
+4. **Seam D** — read back the durable audit records and reversal recipes from the chosen sink,
+   verify attribution to the M5 tenant and state its evidence grade. If an authorized Verdandi
+   transport is chosen, its key, chain and attribution checks also apply.
 
 **Success criterion:** the workflow completes, and each of the four seams shows a record
 attributed to the **non-Claude M5 tenant**, not to any Claude key. That single trace is the first
@@ -318,15 +324,16 @@ follow-up work (see UNCERTAINTIES in the PR).
 
 A future tenant self-checks against these MUSTs (one line per obligation):
 
-- [ ] **Identity** — presents a distinct per-tenant credential at every seam (§2).
+- [ ] **Identity** — presents a distinct per-tenant credential at each authenticated service seam
+      (§2); for local audit records, identifies the actor and states how attribution is verified.
 - [ ] **A. Munin** — authenticated HTTP/MCP only, no direct SQLite, speaks the client contract,
       writes to owned namespaces.
 - [ ] **B. Gateway** — inference indirectable through the gateway; learn-worthy calls route via
       `/delegate` (the ledger-writing path); respects quota/admission.
 - [ ] **C. Gating** — all mutating/egressing actions pass the gate, provenance-stamped; accepts
       denials.
-- [ ] **D. Audit** — emits a Verdandi event per consequential action, under its own key, with an
-      honest evidence grade; never fabricates server-authoritative fields.
+- [ ] **D. Audit** — persists and reads back a durable audit record per consequential action, with
+      attribution, reversal and an honest evidence grade; optional Verdandi uses its own-key contract.
 - [ ] **Companion (#46)** — has a failure-recovery / undo story for autonomous actions.
 
 A tenant is **conforming** when all four seams check green under its own identity. Grimnir has
