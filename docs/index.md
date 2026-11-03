@@ -164,8 +164,12 @@ the annotation, not only the filename.
 
 ## Security, trust, and lifecycle
 
-- `docs/threat-model.md` — Consolidated threat model (v0.1): assets, trust boundaries, adversaries,
-  and a T1–T11 key-threats table mapped to owning tickets (from the 2026-07-06 blind-spot audit)
+- `docs/threat-model.md` — Consolidated threat model (v0.3, reconciled 2026-11-03): assets, trust
+  boundaries, adversaries, and a T1–T11 key-threats table mapped to owning tickets; the
+  reconciliation preserves source/ticket/live-evidence limits and does not accept risk or authorize
+  activation
+- `docs/security-review-2026-11-03.md` — Reconciliation evidence note for the threat-model update:
+  source, ticket, and live-evidence limits; no risk acceptance or activation authority
 - `docs/tenant-contract.md` — The minimal agent↔substrate contract any agent must satisfy to act
   through the substrate (Munin access, gateway routing, safety gating, audit emission) plus a cheap
   validation plan

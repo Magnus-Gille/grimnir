@@ -86,7 +86,7 @@ Roadmap → tickets → implementation → review, with grimnir as the orchestra
 | Mimir | `mimir` | Authenticated file server |
 | Heimdall | `heimdall` | Monitoring dashboard |
 | Ratatoskr | `ratatoskr` | Telegram router + concierge |
-| Skuld | `skuld` (grimnir-bot org) | Daily intelligence briefing |
+| Skuld | `Magnus-Gille/skuld` | Daily intelligence briefing |
 | Fortnox MCP | `fortnox-mcp` | Accounting CLI + MCP |
 | Brokkr | `brokkr` | Platform/substrate layer — hardware, OS, storage, backups (peer, not a service) |
 

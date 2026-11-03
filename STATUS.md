@@ -1,16 +1,28 @@
 # Grimnir System — Status
 
-**Last session:** 2026-08-01 (Codex) — M5 security hardening is implemented through reviewed,
-owner-gated rollout points
+**Last session:** 2026-08-01 (Codex) — historical snapshot retained; reconciled 2026-11-03
 **Status base:** Grimnir `beb6282ca7d74d13517ef335172e6fd2dba8370a`
+
+## Reconciliation notice (2026-11-03)
+
+This file preserves a 2026-08-01 operational snapshot. Historical source and live-state claims,
+including the gille-inference deployment and Brokkr observations below, must be revalidated before
+use; they are not current operational mandates. Brokkr PR [#95](https://github.com/Magnus-Gille/brokkr/pull/95)
+merged at `2026-08-10T12:45:55Z` as `ee62f4e53a0080d5bea1a2a612b4a0b860c06aa6`, and PR
+[#96](https://github.com/Magnus-Gille/brokkr/pull/96) merged at `2026-08-10T14:32:22Z` as
+`565d33f93fd44d763144a9b65c7d4a5f18c6cfd0`. Brokkr tickets **BROKKR-90** and **BROKKR-91**
+remain open for separate attended live acceptance; source merges do not establish live apply,
+probes, or rollback evidence. See the [dated security review](docs/security-review-2026-11-03.md)
+for current ticket dispositions and evidence limits. No activation or production action is
+authorized by this reconciliation.
 
 ## Current phase
 
-The W0–W5 software runway remains complete and ADR-008 mutation authority remains globally
-disarmed. The 2026-08-01 security program hardened the public inference edge, service identities,
-agent policy, substrate tests, and staged access controls. Completed deployments are verified;
-remaining production or merge mutations are held behind exact owner approvals and attended safety
-ceremonies.
+The W0–W5 software runway and ADR-008 state described here are historical 2026-08-01 claims, not
+a current authorization or live-state assertion. The 2026-08-01 security program recorded
+hardening of the public inference edge, service identities, agent policy, substrate tests, and
+staged access controls. Revalidate current deployment, merge, and attended-safety state before
+acting.
 
 No credential, private address, backup locator, or private account detail belongs in this handoff.
 
@@ -41,21 +53,19 @@ No credential, private address, backup locator, or private account detail belong
 - Issue #169 was already fixed by PR #170. Tracker reconciliation was blocked; do not fabricate
   another implementation.
 
-### Brokkr
+### Brokkr (historical 2026-08-01 snapshot; source merge facts reconciled above)
 
 - Issue #89's safe full-disk-encryption preparation merged through PR #93 as
   `bd23a1118b275d04dc534066ba9d9ff274374b19`. The destructive live migration is deliberately
   postponed to an attended post-travel window with verified backup and rollback ceremony.
-- Issue #90 / PR #95 is refreshed on base
-  `c53b79d7808c74b33c6a485010559566e396f929`, reviewed PASS, green, and mergeable at exact head
-  `6cec78c3a0b616a061cfd150503a32b276e3fcd3`. Its security patch-id is unchanged and its body says
-  `Part of #90`. Code merge does not close #90: the issue remains open until the owner-attended live
-  apply, probes, and rollback evidence satisfy acceptance. No staged or live firewall, SSH, or
-  Samba mutation has occurred.
-- Issue #91 / PR #96 is reviewed PASS, green, and ready at exact head
-  `f870f69a90640c2688a0edfc9220a638dbf514ec`. Merge requires owner approval. The issue remains
-  open for owner-attended private binding, official policy validation, live apply, probes, and
-  rollback; no live tailnet or firewall mutation has occurred.
+- The source merge receipt for Issue #90 / PR #95 is recorded above; the PR is
+  merged at the reconciled source revision. **BROKKR-90 remains open** until separate owner-attended
+  live apply, probes, and rollback evidence satisfy acceptance. No live-state conclusion follows
+  from the source merge.
+- The source merge receipt for Issue #91 / PR #96 is recorded above; the PR is
+  merged at the reconciled source revision. **BROKKR-91 remains open** for owner-attended private
+  binding, official policy validation, live apply, probes, and rollback. No live-state conclusion
+  follows from the source merge.
 - Issues #84 and #94 were fixed by PR #85; Brokkr main reached
   `c53b79d7808c74b33c6a485010559566e396f929`. Issue #92 was reconciled and closed after the
   current tests verified the underlying timestamp behavior.
@@ -69,34 +79,30 @@ No credential, private address, backup locator, or private account detail belong
 - Portable policy, tainted-session boundaries, and instruction-audit gates are active. Current
   audits are healthy except the known archived LumiKin #61 wrapper drift.
 
-## Owner approvals still required
+## Historical owner-approval record (2026-08-01; not current action)
 
-Enter these exact phrases in the active Codex chat when ready:
-
-1. `Approve merge Brokkr PR #95 at 6cec78c`
-2. `Approve merge Brokkr PR #96 at f870f69`
-3. `Approve M5 deploy gille-inference ff79708`
+The prior snapshot recorded owner-approval prompts for Brokkr PRs #95 and #96 and for the
+gille-inference revision `ff797087c4ab763883eae1f2e839a413b0497945`. Those prompts are retired;
+the Brokkr merge prompts are obsolete because both PRs are merged, and this record does not grant
+any current deployment or production authority.
 
 An attempted iMessage notification failed safely because Messages automation could not acquire a
 window. No message was delivered, and no alternate personal contact locator was stored or used.
 
-## Safety gates and blockers
+## Historical safety gates and blockers (2026-08-01; revalidate before use)
 
-- Deploy gille-inference only from exact accepted revision
-  `ff797087c4ab763883eae1f2e839a413b0497945`, after the owner approval above. Re-run health,
-  authentication, inference, and adoption-recorder probes after deployment.
-- Brokkr PR #95 may be merged only at reviewed head
-  `6cec78c3a0b616a061cfd150503a32b276e3fcd3` after its exact approval. Issue #90 remains open for
-  the separate owner-attended live apply, probes, and rollback evidence.
-- Brokkr PR #96 may be merged after its exact approval, but issue #91 stays open until the owner
-  validates private device bindings and completes apply/probe/rollback from a physically safe
-  two-session ceremony.
-- Full-disk encryption remains an attended post-travel operation. Do not start it remotely or
-  unattended.
-- gille-inference #166 needs a normal PR publication path before merge review can complete. Issue
-  #169 only needs tracker reconciliation against the already-merged fix.
-- The broader L4 autonomy ceremony is still pending. No controller, mutation lane, or live canary
-  is armed by this security program.
+- The snapshot instructed deployment of gille-inference only from exact accepted revision
+  `ff797087c4ab763883eae1f2e839a413b0497945`, after owner approval, followed by health,
+  authentication, inference, and adoption-recorder probes.
+- Brokkr PR #95 and PR #96 are source-merged as recorded in the reconciliation notice, but
+  BROKKR-90 and BROKKR-91 remain open for their separate owner-attended live acceptance ceremonies.
+- The snapshot required full-disk encryption to remain an attended post-travel operation and not
+  start remotely or unattended.
+- The snapshot recorded that gille-inference #166 needed a normal PR publication path before merge
+  review could complete, while Issue #169 needed tracker reconciliation against the already-merged
+  fix.
+- The snapshot recorded the broader L4 autonomy ceremony as pending, with no controller, mutation
+  lane, or live canary armed by that security program.
 
 ## M5 adoption evidence
 
@@ -106,21 +112,18 @@ window. No message was delivered, and no alternate personal contact locator was 
 - Adoption-recorder rejection before the `ff797087` deployment is expected evidence of the old
   production behavior, not proof that the merged diagnostic fix failed.
 
-## Exact next steps
+## Historical next steps (2026-08-01 snapshot; not current actionable mandates)
 
-1. Obtain the three current exact approvals above in Codex chat.
-2. Merge Brokkr PRs #95 and #96 only at their reviewed heads and after green CI; do not combine
-   merge approval with live application authority.
-3. Deploy gille-inference `ff797087c4ab763883eae1f2e839a413b0497945` through its exact-source
-   gate and run the post-deploy probes.
-4. Reconcile gille-inference #166/#169 without duplicating completed work.
-5. Schedule attended post-travel windows for Brokkr #89, #90, and #91 live ceremonies.
-6. Keep W0–W5 mutation classes disarmed until their separate owner ceremony and real production
-   evidence gates are satisfied.
+The snapshot's recorded follow-up work was to deploy gille-inference
+`ff797087c4ab763883eae1f2e839a413b0497945` through its exact-source gate, reconcile
+gille-inference #166/#169, schedule attended post-travel windows for Brokkr #89, #90, and #91,
+and keep W0–W5 mutation classes disarmed until their separate owner ceremonies and real
+production-evidence gates were satisfied. These are preserved as historical context only; do not
+infer current live state or authorization from them.
 
 ## Verification standard
 
 Every completed code path above was reviewed against an exact revision and exercised with focused
 and repository-level checks in its owning repo. Merge state is not deployment evidence; staging is
-not live application; code review is not owner authorization. Resume from the explicit gates above
-rather than inferring authority from this status file.
+not live application; code review is not owner authorization. Resume from current owning tickets
+and accepted release plans, not from this historical snapshot's former action prompts.
