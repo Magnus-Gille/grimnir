@@ -279,7 +279,23 @@ prepare_scan_source() {
     repo_set "$repo" upstream_commit "$upstream_commit"
     repo_set "$repo" source_fetched_at "$captured_at"
   fi
-  prepare_source_snapshot "$repo" "$checkout" || return 1
+  if [[ "$SOURCE_MODE" == upstream ]]; then
+    # The fetch helper strips unrelated environment variables; retain that
+    # boundary for every Git process that materializes the fetched objects.
+    # Receipt state lives in SCAN_TMP files, so no shell state must escape.
+    (
+      while IFS= read -r exported_name; do
+        case "$exported_name" in
+          PATH|HOME|XDG_CONFIG_HOME|TMPDIR|LANG|LC_ALL|SSH_AUTH_SOCK) ;;
+          *) export -n "${exported_name?}" ;;
+        esac
+      done < <(compgen -e)
+      export GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=Never
+      prepare_source_snapshot "$repo" "$checkout"
+    ) || return 1
+  else
+    prepare_source_snapshot "$repo" "$checkout" || return 1
+  fi
   if [[ "$SOURCE_MODE" == upstream && "$(repo_get "$repo" commit)" != "$upstream_commit" ]]; then
     repo_set "$repo" source_status "error:source-revision-mismatch"
     return 1

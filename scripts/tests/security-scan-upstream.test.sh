@@ -192,7 +192,13 @@ rm -rf "$TMP_DIR/plain-repos" "$TMP_DIR/missing-repos"
 mkdir -p "$TMP_DIR/plain-repos/alpha"
 printf '%s\n' plain-checkout-sentinel > "$TMP_DIR/plain-repos/alpha/sentinel.txt"
 printf '%s\n' normal > "$TMP_DIR/git-mode"
+: > "$TMP_DIR/git-env.log"
 rc="$(scan_run "$TMP_DIR/plain-repos" "$TMP_DIR/plain.out")"
+if grep -Eq '^(MUNIN_TOKEN|AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|PROVIDER_SECRET)$' "$TMP_DIR/git-env.log"; then
+  fail "snapshot materialization inherited scanner secrets"
+else
+  pass "all upstream source Git children exclude scanner secrets"
+fi
 if [[ "$rc" == 0 ]] && grep -Fq 'COVERAGE: complete=true' "$TMP_DIR/plain.out"; then pass "plain REPOS_DIR covered upstream"; else fail "plain REPOS_DIR not covered upstream"; fi
 if grep -Fq ignored-upstream.txt "$TMP_DIR/plain.out"; then pass "export-ignore file is scanned"; else fail "export-ignore file omitted"; fi
 if grep -Fq 'alpha: SECRETS FOUND' "$TMP_DIR/plain.out"; then pass "stopped scan-enabled component selected"; else fail "stopped scan-enabled component skipped"; fi

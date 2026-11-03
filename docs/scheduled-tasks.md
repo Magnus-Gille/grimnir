@@ -127,7 +127,7 @@ Manual runs default to `--source local` for offline reproduction from local
 authoritative checkouts; `--source upstream` selects the scheduled behavior.
 Git's child environment excludes the Munin token and unrelated provider tokens.
 The unit retains its existing sandbox, private temporary directory and 300-second
-overall limit; each source Git command has its own 45-second limit.
+overall limit; each fetch-helper Git command has its own 45-second limit.
 
 Manual runs take `MUNIN_TOKEN` from the environment or one line from standard
 input with `--munin-token-stdin`. Do not pass the token as a command-line value;
