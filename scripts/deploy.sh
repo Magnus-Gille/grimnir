@@ -26,10 +26,15 @@ if ! REGISTRY_PATH="$REGISTRY" node --input-type=commonjs "$REGISTRY_VALIDATOR";
   exit 1
 fi
 
+REGISTRY_PROFILE="$(REGISTRY_PATH="$REGISTRY" QUERY=profile node --input-type=commonjs "$REGISTRY_JS")"
 SERVICES=()
+deploy_rows="$(REGISTRY_PATH="$REGISTRY" QUERY=deploy node --input-type=commonjs "$REGISTRY_JS")" || {
+  echo "ERROR: Refusing deploy because operational resolution failed" >&2
+  exit 1
+}
 while IFS= read -r line; do
   [[ -n "$line" ]] && SERVICES+=("$line")
-done < <(REGISTRY_PATH="$REGISTRY" QUERY=deploy node --input-type=commonjs "$REGISTRY_JS")
+done <<< "$deploy_rows"
 
 if [[ ${#SERVICES[@]} -eq 0 ]]; then
   echo "ERROR: No deployable services found in $REGISTRY" >&2
@@ -46,7 +51,12 @@ pass=0
 fail=0
 skip=0
 results=()
-DEPLOY_USER="${DEPLOY_USER:-magnus}"
+registry_user="$(REGISTRY_PATH="$REGISTRY" QUERY=deployment-user node --input-type=commonjs "$REGISTRY_JS")"
+if [[ -n "${DEPLOY_USER:-}" && "$DEPLOY_USER" != "$registry_user" ]]; then
+  echo "ERROR: DEPLOY_USER disagrees with the configured operational mapping" >&2
+  exit 1
+fi
+DEPLOY_USER="$registry_user"
 LOCAL_REPOS_ROOT="${LOCAL_REPOS_ROOT:-$HOME/repos}"
 
 if [[ ! "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
@@ -69,6 +79,11 @@ service_field() {
 
 resolve_host() {
   local input=$1
+
+  if [[ "$REGISTRY_PROFILE" == "public-v1" ]]; then
+    echo "$input"
+    return
+  fi
 
   if [[ "$input" != *.local ]]; then
     echo "$input"

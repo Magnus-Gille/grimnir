@@ -528,6 +528,49 @@ set -e
 assert_eq "CLI exits 0 on a fully clean fixture root" "0" "$clean_rc"
 assert_contains "CLI reports 0 issues on the clean fixture" "$clean_output" "0 issues"
 
+# Registry query failures must not disappear inside process substitutions. An
+# empty, otherwise clean root is still red when both registry queries fail,
+# then returns green once the registry is repaired.
+QUERY_FAILURE_ROOT="$TMP_DIR/repos-root-query-failure"
+mkdir -p "$QUERY_FAILURE_ROOT"
+QUERY_FAILURE_SERVICES_JSON="$TMP_DIR/services-query-failure.json"
+printf '%s\n' '{ malformed registry' > "$QUERY_FAILURE_SERVICES_JSON"
+
+set +e
+query_failure_output="$(GRIMNIR_WORKTREE_AUDIT_ROOT="$QUERY_FAILURE_ROOT" GRIMNIR_SERVICES_JSON="$QUERY_FAILURE_SERVICES_JSON" \
+  "$SCRIPTS_DIR/worktree-hygiene-audit.sh" 2>&1)"
+query_failure_rc=$?
+set -e
+
+assert_eq "CLI exits 1 when registry queries fail on an empty root" "1" "$query_failure_rc"
+assert_contains "CLI reports failed repository-authority query as incomplete" \
+  "$query_failure_output" "repository-authority query failed; audit incomplete/unknown"
+assert_contains "CLI reports failed deploy-target query as incomplete" \
+  "$query_failure_output" "deploy-target validation query failed; audit incomplete/unknown"
+assert_contains "CLI counts both failed registry queries as issues" \
+  "$query_failure_output" "Summary: 0 ok, 2 issues"
+
+QUERY_GREEN_SERVICES_JSON="$TMP_DIR/services-query-green.json"
+cat > "$QUERY_GREEN_SERVICES_JSON" << 'EOF'
+{
+  "repository_authority": {
+    "default_owner": "Magnus-Gille",
+    "additional_repositories": [],
+    "owner_overrides": {}
+  },
+  "components": []
+}
+EOF
+
+set +e
+query_green_output="$(GRIMNIR_WORKTREE_AUDIT_ROOT="$QUERY_FAILURE_ROOT" GRIMNIR_SERVICES_JSON="$QUERY_GREEN_SERVICES_JSON" \
+  "$SCRIPTS_DIR/worktree-hygiene-audit.sh" 2>&1)"
+query_green_rc=$?
+set -e
+
+assert_eq "CLI returns 0 after the registry query source is repaired" "0" "$query_green_rc"
+assert_contains "CLI reports the repaired empty root as clean" "$query_green_output" "Summary: 0 ok, 0 issues"
+
 # Canonical authority is host-independent: ordinary `heimdall` checkouts are
 # audited on both Mac-like and control-host roots, while unrelated repositories
 # absent from either host remain outside that host's local audit.

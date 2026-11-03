@@ -1,4 +1,5 @@
 {
+  "registry_profile": "public-v1",
   "repository_authority": {
     "default_owner": "Magnus-Gille",
     "owner_overrides": {},
@@ -14,129 +15,228 @@
       "name": "munin-memory",
       "workload_id": "workload-munin-memory",
       "target_node_id": "node-huginmunin",
-      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "munin-memory", "digest": "sha256:754071860f784ef02c74951e56d857fb30ff1a5724bec28d45cc091bb5441804" },
+      "workload_contract": {
+        "kind": "workload-requirement",
+        "schema_version": "v1",
+        "producer": "munin-memory",
+        "digest": "sha256:754071860f784ef02c74951e56d857fb30ff1a5724bec28d45cc091bb5441804"
+      },
       "repo": "munin-memory",
-      "host": "huginmunin.local",
+      "host": "node-huginmunin.invalid",
       "port": 3030,
       "deploy": true,
       "scan": true,
-      "deploy_path": "/home/magnus/munin-memory",
-      "persistent_paths": ["/home/magnus/.munin-memory"],
+      "deploy_path": "/home/example/munin-memory",
+      "persistent_paths": [
+        "/home/example/.munin-memory"
+      ],
       "needs_build": true,
       "systemd_units": [
-        { "name": "munin-memory", "type": "service", "boot_enable": true }
+        {
+          "name": "munin-memory",
+          "type": "service",
+          "boot_enable": true
+        }
       ]
     },
     {
       "name": "hugin",
       "workload_id": "workload-hugin",
       "target_node_id": "node-huginmunin",
-      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "hugin", "digest": "sha256:04a18def4314e569c9f9ffa76fcfb4a5bf1e34973f84721a4d8467788a16f2c4" },
+      "workload_contract": {
+        "kind": "workload-requirement",
+        "schema_version": "v1",
+        "producer": "hugin",
+        "digest": "sha256:04a18def4314e569c9f9ffa76fcfb4a5bf1e34973f84721a4d8467788a16f2c4"
+      },
       "repo": "hugin",
-      "host": "huginmunin.local",
+      "host": "node-huginmunin.invalid",
       "port": 3032,
       "deploy": true,
       "scan": true,
-      "deploy_path": "/home/magnus/repos/hugin",
-      "persistent_paths": ["/home/magnus/workspace", "/home/magnus/.hugin"],
+      "deploy_path": "/home/example/repos/hugin",
+      "persistent_paths": [
+        "/home/example/workspace",
+        "/home/example/.hugin"
+      ],
       "needs_build": true,
       "systemd_units": [
-        { "name": "hugin", "type": "service", "scope": "user", "boot_enable": true },
-        { "name": "hugin-daily-exam-factory", "type": "timer", "scope": "user" },
-        { "name": "hugin-experiment-cadence", "type": "timer", "scope": "user" }
+        {
+          "name": "hugin",
+          "type": "service",
+          "scope": "user",
+          "boot_enable": true
+        },
+        {
+          "name": "hugin-daily-exam-factory",
+          "type": "timer",
+          "scope": "user"
+        },
+        {
+          "name": "hugin-experiment-cadence",
+          "type": "timer",
+          "scope": "user"
+        }
       ]
     },
     {
       "name": "heimdall",
       "workload_id": "workload-heimdall",
       "target_node_id": "node-huginmunin",
-      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "heimdall", "digest": "sha256:ad003f4198f2c4d04515afbdc51463eda477805ecff6717e8e4f69a0deb7448f" },
+      "workload_contract": {
+        "kind": "workload-requirement",
+        "schema_version": "v1",
+        "producer": "heimdall",
+        "digest": "sha256:ad003f4198f2c4d04515afbdc51463eda477805ecff6717e8e4f69a0deb7448f"
+      },
       "repo": "heimdall",
-      "host": "huginmunin.local",
+      "host": "node-huginmunin.invalid",
       "port": 3033,
       "deploy": true,
       "scan": true,
-      "deploy_path": "/home/magnus/repos/heimdall",
-      "persistent_paths": ["/home/magnus/.heimdall", "/home/magnus/repos/heimdall/agent/config.env", "/home/magnus/repos/heimdall/agent/VERSION", "/home/magnus/repos/heimdall/agent/config.env.pre-producer-tokens"],
-      "rsync_excludes": ["/agent/config.env", "/agent/VERSION", "/agent/config.env.pre-producer-tokens"],
+      "deploy_path": "/home/example/repos/heimdall",
+      "persistent_paths": [
+        "/home/example/.heimdall",
+        "/home/example/repos/heimdall/agent/config.env",
+        "/home/example/repos/heimdall/agent/VERSION",
+        "/home/example/repos/heimdall/agent/config.env.pre-producer-tokens"
+      ],
+      "rsync_excludes": [
+        "/agent/config.env",
+        "/agent/VERSION",
+        "/agent/config.env.pre-producer-tokens"
+      ],
       "needs_build": false,
       "systemd_runtime": {
-        "user": "magnus",
-        "home": "/home/magnus",
-        "deploy_target": "/home/magnus/repos/heimdall",
-        "environment_files": ["/home/magnus/.heimdall/env"],
+        "user": "example",
+        "home": "/home/example",
+        "deploy_target": "/home/example/repos/heimdall",
+        "environment_files": [
+          "/home/example/.heimdall/env"
+        ],
         "sandbox_paths": [
-          "/home/magnus/.munin-memory",
-          "/home/magnus/.ssh/heimdall_ed25519"
+          "/home/example/.munin-memory",
+          "/home/example/.ssh/heimdall_ed25519"
         ]
       },
       "health_check": {
         "boundary": "network",
-        "host": "huginmunin",
-        "paths": ["/health", "/api/health"]
+        "host": "node-huginmunin.invalid",
+        "paths": [
+          "/health",
+          "/api/health"
+        ]
       },
       "systemd_units": [
-        { "name": "heimdall", "type": "service", "boot_enable": true },
-        { "name": "heimdall-collect", "type": "timer" },
-        { "name": "heimdall-maintain", "type": "timer" },
-        { "name": "heimdall-boot-check", "type": "timer" }
+        {
+          "name": "heimdall",
+          "type": "service",
+          "boot_enable": true
+        },
+        {
+          "name": "heimdall-collect",
+          "type": "timer"
+        },
+        {
+          "name": "heimdall-maintain",
+          "type": "timer"
+        },
+        {
+          "name": "heimdall-boot-check",
+          "type": "timer"
+        }
       ]
     },
     {
       "name": "ratatoskr",
       "workload_id": "workload-ratatoskr",
       "target_node_id": "node-huginmunin",
-      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "ratatoskr", "digest": "sha256:23a1dd98a93a718b28b452ff352017dbc65f2105686df3677dae55713cd28621" },
+      "workload_contract": {
+        "kind": "workload-requirement",
+        "schema_version": "v1",
+        "producer": "ratatoskr",
+        "digest": "sha256:23a1dd98a93a718b28b452ff352017dbc65f2105686df3677dae55713cd28621"
+      },
       "repo": "ratatoskr",
-      "host": "huginmunin.local",
+      "host": "node-huginmunin.invalid",
       "port": 3034,
       "deploy": true,
       "scan": true,
-      "deploy_path": "/home/magnus/repos/ratatoskr",
+      "deploy_path": "/home/example/repos/ratatoskr",
       "persistent_paths": [],
       "needs_build": true,
       "systemd_units": [
-        { "name": "ratatoskr", "type": "service", "boot_enable": true }
+        {
+          "name": "ratatoskr",
+          "type": "service",
+          "boot_enable": true
+        }
       ]
     },
     {
       "name": "skuld",
       "workload_id": "workload-skuld",
       "target_node_id": "node-huginmunin",
-      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "skuld", "digest": "sha256:e482a322b1eaa8cc4a6ee3d05860be3dcd24e7f83dd5378c8644a5034a902b5c" },
+      "workload_contract": {
+        "kind": "workload-requirement",
+        "schema_version": "v1",
+        "producer": "skuld",
+        "digest": "sha256:e482a322b1eaa8cc4a6ee3d05860be3dcd24e7f83dd5378c8644a5034a902b5c"
+      },
       "repo": "skuld",
-      "host": "huginmunin.local",
+      "host": "node-huginmunin.invalid",
       "port": null,
       "deploy": true,
       "scan": true,
-      "deploy_path": "/home/magnus/repos/skuld",
+      "deploy_path": "/home/example/repos/skuld",
       "persistent_paths": [],
       "needs_build": true,
       "systemd_units": [
-        { "name": "skuld", "type": "timer", "scope": "user" }
+        {
+          "name": "skuld",
+          "type": "timer",
+          "scope": "user"
+        }
       ]
     },
     {
       "name": "mimir",
       "workload_id": "workload-mimir",
       "target_node_id": "node-nas",
-      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "mimir", "digest": "sha256:f81faff9605d81db9b4c2de4ed3d1540d0628144375af7b9fc7fa5034d76bfdd" },
+      "workload_contract": {
+        "kind": "workload-requirement",
+        "schema_version": "v1",
+        "producer": "mimir",
+        "digest": "sha256:f81faff9605d81db9b4c2de4ed3d1540d0628144375af7b9fc7fa5034d76bfdd"
+      },
       "repo": "mimir",
-      "host": "nas.local",
+      "host": "node-nas.invalid",
       "port": 3031,
       "deploy": true,
       "scan": true,
-      "deploy_path": "/home/magnus/mimir-server",
-      "persistent_paths": ["/home/magnus/mimir", "/var/lib/mimir"],
+      "deploy_path": "/home/example/mimir-server",
+      "persistent_paths": [
+        "/home/example/mimir",
+        "/srv/example/var/lib/mimir"
+      ],
       "needs_build": true,
       "systemd_units": [
-        { "name": "mimir", "type": "service", "boot_enable": true }
+        {
+          "name": "mimir",
+          "type": "service",
+          "boot_enable": true
+        }
       ]
     },
     {
       "name": "fortnox-mcp",
       "workload_id": "workload-fortnox-mcp",
-      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "fortnox-mcp", "digest": "sha256:82c47f589409b022dbef6a751fe9e600b4d30ab6085c1bd7252381733fa5a0fb" },
+      "workload_contract": {
+        "kind": "workload-requirement",
+        "schema_version": "v1",
+        "producer": "fortnox-mcp",
+        "digest": "sha256:82c47f589409b022dbef6a751fe9e600b4d30ab6085c1bd7252381733fa5a0fb"
+      },
       "repo": "fortnox-mcp",
       "host": null,
       "port": null,
@@ -150,59 +250,95 @@
       "name": "grimnir",
       "workload_id": "workload-grimnir",
       "target_node_id": "node-huginmunin",
-      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "grimnir", "digest": "sha256:5b6beb419c57989353f52ccd2f6cd667b781de287d3790d680e0dbb4f79e6add" },
+      "workload_contract": {
+        "kind": "workload-requirement",
+        "schema_version": "v1",
+        "producer": "grimnir",
+        "digest": "sha256:5b6beb419c57989353f52ccd2f6cd667b781de287d3790d680e0dbb4f79e6add"
+      },
       "repo": "grimnir",
-      "host": "huginmunin.local",
+      "host": "node-huginmunin.invalid",
       "port": null,
       "deploy": true,
       "scan": false,
-      "deploy_path": "/home/magnus/repos/grimnir",
+      "deploy_path": "/home/example/repos/grimnir",
       "needs_build": false,
       "deploy_mode": "git-pull",
-      "external_environment_files": ["/home/magnus/.config/grimnir/security-scan.env"],
+      "external_environment_files": [
+        "/home/example/.config/grimnir/security-scan.env"
+      ],
       "systemd_units": [
-        { "name": "grimnir-security-scan", "type": "timer" },
-        { "name": "grimnir-validate", "type": "timer", "service_name": "grimnir-validate-timer" }
+        {
+          "name": "grimnir-security-scan",
+          "type": "timer"
+        },
+        {
+          "name": "grimnir-validate",
+          "type": "timer",
+          "service_name": "grimnir-validate-timer"
+        }
       ]
     },
     {
       "name": "verdandi",
       "workload_id": "workload-verdandi",
       "target_node_id": "node-huginmunin",
-      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "verdandi", "digest": "sha256:c52adb8e298a016033f79c1f53a4cc797ab0e5f10b7f001fb2206659306d29d8" },
+      "workload_contract": {
+        "kind": "workload-requirement",
+        "schema_version": "v1",
+        "producer": "verdandi",
+        "digest": "sha256:c52adb8e298a016033f79c1f53a4cc797ab0e5f10b7f001fb2206659306d29d8"
+      },
       "repo": "verdandi",
-      "host": "huginmunin.local",
+      "host": "node-huginmunin.invalid",
       "port": 3036,
       "deploy": true,
       "desired_runtime_state": "stopped",
       "scan": true,
-      "deploy_path": "/home/magnus/repos/verdandi",
+      "deploy_path": "/home/example/repos/verdandi",
       "persistent_paths": [
-        "/home/magnus/repos/verdandi/data",
-        "/home/magnus/.local/share/verdandi"
+        "/home/example/repos/verdandi/data",
+        "/home/example/.local/share/verdandi"
       ],
-      "rsync_excludes": ["/data/"],
+      "rsync_excludes": [
+        "/data/"
+      ],
       "needs_build": true,
       "systemd_units": [
-        { "name": "verdandi", "type": "service", "scope": "user" }
+        {
+          "name": "verdandi",
+          "type": "service",
+          "scope": "user"
+        }
       ]
     },
     {
       "name": "brokkr",
       "workload_id": "workload-brokkr",
       "target_node_id": "node-huginmunin",
-      "workload_contract": { "kind": "workload-requirement", "schema_version": "v1", "producer": "brokkr", "digest": "sha256:1f72de8ec7b7b308f262f0b8282d213af011c3369345ca54dcf08f08bc76cee0" },
+      "workload_contract": {
+        "kind": "workload-requirement",
+        "schema_version": "v1",
+        "producer": "brokkr",
+        "digest": "sha256:1f72de8ec7b7b308f262f0b8282d213af011c3369345ca54dcf08f08bc76cee0"
+      },
       "repo": "brokkr",
-      "host": "huginmunin.local",
+      "host": "node-huginmunin.invalid",
       "port": null,
       "deploy": false,
       "desired_runtime_state": "active",
       "scan": true,
-      "deploy_path": "/home/magnus/repos/brokkr",
+      "deploy_path": "/home/example/repos/brokkr",
       "needs_build": false,
       "systemd_units": [
-        { "name": "brokkr-maintenance-os", "type": "timer" },
-        { "name": "brokkr-maintenance-deps", "type": "timer" }
+        {
+          "name": "brokkr-maintenance-os",
+          "type": "timer"
+        },
+        {
+          "name": "brokkr-maintenance-deps",
+          "type": "timer"
+        }
       ]
     }
   ],
@@ -211,21 +347,38 @@
       "name": "mimir-search-reader",
       "repo": "mimir",
       "target_node_id": "node-m5",
-      "command": ["./scripts/deploy-search-reader.sh"],
+      "command": [
+        "./scripts/deploy-search-reader.sh"
+      ],
       "revision_argument": "--release",
-      "release_root": "/home/magnus/.local/share/mimir-search/releases",
-      "deployed_marker": "/home/magnus/.local/share/mimir-search/.deployed-commit",
+      "release_root": "/srv/example/mimir-search-reader/releases",
+      "deployed_marker": "/srv/example/mimir-search-reader/.deployed-commit",
       "loopback_port": 8791,
       "systemd_units": [
-        { "name": "mimir-search", "type": "service", "scope": "user" },
-        { "name": "mimir-search-refresh", "type": "timer", "scope": "user" },
-        { "name": "mimir-search-semantic-check", "type": "timer", "scope": "user" }
+        {
+          "name": "mimir-search",
+          "type": "service",
+          "scope": "user"
+        },
+        {
+          "name": "mimir-search-refresh",
+          "type": "timer",
+          "scope": "user"
+        },
+        {
+          "name": "mimir-search-semantic-check",
+          "type": "timer",
+          "scope": "user"
+        }
       ],
       "coupled_state": [
         {
           "node_id": "node-laptop",
-          "home_relative_path": ".config/mimir-search/client.json",
-          "fields": ["release", "package_sha256"]
+          "home_relative_path": "example/client-state.json",
+          "fields": [
+            "release",
+            "package_sha256"
+          ]
         }
       ]
     }
@@ -234,95 +387,101 @@
     {
       "name": "huginmunin",
       "node_id": "node-huginmunin",
-      "hostname": "huginmunin.local",
+      "hostname": "node-huginmunin.invalid",
       "ssh_alias": null,
-      "hardware": "Raspberry Pi (aarch64), 8GB",
       "role": "service-host",
       "status": "active",
       "llm_servers": [
-        { "type": "ollama", "port": 11434, "protocol": "ollama" }
+        {
+          "type": "ollama",
+          "port": 11434,
+          "protocol": "ollama"
+        }
       ],
-      "monitor": true,
-      "notes": "Primary service host — runs munin-memory, hugin, heimdall, ratatoskr, skuld, grimnir, verdandi. Also Ollama :11434 for tiny models (qwen3.5:2b, gemma4:e2b)."
+      "monitor": true
     },
     {
       "name": "nas",
       "node_id": "node-nas",
-      "hostname": "nas.local",
+      "hostname": "node-nas.invalid",
       "ssh_alias": null,
-      "hardware": "NAS",
       "role": "storage",
       "status": "active",
       "llm_servers": [],
-      "monitor": true,
-      "notes": "Runs mimir (authenticated file server) and Brokkr's hardware-health timer (brokkr-health, pushes to Heimdall). Not an inference node."
+      "monitor": true
     },
     {
       "name": "m5",
       "node_id": "node-m5",
-      "hostname": "100.76.72.59",
-      "ssh_alias": "m5",
-      "hardware": "BosGame M5 (BeyondMax) — AMD Strix Halo (Ryzen AI Max+ 395), 128GB unified memory",
+      "hostname": "node-m5.invalid",
+      "ssh_alias": null,
       "role": "inference",
       "status": "active",
       "llm_servers": [
-        { "type": "homeserver-gateway", "port": 8080, "protocol": "openai" }
+        {
+          "type": "homeserver-gateway",
+          "port": 8080,
+          "protocol": "openai"
+        }
       ],
-      "monitor": false,
-      "notes": "Flagship local inference — LIVE. homeserver gateway :8080 fronts llama-swap :8091 (loopback); public via Cloudflare at inference.gille.ai. Tailnet 100.76.72.59 (MagicDNS/ssh alias `m5`). Under Brokkr apt patching + memory limits. Also hosts the Mímir search reader (loopback :8791, user units) deployed by the mimir repo through `owning_repo_deployments`. See home-server-inference-evaluation docs/adr-004-m5-routing-ownership.md + docs/bosgame-m5-architecture.md."
+      "monitor": false
     },
     {
       "name": "orin",
       "node_id": "node-orin",
-      "hostname": "100.127.176.78",
-      "ssh_alias": "orin",
-      "hardware": "NVIDIA Jetson Orin Nano, 8GB",
+      "hostname": "node-orin.invalid",
+      "ssh_alias": null,
       "role": "inference",
       "status": "active",
       "llm_servers": [
-        { "type": "ollama", "port": 11434, "protocol": "ollama" }
+        {
+          "type": "ollama",
+          "port": 11434,
+          "protocol": "ollama"
+        }
       ],
-      "monitor": false,
-      "notes": "Hugin GPU cell (orinUrl). L4T R36.4.7 / JetPack 6. Only ~3B fits (qwen2.5-coder:3b; 4B OOMs). Tailnet 100.127.176.78 (MagicDNS `orin-nano`); LAN ~192.168.0.230, Ollama :11434. ssh_alias `orin` not yet defined on huginmunin — resolve via tailnet host."
+      "monitor": false
     },
     {
       "name": "laptop",
       "node_id": "node-laptop",
       "hostname": null,
       "ssh_alias": null,
-      "hardware": "MacBook Air M4, 32GB unified memory",
       "role": "inference",
       "status": "active",
       "llm_servers": [
-        { "type": "lmstudio", "port": 1234, "protocol": "openai" },
-        { "type": "ollama", "port": 11434, "protocol": "ollama" }
+        {
+          "type": "lmstudio",
+          "port": 1234,
+          "protocol": "openai"
+        },
+        {
+          "type": "ollama",
+          "port": 11434,
+          "protocol": "ollama"
+        }
       ],
-      "monitor": false,
-      "notes": "Not always-on (medium compute, intermittent). Hugin laptopUrl (disabled by default). Local LM Studio :1234 + Ollama :11434."
+      "monitor": false
     },
     {
       "name": "skald",
       "node_id": "node-skald",
-      "hostname": "skald.local",
-      "ssh_alias": "skald",
-      "hardware": "Raspberry Pi + e-paper display",
+      "hostname": "node-skald.invalid",
+      "ssh_alias": null,
       "role": "display",
       "status": "active",
       "llm_servers": [],
-      "monitor": false,
-      "notes": "E-paper display / skald-display MCP node — NOT an inference node. Back online 2026-06-16."
+      "monitor": false
     },
     {
       "name": "munin-zero",
       "node_id": "node-munin-zero",
-      "hostname": "munin-zero.local",
+      "hostname": "node-munin-zero.invalid",
       "ssh_alias": null,
-      "hardware": "Raspberry Pi Zero 2 W (armv7l), 512MB",
       "role": "memory-appliance",
       "status": "active",
       "llm_servers": [],
-      "monitor": true,
-      "notes": "Legacy/secondary Munin Memory appliance — best-effort, LAN-only on the home network, managed by Brokkr for OS/firmware maintenance and health observation. No Grimnir workload is deployed here; do not use as a component deployment target. Tailscale is not installed."
+      "monitor": true
     }
   ]
 }

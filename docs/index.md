@@ -15,6 +15,9 @@ the annotation, not only the filename.
   `scripts/generate-architecture.sh` on the Pi to regenerate a local snapshot)
 - `docs/conventions.md` — Naming, GitHub ownership, service patterns
 - `docs/authority.md` — The authority map: which file is the source of truth for what
+- `docs/operational-discovery.md` — Stable node/ticket → dated Brokkr hardware evidence → owner-only
+  transport lookup, public/private registry projection, freshness and migration failures; grants
+  no connection/deployment authority and never scans credentials
 - `services.json` — **Single source of truth** for component inventory (names, hosts, ports, systemd
   units). All scripts read from it via `scripts/lib/registry.js`
 - `docs/network-operating-model.md` — How the network is operated

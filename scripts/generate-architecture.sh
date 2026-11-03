@@ -28,7 +28,7 @@ HOSTNAME_VAL="$(hostname)"
 REPOS_DIR="$HOME/repos"
 
 # Read component lists from the service registry (single source of truth)
-REGISTRY="$GRIMNIR_DIR/services.json"
+REGISTRY="${REGISTRY_PATH:-$GRIMNIR_DIR/services.json}"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 
 # shellcheck source=scripts/lib/systemd-status.sh
@@ -58,6 +58,41 @@ while [[ $# -gt 0 ]]; do
     *) echo "ERROR: unknown option" >&2; exit 1 ;;
   esac
 done
+
+REGISTRY_PROFILE="$(REGISTRY_PATH="$REGISTRY" QUERY=profile node --input-type=commonjs "$REGISTRY_JS")"
+LOCAL_NODE_ID="${GRIMNIR_LOCAL_NODE_ID:-}"
+LOCAL_REGISTRY_HOST="$HOSTNAME_VAL"
+if [[ "$REGISTRY_PROFILE" == "public-v1" ]]; then
+  configured_user="$(REGISTRY_PATH="$REGISTRY" QUERY=deployment-user node --input-type=commonjs "$REGISTRY_JS")"
+  if [[ -n "${SYSTEMD_USER:-}" && "$SYSTEMD_USER" != "$configured_user" ]]; then
+    echo "ERROR: SYSTEMD_USER disagrees with the configured operational mapping" >&2
+    exit 1
+  fi
+  SYSTEMD_USER="$configured_user"
+  LOCAL_NODE_ID="$(REGISTRY_PATH="$REGISTRY" QUERY=local-node-id node --input-type=commonjs "$REGISTRY_JS")"
+  private_nodes="$(REGISTRY_PATH="$REGISTRY" REGISTRY_VIEW=operational QUERY=nodes-json node --input-type=commonjs "$REGISTRY_JS")"
+  LOCAL_REGISTRY_HOST="$(PRIVATE_NODES="$private_nodes" LOCAL_NODE_ID="$LOCAL_NODE_ID" node -e '
+    const row = JSON.parse(process.env.PRIVATE_NODES).find(n => n.node_id === process.env.LOCAL_NODE_ID);
+    if (!row || typeof row.hostname !== "string") process.exit(1);
+    process.stdout.write(row.hostname);
+  ')"
+  unset private_nodes
+else
+  # Legacy explicit private registries retain their established host contract.
+  SYSTEMD_USER="${SYSTEMD_USER:-$(id -un)}"
+  if [[ -z "$LOCAL_NODE_ID" && "$HOSTNAME_VAL" == "huginmunin" ]]; then
+    LOCAL_NODE_ID=node-huginmunin
+  fi
+fi
+export SYSTEMD_USER
+
+component_is_local() {
+  if [[ "$REGISTRY_PROFILE" == "public-v1" ]]; then
+    [[ "$1" == "$LOCAL_NODE_ID" ]]
+  else
+    [[ "$2" == "$LOCAL_REGISTRY_HOST" || "$2" == "${LOCAL_REGISTRY_HOST}.local" ]]
+  fi
+}
 
 unit_rows_from_json() {
   local units_json=$1
@@ -98,12 +133,12 @@ health_status_local() {
 }
 
 health_status_remote() {
-  local host=$1 port=$2 user=${SYSTEMD_USER:-magnus}
-  ssh -o ConnectTimeout=5 -o BatchMode=yes "${user}@${host}" "port='$port'; last=000; for target in localhost 127.0.0.1 \$(hostname -I 2>/dev/null || true); do [ -n \"\$target\" ] || continue; case \"\$target\" in *:*) continue ;; esac; for path in /health /api/health; do code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 \"http://\${target}:\${port}\${path}\" 2>/dev/null || true); if [ \"\$code\" = 200 ]; then echo 200; exit 0; fi; [ -n \"\$code\" ] && last=\"\$code\"; done; done; echo \"\$last\"" 2>/dev/null || echo '000'
+  local host=$1 port=$2
+  ssh -o ConnectTimeout=5 -o BatchMode=yes "$(remote_ssh_target "$host")" "port='$port'; last=000; for target in localhost 127.0.0.1 \$(hostname -I 2>/dev/null || true); do [ -n \"\$target\" ] || continue; case \"\$target\" in *:*) continue ;; esac; for path in /health /api/health; do code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 \"http://\${target}:\${port}\${path}\" 2>/dev/null || true); if [ \"\$code\" = 200 ]; then echo 200; exit 0; fi; [ -n \"\$code\" ] && last=\"\$code\"; done; done; echo \"\$last\"" 2>/dev/null || echo '000'
 }
 
 remote_git_checkout_freshness() {
-  local host=$1 checkout=$2 branch=${3:-main} user=${SYSTEMD_USER:-magnus}
+  local host=$1 checkout=$2 branch=${3:-main}
   local q_checkout q_ref command output local_sha remote_sha
   q_checkout="$(posix_shell_quote "$checkout")"
   q_ref="$(posix_shell_quote "refs/heads/${branch}")"
@@ -111,7 +146,7 @@ remote_git_checkout_freshness() {
   command+="remote_line=\$(git -C ${q_checkout} ls-remote --exit-code origin ${q_ref} 2>/dev/null) || { printf '%s\\n' unreachable; exit 0; }; "
   # shellcheck disable=SC2016 # these variables expand on the remote host
   command+='remote_sha=${remote_line%%[[:space:]]*}; printf '\''%s|%s\n'\'' "$local_sha" "$remote_sha"'
-  output="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "${user}@${host}" "$command" 2>/dev/null)" || {
+  output="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$(remote_ssh_target "$host")" "$command" 2>/dev/null)" || {
     echo "unreachable"
     return 0
   }
@@ -124,14 +159,20 @@ remote_git_checkout_freshness() {
   esac
 }
 
+remote_deployment_marker_status() {
+  local remote_target=$1 repo_path=$2 q_marker
+  q_marker="$(posix_shell_quote "$repo_path/.deployed-commit")"
+  ssh -o ConnectTimeout=5 -o BatchMode=yes "$remote_target" "if [ -L ${q_marker} ]; then echo marker-symlink; elif [ -f ${q_marker} ]; then printf 'stamped:%s' \"\$(tr -d '\\r\\n' < ${q_marker})\"; else echo marker-missing; fi" 2>/dev/null || echo 'ssh-failed'
+}
+
 # ─── Validate mode ────────────────────────────────────────
 # Read-only comparison of registry vs live state.
 # Uses SSH for cross-host checks. Writes results to Munin.
 # Must run on huginmunin (needs SSH access to both Pis).
 
 if [[ "$VALIDATE_MODE" == "true" ]]; then
-  if [[ "$HOSTNAME_VAL" != "huginmunin" ]]; then
-    echo "⚠ Validation must run on huginmunin (needs SSH to both Pis)."
+  if [[ "$LOCAL_NODE_ID" != "node-huginmunin" ]]; then
+    echo "⚠ Validation requires the configured node-huginmunin operator context."
     exit 1
   fi
 
@@ -213,11 +254,11 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
   # substitution) so a registry.js failure — malformed services.json, node
   # crash — is an explicit AUDIT_ERROR instead of silently yielding zero rows
   # and a false-clean "0 issues" report (issue: exit-status semantics).
-  if ! validate_rows="$(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")"; then
+  if ! validate_rows="$(REGISTRY_PATH="$REGISTRY" QUERY=validate-with-transport node --input-type=commonjs "$REGISTRY_JS")"; then
     AUDIT_ERROR="cannot read registry ($REGISTRY) via $REGISTRY_JS"
   fi
 
-  while IFS='|' read -r v_name v_host v_port v_repo v_deploy_path v_deploy_mode v_deploy v_runtime_state v_units_json; do
+  while IFS='|' read -r v_name v_host v_port v_repo v_deploy_path v_deploy_mode v_deploy v_runtime_state v_units_json v_node_id v_ssh_target; do
     [[ -z "$v_name" ]] && continue
 
     # Skip components with no host (laptop-only, e.g. fortnox-mcp)
@@ -231,10 +272,16 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     COMPONENT_WARN=false
 
     # Determine if host is local or remote
-    if [[ "$v_host" == "huginmunin.local" ]] || [[ "$v_host" == "huginmunin" ]]; then
+    if component_is_local "$v_node_id" "$v_host"; then
       IS_LOCAL=true
     else
       IS_LOCAL=false
+    fi
+
+    if [[ "$REGISTRY_PROFILE" == "public-v1" ]]; then
+      remote_target="$v_ssh_target"
+    else
+      remote_target="$(remote_ssh_target "$v_host")"
     fi
 
     # Check systemd units against the registry's desired state. "stopped"
@@ -249,7 +296,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
         if [[ "$IS_LOCAL" == "true" ]]; then
           active="$(local_systemctl_status "$unit_scope" is-active "$unit")"
         else
-          active="$(remote_systemctl_status "$v_host" "$unit_scope" is-active "$unit")"
+          active="$(remote_systemctl_status "$remote_target" "$unit_scope" is-active "$unit")"
         fi
 
         case "$(runtime_observation_severity "$v_runtime_state" "$active" "$unit_scope")" in
@@ -277,7 +324,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
       if [[ "$IS_LOCAL" == "true" ]]; then
         health_status="$(health_status_local "$v_port")"
       else
-        health_status="$(health_status_remote "$v_host" "$v_port")"
+        health_status="$(health_status_remote "$remote_target" "$v_port")"
       fi
 
       if [[ "$health_status" == "200" ]]; then
@@ -332,7 +379,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
         fi
       else
         if [[ "$v_deploy_mode" == "git-pull" ]]; then
-          remote_check="$(remote_git_checkout_freshness "$v_host" "$repo_path" main)"
+          remote_check="$(remote_git_checkout_freshness "$remote_target" "$repo_path" main)"
           case "$remote_check" in
             current) STATUS_LINE+=" repo:current" ;;
             mismatch)
@@ -349,8 +396,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
               ;;
           esac
         else
-          q_marker="$(posix_shell_quote "$repo_path/.deployed-commit")"
-          remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "if [ -L ${q_marker} ]; then echo marker-symlink; elif [ -f ${q_marker} ]; then printf 'stamped:%s' \"\$(tr -d '\\r\\n' < ${q_marker})\"; else echo marker-missing; fi" 2>/dev/null || echo 'ssh-failed')"
+          remote_check="$(remote_deployment_marker_status "$remote_target" "$repo_path")"
           if [[ "$remote_check" == "ssh-failed" ]]; then
             STATUS_LINE+=" deploy:ssh-failed"
             COMPONENT_OK=false
@@ -607,8 +653,8 @@ $(echo -e "$RESULTS")"
 fi
 
 # ─── Detect environment (normal mode) ────────────────────────
-if [[ "$HOSTNAME_VAL" != "huginmunin" ]]; then
-  echo "⚠ This script must run on huginmunin (needs systemd, repos, Munin)."
+if [[ "$LOCAL_NODE_ID" != "node-huginmunin" ]]; then
+  echo "⚠ This script requires the configured node-huginmunin operator context."
   exit 1
 fi
 
@@ -705,7 +751,7 @@ echo ""
 
 echo "🔍 Collecting service status..."
 DEPLOYMENT_TABLE=""
-while IFS='|' read -r _s_name _s_host _s_port _s_repo _s_deploy_path _s_deploy_mode _s_deploy s_runtime_state s_units_json; do
+while IFS='|' read -r _s_name _s_host _s_port _s_repo _s_deploy_path _s_deploy_mode _s_deploy s_runtime_state s_units_json _s_node_id _s_ssh_target; do
   [[ "$s_runtime_state" != "not-applicable" ]] || continue
   [[ -n "$s_units_json" && "$s_units_json" != "[]" ]] || continue
   s_unit_rows="$(unit_rows_from_json "$s_units_json")"
@@ -713,7 +759,7 @@ while IFS='|' read -r _s_name _s_host _s_port _s_repo _s_deploy_path _s_deploy_m
     [[ -n "$s_unit_name" ]] || continue
     DEPLOYMENT_TABLE+="$(service_status_row "$s_unit_name" "$s_unit_kind" "$s_unit_scope" "$s_runtime_state")\n"
   done <<< "$s_unit_rows"
-done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")
+done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate-with-transport node --input-type=commonjs "$REGISTRY_JS")
 
 # ─── Git versions ─────────────────────────────────────────
 
@@ -739,7 +785,7 @@ done
 
 echo "🔍 Running health checks..."
 HEALTH_RESULTS=""
-while IFS='|' read -r h_name h_host h_port _h_repo _h_deploy_path _h_deploy_mode _h_deploy h_runtime_state _h_units_json; do
+while IFS='|' read -r h_name h_host h_port _h_repo _h_deploy_path _h_deploy_mode _h_deploy h_runtime_state _h_units_json h_node_id h_ssh_target; do
   [[ -n "$h_name" && -n "$h_port" ]] || continue
 
   if [[ "$h_runtime_state" == "stopped" ]]; then
@@ -749,10 +795,10 @@ while IFS='|' read -r h_name h_host h_port _h_repo _h_deploy_path _h_deploy_mode
     continue
   fi
 
-  if [[ "$h_host" == "huginmunin.local" ]] || [[ "$h_host" == "huginmunin" ]]; then
+  if component_is_local "$h_node_id" "$h_host"; then
     status="$(health_status_local "$h_port")"
   else
-    status="$(health_status_remote "$h_host" "$h_port")"
+    status="$(health_status_remote "${h_ssh_target:-$h_host}" "$h_port")"
   fi
 
   if [[ "$status" == "200" ]]; then
@@ -762,7 +808,7 @@ while IFS='|' read -r h_name h_host h_port _h_repo _h_deploy_path _h_deploy_mode
   else
     HEALTH_RESULTS+="- ⚠️ **$h_name** (:$h_port) — HTTP $status\n"
   fi
-done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")
+done < <(REGISTRY_PATH="$REGISTRY" QUERY=validate-with-transport node --input-type=commonjs "$REGISTRY_JS")
 
 # ─── Munin project statuses ──────────────────────────────
 

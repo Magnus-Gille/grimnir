@@ -3,6 +3,7 @@
 # clean-install units, fail closed before restart, and stay markerless.
 
 set -euo pipefail
+export DEPLOY_USER=operator
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEPLOY="$SCRIPT_DIR/../deploy.sh"
@@ -559,8 +560,8 @@ if grep -Fq 'curl:-fsS --max-time 3 http://health-h1:3030/health' "$ORDER_CAPTUR
 else
   fail "network health must use the explicit health host and registered port"
 fi
-if grep -Fq 'magnus@h1' "$SSH_CAPTURE" &&
-    ! grep -Fq 'magnus@health-h1' "$SSH_CAPTURE"; then
+if grep -Fq 'operator@h1' "$SSH_CAPTURE" &&
+    ! grep -Fq 'operator@health-h1' "$SSH_CAPTURE"; then
   pass "health host is independent of the SSH deployment host"
 else
   fail "SSH transport must continue using the component host"

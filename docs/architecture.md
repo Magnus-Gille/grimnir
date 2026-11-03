@@ -78,8 +78,8 @@ graph TB
 
     subgraph Pi2["Pi 2 — NAS (Storage & Backup)"]
         Mimir["Mimir File Server<br/>:3031"]
-        Artifacts["/home/magnus/artifacts/"]
-        Backups["/home/magnus/backups/"]
+        Artifacts["/home/example/artifacts/"]
+        Backups["/home/example/backups/"]
         TimeMachine["/mnt/timemachine/"]
         Tunnel_Pi2["cloudflared tunnel"]
     end
@@ -130,11 +130,11 @@ graph TB
 
 ### Hardware
 
-| Unit | Hostname | Role | Key Services |
+| Unit | Stable node ID | Role | Key Services |
 |------|----------|------|-------------|
-| Pi 1 | `huginmunin.local` | AI infrastructure (compute) | Munin, Hugin, Heimdall, Skuld, Verdandi |
-| Pi 2 | NAS | Storage & backup | Mimir, Samba, Time Machine |
-| M5 | `m5` (tailnet `100.76.72.59`) | Local LLM inference (1–5 users) | Home-server gateway, llama-swap |
+| Pi 1 | `node-huginmunin` | AI infrastructure (compute) | Munin, Hugin, Heimdall, Skuld, Verdandi |
+| Pi 2 | `node-nas` | Storage & backup | Mimir, Samba, Time Machine |
+| M5 | `node-m5` | Local LLM inference (1–5 users) | Home-server gateway, llama-swap |
 
 Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication. The BosGame M5 is the dedicated local-inference node — see *Home-server (M5) — Local Inference* below and the gateway API contract in the `gille-inference` repo.
 
@@ -321,7 +321,7 @@ Files originate on the MacBook, sync to the NAS Pi, and are discovered by agents
 ```mermaid
 sequenceDiagram
     participant Laptop as MacBook (~/mimir/)
-    participant NAS as NAS Pi (/home/magnus/artifacts/)
+    participant NAS as NAS Pi (/home/example/artifacts/)
     participant Mimir as Mimir Server (:3031)
     participant Munin as Munin Memory
     participant Agent as AI Agent
@@ -441,11 +441,11 @@ Tags: ["pending", "runtime:claude", "type:code"]
 
 | Context value | Resolved path | Use case |
 |---------------|---------------|----------|
-| `repo:<name>` | `/home/magnus/repos/<name>` | Code tasks in a specific repo |
-| `scratch` | `/home/magnus/scratch` | Research, email, admin, non-code work |
-| `files` | `/home/magnus/mimir` | File organization, document work |
+| `repo:<name>` | `/home/example/repos/<name>` | Code tasks in a specific repo |
+| `scratch` | `/home/example/scratch` | Research, email, admin, non-code work |
+| `files` | `/home/example/mimir` | File organization, document work |
 | `/absolute/path` | Used as-is | Backward compat, custom paths |
-| *(omitted)* | `/home/magnus/workspace` | Legacy default |
+| *(omitted)* | `/home/example/workspace` | Legacy default |
 
 `Working dir:` is still accepted for backward compatibility but `Context:` takes priority.
 

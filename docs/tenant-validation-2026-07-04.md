@@ -6,6 +6,9 @@
 > tenant's own first-person report,
 > [`codex-run-report-2026-07-04.md`](../scripts/tenant-validation/codex-run-report-2026-07-04.md).
 
+Historical note: private live locators are omitted as `<private-address>`; recorded commands are
+historical evidence, not current transport instructions.
+
 ## Executive summary
 
 On 2026-07-04, a non-Claude agent (Codex CLI 0.142.5, tenant identity `codex-cli`) executed
@@ -53,10 +56,10 @@ document, which is itself a small contract gap (see Findings).
 
 | Seam | Called | As whom | Result | Attribution |
 |---|---|---|---|---|
-| **B — Gateway** | `POST /delegate` on `100.76.72.59:8080` (2 calls: `{}` → 400 schema probe, then `{prompt}` → 200) | Shared **owner** gateway key (env) | **PASS** — `admin` via mellum, 253 ms, `ledgerId d02b06a5-33bc-4061-b441-f676a9e8d6ec`; ledger entry independently confirmed (`taskType:"classify"`, `source:"gateway"`, 13:08:03 UTC) | **Gap** — response carries no caller identity; `GET /ledger` exposes `source` but no key alias; tenant ran on the owner's shared key |
+| **B — Gateway** | `POST /delegate` on `<private-address>:8080` (2 calls: `{}` → 400 schema probe, then `{prompt}` → 200) | Shared **owner** gateway key (env) | **PASS** — `admin` via mellum, 253 ms, `ledgerId d02b06a5-33bc-4061-b441-f676a9e8d6ec`; ledger entry independently confirmed (`taskType:"classify"`, `source:"gateway"`, 13:08:03 UTC) | **Gap** — response carries no caller identity; `GET /ledger` exposes `source` but no key alias; tenant ran on the owner's shared key |
 | **A — Munin** | `memory_orient`, `memory_write traces/codex-tenant/run-2026-07-04`, `memory_log` via Codex's own MCP bridge (HTTP, no SQLite) | Codex CLI's own bridge credential (`MUNIN_AUTH_TOKEN` in *its* config — never read by the orchestrator) | **PASS (transport)** — entry `cda356d6…` created 13:08:57, log `bac19e42…` | **FAIL (attribution)** — `provenance: {"principal_id":"owner","owner_principal_id":"owner"}` — identical to Claude-session writes and to Hugin's own heartbeat writes |
 | **C — Gating** | `memory_write tasks/20260704-130911-tenant-validation-classify/status`, tags `[pending, runtime:ollama, type:admin]`, **unsigned**, `Submitted by: codex-cli` | `codex-cli` (self-reported in body); Munin principal again `owner` | **PASS** — Hugin started it 13:09:51 (24 s after the write landed), executor ollama `qwen2.5:3b` on the Pi, exit 0 in 14 s, result `admin` (independent agreement with the tenant's mellum call); the gate's sensitivity classifier ran (`{"effective":"internal","mismatch":false}` — from the **orchestrator's** independent read of the `result-structured` entry `c360a523…`; the tenant's own report only read `status`/`result`) | **Gap** — `Submitted by` is convention-grade (unverified); no `codex-cli` signing keyId exists; `result-structured` carries **no submitter field at all**; unsigned submission accepted silently |
-| **D — Verdandi** | `GET /health`, `POST /api/events` ×2 (no auth; dummy bearer) on `100.97.117.37:3036` | `codex-tenant` (would-be) | **BLOCKED** — all three: `curl: (7) Failed to connect to 100.97.117.37 port 3036 after 3 ms: Couldn't connect to server` | Not exercisable: no off-Pi network path (loopback-only bind; no `verdandi.gille.ai`), and no per-tenant key is provisionable |
+| **D — Verdandi** | `GET /health`, `POST /api/events` ×2 (no auth; dummy bearer) on `<private-address>:3036` | `codex-tenant` (would-be) | **BLOCKED** — all three: `curl: (7) Failed to connect to <private-address> port 3036 after 3 ms: Couldn't connect to server` | Not exercisable: no off-Pi network path (loopback-only bind; no `verdandi.gille.ai`), and no per-tenant key is provisionable |
 
 ## What the contract got right (validated)
 

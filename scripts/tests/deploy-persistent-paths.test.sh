@@ -3,6 +3,7 @@
 # root-anchored exclusions through to rsync for an audited in-target data path.
 
 set -euo pipefail
+export DEPLOY_USER=operator
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEPLOY="$SCRIPT_DIR/../deploy.sh"
@@ -691,7 +692,7 @@ if grep -Fxq -- '--exclude=.env' "$RSYNC_CAPTURE"; then
 else
   fail "global .env policy preserves in-target service credentials"
 fi
-if grep -Fxq -- "magnus@h1:'/srv/alpha/'" "$RSYNC_CAPTURE"; then
+if grep -Fxq -- "operator@h1:'/srv/alpha/'" "$RSYNC_CAPTURE"; then
   pass "rsync remote path uses POSIX shell quoting"
 else
   fail "rsync remote path uses POSIX shell quoting"
@@ -1099,7 +1100,7 @@ fi
 # Heimdall entry, then proves the flags deploy.sh emits for them keep an
 # existing backup content- and mode-identical under --delete and never create
 # one when it is absent. The registry stays explicit: exact paths, no wildcard.
-BACKUP_PATH="/home/magnus/repos/heimdall/agent/config.env.pre-producer-tokens"
+BACKUP_PATH="/home/example/repos/heimdall/agent/config.env.pre-producer-tokens"
 BACKUP_EXCLUDE="/agent/config.env.pre-producer-tokens"
 BACKUP_REL="agent/config.env.pre-producer-tokens"
 BACKUP_CONTENT="guard-sentinel producer-token rollback copy (not a credential)"

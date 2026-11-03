@@ -21,8 +21,8 @@ err() { echo "FAIL: $*" >&2; fail=1; }
 # silently rendered as a plausible label.
 host_label() {
   case "$1" in
-    huginmunin.local) echo 'Pi 1' ;;
-    nas.local) echo 'Pi 2 (NAS)' ;;
+    node-huginmunin) echo 'Pi 1' ;;
+    node-nas) echo 'Pi 2 (NAS)' ;;
     *) return 1 ;;
   esac
 }
@@ -33,7 +33,7 @@ if ! component_rows="$(node -e '
   const registry = require(process.argv[1]);
   for (const component of registry.components) {
     if (Number.isInteger(component.port)) {
-      console.log([component.repo, component.port, component.host].join("\t"));
+      console.log([component.repo, component.port, component.target_node_id].join("\t"));
     }
   }
 ' "$REGISTRY")"; then

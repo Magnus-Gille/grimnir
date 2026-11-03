@@ -108,7 +108,7 @@ NODE_JSON="$(REGISTRY_PATH="$REPO_REGISTRY" QUERY=nodes-json node --input-type=c
 if NODE_JSON="$NODE_JSON" node -e '
   const nodes = JSON.parse(process.env.NODE_JSON);
   const node = nodes.find((candidate) => candidate.node_id === "node-munin-zero");
-  if (!node || node.name !== "munin-zero" || node.hostname !== "munin-zero.local" || node.role !== "memory-appliance" || node.status !== "active" || node.monitor !== true) process.exit(1);
+  if (!node || node.name !== "munin-zero" || node.hostname !== "node-munin-zero.invalid" || node.role !== "memory-appliance" || node.status !== "active" || node.monitor !== true) process.exit(1);
 '; then
   echo "  PASS: munin-zero is an active monitored managed node"
   PASS=$((PASS + 1))
@@ -126,6 +126,28 @@ else
   echo "  FAIL: munin-zero is not a component deployment target"
   FAIL=$((FAIL + 1))
 fi
+
+# Runtime projections are exercised against a deterministic synthetic view of
+# the public registry.  It deliberately uses the legacy (non-public-profile)
+# query path so these assertions never need a private operational map.
+RUNTIME_REGISTRY="$TMP_DIR/operational-synthetic.json"
+REPO_REGISTRY="$REPO_REGISTRY" OUTPUT="$RUNTIME_REGISTRY" node --input-type=commonjs -e '
+  var fs = require("fs");
+  var registry = JSON.parse(fs.readFileSync(process.env.REPO_REGISTRY, "utf8"));
+  delete registry.registry_profile;
+  (registry.nodes || []).forEach(function (node) {
+    node.hostname = node.node_id + ".test";
+  });
+  (registry.components || []).forEach(function (component) {
+    if (typeof component.host === "string" && component.target_node_id) {
+      component.host = component.target_node_id + ".test";
+    }
+    if (component.health_check && component.target_node_id) {
+      component.health_check.host = component.target_node_id + ".test";
+    }
+  });
+  fs.writeFileSync(process.env.OUTPUT, JSON.stringify(registry));
+'
 
 # ── Repository authority is bounded and machine-readable (#112) ───────────
 cat > "$TMP_DIR/bad-repository-authority.json" << 'EOF'
@@ -670,8 +692,21 @@ assert_clean_failure "null entry in nodes" "$TMP_DIR/null-node.json"
 # The JSON Lines `deploy` projection derives each component's primary unit_type/scope from
 # systemd_units[0]. Hugin's primary unit must stay a user-scoped rsync service
 # while its two user-scoped timers remain declared in the owning contract. Pin
-# the real services.json plus the ordering contract on a synthetic fixture.
+# the public identity/authority data plus the ordering contract on a synthetic fixture.
 REGISTRY_JS="$SCRIPT_DIR/../lib/registry.js"
+
+public_deploy_output="$TMP_DIR/public-deploy.out"
+public_deploy_stderr="$TMP_DIR/public-deploy.err"
+public_deploy_rc=0
+if env -u GRIMNIR_OPERATIONAL_MAP REGISTRY_PATH="$REPO_REGISTRY" QUERY=deploy \
+    node --input-type=commonjs "$REGISTRY_JS" >"$public_deploy_output" 2>"$public_deploy_stderr"; then
+  public_deploy_rc=0
+else
+  public_deploy_rc=$?
+fi
+assert_eq "public QUERY=deploy without explicit operational map -> exit 1" "1" "$public_deploy_rc"
+assert_eq "public QUERY=deploy failure emits no records" "" "$(cat "$public_deploy_output")"
+
 repository_authority_rows="$(
   REGISTRY_PATH="$REPO_REGISTRY" QUERY=repository-authority \
     node --input-type=commonjs "$REGISTRY_JS"
@@ -700,33 +735,33 @@ deploy_field() {  # $1 = registry path, $2 = component name, $3 = field
         });
       '
 }
-assert_eq "real services.json: hugin primary unit remains service" "service" \
-  "$(deploy_field "$REPO_REGISTRY" hugin unit_type)"
-assert_eq "real services.json: hugin deploy scope remains user" "user" \
-  "$(deploy_field "$REPO_REGISTRY" hugin unit_scope)"
-hugin_units="$(deploy_field "$REPO_REGISTRY" hugin systemd_units)"
-assert_eq "real services.json: hugin declares the live service and timer contract" \
+assert_eq "synthetic registry: hugin primary unit remains service" "service" \
+  "$(deploy_field "$RUNTIME_REGISTRY" hugin unit_type)"
+assert_eq "synthetic registry: hugin deploy scope remains user" "user" \
+  "$(deploy_field "$RUNTIME_REGISTRY" hugin unit_scope)"
+hugin_units="$(deploy_field "$RUNTIME_REGISTRY" hugin systemd_units)"
+assert_eq "synthetic registry: hugin declares the live service and timer contract" \
   '[{"name":"hugin","type":"service","scope":"user","boot_enable":true},{"name":"hugin-daily-exam-factory","type":"timer","scope":"user"},{"name":"hugin-experiment-cadence","type":"timer","scope":"user"}]' \
   "$hugin_units"
-assert_eq "real services.json: retired hugin daily-analysis timer is absent" \
+assert_eq "synthetic registry: retired hugin daily-analysis timer is absent" \
   "false" "$(printf '%s\n' "$hugin_units" | grep -Fq 'hugin-daily-analysis' && echo true || echo false)"
 
-assert_eq "real services.json: Heimdall deploy refreshes boot-check timer companion" \
+assert_eq "synthetic registry: Heimdall deploy refreshes boot-check timer companion" \
   '[{"name":"heimdall","type":"service","boot_enable":true},{"name":"heimdall-collect","type":"timer"},{"name":"heimdall-maintain","type":"timer"},{"name":"heimdall-boot-check","type":"timer"}]' \
-  "$(deploy_field "$REPO_REGISTRY" heimdall systemd_units)"
-assert_eq "real services.json: Heimdall deploy carries its health port" \
-  "3033" "$(deploy_field "$REPO_REGISTRY" heimdall port)"
-assert_eq "real services.json: munin-memory remains outside runtime rendering scope" \
-  "null" "$(deploy_field "$REPO_REGISTRY" munin-memory systemd_runtime)"
-assert_eq "real services.json: Heimdall owns the reviewed host runtime contract" \
-  '{"user":"magnus","home":"/home/magnus","deploy_target":"/home/magnus/repos/heimdall","environment_files":["/home/magnus/.heimdall/env"],"sandbox_paths":["/home/magnus/.munin-memory","/home/magnus/.ssh/heimdall_ed25519"]}' \
-  "$(deploy_field "$REPO_REGISTRY" heimdall systemd_runtime)"
-assert_eq "real services.json: Heimdall health uses the network consumer boundary" \
-  '{"boundary":"network","host":"huginmunin","paths":["/health","/api/health"]}' \
-  "$(deploy_field "$REPO_REGISTRY" heimdall health_check)"
+  "$(deploy_field "$RUNTIME_REGISTRY" heimdall systemd_units)"
+assert_eq "synthetic registry: Heimdall deploy carries its health port" \
+  "3033" "$(deploy_field "$RUNTIME_REGISTRY" heimdall port)"
+assert_eq "synthetic registry: munin-memory remains outside runtime rendering scope" \
+  "null" "$(deploy_field "$RUNTIME_REGISTRY" munin-memory systemd_runtime)"
+assert_eq "synthetic registry: Heimdall owns the reviewed host runtime contract" \
+  '{"user":"example","home":"/home/example","deploy_target":"/home/example/repos/heimdall","environment_files":["/home/example/.heimdall/env"],"sandbox_paths":["/home/example/.munin-memory","/home/example/.ssh/heimdall_ed25519"]}' \
+  "$(deploy_field "$RUNTIME_REGISTRY" heimdall systemd_runtime)"
+assert_eq "synthetic registry: Heimdall health uses the network consumer boundary" \
+  '{"boundary":"network","host":"node-huginmunin.test","paths":["/health","/api/health"]}' \
+  "$(deploy_field "$RUNTIME_REGISTRY" heimdall health_check)"
 
-assert_eq "real services.json: skuld timer deploys via user manager" \
-  "user" "$(deploy_field "$REPO_REGISTRY" skuld unit_scope)"
+assert_eq "synthetic registry: skuld timer deploys via user manager" \
+  "user" "$(deploy_field "$RUNTIME_REGISTRY" skuld unit_scope)"
 
 component_persistent_paths() {  # $1 = registry path, $2 = component name
   REGISTRY_PATH="$1" COMPONENT_NAME="$2" node --input-type=commonjs -e '
@@ -735,22 +770,22 @@ component_persistent_paths() {  # $1 = registry path, $2 = component name
     process.stdout.write(JSON.stringify(component && component.persistent_paths || []));
   '
 }
-assert_eq "real services.json: Verdandi protects legacy data and declares canonical migration target" \
-  '["/home/magnus/repos/verdandi/data","/home/magnus/.local/share/verdandi"]' \
-  "$(component_persistent_paths "$REPO_REGISTRY" verdandi)"
+assert_eq "synthetic registry: Verdandi protects legacy data and declares canonical migration target" \
+  '["/home/example/repos/verdandi/data","/home/example/.local/share/verdandi"]' \
+  "$(component_persistent_paths "$RUNTIME_REGISTRY" verdandi)"
 
-assert_eq "real services.json: Verdandi deploy carries legacy data exclusion" \
-  '["/data/"]' "$(deploy_field "$REPO_REGISTRY" verdandi rsync_excludes)"
+assert_eq "synthetic registry: Verdandi deploy carries legacy data exclusion" \
+  '["/data/"]' "$(deploy_field "$RUNTIME_REGISTRY" verdandi rsync_excludes)"
 
-assert_eq "real services.json: Heimdall protects host-owned fleet-agent state and its producer-token rollback backup" \
-  '["/home/magnus/.heimdall","/home/magnus/repos/heimdall/agent/config.env","/home/magnus/repos/heimdall/agent/VERSION","/home/magnus/repos/heimdall/agent/config.env.pre-producer-tokens"]' \
-  "$(component_persistent_paths "$REPO_REGISTRY" heimdall)"
+assert_eq "synthetic registry: Heimdall protects host-owned fleet-agent state and its producer-token rollback backup" \
+  '["/home/example/.heimdall","/home/example/repos/heimdall/agent/config.env","/home/example/repos/heimdall/agent/VERSION","/home/example/repos/heimdall/agent/config.env.pre-producer-tokens"]' \
+  "$(component_persistent_paths "$RUNTIME_REGISTRY" heimdall)"
 
-assert_eq "real services.json: Heimdall deploy carries fleet-agent exclusions" \
-  '["/agent/config.env","/agent/VERSION","/agent/config.env.pre-producer-tokens"]' "$(deploy_field "$REPO_REGISTRY" heimdall rsync_excludes)"
+assert_eq "synthetic registry: Heimdall deploy carries fleet-agent exclusions" \
+  '["/agent/config.env","/agent/VERSION","/agent/config.env.pre-producer-tokens"]' "$(deploy_field "$RUNTIME_REGISTRY" heimdall rsync_excludes)"
 
-assert_eq "real services.json: grimnir deploy carries the declared external environment file" \
-  '["/home/magnus/.config/grimnir/security-scan.env"]' "$(deploy_field "$REPO_REGISTRY" grimnir external_environment_files)"
+assert_eq "synthetic registry: grimnir deploy carries the declared external environment file" \
+  '["/home/example/.config/grimnir/security-scan.env"]' "$(deploy_field "$RUNTIME_REGISTRY" grimnir external_environment_files)"
 
 validate_field() {  # $1 = registry path, $2 = component name, $3 = zero-based field
   REGISTRY_PATH="$1" QUERY=validate node --input-type=commonjs "$REGISTRY_JS" 2>/dev/null \
@@ -767,15 +802,15 @@ validate_field() {  # $1 = registry path, $2 = component name, $3 = zero-based f
       '
 }
 assert_eq "Verdandi validation projection is intentionally stopped" "stopped" \
-  "$(validate_field "$REPO_REGISTRY" verdandi 7)"
+  "$(validate_field "$RUNTIME_REGISTRY" verdandi 7)"
 assert_eq "Verdandi remains deployment-marker managed" "true" \
-  "$(validate_field "$REPO_REGISTRY" verdandi 6)"
+  "$(validate_field "$RUNTIME_REGISTRY" verdandi 6)"
 assert_eq "Brokkr validation projection keeps active timers" "active" \
-  "$(validate_field "$REPO_REGISTRY" brokkr 7)"
+  "$(validate_field "$RUNTIME_REGISTRY" brokkr 7)"
 assert_eq "Brokkr validation projection skips deploy markers" "false" \
-  "$(validate_field "$REPO_REGISTRY" brokkr 6)"
+  "$(validate_field "$RUNTIME_REGISTRY" brokkr 6)"
 assert_eq "Fortnox has no managed runtime" "not-applicable" \
-  "$(validate_field "$REPO_REGISTRY" fortnox-mcp 7)"
+  "$(validate_field "$RUNTIME_REGISTRY" fortnox-mcp 7)"
 
 cat > "$TMP_DIR/order.json" << 'EOF'
 {
@@ -811,20 +846,20 @@ owning_field() {  # $1 = registry, $2 = entry name, $3 = JS expression over `ent
   '
 }
 
-assert_eq "real services.json: mimir-search-reader owns its deploy command" \
+assert_eq "synthetic registry: mimir-search-reader owns its deploy command" \
   "./scripts/deploy-search-reader.sh" \
-  "$(owning_field "$REPO_REGISTRY" mimir-search-reader 'entry.command.join(" ")')"
-assert_eq "real services.json: mimir-search-reader targets node-m5 in the mimir repo" \
+  "$(owning_field "$RUNTIME_REGISTRY" mimir-search-reader 'entry.command.join(" ")')"
+assert_eq "synthetic registry: mimir-search-reader targets node-m5 in the mimir repo" \
   "mimir@node-m5" \
-  "$(owning_field "$REPO_REGISTRY" mimir-search-reader 'entry.repo + "@" + entry.target_node_id')"
-assert_eq "real services.json: mimir-search-reader couples the Mac client pin" \
-  "node-laptop:.config/mimir-search/client.json:release,package_sha256" \
-  "$(owning_field "$REPO_REGISTRY" mimir-search-reader 'entry.coupled_state.map(function (s) { return s.node_id + ":" + s.home_relative_path + ":" + s.fields.join(","); }).join(";")')"
-assert_eq "real services.json: reader listener is the registered loopback port" \
-  "8791" "$(owning_field "$REPO_REGISTRY" mimir-search-reader 'entry.loopback_port')"
+  "$(owning_field "$RUNTIME_REGISTRY" mimir-search-reader 'entry.repo + "@" + entry.target_node_id')"
+assert_eq "synthetic registry: mimir-search-reader couples the client pin" \
+  "node-laptop:example/client-state.json:release,package_sha256" \
+  "$(owning_field "$RUNTIME_REGISTRY" mimir-search-reader 'entry.coupled_state.map(function (s) { return s.node_id + ":" + s.home_relative_path + ":" + s.fields.join(","); }).join(";")')"
+assert_eq "synthetic registry: reader listener is the registered loopback port" \
+  "8791" "$(owning_field "$RUNTIME_REGISTRY" mimir-search-reader 'entry.loopback_port')"
 
 # The central deploy query must never select an owning-repo deployment.
-CENTRAL_DEPLOY_NAMES="$(REGISTRY_PATH="$REPO_REGISTRY" QUERY=deploy node --input-type=commonjs "$REGISTRY_JS" \
+CENTRAL_DEPLOY_NAMES="$(REGISTRY_PATH="$RUNTIME_REGISTRY" QUERY=deploy node --input-type=commonjs "$REGISTRY_JS" \
   | node --input-type=commonjs -e '
       var input = "";
       process.stdin.on("data", function (chunk) { input += chunk; });
@@ -839,9 +874,9 @@ esac
 assert_eq "registries without owning_repo_deployments yield no owning-deploys rows" "" \
   "$(owning_query "$TMP_DIR/valid.json")"
 
-# Each mutation of the real registry must fail validation cleanly.
+# Each mutation of the synthetic operational registry must fail validation cleanly.
 mutate_owning() {  # $1 = fixture name, $2 = JS mutation over `entry` and `registry`
-  REPO_REGISTRY="$REPO_REGISTRY" OUTPUT="$TMP_DIR/$1.json" MUTATION="$2" node --input-type=commonjs -e '
+  REPO_REGISTRY="$RUNTIME_REGISTRY" OUTPUT="$TMP_DIR/$1.json" MUTATION="$2" node --input-type=commonjs -e '
     var fs = require("fs");
     var registry = JSON.parse(fs.readFileSync(process.env.REPO_REGISTRY, "utf8"));
     var entry = registry.owning_repo_deployments[0];
@@ -869,7 +904,7 @@ reject_owning "command is empty"             "entry.command = []"
 reject_owning "command repeats revision arg" "entry.command.push(\"--release\")"
 reject_owning "revision argument missing"    "delete entry.revision_argument"
 reject_owning "revision argument malformed"  "entry.revision_argument = \"release\""
-reject_owning "release root not canonical"   "entry.release_root = \"/home/magnus/releases/\""
+reject_owning "release root not canonical"   "entry.release_root = \"/srv/example/releases/\""
 reject_owning "marker inside release root"   "entry.deployed_marker = entry.release_root + \"/.deployed-commit\""
 reject_owning "marker missing"               "delete entry.deployed_marker"
 reject_owning "port collides with component" "entry.loopback_port = 3031"
@@ -899,7 +934,7 @@ reject_owning "coupled node is inherited constructor" "entry.coupled_state[0].no
 reject_owning "port collides with another owning deployment on the same node" \
   "var twin = JSON.parse(JSON.stringify(entry)); twin.name = \"mimir-search-twin\"; registry.owning_repo_deployments.push(twin)"
 reject_owning "port collides with a component on the same node" \
-  "var squatter = JSON.parse(JSON.stringify(registry.components.filter(function (c) { return c.name === \"mimir\"; })[0])); squatter.name = \"m5-port-squatter\"; squatter.host = \"100.76.72.59\"; squatter.target_node_id = \"node-m5\"; squatter.port = 8791; registry.components.push(squatter)"
+  "var squatter = JSON.parse(JSON.stringify(registry.components.filter(function (c) { return c.name === \"mimir\"; })[0])); squatter.name = \"m5-port-squatter\"; squatter.host = \"node-m5.test\"; squatter.target_node_id = \"node-m5\"; squatter.port = 8791; registry.components.push(squatter)"
 
 # The same loopback port on a different node is not a collision.
 mutate_owning owning-same-port-other-node \
@@ -931,7 +966,7 @@ ROUTE_SHA="$(git -C "$ROUTE_REPO" rev-parse HEAD)"
 export ROUTE_CAPTURE="$TMP_DIR/route-capture"
 
 route_argv() {  # one argv element per line: registered command..., then revision_argument
-  owning_query "$REPO_REGISTRY" | node --input-type=commonjs -e '
+  owning_query "$RUNTIME_REGISTRY" | node --input-type=commonjs -e '
     var input = "";
     process.stdin.on("data", function (chunk) { input += chunk; });
     process.stdin.on("end", function () {

@@ -12,15 +12,15 @@
 | **Installed instruction/skill exposure** | `claude-config` bootstrap and link manifest | Host-local links; automatic sync is an activation trigger, not deployment evidence |
 | **Repository checks, acceptance and deployment mechanics** | Owning repository `AGENTS.md` and executable contracts | `ship-it`, CI and Hugin; global trust and protected-action floors still apply |
 | **Port assignments** | `services.json` | `generate-architecture.sh`, `deploy.sh`, `security-scan.sh`, `docs/architecture.md` |
-| **SSH and consumer-health hostnames** | `services.json` | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
-| **Deploy paths, targets, desired runtime state, systemd units & timer semantics** | `services.json` | `deploy.sh`, `generate-architecture.sh` |
+| **SSH transport and consumer-health hostnames** | Owner-only operational map bound to `services.json` intent (`docs/operational-discovery.md`) | `deploy.sh`, `generate-architecture.sh`, `docs/architecture.md` |
+| **Desired targets/runtime state, systemd units & timer semantics; private deploy paths** | `services.json` owns intent; owner-only map owns operational path values | `deploy.sh`, `generate-architecture.sh` |
 | **Systemd unit structure / templates** | Owning component repo | `deploy.sh` installs install-ready units byte-for-byte or renders the bounded registry placeholders |
-| **Host systemd runtime identity, home, deploy target, private-environment paths and exact external sandbox dependencies** | `services.json` | `deploy.sh`, `render-systemd-units.sh` |
-| **Persistent/runtime paths and component-specific rsync exclusions** | `services.json` | `deploy.sh`, registry validation |
+| **Host systemd runtime identity, home, deploy target, private-environment paths and exact external sandbox dependencies** | Owner-only operational map; bounded structure in `services.json` | `deploy.sh`, `render-systemd-units.sh` |
+| **Persistent/runtime paths and component-specific rsync exclusions** | `services.json` owns preservation structure/relative exclusions; owner-only map owns absolute paths | `deploy.sh`, registry validation |
 | **Global rsync safety exclusions** (`.env`, `.git`, dependencies, tests, deploy marker) | `scripts/deploy.sh` | deploy persistence tests |
 | **Deployment source identity** (expected worktree + immutable revision) | `scripts/lib/deploy-source.sh` | deploy source-revision tests |
 | **Component inventory** | `services.json` | all scripts, `docs/conventions.md` (references it) |
-| **Owning-repository deploy entry points (command, target node, revision argument, release root, marker, loopback port, units, coupled client state)** | `services.json` `owning_repo_deployments` | `/deploy`, `scripts/lib/validate-registry.js`; execution only through `scripts/guarded-deploy.sh` |
+| **Owning-repository deploy entry points (command, target node, revision argument, release root, marker, loopback port, units, coupled client state)** | `services.json` `owning_repo_deployments` owns intent; the owner-only map supplies release/marker/state paths | `/deploy`, `scripts/lib/validate-registry.js`; execution only through `scripts/guarded-deploy.sh` |
 | **Owning-repository deploy procedure (preflight, install, acceptance, rollback internals)** | Owning repository (for example `mimir` `scripts/deploy-search-reader.sh`) | Grimnir records the entry point and binds source identity only |
 | **Repo names / GitHub ownership / canonical local checkout mapping** | `services.json` (`components[].repo` plus `repository_authority`) | `docs/conventions.md`, worktree-hygiene audit |
 | **Service patterns / conventions** | `docs/conventions.md` | per-repo CLAUDE.md |
@@ -57,9 +57,9 @@
 
 1. **Single writer per fact.** Each fact type has exactly one authoritative source. Other documents may restate the fact for readability, but the authoritative source is what gets updated first.
 
-2. **Scripts read from `services.json`, never hardcode.** `deploy.sh`, `security-scan.sh`, and `generate-architecture.sh` all read component metadata (ports, hosts, deploy paths, units) from `services.json` via `scripts/lib/registry.js`. Hardcoded service lists in scripts are bugs.
+2. **Scripts read the registry views, never hardcode.** Public `services.json` owns stable identities and intended policy. `scripts/lib/registry.js` exposes public projections by default and explicitly materializes operational hosts/paths from the owner-only map for deploy/validation. Missing or stale mappings fail closed; reserved public examples are never fallback targets. Hardcoded service lists remain bugs. See `docs/operational-discovery.md`.
 
-3. **Restatements must cite.** When `docs/architecture.md` restates a port or hostname from `docs/conventions.md`, it should be understood as derived. If a discrepancy is found, `docs/conventions.md` wins.
+3. **Restatements must cite.** Ports and stable targets restated in `docs/architecture.md` derive from `services.json`; operational locators derive from the owner-only map. Service conventions derive from `docs/conventions.md`. Resolve discrepancies using the fact ownership table.
 
 4. **Munin is live state, not architecture.** Munin project statuses reflect current work and blockers. They are not authoritative for system design, ports, or conventions.
 
@@ -165,7 +165,7 @@ The generator should warn on discrepancies it can detect:
 - Port in `services.json` vs port in component's source code / env config
 - Systemd units in `services.json` vs units actually present on the host
 - Component repos in `services.json` vs directories in `~/repos/`
-- Deploy path in `services.json` vs WorkingDirectory / EnvironmentFile paths in unit files
+- Materialized private deploy path vs WorkingDirectory / EnvironmentFile paths in unit files
 - Git-pull checkout HEAD vs the exact live `origin/main` SHA (an unreachable origin is never current)
 - Missing, symlinked, or malformed rsync deployment markers
 
@@ -185,7 +185,7 @@ The generator assembles `full-architecture.md` from two sources. This table defi
 
 | Fact domain | Owned by | Examples |
 |-------------|----------|----------|
-| System topology, hardware, network model | `architecture.md` | Pi specs, Tailscale IPs, port assignments, architecture diagram |
+| System topology, hardware, network model | `architecture.md` | Stable node/workload IDs, intended roles, port assignments, architecture diagram |
 | Component roles, design rationale | `architecture.md` | What Munin does, why Hugin is single-threaded, security model |
 | Deployment patterns, access matrix | `architecture.md` | How deploys work, which env can access which service |
 | Tech stack, conventions | `architecture.md` | Node.js version, SQLite choice, systemd for scheduling |
@@ -207,7 +207,7 @@ The generator assembles `full-architecture.md` from two sources. This table defi
 
 When a fact changes (e.g., a service moves to a new port):
 
-1. Update the authoritative source first (`services.json` for ports/hosts/deploy paths/units, `conventions.md` for patterns/naming)
+1. Update the authoritative source first (`services.json` for intended ports/placement/units, the owner-only map for operational targets/paths, `conventions.md` for patterns/naming). Reconcile and rebind the map when public registry bytes change; never copy private values back into Git.
 2. Update all derived sources (or note them for the next session)
 3. No script should need updating — they all read from `services.json` via `scripts/lib/registry.js`
 
@@ -217,3 +217,11 @@ See [delivery-mandates.md](delivery-mandates.md) for the system integration and 
 record. The portable policy is owned by `claude-config/AGENTS.md`; this map does not create
 another authorization mechanism. Existing ADR-008 signed-controller contracts and disarmed
 production coverage remain unchanged.
+
+## Hardware and operator discovery
+
+A routed hardware/evaluation task carries a stable node ID and a safe evidence reference.
+`services.json` establishes intended identity; dated Brokkr evidence establishes observed model
+and capacity; the named owner-only map establishes configured operator transport. Follow
+[operational-discovery.md](operational-discovery.md) before asking the owner or selecting a host.
+Munin stores retrieval pointers, not a competing topology or private address inventory.
