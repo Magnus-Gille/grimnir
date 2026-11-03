@@ -22,6 +22,7 @@
 
 var fs = require('fs');
 var path = require('path');
+var os = require('os');
 
 var registryPath = process.env.REGISTRY_PATH;
 var query = process.env.QUERY;
@@ -49,14 +50,64 @@ if (!data.components || !Array.isArray(data.components)) {
   process.exit(1);
 }
 
+if (data.registry_profile !== undefined && data.registry_profile !== 'public-v1') {
+  process.stderr.write('ERROR: operational registry unavailable (REGISTRY_PROFILE)\n');
+  process.exit(1);
+}
+
+var operational = null;
+if (data.registry_profile === 'public-v1') {
+  try {
+    var resolver = require('./operational-registry.js');
+    resolver.assertPublicRegistry(data);
+    if (['deploy', 'validate', 'owning-deploys', 'runtime-json', 'deployment-user', 'local-node-id'].indexOf(query) !== -1 ||
+        process.env.REGISTRY_VIEW === 'operational') {
+      operational = resolver.loadOperationalRegistry(registryPath, { requireRuntime: true });
+      data = operational.registry;
+    }
+  } catch (err) {
+    process.stderr.write('ERROR: operational registry unavailable (' +
+      (resolver && err instanceof resolver.OperationalError ? err.code : 'INTERNAL_ERROR') + ')\n');
+    process.exit(1);
+  }
+}
 var components = data.components;
 
 switch (query) {
+  case 'profile': {
+    process.stdout.write((data.registry_profile || 'legacy') + '\n');
+    break;
+  }
+  case 'deployment-user': {
+    process.stdout.write((operational ? operational.deploy_user : (process.env.DEPLOY_USER || os.userInfo().username)) + '\n');
+    break;
+  }
+  case 'local-node-id': {
+    process.stdout.write((operational ? operational.local_node_id : (process.env.GRIMNIR_LOCAL_NODE_ID || '')) + '\n');
+    break;
+  }
+  case 'runtime-json': {
+    var runtimeData = JSON.parse(JSON.stringify(data));
+    delete runtimeData.registry_profile;
+    process.stdout.write(JSON.stringify(runtimeData) + '\n');
+    break;
+  }
   case 'deploy': {
     // JSON Lines keeps registry strings structured through the shell boundary.
     // deploy.sh parses each object as JSON; it never delimiter-splits values.
     var deployable = components.filter(function (c) { return c.deploy; });
     deployable.forEach(function (c) {
+      var deployHost = c.host;
+      if (operational) {
+        // SSH transport is an exact owner mapping, not a DNS/alias fallback.
+        var binding = operational.nodes_by_id.get(c.target_node_id);
+        if (!binding || typeof binding.ssh_target !== 'string' ||
+            binding.ssh_target.split('@')[0] !== operational.deploy_user) {
+          process.stderr.write('ERROR: operational registry unavailable (TARGET_MISSING)\n');
+          process.exit(1);
+        }
+        deployHost = binding.ssh_target.split('@')[1];
+      }
       // Determine primary unit type/scope from first systemd unit.
       // type defaults to "service"; scope defaults to "system" (system
       // manager). Units running under `systemctl --user` must set
@@ -67,12 +118,12 @@ switch (query) {
         unitType = c.systemd_units[0].type;
         unitScope = c.systemd_units[0].scope || 'system';
       }
-      var deployPath = c.deploy_path || ('/home/magnus/repos/' + c.repo);
+      var deployPath = c.deploy_path;
       var deployMode = c.deploy_mode || 'rsync';
       process.stdout.write(JSON.stringify({
         name: c.name,
         repo: c.repo,
-        host: c.host,
+        host: deployHost,
         port: c.port || null,
         deploy_path: deployPath,
         unit_type: unitType,

@@ -28,7 +28,7 @@ HOSTNAME_VAL="$(hostname)"
 REPOS_DIR="$HOME/repos"
 
 # Read component lists from the service registry (single source of truth)
-REGISTRY="$GRIMNIR_DIR/services.json"
+REGISTRY="${REGISTRY_PATH:-$GRIMNIR_DIR/services.json}"
 REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
 
 # shellcheck source=scripts/lib/systemd-status.sh
@@ -58,6 +58,33 @@ while [[ $# -gt 0 ]]; do
     *) echo "ERROR: unknown option" >&2; exit 1 ;;
   esac
 done
+
+REGISTRY_PROFILE="$(REGISTRY_PATH="$REGISTRY" QUERY=profile node --input-type=commonjs "$REGISTRY_JS")"
+LOCAL_NODE_ID="${GRIMNIR_LOCAL_NODE_ID:-}"
+LOCAL_REGISTRY_HOST="$HOSTNAME_VAL"
+if [[ "$REGISTRY_PROFILE" == "public-v1" ]]; then
+  configured_user="$(REGISTRY_PATH="$REGISTRY" QUERY=deployment-user node --input-type=commonjs "$REGISTRY_JS")"
+  if [[ -n "${SYSTEMD_USER:-}" && "$SYSTEMD_USER" != "$configured_user" ]]; then
+    echo "ERROR: SYSTEMD_USER disagrees with the configured operational mapping" >&2
+    exit 1
+  fi
+  SYSTEMD_USER="$configured_user"
+  LOCAL_NODE_ID="$(REGISTRY_PATH="$REGISTRY" QUERY=local-node-id node --input-type=commonjs "$REGISTRY_JS")"
+  private_nodes="$(REGISTRY_PATH="$REGISTRY" REGISTRY_VIEW=operational QUERY=nodes-json node --input-type=commonjs "$REGISTRY_JS")"
+  LOCAL_REGISTRY_HOST="$(PRIVATE_NODES="$private_nodes" LOCAL_NODE_ID="$LOCAL_NODE_ID" node -e '
+    const row = JSON.parse(process.env.PRIVATE_NODES).find(n => n.node_id === process.env.LOCAL_NODE_ID);
+    if (!row || typeof row.hostname !== "string") process.exit(1);
+    process.stdout.write(row.hostname);
+  ')"
+  unset private_nodes
+else
+  # Legacy explicit private registries retain their established host contract.
+  SYSTEMD_USER="${SYSTEMD_USER:-$(id -un)}"
+  if [[ -z "$LOCAL_NODE_ID" && "$HOSTNAME_VAL" == "huginmunin" ]]; then
+    LOCAL_NODE_ID=node-huginmunin
+  fi
+fi
+export SYSTEMD_USER
 
 unit_rows_from_json() {
   local units_json=$1
@@ -98,12 +125,12 @@ health_status_local() {
 }
 
 health_status_remote() {
-  local host=$1 port=$2 user=${SYSTEMD_USER:-magnus}
+  local host=$1 port=$2 user=${SYSTEMD_USER:-$(id -un)}
   ssh -o ConnectTimeout=5 -o BatchMode=yes "${user}@${host}" "port='$port'; last=000; for target in localhost 127.0.0.1 \$(hostname -I 2>/dev/null || true); do [ -n \"\$target\" ] || continue; case \"\$target\" in *:*) continue ;; esac; for path in /health /api/health; do code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 \"http://\${target}:\${port}\${path}\" 2>/dev/null || true); if [ \"\$code\" = 200 ]; then echo 200; exit 0; fi; [ -n \"\$code\" ] && last=\"\$code\"; done; done; echo \"\$last\"" 2>/dev/null || echo '000'
 }
 
 remote_git_checkout_freshness() {
-  local host=$1 checkout=$2 branch=${3:-main} user=${SYSTEMD_USER:-magnus}
+  local host=$1 checkout=$2 branch=${3:-main} user=${SYSTEMD_USER:-$(id -un)}
   local q_checkout q_ref command output local_sha remote_sha
   q_checkout="$(posix_shell_quote "$checkout")"
   q_ref="$(posix_shell_quote "refs/heads/${branch}")"
@@ -130,8 +157,8 @@ remote_git_checkout_freshness() {
 # Must run on huginmunin (needs SSH access to both Pis).
 
 if [[ "$VALIDATE_MODE" == "true" ]]; then
-  if [[ "$HOSTNAME_VAL" != "huginmunin" ]]; then
-    echo "⚠ Validation must run on huginmunin (needs SSH to both Pis)."
+  if [[ "$LOCAL_NODE_ID" != "node-huginmunin" ]]; then
+    echo "⚠ Validation requires the configured node-huginmunin operator context."
     exit 1
   fi
 
@@ -231,7 +258,8 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
     COMPONENT_WARN=false
 
     # Determine if host is local or remote
-    if [[ "$v_host" == "huginmunin.local" ]] || [[ "$v_host" == "huginmunin" ]]; then
+    if [[ "$v_host" == "$LOCAL_REGISTRY_HOST" ]] ||
+       [[ "$REGISTRY_PROFILE" != "public-v1" && "$v_host" == "${LOCAL_REGISTRY_HOST}.local" ]]; then
       IS_LOCAL=true
     else
       IS_LOCAL=false
@@ -350,7 +378,7 @@ if [[ "$VALIDATE_MODE" == "true" ]]; then
           esac
         else
           q_marker="$(posix_shell_quote "$repo_path/.deployed-commit")"
-          remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "magnus@${v_host}" "if [ -L ${q_marker} ]; then echo marker-symlink; elif [ -f ${q_marker} ]; then printf 'stamped:%s' \"\$(tr -d '\\r\\n' < ${q_marker})\"; else echo marker-missing; fi" 2>/dev/null || echo 'ssh-failed')"
+          remote_check="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "${SYSTEMD_USER}@${v_host}" "if [ -L ${q_marker} ]; then echo marker-symlink; elif [ -f ${q_marker} ]; then printf 'stamped:%s' \"\$(tr -d '\\r\\n' < ${q_marker})\"; else echo marker-missing; fi" 2>/dev/null || echo 'ssh-failed')"
           if [[ "$remote_check" == "ssh-failed" ]]; then
             STATUS_LINE+=" deploy:ssh-failed"
             COMPONENT_OK=false
@@ -607,8 +635,8 @@ $(echo -e "$RESULTS")"
 fi
 
 # ─── Detect environment (normal mode) ────────────────────────
-if [[ "$HOSTNAME_VAL" != "huginmunin" ]]; then
-  echo "⚠ This script must run on huginmunin (needs systemd, repos, Munin)."
+if [[ "$LOCAL_NODE_ID" != "node-huginmunin" ]]; then
+  echo "⚠ This script requires the configured node-huginmunin operator context."
   exit 1
 fi
 

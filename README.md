@@ -58,3 +58,11 @@ This is a personal infrastructure project. The documentation is public for refer
 ---
 
 *Built by Magnus Gille, with Claude and Codex. Running on local hardware in Mariefred, Sweden.*
+
+### Public identities and private operations
+
+The checked-in registry uses stable node IDs and reserved `.invalid`/example operational
+values. See [operational discovery](docs/operational-discovery.md) for the owner-only map,
+dated Brokkr hardware evidence, precise failure diagnostics, and migration of runtime
+consumers. Public queries do not load private mappings. Deploy/validation queries stop
+without a matching private map; a successful lookup never authorizes a host mutation.

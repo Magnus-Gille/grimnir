@@ -142,24 +142,30 @@ fi
 # inspected read-only and raw remote URLs are never printed.
 if [[ -f "$SERVICES_JSON" ]]; then
   REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
-  while IFS='|' read -r checkout_name expected_authority; do
-    [[ -n "$checkout_name" && -n "$expected_authority" ]] || continue
-    checkout_path="$REPOS_ROOT/$checkout_name"
-    if ! git -C "$checkout_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      continue
-    fi
-    expected_authority="$(printf '%s' "$expected_authority" | tr '[:upper:]' '[:lower:]')"
-    origin_row="$(checkout_origin_authority "$checkout_path" "$expected_authority")"
-    origin_verdict="${origin_row%%|*}"
-    origin_actual="${origin_row#*|}"
-    if [[ "$(origin_authority_is_alert "$origin_verdict")" == "yes" ]]; then
-      OFFENDERS+="❌ $checkout_name canonical checkout origin: $(origin_authority_detail "$origin_verdict" "$expected_authority" "$origin_actual")\n"
-      RECIPES+="  - $checkout_name origin: $(origin_authority_remediation "$origin_verdict" "$expected_authority")\n"
-      ISSUES=$((ISSUES + 1))
-    else
-      PASS=$((PASS + 1))
-    fi
-  done < <(REGISTRY_PATH="$SERVICES_JSON" QUERY=repository-authority node --input-type=commonjs "$REGISTRY_JS")
+  if authority_rows="$(REGISTRY_PATH="$SERVICES_JSON" QUERY=repository-authority node --input-type=commonjs "$REGISTRY_JS" 2>/dev/null)"; then
+    while IFS='|' read -r checkout_name expected_authority; do
+      [[ -n "$checkout_name" && -n "$expected_authority" ]] || continue
+      checkout_path="$REPOS_ROOT/$checkout_name"
+      if ! git -C "$checkout_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        continue
+      fi
+      expected_authority="$(printf '%s' "$expected_authority" | tr '[:upper:]' '[:lower:]')"
+      origin_row="$(checkout_origin_authority "$checkout_path" "$expected_authority")"
+      origin_verdict="${origin_row%%|*}"
+      origin_actual="${origin_row#*|}"
+      if [[ "$(origin_authority_is_alert "$origin_verdict")" == "yes" ]]; then
+        OFFENDERS+="❌ $checkout_name canonical checkout origin: $(origin_authority_detail "$origin_verdict" "$expected_authority" "$origin_actual")\n"
+        RECIPES+="  - $checkout_name origin: $(origin_authority_remediation "$origin_verdict" "$expected_authority")\n"
+        ISSUES=$((ISSUES + 1))
+      else
+        PASS=$((PASS + 1))
+      fi
+    done <<< "$authority_rows"
+  else
+    OFFENDERS+="❌ repository-authority query failed; audit incomplete/unknown\n"
+    RECIPES+="  - repository-authority audit: inspect the services registry and rerun; no origin changes were made.\n"
+    ISSUES=$((ISSUES + 1))
+  fi
 fi
 
 # Deploy-target role check (#47/#87): an rsync deploy target that has grown a
@@ -169,21 +175,27 @@ fi
 # found here", never as a false "clean").
 if [[ -f "$SERVICES_JSON" ]]; then
   REGISTRY_JS="$SCRIPT_DIR/lib/registry.js"
-  while IFS='|' read -r v_name _v_host _v_port _v_repo v_deploy_path v_deploy_mode _v_units_json; do
-    [[ -n "$v_name" && -n "$v_deploy_path" ]] || continue
-    if [[ ! -d "$v_deploy_path" ]]; then
-      continue
-    fi
-    dt_git_dir="$(check_deploy_target_git_dir "$v_deploy_path")"
-    dt_verdict="$(classify_deploy_target "$v_deploy_mode" "$dt_git_dir")"
-    if [[ "$(deploy_target_is_alert "$dt_verdict")" == "yes" ]]; then
-      OFFENDERS+="❌ $v_name deploy target ($v_deploy_path): $(deploy_target_detail "$dt_verdict")\n"
-      RECIPES+="  - $v_name deploy target ($v_deploy_path): investigate manually why a .git directory exists on a $v_deploy_mode target; do not delete .git automatically. See docs/role-separation.md.\n"
-      ISSUES=$((ISSUES + 1))
-    else
-      PASS=$((PASS + 1))
-    fi
-  done < <(REGISTRY_PATH="$SERVICES_JSON" QUERY=validate node --input-type=commonjs "$REGISTRY_JS")
+  if validation_rows="$(REGISTRY_PATH="$SERVICES_JSON" QUERY=validate node --input-type=commonjs "$REGISTRY_JS" 2>/dev/null)"; then
+    while IFS='|' read -r v_name _v_host _v_port _v_repo v_deploy_path v_deploy_mode _v_units_json; do
+      [[ -n "$v_name" && -n "$v_deploy_path" ]] || continue
+      if [[ ! -d "$v_deploy_path" ]]; then
+        continue
+      fi
+      dt_git_dir="$(check_deploy_target_git_dir "$v_deploy_path")"
+      dt_verdict="$(classify_deploy_target "$v_deploy_mode" "$dt_git_dir")"
+      if [[ "$(deploy_target_is_alert "$dt_verdict")" == "yes" ]]; then
+        OFFENDERS+="❌ $v_name deploy target ($v_deploy_path): $(deploy_target_detail "$dt_verdict")\n"
+        RECIPES+="  - $v_name deploy target ($v_deploy_path): investigate manually why a .git directory exists on a $v_deploy_mode target; do not delete .git automatically. See docs/role-separation.md.\n"
+        ISSUES=$((ISSUES + 1))
+      else
+        PASS=$((PASS + 1))
+      fi
+    done <<< "$validation_rows"
+  else
+    OFFENDERS+="❌ deploy-target validation query failed; audit incomplete/unknown\n"
+    RECIPES+="  - deploy-target audit: inspect the services registry and rerun; no deploy-target changes were made.\n"
+    ISSUES=$((ISSUES + 1))
+  fi
 fi
 
 if [[ -n "$OFFENDERS" ]]; then

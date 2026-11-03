@@ -17,7 +17,7 @@ Work the seams in the order B → A → C → D.
 
 ## Seam B — inference through the M5 gateway
 
-- Gateway (OpenAI-compatible + delegation front door): `http://100.76.72.59:8080`
+- Gateway (OpenAI-compatible + delegation front door): `http://<private-address>:8080`
   (tailnet). Bearer token is already in the env var `M5_API_KEY`. **Never print, echo, log,
   or write that token anywhere** — reference it only as `$M5_API_KEY` inside curl commands.
 - The substrate-preferred, ledger-writing path is `POST /delegate`. Its request schema is
@@ -82,7 +82,7 @@ Answer with exactly one lowercase word.
 
 ## Seam D — Verdandi audit emission
 
-- Verdandi audit intake: `http://100.97.117.37:3036` (Pi 1, tailnet). Try `GET /health`
+- Verdandi audit intake: `http://<private-address>:3036` (Pi 1, tailnet). Try `GET /health`
   first. Then attempt `POST /api/events` with a JSON event like
   `{"component":"codex-tenant","type":"tenant_validation","severity":"routine","trace_id":"codex-tenant-20260704","evidence":"convention","payload":{"note":"tenant contract validation run"}}`
   — once with no Authorization header, once with `Authorization: Bearer invalid-tenant-key`.

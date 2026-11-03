@@ -4,6 +4,9 @@
 > Grimnir substrate contract: M5/OpenAI-compatible routing, file/shell/test loops, permission
 > controls, parseable traces, and room for Munin/Verdandi attribution.
 
+Historical note: private live locators are omitted as `<private-address>`; recorded commands are
+historical evidence, not current transport instructions.
+
 ## Summary
 
 The short answer: the gap is no longer primarily model capability. It is harness integration and
@@ -39,7 +42,7 @@ A disposable fixture repo was created at `/tmp/grimnir-harness-bakeoff.ToJKJQ`:
 - Baseline `npm test` failed with `-1 !== 5`.
 - A successful harness needed to make the smallest patch and prove `npm test` passed.
 
-M5 was reached through `http://100.76.72.59:8080/v1` with a token from `m5-auth`. The available
+M5 was reached through `http://<private-address>:8080/v1` with a token from `m5-auth`. The available
 M5 models at test time were `gemma4`, `gpt-oss-120b`, `mellum`, `qwen3-30b-instruct`,
 `qwen3-coder-next-80b`, `qwen36-a3b`, and `whisper-1`.
 
@@ -60,7 +63,7 @@ Goose was installed into a temporary bin dir and configured with:
 
 - `GOOSE_PROVIDER=openai`
 - `GOOSE_MODEL=qwen3-coder-next-80b`
-- `OPENAI_HOST=http://100.76.72.59:8080`
+- `OPENAI_HOST=http://<private-address>:8080`
 - `OPENAI_API_KEY=$(m5-auth)`
 - `goose run --no-session --no-profile --with-builtin developer --output-format stream-json`
 
@@ -83,7 +86,7 @@ Sources: [Goose provider docs](https://goose-docs.ai/docs/getting-started/provid
 ### OpenCode
 
 OpenCode was already installed locally. A temporary config directory defined an M5 provider with
-`@ai-sdk/openai-compatible`, `baseURL: "http://100.76.72.59:8080/v1"`, and env-based API key
+`@ai-sdk/openai-compatible`, `baseURL: "http://<private-address>:8080/v1"`, and env-based API key
 loading.
 
 Observed behavior:
@@ -108,7 +111,7 @@ and [models](https://opencode.ai/docs/models/).
 ### Aider
 
 Aider was already installed locally. It needed `OPENAI_API_KEY` plus `--openai-api-base
-http://100.76.72.59:8080/v1`; passing the key only via `--openai-api-key` failed under LiteLLM.
+http://<private-address>:8080/v1`; passing the key only via `--openai-api-key` failed under LiteLLM.
 
 Observed behavior:
 

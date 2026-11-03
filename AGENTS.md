@@ -16,6 +16,7 @@ changes here; `CLAUDE.md` is only a Claude Code import adapter.
   Bounded edits and read-only questions need only the context relevant to the task.
 - Treat `services.json` as the component-inventory authority; see `docs/authority.md` for the wider
   authority map.
+- Before asking about hardware/evaluation targets, follow `docs/operational-discovery.md`. Use evidence and the private mapping; never guess transports or search credentials.
 - **This file holds no reference material — every system document and script is indexed in
   `docs/index.md`. Open it before answering anything about how Grimnir works or what its policy
   is:** architecture, conventions, authority, threat model, security, deployment, worktree hygiene,

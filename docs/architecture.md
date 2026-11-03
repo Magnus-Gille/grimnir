@@ -130,11 +130,11 @@ graph TB
 
 ### Hardware
 
-| Unit | Hostname | Role | Key Services |
+| Unit | Stable node ID | Role | Key Services |
 |------|----------|------|-------------|
-| Pi 1 | `huginmunin.local` | AI infrastructure (compute) | Munin, Hugin, Heimdall, Skuld, Verdandi |
-| Pi 2 | NAS | Storage & backup | Mimir, Samba, Time Machine |
-| M5 | `m5` (tailnet `100.76.72.59`) | Local LLM inference (1–5 users) | Home-server gateway, llama-swap |
+| Pi 1 | `node-huginmunin` | AI infrastructure (compute) | Munin, Hugin, Heimdall, Skuld, Verdandi |
+| Pi 2 | `node-nas` | Storage & backup | Mimir, Samba, Time Machine |
+| M5 | `node-m5` | Local LLM inference (1–5 users) | Home-server gateway, llama-swap |
 
 Both Pis are Raspberry Pi 5 units (8 GB RAM) in Flirc passive-cooling aluminum cases. They run on the same local network and are also connected via Tailscale for reliable cross-Pi communication. The BosGame M5 is the dedicated local-inference node — see *Home-server (M5) — Local Inference* below and the gateway API contract in the `gille-inference` repo.
 

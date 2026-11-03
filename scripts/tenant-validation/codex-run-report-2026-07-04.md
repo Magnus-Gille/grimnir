@@ -4,6 +4,9 @@ Tenant identity asserted by this run: `codex-cli`.
 
 Trace id: `codex-tenant-20260704`.
 
+Historical note: private live locators are omitted as `<private-address>`; recorded commands are
+historical evidence, not current transport instructions.
+
 Task note:
 
 > Renew the gille.ai domain registration and rotate the Cloudflare tunnel service tokens before 2026-08-01.
@@ -17,7 +20,7 @@ Acted as: Codex CLI tenant `codex-cli`, authenticating to the gateway with the b
 Endpoint 1:
 
 ```text
-POST http://100.76.72.59:8080/delegate
+POST http://<private-address>:8080/delegate
 ```
 
 Request body:
@@ -37,7 +40,7 @@ Response body:
 Endpoint 2:
 
 ```text
-POST http://100.76.72.59:8080/delegate
+POST http://<private-address>:8080/delegate
 ```
 
 Request body shape: `{"prompt":"<classification prompt>"}`
@@ -137,13 +140,13 @@ Acted as: Codex CLI tenant `codex-cli`, attempting to emit a routine audit event
 Health check:
 
 ```text
-GET http://100.97.117.37:3036/health
+GET http://<private-address>:3036/health
 ```
 
 Curl result:
 
 ```text
-curl: (7) Failed to connect to 100.97.117.37 port 3036 after 3 ms: Couldn't connect to server
+curl: (7) Failed to connect to <private-address> port 3036 after 3 ms: Couldn't connect to server
 
 HTTP_STATUS:000
 ```
@@ -151,7 +154,7 @@ HTTP_STATUS:000
 Unauthenticated event attempt:
 
 ```text
-POST http://100.97.117.37:3036/api/events
+POST http://<private-address>:3036/api/events
 ```
 
 Request body:
@@ -163,7 +166,7 @@ Request body:
 Curl result:
 
 ```text
-curl: (7) Failed to connect to 100.97.117.37 port 3036 after 4 ms: Couldn't connect to server
+curl: (7) Failed to connect to <private-address> port 3036 after 4 ms: Couldn't connect to server
 
 HTTP_STATUS:000
 ```
@@ -171,7 +174,7 @@ HTTP_STATUS:000
 Invalid-key event attempt:
 
 ```text
-POST http://100.97.117.37:3036/api/events
+POST http://<private-address>:3036/api/events
 Authorization: Bearer invalid-tenant-key
 ```
 
@@ -184,7 +187,7 @@ Request body:
 Curl result:
 
 ```text
-curl: (7) Failed to connect to 100.97.117.37 port 3036 after 4 ms: Couldn't connect to server
+curl: (7) Failed to connect to <private-address> port 3036 after 4 ms: Couldn't connect to server
 
 HTTP_STATUS:000
 ```

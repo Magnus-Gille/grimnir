@@ -26,7 +26,7 @@ function isPlainObject(x) {
 
 var raw;
 try {
-  raw = fs.readFileSync(registryPath, 'utf8');
+  raw = fs.readFileSync(process.env.REGISTRY_DATA_STDIN === '1' ? 0 : registryPath, 'utf8');
 } catch (err) {
   console.error('ERROR: Failed to read ' + registryPath + ': ' + err.message);
   process.exit(1);
@@ -38,6 +38,14 @@ try {
 } catch (err) {
   console.error('ERROR: ' + registryPath + ' is not valid JSON: ' + err.message);
   process.exit(1);
+}
+
+if (data && data.registry_profile === 'public-v1') {
+  try { require('./operational-registry.js').assertPublicRegistry(data); }
+  catch (err) {
+    console.error('ERROR: public registry privacy contract failed');
+    process.exit(1);
+  }
 }
 
 if (!isPlainObject(data)) {
