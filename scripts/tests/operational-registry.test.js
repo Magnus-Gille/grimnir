@@ -192,6 +192,14 @@ test('public queries ignore private mappings; operational consumers require and 
   const runtime = JSON.parse(query('runtime-json').stdout);
   assert.ok(!Object.hasOwn(runtime, 'registry_profile'), 'direct-file export preserves the legacy shape');
   assert.equal(runtime.components.find(c => c.name === 'heimdall').systemd_runtime.user, 'operator');
+  const map = JSON.parse(fs.readFileSync(fixture.overlayPath, 'utf8'));
+  map.nodes.find(n => n.node_id === 'node-nas').ssh_target = 'operator@ssh-node-nas.example.test';
+  writeJson(fixture.overlayPath, map, 0o600);
+  const validation = query('validate-with-transport'); assert.equal(validation.status, 0);
+  const nasRow = validation.stdout.trim().split('\n').map(s => s.split('|')).find(r => r[0] === 'mimir');
+  assert.equal(nasRow[1], 'node-nas.example.test', 'consumer hostname remains separate');
+  assert.equal(nasRow[9], 'node-nas');
+  assert.equal(nasRow[10], 'operator@ssh-node-nas.example.test', 'validation receives exact transport');
   const deploy = query('deploy').stdout.trim().split('\n').map(JSON.parse);
   assert.equal(deploy.find(c => c.name === 'hugin').host, 'node-huginmunin.example.test');
   assert.equal(deploy.find(c => c.name === 'hugin').unit_scope, 'user');
@@ -429,4 +437,41 @@ test('an unknown explicit registry profile cannot downgrade into legacy operatio
     assert.equal(result.status, 1); assert.equal(result.stdout, '');
     assert.match(result.stderr, /REGISTRY_PROFILE/);
   }
+});
+
+
+test('architecture remote probes preserve exact transport and local checks use stable identity', (t) => {
+  const fixture = makeFixture(); t.after(() => cleanup(fixture));
+  const generator = fs.readFileSync(path.join(__dirname, '../generate-architecture.sh'), 'utf8');
+  const functions = ['component_is_local', 'health_status_remote', 'remote_git_checkout_freshness', 'remote_deployment_marker_status']
+    .map(name => {
+      const start = generator.indexOf(name + '() {');
+      assert.ok(start >= 0, name);
+      return generator.slice(start, generator.indexOf('\n}', start) + 2);
+    }).join('\n');
+  const log = path.join(fixture.directory, 'ssh-targets');
+  const script = `set -euo pipefail
+source "$SYSTEMD_LIB"
+${functions}
+ssh() {
+  while [[ "$1" == "-o" ]]; do shift 2; done
+  printf '%s\n' "$1" >> "$TARGET_LOG"
+  printf 'unreachable\n'
+}
+REGISTRY_PROFILE=public-v1
+LOCAL_NODE_ID=node-huginmunin
+LOCAL_REGISTRY_HOST=runtime.example.test
+component_is_local node-huginmunin unrelated.example.test
+if component_is_local node-nas runtime.example.test; then exit 41; fi
+remote_systemctl_status reader@ssh-node-nas.example.test system is-active example.service >/dev/null
+health_status_remote reader@ssh-node-nas.example.test 3020 >/dev/null
+remote_git_checkout_freshness reader@ssh-node-nas.example.test /srv/example main >/dev/null
+remote_deployment_marker_status reader@ssh-node-nas.example.test /srv/example >/dev/null
+`;
+  const result = cp.spawnSync('/bin/bash', ['-c', script], { encoding: 'utf8', env: {
+    PATH: '/usr/bin:/bin', HOME: fixture.directory, SYSTEMD_USER: 'other-operator', TARGET_LOG: log,
+    SYSTEMD_LIB: path.join(__dirname, '../lib/systemd-status.sh')
+  } });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(fs.readFileSync(log, 'utf8').trim().split('\n'), Array(4).fill('reader@ssh-node-nas.example.test'));
 });

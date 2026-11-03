@@ -60,7 +60,7 @@ if (data.registry_profile === 'public-v1') {
   try {
     var resolver = require('./operational-registry.js');
     resolver.assertPublicRegistry(data);
-    if (['deploy', 'validate', 'owning-deploys', 'runtime-json', 'deployment-user', 'local-node-id'].indexOf(query) !== -1 ||
+    if (['deploy', 'validate', 'validate-with-transport', 'owning-deploys', 'runtime-json', 'deployment-user', 'local-node-id'].indexOf(query) !== -1 ||
         process.env.REGISTRY_VIEW === 'operational') {
       operational = resolver.loadOperationalRegistry(registryPath, { requireRuntime: true });
       data = operational.registry;
@@ -167,6 +167,7 @@ switch (query) {
     });
     break;
   }
+  case 'validate-with-transport':
   case 'validate': {
     // Runtime and deployment applicability are separate: deploy=false skips
     // marker validation but may still declare active systemd units.
@@ -178,9 +179,23 @@ switch (query) {
       var deployMode = c.deploy_mode || 'rsync';
       var desiredRuntimeState = c.desired_runtime_state || 'active';
       var units = JSON.stringify(c.systemd_units || []);
+      var transportFields = '';
+      if (query === 'validate-with-transport') {
+        var nodeId = c.target_node_id || '';
+        var ssh = '';
+        if (operational && host) {
+          var nodeBinding = operational.nodes_by_id.get(nodeId);
+          if (!nodeBinding || typeof nodeBinding.ssh_target !== 'string') {
+            process.stderr.write('ERROR: operational registry unavailable (TARGET_MISSING)\n');
+            process.exit(1);
+          }
+          ssh = nodeBinding.ssh_target;
+        }
+        transportFields = '|' + nodeId + '|' + ssh;
+      }
       process.stdout.write(c.name + '|' + host + '|' + port + '|' + c.repo + '|' +
         deployPath + '|' + deployMode + '|' + String(Boolean(c.deploy)) + '|' +
-        desiredRuntimeState + '|' + units + '\n');
+        desiredRuntimeState + '|' + units + transportFields + '\n');
     });
     break;
   }

@@ -78,6 +78,10 @@ and operator notes. `QUERY=deploy`, `validate` and `owning-deploys` require a
 complete matching private map for a `public-v1` source. Deploy targets come from
 the explicit SSH mapping, and the deploy user must agree with that mapping.
 There is no `.local`-to-bare-name retry for this profile.
+`QUERY=validate-with-transport` appends stable node ID and exact SSH target to
+the validation tuple. Architecture checks use the stable ID for local detection
+and the explicit SSH target for every remote probe; consumer hostnames remain
+separate. Legacy explicit registries keep their hostname/account convention.
 
 `REGISTRY_VIEW=operational` explicitly requests a private projection for other
 queries. `QUERY=runtime-json` emits the complete legacy runtime registry shape,

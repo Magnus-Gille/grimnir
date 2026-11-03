@@ -223,9 +223,11 @@ function loadOperationalRegistry(registryPath, options = {}) {
     for (const n of registry.nodes) {
       if (n.hostname !== null && (typeof n.hostname !== 'string' || n.hostname.endsWith('.invalid'))) fail('RUNTIME_MAPPING_MISSING');
     }
-    for (const c of registry.components.filter(c => c.deploy)) {
+    for (const c of registry.components.filter(c => c.host !== null)) {
       const binding = nodes.get(c.target_node_id);
-      if (!binding || sshTarget(binding.ssh_target).user !== map.deploy_user) fail('TARGET_INVALID');
+      if (!binding) fail('TARGET_MISSING');
+      const transport = sshTarget(binding.ssh_target);
+      if (c.deploy && transport.user !== map.deploy_user) fail('TARGET_INVALID');
     }
     for (const [section, fields, entries] of [['components', PRIVATE_COMPONENT_FIELDS, components], ['owning_repo_deployments', PRIVATE_DEPLOY_FIELDS, deployments]]) {
       for (const row of original[section] || []) {

@@ -66,8 +66,17 @@ local_systemctl_status() {
   normalize_systemctl_status "$output"
 }
 
+# An explicit user@host is already bound by operational discovery. Legacy
+# hostname-only callers retain the configured systemd operator account.
+remote_ssh_target() {
+  case "$1" in
+    *@*) printf '%s\n' "$1" ;;
+    *) printf '%s@%s\n' "${SYSTEMD_USER:-$(id -un)}" "$1" ;;
+  esac
+}
+
 remote_systemctl_status() {
-  local host=$1 scope=$2 action=$3 unit=$4 user=${SYSTEMD_USER:-$(id -un)}
+  local host=$1 scope=$2 action=$3 unit=$4
   local output command
 
   command=''
@@ -81,7 +90,7 @@ remote_systemctl_status() {
   fi
   command+="$(posix_shell_quote "$action") $(posix_shell_quote "$unit")"
 
-  output="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "${user}@${host}" "$command" \
+  output="$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$(remote_ssh_target "$host")" "$command" \
     2>/dev/null || true)"
   normalize_systemctl_status "$output"
 }
