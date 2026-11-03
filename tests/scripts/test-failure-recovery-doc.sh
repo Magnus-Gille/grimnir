@@ -67,6 +67,24 @@ assert_contains "blocks mutation when the audit write fails" "blocks the mutatio
 # Legacy actors retain reversal visibility but not automatic rollback execution.
 assert_contains "keeps legacy rollback execution manual" "no automatic rollback execution for legacy actors"
 
+# Current summaries must not resurrect the retired transport requirement. Keep the
+# historical bake-off claim only with its explicit supersession note.
+if grep -Fq '(reversal recipe + Verdandi event)' "$REPO_ROOT/docs/vision.md"; then
+  echo "  FAIL: vision retains the retired Verdandi-only convention"
+  FAIL=$((FAIL+1))
+else
+  echo "  PASS: vision does not retain the retired transport requirement"
+  PASS=$((PASS+1))
+fi
+if grep -A2 -F '**Audit emission:** consequential actions need Verdandi events' \
+  "$REPO_ROOT/docs/agent-harness-bakeoff-2026-07-08.md" | grep -qF 'Verdandi is optional'; then
+  echo "  PASS: historical harness audit requirement is explicitly superseded"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL: historical harness audit requirement lacks supersession"
+  FAIL=$((FAIL+1))
+fi
+
 # Must map the convention onto the three Phase-2 actors named in the issue.
 assert_contains "covers auto dependency bumps" "dep(endency)?[ -]bump"
 assert_contains "covers Hugin task-dispatched mutations" "hugin"
