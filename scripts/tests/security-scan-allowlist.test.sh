@@ -145,6 +145,15 @@ commit_fixture
 output="$TMP_DIR/broad-regex.out"
 assert_scan "unsupported broad regex fails closed" 1 incomplete false "$output"
 
+# TOML integers must not be accepted as Boolean extension settings.
+cat > "$TMP_DIR/repos/alpha/.gitleaks.toml" <<'EOF'
+[extend]
+useDefault = 1
+EOF
+commit_fixture
+output="$TMP_DIR/extension-type.out"
+assert_scan "non-Boolean extension setting fails closed" 1 incomplete false "$output"
+
 # A configuration that cannot be decoded is a read failure, not a reason to
 # continue with an implicit exception policy.
 printf '\377\377\n' > "$TMP_DIR/repos/alpha/.gitleaks.toml"

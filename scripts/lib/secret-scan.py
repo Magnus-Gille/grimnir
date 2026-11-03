@@ -98,8 +98,10 @@ def load_allowlists(root, tracked):
         raise ScanError("invalid allowlist TOML") from None
     if set(config) - {"title", "extend", "allowlists"}:
         raise ScanError("unsupported allowlist configuration")
-    if "extend" in config and config["extend"] != {"useDefault": True}:
-        raise ScanError("unsupported allowlist extension")
+    if "extend" in config:
+        extension = config["extend"]
+        if not isinstance(extension, dict) or set(extension) != {"useDefault"} or extension["useDefault"] is not True:
+            raise ScanError("unsupported allowlist extension")
     entries = config.get("allowlists", [])
     if not isinstance(entries, list) or len(entries) > 128:
         raise ScanError("invalid allowlist collection")
