@@ -15,7 +15,9 @@ reaches Plane's API, so one poll covers both services.
   `status != ok`) and `Plane unreachable from ticket gateway` (`plane.reachable != true`). Each
   fires after two consecutive failed polls and resolves on the first good poll, like the M5
   inference and Munin MCP probes.
-- Implementation: heimdall `src/ticket-system.js` with tests in `test/ticket-system.test.js`.
+- Severity: both rules are `warning`, which does not use Heimdall's critical Telegram path. An outage
+  shows in Heimdall but does not page. Making either rule `critical` is an owner decision.
+- Implementation: heimdall `src/ticket-system.js` with tests in `test/ticket-system.test.js` (heimdall#112; merge it first or together with this record).
 - Not covered: Plane's own web UI behind Cloudflare Access (an unauthenticated request gets a
   302), the nightly `plane-backup.timer` (backup freshness belongs to Brokkr's backup evidence),
   and gateway latency trends beyond the stored `ticket_latency_ms` metric.
