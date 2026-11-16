@@ -55,6 +55,11 @@ the annotation, not only the filename.
 - `docs/plane-roadmap.md` — Plane ticket workflow and Grimnir Roadmap (labels `board:grimnir-roadmap`
   and `component:*`, Plane priority/state), ticket-creation preflight, and roadmap-board ownership
   contract (issue #135; replaced the GitHub Project on 2026-10-28)
+- `docs/accounted-at-rest-encryption.md` — GRIM-242 decision brief for encrypting Accounted data at
+  rest on the M5 host (options, threat model, execution outline); owner decision pending, grants
+  no host or boot-chain change
+- `docs/accounted-sent-invoice-evidence.md` — GRIM-238 owner-run, read-only procedure and result
+  record for whether Fortnox retains the originally sent invoice PDFs; agents must not execute it
 - `docs/github-actions-policy.md` — Central read-only fleet policy for immutable Action pins,
   release provenance, exact upstream runtime evidence, and owner-routed findings (issue #139)
 - `docs/github-actions-zero-step-recovery.md` — Read-only classification and owner recovery path for
