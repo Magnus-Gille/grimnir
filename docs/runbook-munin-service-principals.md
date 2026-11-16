@@ -33,11 +33,7 @@ The rules below are a **starting proposal derived from the documented task contr
 (`docs/architecture.md`, "Task schema": Hugin reads and writes `tasks/*` and the heartbeat
 `tasks/_heartbeat`). The Hugin repo was not available when this was written, so confirm against
 Hugin's actual Munin usage (learning-loop collector, any `projects/*`/`runs/*` reads, friction
-writes) before issuing:
-
-
-Then check each with `munin-admin principals test <id> <namespace>` after creation (step 3)
-for every namespace Hugin is known to use.
+writes) before issuing.
 
 Proposed rules (read/write only where needed; widen only on evidence):
 
@@ -45,6 +41,25 @@ Proposed rules (read/write only where needed; widen only on evidence):
 |---|---|
 | `hugin` | `tasks` rw, `tasks/*` rw, plus **read** (`r`) on any corpus namespaces the learning-loop collector walks (confirm: likely `projects/*`, `clients/*`) |
 | `friction-mcp` | rw on its own friction namespace only (confirm name in the friction-mcp repo; do not grant `tasks/*`) |
+
+A rules file is a JSON array of `pattern` + `permissions` objects (the format `--rules` takes, see
+the munin-memory README). A bare namespace and its `ns/*` children are separate patterns. Example
+`hugin-rules.json`, to be adjusted after the confirmation above:
+
+```json
+[
+  {"pattern": "tasks", "permissions": "rw"},
+  {"pattern": "tasks/*", "permissions": "rw"},
+  {"pattern": "projects/*", "permissions": "r"},
+  {"pattern": "clients/*", "permissions": "r"}
+]
+```
+
+`friction-rules.json` has the same shape with only the friction namespace (and its `/*` children if
+it writes below it) set to `rw`.
+
+After creation (step 3), check each with `munin-admin principals test <id> <namespace>` for every
+namespace Hugin is known to use.
 
 ## 2. Create the principals
 
