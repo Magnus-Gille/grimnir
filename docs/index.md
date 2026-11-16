@@ -15,6 +15,7 @@ the annotation, not only the filename.
   `scripts/generate-architecture.sh` on the Pi to regenerate a local snapshot)
 - `docs/conventions.md` — Naming, GitHub ownership, service patterns
 - `docs/authority.md` — The authority map: which file is the source of truth for what
+- `docs/ticket-system-monitoring.md` — How Heimdall watches Plane and ticket-gateway on the M5 (`/health` probe, alerts) and the decision that ticket-system stays outside `services.json` until its deploy script meets the registry contract (GRIM-245)
 - `docs/operational-discovery.md` — Stable node/ticket → dated Brokkr hardware evidence → owner-only
   transport lookup, public/private registry projection, freshness and migration failures; grants
   no connection/deployment authority and never scans credentials
