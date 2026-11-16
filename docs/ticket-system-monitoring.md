@@ -36,4 +36,4 @@ deployed-marker contract (request filed in the ticket-system Plane project). At 
 gateway can become an `owning_repo_deployments` entry. Plane stays out unless the registry grows a
 container-workload shape.
 
-Reversal: remove `TICKET_GATEWAY_HEALTH_URL` to stop the probe; no data migration is involved.
+Reversal: remove `TICKET_GATEWAY_HEALTH_URL` and restart Heimdall to stop the probe and drop the card; no data migration is involved. An alert already open at that moment is closed by the stale-alert reaper after its window.
