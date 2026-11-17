@@ -24,7 +24,7 @@ reaches Plane's API, so one poll covers both services.
 
 ## Registry position
 
-Decision: **ticket-system stays outside `services.json` for now.**
+Decision (confirmed by the owner 2026-11-17): **ticket-system stays outside `services.json` for now.**
 
 - ticket-gateway does not fit `owning_repo_deployments`: its deploy script takes a positional SHA
   instead of `--release`, writes no deployed-marker (it switches a symlink), and demands Cloudflare
