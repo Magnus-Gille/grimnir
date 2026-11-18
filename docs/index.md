@@ -173,6 +173,9 @@ the annotation, not only the filename.
 
 ## Security, trust, and lifecycle
 
+- `docs/runbook-munin-service-principals.md` — Owner-run procedure (HUGIN-418) to move Hugin and
+  friction-mcp from the shared legacy Munin bearer to their own scoped `agent` principals, with
+  verification and reversal per step; it issues and stores no keys.
 - `docs/threat-model.md` — Consolidated threat model (v0.3, reconciled 2026-11-03): assets, trust
   boundaries, adversaries, and a T1–T11 key-threats table mapped to owning tickets; the
   reconciliation preserves source/ticket/live-evidence limits and does not accept risk or authorize
