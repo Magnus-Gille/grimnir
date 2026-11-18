@@ -29,13 +29,15 @@ own client id in the access log, namespace-scoped rules, own revocation and own 
 
 ## 1. Decide the namespace rules (do this first)
 
-The rules below are a **starting proposal derived from the documented task contract**
-(`docs/architecture.md`, "Task schema": Hugin reads and writes `tasks/*` and the heartbeat
-`tasks/_heartbeat`). The Hugin repo was not available when this was written, so confirm against
-Hugin's actual Munin usage (learning-loop collector, any `projects/*`/`runs/*` reads, friction
-writes) before issuing.
+**Confirmed by Magnus Gille on 2026-11-17 (grimnir#233): the rules below are approved as the
+starting set.** They were derived from the documented task contract (`docs/architecture.md`,
+"Task schema": Hugin reads and writes `tasks/*` and the heartbeat `tasks/_heartbeat`), not from
+Hugin's code, which was not available when this was written. The approval covers the starting
+rules only: step 4 verification (`access_denied` in the Munin audit log) is what catches a
+namespace Hugin actually needs that is missing here. Widen deliberately with
+`principals update`, never by falling back to owner.
 
-Proposed rules (read/write only where needed; widen only on evidence):
+Approved starting rules (read/write only where needed; widen only on evidence):
 
 | Principal | Rules |
 |---|---|
