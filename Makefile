@@ -43,7 +43,7 @@ test-cred-status: ## Validate credential registry and expiry checker (GRIM-249)
 	@bash scripts/tests/cred-status.test.sh
 
 test-rotate-credential: ## Hermetic tests for the credential cutover orchestrator (GRIM-249)
-	@python3 -I scripts/tests/rotate-credential.test.py
+	@python3 -B -I scripts/tests/rotate-credential.test.py
 
 test-munin-rpc: ## Reject HTTP, JSON-RPC, and MCP tool errors from scheduled writes
 	@bash scripts/tests/munin-rpc.test.sh

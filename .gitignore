@@ -17,3 +17,4 @@ docs/full-architecture.md
 
 # A/B eval raw streams and run summaries (see docs/instruction-ab-evidence-2026-07-25.md)
 outputs/
+__pycache__/

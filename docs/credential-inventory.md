@@ -24,7 +24,7 @@ for one credential. The secret moves only over one OS pipe from the issuer's std
 stdin (for Munin: `munin-admin ... --token-stdout`, MUNIN-440, piped into a stdin-reading installer),
 never argv, env, files, logs or tickets. The command lists live in a private config (hosts and paths
 are not in this repo). `plan` (default) runs nothing; `execute` needs an interactive terminal and the
-owner typing the credential id, so agents only ever run `plan`. Every run appends a secret-free audit
+owner typing the credential id, so routine agent runs stay on `plan` (a convention, not a boundary against an agent with shell access; the config must be an owner-owned 0600 regular file). Every run appends a secret-free audit
 event (with the reversal recipe) to the config's `audit_log`. Exit 3 means the credential was issued but
 the installer failed: reconcile state with the verify probe before issuing again, never retry blindly.
 

@@ -4,6 +4,7 @@ import importlib.util, json, os, stat, sys, tempfile, unittest
 from io import StringIO
 from contextlib import redirect_stdout, redirect_stderr
 
+sys.dont_write_bytecode = True
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 spec = importlib.util.spec_from_file_location("rc", os.path.join(ROOT, "scripts/rotate-credential.py"))
 rc = importlib.util.module_from_spec(spec); spec.loader.exec_module(rc)
@@ -31,8 +32,9 @@ class T(unittest.TestCase):
         e.update(over)
         with open(self.cfg, "w") as fh:
             json.dump({"credentials": {"c1": e}}, fh)
+        os.chmod(self.cfg, 0o600)
 
-    def run_main(self, mode, confirm=lambda i: True):
+    def run_main(self, mode, confirm=lambda i, e: True):
         out, err = StringIO(), StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             rc_ = rc.main([mode, "c1", "--config", self.cfg], confirm=confirm)
@@ -64,7 +66,7 @@ class T(unittest.TestCase):
 
     def test_confirmation_required(self):
         self.write()
-        code, _ = self.run_main("execute", confirm=lambda i: False)
+        code, _ = self.run_main("execute", confirm=lambda i, e: False)
         self.assertEqual(code, rc.EXIT_REFUSED); self.assertFalse(os.path.exists(self.sink))
 
     def test_non_tty_default_refuses(self):
@@ -82,21 +84,49 @@ class T(unittest.TestCase):
         self.assertIn("preflight-failed", self.events())
 
     def test_install_failure_reports_not_delivered(self):
-        self.write(install=[self.py, "-c", "import sys;sys.exit(5)"])
+        self.write(install=[self.py, "-c", "import sys;sys.stdin.read();sys.exit(5)"])
         code, out = self.run_main("execute")
-        self.assertEqual(code, rc.EXIT_NOT_DELIVERED); self.assertIn("token-not-delivered", self.events())
+        self.assertEqual(code, rc.EXIT_NOT_DELIVERED); self.assertIn("issue-or-install-failed", self.events())
         with open(self.audit) as fh:
             self.assertNotIn(SECRET, out + fh.read())
 
     def test_issue_failure(self):
         self.write(issue=[self.py, "-c", "import sys;sys.exit(7)"])
         code, _ = self.run_main("execute")
-        self.assertEqual(code, rc.EXIT_FAILED); self.assertIn("issue-failed", self.events())
+        self.assertEqual(code, rc.EXIT_NOT_DELIVERED); self.assertIn("issue-or-install-failed", self.events())
+
+    def test_installer_exits_without_reading_is_not_exit_1(self):
+        self.write(install=[self.py, "-c", "import sys;sys.exit(5)"])
+        self.assertEqual(self.run_main("execute")[0], rc.EXIT_NOT_DELIVERED)
+
+    def test_issuer_fails_after_emitting(self):
+        self.write(issue=[self.py, "-c", f"print('{SECRET}');import sys;sys.exit(9)"])
+        self.assertEqual(self.run_main("execute")[0], rc.EXIT_NOT_DELIVERED)
+
+    def test_missing_binary_rejected_before_issuing(self):
+        self.write(install=["/nonexistent/installer"])
+        self.assertEqual(self.run_main("execute")[0], rc.EXIT_INVALID)
+        self.assertEqual(self.events(), [])
+
+    def test_loose_config_rejected(self):
+        self.write(); os.chmod(self.cfg, 0o644)
+        self.assertEqual(self.run_main("plan")[0], rc.EXIT_INVALID)
+
+    def test_symlink_audit_log_rejected(self):
+        real = os.path.join(self.d, "real"); open(real, "w").close()
+        os.symlink(real, self.audit)
+        self.write()
+        with self.assertRaises(OSError):
+            self.run_main("execute")
+
+    def test_plan_does_not_print_commands(self):
+        self.write(preflight=[self.py, "-c", "pass", "secret-host.example"])
+        self.assertNotIn("secret-host", self.run_main("plan")[1])
 
     def test_verify_failure(self):
         self.write(verify=[self.py, "-c", "import sys;sys.exit(1)"])
         code, _ = self.run_main("execute")
-        self.assertEqual(code, rc.EXIT_FAILED); self.assertIn("verify-failed", self.events())
+        self.assertEqual(code, rc.EXIT_VERIFY_FAILED); self.assertIn("verify-failed", self.events())
 
     def test_invalid_config(self):
         self.write(issue="not-a-list")
