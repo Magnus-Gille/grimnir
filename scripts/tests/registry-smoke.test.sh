@@ -87,6 +87,22 @@ cat > "$TMP_DIR/valid.json" << 'EOF'
 EOF
 assert_eq "valid registry -> exit 0" "0" "$(run_validator "$TMP_DIR/valid.json")"
 
+# Node status vocabulary (GRIM-204): powered-off is distinct from failed.
+node_status_registry() {
+  NODE_STATUS="$1" COMP_STATE="${2:-}" OUTPUT="$3" node -e '
+    const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    r.nodes[0].status = process.env.NODE_STATUS;
+    if (process.env.COMP_STATE) r.components[0].desired_runtime_state = process.env.COMP_STATE;
+    require("fs").writeFileSync(process.env.OUTPUT, JSON.stringify(r));
+  ' "$TMP_DIR/valid.json"
+}
+node_status_registry "powered-off" "stopped" "$TMP_DIR/node-off.json"
+assert_eq "node status powered-off with stopped component -> exit 0" "0" "$(run_validator "$TMP_DIR/node-off.json")"
+node_status_registry "broken" "" "$TMP_DIR/node-bad.json"
+assert_eq "unknown node status -> exit 1" "1" "$(run_validator "$TMP_DIR/node-bad.json")"
+node_status_registry "powered-off" "" "$TMP_DIR/node-off-active.json"
+assert_eq "active component on powered-off node -> exit 1" "1" "$(run_validator "$TMP_DIR/node-off-active.json")"
+
 # ── Real repo registry (regression: must always pass) ─────────────────────
 REPO_REGISTRY="$SCRIPT_DIR/../../services.json"
 assert_eq "real services.json -> exit 0" "0" "$(run_validator "$REPO_REGISTRY")"
@@ -108,12 +124,12 @@ NODE_JSON="$(REGISTRY_PATH="$REPO_REGISTRY" QUERY=nodes-json node --input-type=c
 if NODE_JSON="$NODE_JSON" node -e '
   const nodes = JSON.parse(process.env.NODE_JSON);
   const node = nodes.find((candidate) => candidate.node_id === "node-munin-zero");
-  if (!node || node.name !== "munin-zero" || node.hostname !== "node-munin-zero.invalid" || node.role !== "memory-appliance" || node.status !== "active" || node.monitor !== true) process.exit(1);
+  if (!node || node.name !== "munin-zero" || node.hostname !== "node-munin-zero.invalid" || node.role !== "memory-appliance" || node.status !== "powered-off" || node.monitor !== false) process.exit(1);
 '; then
-  echo "  PASS: munin-zero is an active monitored managed node"
+  echo "  PASS: munin-zero is a powered-off, unmonitored managed node"
   PASS=$((PASS + 1))
 else
-  echo "  FAIL: munin-zero is an active monitored managed node"
+  echo "  FAIL: munin-zero is a powered-off, unmonitored managed node"
   FAIL=$((FAIL + 1))
 fi
 if REGISTRY_PATH="$REPO_REGISTRY" node -e '

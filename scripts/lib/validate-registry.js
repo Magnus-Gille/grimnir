@@ -120,6 +120,9 @@ var VALID_UNIT_SCOPES = ['system', 'user'];
 var VALID_TIMER_SEMANTICS = ['recurring', 'one-shot'];
 var VALID_UNIT_FIELDS = ['name', 'type', 'scope', 'timer_semantics', 'service_name', 'boot_enable'];
 var VALID_RUNTIME_STATES = ['active', 'stopped', 'not-applicable'];
+// Node status: 'powered-off' is inactive by owner choice, distinct from a failed
+// or missing node (GRIM-204). Nodes may omit status for legacy inventories.
+var VALID_NODE_STATUSES = ['active', 'powered-off', 'retired'];
 var VALID_UNIT_NAME = /^[A-Za-z0-9_.@-]+$/;
 var VALID_COMPONENT_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 var VALID_PLACEMENT_ID = /^[a-z][a-z0-9-]{2,62}$/;
@@ -490,6 +493,9 @@ if (data.nodes !== undefined) {
       } else if (placementEnabled) {
         seenNodeIds.add(n.node_id);
       }
+      if (n.status !== undefined && VALID_NODE_STATUSES.indexOf(n.status) === -1) {
+        fail(label + ': "status" must be one of ' + VALID_NODE_STATUSES.join('/') + ', got "' + n.status + '"');
+      }
       if (typeof n.hostname !== 'string' && n.hostname !== null) {
         fail(label + ': field "hostname" must be a string or null');
       }
@@ -497,6 +503,19 @@ if (data.nodes !== undefined) {
         fail('duplicate node name: "' + n.name + '"');
       } else if (n.name) {
         seenNodeNames.add(n.name);
+      }
+    });
+    // A node that is off or retired by choice cannot host a component the
+    // registry says should be running.
+    data.components.forEach(function (component) {
+      if (!isPlainObject(component) || typeof component.host !== 'string') return;
+      var hosting = data.nodes.filter(function (candidate) {
+        return isPlainObject(candidate) && candidate.hostname === component.host;
+      })[0];
+      if (hosting && (hosting.status === 'powered-off' || hosting.status === 'retired') &&
+          (component.desired_runtime_state || 'active') === 'active') {
+        fail(component.name + ': desired_runtime_state "active" conflicts with node "' + hosting.name +
+          '" status "' + hosting.status + '"');
       }
     });
     if (placementEnabled) data.components.forEach(function (component) {
