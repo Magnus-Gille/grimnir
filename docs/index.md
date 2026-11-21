@@ -173,6 +173,8 @@ the annotation, not only the filename.
 
 ## Security, trust, and lifecycle
 
+- `docs/credential-inventory.md` — Metadata-only credential registry (`credentials.example.json`) and the
+  `scripts/cred-status.py` expiry checker (GRIM-249); holds no secret values and does not rotate anything.
 - `docs/runbook-munin-service-principals.md` — Owner-run procedure (HUGIN-418) to move Hugin and
   friction-mcp from the shared legacy Munin bearer to their own scoped `agent` principals, with
   verification and reversal per step; it issues and stores no keys.
@@ -247,6 +249,7 @@ the annotation, not only the filename.
 | `scripts/security-scan.sh` | Scan all repos for vulnerabilities and secrets; reads `MUNIN_TOKEN` from the environment or `--munin-token-stdin` | `make security` |
 | `scripts/lib/secret-scan.py` | Metadata-only secret detection with immutable, finite synthetic allowlists; Python 3.11+ | Called by `security-scan.sh`; regression gate `make test-security-allowlist` |
 | `scripts/lib/scan-source.js` | Fetch one registry-owned upstream commit into temporary Git objects without checkout or stale fallback | Called by `security-scan.sh --source upstream`; regression gate `make test-security-upstream` |
+| `scripts/cred-status.py` | Report credential expiry from a metadata-only registry (`credentials.example.json` is the public example); exit 1 when expired, expiring or flagged | `python3 scripts/cred-status.py`; tests via `make test-cred-status` |
 | `scripts/tests/munin-token-cli.test.sh` | Check environment/stdin precedence and non-disclosing CLI token errors for Munin callers | `make test-munin-token-cli` |
 | `scripts/worktree-hygiene-audit.sh` | Read-only audit of stale/dirty/orphaned worktrees, canonical-checkout drift, and deploy-target role violations across owned repos | `scripts/worktree-hygiene-audit.sh` (also wired into `scripts/generate-architecture.sh --validate`); tests via `make test-worktree-hygiene` |
 | `scripts/tests/ab-instructions-eval.sh` | A/B a change to the agent-instruction files against a frozen retrieval probe set | `scripts/tests/ab-instructions-eval.sh --before DIR --after DIR` |
