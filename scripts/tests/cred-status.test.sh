@@ -7,7 +7,10 @@ PASS=0; FAIL=0
 ok() { echo "  PASS: $1"; PASS=$((PASS+1)); }
 bad() { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
 run() { python3 -I "$ROOT/scripts/cred-status.py" "$@" >"$TMP/out" 2>"$TMP/err"; echo $?; }
-expect() { local want=$1 name=$2; shift 2; [[ "$(run "$@")" == "$want" ]] && ok "$name" || bad "$name"; }
+expect() {
+  local want=$1 name=$2; shift 2
+  if [[ "$(run "$@")" == "$want" ]]; then ok "$name"; else bad "$name"; fi
+}
 mk() { printf '{"schema_version":"v1","credentials":[{"id":"a","issuer":"x","consumers":["c"],"rotate_runbook":"r","verify":"v","reversal":"z"%s}]}' "$1" >"$TMP/r.json"; }
 R=(--registry "$TMP/r.json")
 
@@ -33,6 +36,7 @@ mk ',"verify":"skald-mcp-service-health"'; expect 0 "house name not a false posi
 printf '{"schema_version":"v1","extra":{"k":"v"},"credentials":[]}' >"$TMP/r.json"; expect 2 "top-level key rejected" "${R[@]}"
 printf '[]' >"$TMP/r.json"; expect 2 "non-object root is exit 2 not traceback" "${R[@]}"
 printf '{"schema_version":"v1","credentials":[{"id":"ghp_abcdefghijklmnop1234","issuer":"x","consumers":["c"],"rotate_runbook":"r","verify":"v","reversal":"z"}]}' >"$TMP/r.json"
-run "${R[@]}" >/dev/null; grep -q ghp_ "$TMP/err" "$TMP/out" && bad "validator echoed rejected value" || ok "stderr never echoes rejected value"
+run "${R[@]}" >/dev/null
+if grep -q ghp_ "$TMP/err" "$TMP/out"; then bad "validator echoed rejected value"; else ok "stderr never echoes rejected value"; fi
 expect 2 "bad --today rejected" --today nope
 echo "Passed: $PASS Failed: $FAIL"; [[ $FAIL -eq 0 ]]
