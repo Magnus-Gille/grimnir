@@ -17,6 +17,15 @@ Rotation itself stays with the owning repository's tool (Munin `munin-admin`, Hu
 This registry only points at them. Where a live source exists (Hugin `/health`
 `homeserver_credential`) it wins over the registry date.
 
-Not yet built (tracked in GRIM-249 / MUNIN-440): a plan/execute orchestrator for Munin principal
-cutovers and a stdout-only token mode in `munin-admin`. Secrets must only ever move through a single
-pipe, never argv, env, temp files or tickets.
+## Cutover orchestrator
+
+`scripts/rotate-credential.py plan|execute --config CFG <id>` runs preflight, issue, install and verify
+for one credential. The secret moves only over one OS pipe from the issuer's stdout to the installer's
+stdin (for Munin: `munin-admin ... --token-stdout`, MUNIN-440, piped into a stdin-reading installer),
+never argv, env, files, logs or tickets. The command lists live in a private config (hosts and paths
+are not in this repo). `plan` (default) runs nothing; `execute` needs an interactive terminal and the
+owner typing the credential id, so agents only ever run `plan`. Every run appends a secret-free audit
+event (with the reversal recipe) to the config's `audit_log`. Exit 3 means the credential was issued but
+the installer failed: reconcile state with the verify probe before issuing again, never retry blindly.
+
+Still open: the stdin-reading installers for each consumer, and OAuth wrap-key rotation (MUNIN-440).
