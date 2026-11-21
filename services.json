@@ -432,7 +432,7 @@
       "hostname": "node-orin.invalid",
       "ssh_alias": null,
       "role": "inference",
-      "status": "active",
+      "status": "powered-off",
       "llm_servers": [
         {
           "type": "ollama",
@@ -469,7 +469,7 @@
       "hostname": "node-skald.invalid",
       "ssh_alias": null,
       "role": "display",
-      "status": "active",
+      "status": "powered-off",
       "llm_servers": [],
       "monitor": false
     },
@@ -479,7 +479,7 @@
       "hostname": "node-munin-zero.invalid",
       "ssh_alias": null,
       "role": "memory-appliance",
-      "status": "active",
+      "status": "powered-off",
       "llm_servers": [],
       "monitor": true
     }

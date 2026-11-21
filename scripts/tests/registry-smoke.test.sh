@@ -87,6 +87,32 @@ cat > "$TMP_DIR/valid.json" << 'EOF'
 EOF
 assert_eq "valid registry -> exit 0" "0" "$(run_validator "$TMP_DIR/valid.json")"
 
+# Node status vocabulary (GRIM-204): powered-off is distinct from failed.
+node_status_registry() {
+  NODE_STATUS="$1" COMP_STATE="${2:-}" OUTPUT="$3" node -e '
+    const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    r.nodes[0].status = process.env.NODE_STATUS;
+    if (process.env.COMP_STATE) r.components[0].desired_runtime_state = process.env.COMP_STATE;
+    require("fs").writeFileSync(process.env.OUTPUT, JSON.stringify(r));
+  ' "$TMP_DIR/valid.json"
+}
+node_status_registry "powered-off" "stopped" "$TMP_DIR/node-off.json"
+assert_eq "node status powered-off with stopped component -> exit 0" "0" "$(run_validator "$TMP_DIR/node-off.json")"
+node_status_registry "retired" "" "$TMP_DIR/node-retired-active.json"
+assert_eq "active component on retired node -> exit 1" "1" "$(run_validator "$TMP_DIR/node-retired-active.json")"
+node_status_registry "retired" "stopped" "$TMP_DIR/node-retired-stopped.json"
+assert_eq "retired node with stopped component -> exit 0" "0" "$(run_validator "$TMP_DIR/node-retired-stopped.json")"
+NODE_STATUS=x OUTPUT="$TMP_DIR/node-legacy.json" node -e '
+  const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  delete r.nodes[0].status;
+  require("fs").writeFileSync(process.env.OUTPUT, JSON.stringify(r));
+' "$TMP_DIR/valid.json"
+assert_eq "node without status (legacy) -> exit 0" "0" "$(run_validator "$TMP_DIR/node-legacy.json")"
+node_status_registry "broken" "" "$TMP_DIR/node-bad.json"
+assert_eq "unknown node status -> exit 1" "1" "$(run_validator "$TMP_DIR/node-bad.json")"
+node_status_registry "powered-off" "" "$TMP_DIR/node-off-active.json"
+assert_eq "active component on powered-off node -> exit 1" "1" "$(run_validator "$TMP_DIR/node-off-active.json")"
+
 # ── Real repo registry (regression: must always pass) ─────────────────────
 REPO_REGISTRY="$SCRIPT_DIR/../../services.json"
 assert_eq "real services.json -> exit 0" "0" "$(run_validator "$REPO_REGISTRY")"
@@ -108,12 +134,12 @@ NODE_JSON="$(REGISTRY_PATH="$REPO_REGISTRY" QUERY=nodes-json node --input-type=c
 if NODE_JSON="$NODE_JSON" node -e '
   const nodes = JSON.parse(process.env.NODE_JSON);
   const node = nodes.find((candidate) => candidate.node_id === "node-munin-zero");
-  if (!node || node.name !== "munin-zero" || node.hostname !== "node-munin-zero.invalid" || node.role !== "memory-appliance" || node.status !== "active" || node.monitor !== true) process.exit(1);
+  if (!node || node.name !== "munin-zero" || node.hostname !== "node-munin-zero.invalid" || node.role !== "memory-appliance" || node.status !== "powered-off" || node.monitor !== true) process.exit(1);
 '; then
-  echo "  PASS: munin-zero is an active monitored managed node"
+  echo "  PASS: munin-zero is a powered-off, monitor-flagged managed node"
   PASS=$((PASS + 1))
 else
-  echo "  FAIL: munin-zero is an active monitored managed node"
+  echo "  FAIL: munin-zero is a powered-off, monitor-flagged managed node"
   FAIL=$((FAIL + 1))
 fi
 if REGISTRY_PATH="$REPO_REGISTRY" node -e '
@@ -938,9 +964,17 @@ reject_owning "port collides with a component on the same node" \
 
 # The same loopback port on a different node is not a collision.
 mutate_owning owning-same-port-other-node \
-  "var other = JSON.parse(JSON.stringify(entry)); other.name = \"mimir-search-other-node\"; other.target_node_id = \"node-orin\"; registry.owning_repo_deployments.push(other)"
+  "var other = JSON.parse(JSON.stringify(entry)); other.name = \"mimir-search-other-node\"; other.target_node_id = \"node-nas\"; registry.owning_repo_deployments.push(other)"
 assert_eq "owning deploy: same port on a different node is accepted" "0" \
   "$(run_validator "$TMP_DIR/owning-same-port-other-node.json")"
+
+# GRIM-204: powered-off/retired nodes cannot be targeted by desired-active work.
+reject_owning "owning deployment targets a powered-off node" \
+  "registry.nodes.filter(function (n) { return n.node_id === entry.target_node_id; })[0].status = \"powered-off\""
+reject_owning "owning deployment targets a retired node" \
+  "registry.nodes.filter(function (n) { return n.node_id === entry.target_node_id; })[0].status = \"retired\""
+reject_owning "active component targets a powered-off node by node id only" \
+  "var ghost = JSON.parse(JSON.stringify(registry.components.filter(function (c) { return c.name === \"mimir\"; })[0])); ghost.name = \"ghost-on-orin\"; ghost.host = \"node-orin.invalid\"; ghost.target_node_id = \"node-orin\"; ghost.port = 8799; registry.components.push(ghost)"
 
 # Component names are data, not prototype keys.
 mutate_owning component-named-constructor \
