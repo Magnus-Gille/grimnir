@@ -481,7 +481,7 @@
       "role": "memory-appliance",
       "status": "powered-off",
       "llm_servers": [],
-      "monitor": false
+      "monitor": true
     }
   ]
 }

@@ -109,7 +109,10 @@
     have active timers, but marker validation is skipped.
     Node `status` is `active`, `powered-off` (inactive by owner choice, not failed or missing) or
     `retired`; the validator rejects other values and rejects an `active` component hosted on a
-    `powered-off` or `retired` node (GRIM-204).
+    `powered-off` or `retired` node, including by `target_node_id` and for
+    `owning_repo_deployments` (GRIM-204). `powered-off` removes the node from Heimdall's fleet view
+    and Brokkr's OS report (Heimdall already skips non-`active` nodes); only the owner switches a
+    node back to `active`.
 
 13. **Desired, observed, required and lifecycle-result facts never overwrite each other.**
     `services.json` says what topology and placement are intended; it does not prove a host can

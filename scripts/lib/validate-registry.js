@@ -510,7 +510,8 @@ if (data.nodes !== undefined) {
     data.components.forEach(function (component) {
       if (!isPlainObject(component) || typeof component.host !== 'string') return;
       var hosting = data.nodes.filter(function (candidate) {
-        return isPlainObject(candidate) && candidate.hostname === component.host;
+        return isPlainObject(candidate) && (candidate.hostname === component.host ||
+          (typeof component.target_node_id === 'string' && candidate.node_id === component.target_node_id));
       })[0];
       if (hosting && (hosting.status === 'powered-off' || hosting.status === 'retired') &&
           (component.desired_runtime_state || 'active') === 'active') {
@@ -626,6 +627,15 @@ function validateOwningRepoDeployments(entries) {
       fail(label + ': missing/invalid required field "target_node_id" (stable public-safe id)');
     } else if (!nodeIds.has(entry.target_node_id)) {
       fail(label + ': target_node_id does not reference a registered node: ' + entry.target_node_id);
+    } else {
+      // Owning deployments are always desired-active, so they cannot target an
+      // off or retired node.
+      data.nodes.forEach(function (node) {
+        if (isPlainObject(node) && node.node_id === entry.target_node_id &&
+            (node.status === 'powered-off' || node.status === 'retired')) {
+          fail(label + ': desired-active deployment conflicts with node "' + node.name + '" status "' + node.status + '"');
+        }
+      });
     }
 
     var revisionArgumentValid = typeof entry.revision_argument === 'string' &&
