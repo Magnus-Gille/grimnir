@@ -9,17 +9,22 @@ reversal is a single mv.
   install-secret-stdin.py --file /abs/path --format env  --key MUNIN_API_KEY
   install-secret-stdin.py --file /abs/path --format json --key auth_token
 
-Exit codes: 0 ok, 2 invalid args or unsafe target file, 3 bad stdin (nothing written).
+Exit codes: 0 ok (also when the value is already installed), 2 invalid args or unsafe target file,
+3 bad stdin (nothing written), 4 write failed (target unchanged).
 """
 import argparse
 import json
 import os
+import re
+import signal
 import stat
 import sys
 import tempfile
 
-EXIT_BAD_TARGET, EXIT_BAD_STDIN = 2, 3
+EXIT_BAD_TARGET, EXIT_BAD_STDIN, EXIT_WRITE_FAILED = 2, 3, 4
 MAX_SECRET = 4096
+SECRET_RE = re.compile(r"[A-Za-z0-9._~+/=:@-]+")  # no shell metacharacters, quotes or whitespace
+KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 def fail(code, msg):
@@ -28,8 +33,8 @@ def fail(code, msg):
 
 
 def read_secret():
-    if sys.stdin.isatty():
-        fail(EXIT_BAD_STDIN, "refusing to read a secret from a terminal; pipe it in")
+    if sys.stdin is None or sys.stdin.isatty():
+        fail(EXIT_BAD_STDIN, "refusing to read a secret from a terminal or closed stdin; pipe it in")
     data = sys.stdin.buffer.read(MAX_SECRET + 2)
     try:
         text = data.decode("ascii")
@@ -37,56 +42,73 @@ def read_secret():
         fail(EXIT_BAD_STDIN, "secret must be ASCII")
     secret = text.strip()
     if text not in (secret, secret + "\n") or not secret or len(secret) > MAX_SECRET \
-            or any(c.isspace() for c in secret) or any(c in secret for c in "\"'\\$`="):
-        fail(EXIT_BAD_STDIN, "stdin must be exactly one token (no whitespace/quotes/=)")
+            or not SECRET_RE.fullmatch(secret):
+        fail(EXIT_BAD_STDIN, "stdin must be exactly one token of [A-Za-z0-9._~+/=:@-]")
     return secret
 
 
-def check_target(path):
+def read_target(path):
+    """Open without following symlinks and validate the descriptor, not the path."""
     if not os.path.isabs(path):
         fail(EXIT_BAD_TARGET, "--file must be an absolute path")
     try:
-        st = os.lstat(path)
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     except OSError:
-        fail(EXIT_BAD_TARGET, "target file missing or unreadable")
-    if not stat.S_ISREG(st.st_mode):
-        fail(EXIT_BAD_TARGET, "target must be a regular, non-symlink file")
-    if st.st_uid != os.getuid() or st.st_mode & 0o077:
-        fail(EXIT_BAD_TARGET, "target must be owned by the current user with mode 0600")
-    parent = os.stat(os.path.dirname(path))
-    if parent.st_mode & 0o002:
-        fail(EXIT_BAD_TARGET, "target directory is world-writable")
+        fail(EXIT_BAD_TARGET, "target missing, unreadable or a symlink")
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
+            fail(EXIT_BAD_TARGET, "target must be a regular file with a single link")
+        if st.st_uid != os.getuid() or st.st_mode & 0o077:
+            fail(EXIT_BAD_TARGET, "target must be owned by the current user with mode 0600")
+        parent = os.stat(os.path.dirname(path))
+        if parent.st_uid not in (os.getuid(), 0) or parent.st_mode & 0o022:
+            fail(EXIT_BAD_TARGET, "target directory must be owned by you/root and not group/world-writable")
+        with os.fdopen(fd, "rb", closefd=False) as fh:
+            return fh.read()
+    finally:
+        os.close(fd)
 
 
 def render_env(original, key, secret):
-    lines = original.splitlines(keepends=True)
-    hits = [i for i, l in enumerate(lines) if l.startswith(f"{key}=")]
+    lines = original.split(b"\n")
+    hits = [i for i, l in enumerate(lines) if l.startswith(key.encode() + b"=")]
     if len(hits) != 1:
         fail(EXIT_BAD_TARGET, f"expected exactly one {key}= line, found {len(hits)}")
-    lines[hits[0]] = f"{key}={secret}\n"
-    return "".join(lines)
+    eol = b"\r" if lines[hits[0]].endswith(b"\r") else b""
+    lines[hits[0]] = key.encode() + b"=" + secret.encode() + eol
+    return b"\n".join(lines)
 
 
 def render_json(original, key, secret):
     try:
-        doc = json.loads(original)
+        doc = json.loads(original.decode("utf-8"))
     except ValueError:
-        fail(EXIT_BAD_TARGET, "target is not valid JSON")
-    if not isinstance(doc, dict) or key not in doc:
-        fail(EXIT_BAD_TARGET, f"JSON object has no field {key}")
+        fail(EXIT_BAD_TARGET, "target is not valid UTF-8 JSON")
+    if not isinstance(doc, dict) or not isinstance(doc.get(key), str):
+        fail(EXIT_BAD_TARGET, f"JSON object has no string field {key}")
     doc[key] = secret
-    return json.dumps(doc, indent=2) + "\n"
+    return (json.dumps(doc, indent=2) + "\n").encode()
+
+
+def fsync_dir(path):
+    fd = os.open(os.path.dirname(path), os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def write_private(path, content):
     fd, tmp = tempfile.mkstemp(prefix=".tmp-install-", dir=os.path.dirname(path))
     try:
         os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "w") as fh:
+        with os.fdopen(fd, "wb") as fh:
             fh.write(content)
             fh.flush()
             os.fsync(fh.fileno())
         os.replace(tmp, path)
+        fsync_dir(path)
     except BaseException:
         try:
             os.unlink(tmp)
@@ -101,16 +123,23 @@ def main(argv=None):
     ap.add_argument("--format", required=True, choices=("env", "json"))
     ap.add_argument("--key", required=True)
     args = ap.parse_args(argv)
-    if not args.key.replace("_", "").isalnum():
-        fail(EXIT_BAD_TARGET, "--key must be alphanumeric/underscore")
-    check_target(args.file)
-    secret = read_secret()  # after target checks: bad target never consumes the secret
-    with open(args.file) as fh:
-        original = fh.read()
+    if not KEY_RE.fullmatch(args.key):
+        fail(EXIT_BAD_TARGET, "--key must match [A-Za-z_][A-Za-z0-9_]*")
     render = render_env if args.format == "env" else render_json
+    original = read_target(args.file)
+    render(original, args.key, "placeholder")  # validate the target BEFORE consuming the secret
+    secret = read_secret()
     new = render(original, args.key, secret)
-    write_private(args.file + ".prev", original)
-    write_private(args.file, new)
+    if new == original:
+        print(f"{args.key} already set in {os.path.basename(args.file)}; nothing to do")
+        return 0  # idempotent rerun: never clobber .prev with the already-rotated file
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(EXIT_WRITE_FAILED))
+    signal.signal(signal.SIGHUP, lambda *_: sys.exit(EXIT_WRITE_FAILED))
+    try:
+        write_private(args.file + ".prev", original)
+        write_private(args.file, new)
+    except OSError:
+        fail(EXIT_WRITE_FAILED, "write failed; target left unchanged (a .prev copy may exist)")
     print(f"installed {args.key} into {os.path.basename(args.file)}; previous kept as .prev")
     return 0
 

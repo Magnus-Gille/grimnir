@@ -59,11 +59,53 @@ class T(unittest.TestCase):
 
     def test_bad_stdin_writes_nothing(self):
         before = self.read(self.env)
-        for bad in ("", "two words", "a=b", 'q"uote', "x" * 5000, "é"):
+        for bad in ("", "two words", "a;b", 'q"uote', "x" * 5000, "é", "a$b", "a#b"):
             code, out = run(["--file", self.env, "--format", "env", "--key", "MUNIN_API_KEY"], bad)
             self.assertEqual(code, 3, bad[:10]); self.assertNotIn("x" * 50, out)
         self.assertEqual(self.read(self.env), before)
         self.assertFalse(os.path.exists(self.env + ".prev"))
+
+    def test_rerun_with_same_token_keeps_original_prev(self):
+        args = ["--file", self.env, "--format", "env", "--key", "MUNIN_API_KEY"]
+        self.assertEqual(run(args, NEW)[0], 0)
+        self.assertEqual(run(args, NEW)[0], 0)
+        self.assertIn(OLD, self.read(self.env + ".prev"))
+        self.assertNotIn(NEW, self.read(self.env + ".prev"))
+
+    def test_base64_padded_token_accepted(self):
+        code, _ = run(["--file", self.env, "--format", "env", "--key", "MUNIN_API_KEY"], "abc123+/xyz==")
+        self.assertEqual(code, 0)
+        self.assertIn("MUNIN_API_KEY=abc123+/xyz==\n", self.read(self.env))
+
+    def test_crlf_and_missing_trailing_newline_preserved(self):
+        with open(self.env, "wb") as fh:
+            fh.write(f"A=1\r\nMUNIN_API_KEY={OLD}\r\nB=2".encode())
+        self.assertEqual(run(["--file", self.env, "--format", "env", "--key", "MUNIN_API_KEY"], NEW)[0], 0)
+        with open(self.env, "rb") as fh:
+            self.assertEqual(fh.read(), f"A=1\r\nMUNIN_API_KEY={NEW}\r\nB=2".encode())
+
+    def test_bad_target_never_consumes_secret_or_leaks_it(self):
+        os.chmod(self.env, 0o644)
+        code, out = run(["--file", self.env, "--format", "env", "--key", "MUNIN_API_KEY"], NEW)
+        self.assertEqual(code, 2); self.assertNotIn(NEW, out)
+        self.write(self.env, "K=1\n")
+        code, out = run(["--file", self.env, "--format", "env", "--key", "NOPE"], NEW)
+        self.assertEqual(code, 2); self.assertNotIn(NEW, out)
+        self.assertFalse(os.path.exists(self.env + ".prev"))
+
+    def test_hardlink_and_unsafe_parent_refused(self):
+        os.link(self.env, os.path.join(self.d, "hard"))
+        self.assertEqual(run(["--file", self.env, "--format", "env", "--key", "MUNIN_API_KEY"], NEW)[0], 2)
+        os.unlink(os.path.join(self.d, "hard"))
+        os.chmod(self.d, 0o770)
+        self.assertEqual(run(["--file", self.env, "--format", "env", "--key", "MUNIN_API_KEY"], NEW)[0], 2)
+
+    def test_json_prev_mode_and_non_string_field(self):
+        self.assertEqual(run(["--file", self.js, "--format", "json", "--key", "auth_token"], NEW)[0], 0)
+        self.assertEqual(stat.S_IMODE(os.stat(self.js + ".prev").st_mode), 0o600)
+        self.assertEqual(json.loads(self.read(self.js + ".prev"))["auth_token"], OLD)
+        self.write(self.js, json.dumps({"auth_token": {"x": 1}}))
+        self.assertEqual(run(["--file", self.js, "--format", "json", "--key", "auth_token"], NEW)[0], 2)
 
     def test_no_temp_files_left(self):
         run(["--file", self.env, "--format", "env", "--key", "MUNIN_API_KEY"], NEW)
