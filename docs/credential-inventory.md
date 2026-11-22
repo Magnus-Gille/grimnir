@@ -28,4 +28,15 @@ owner typing the credential id, so routine agent runs stay on `plan` (a conventi
 event (with the reversal recipe) to the config's `audit_log`. Exit 3 means the credential was issued but
 the installer failed: reconcile state with the verify probe before issuing again, never retry blindly.
 
-Still open: the stdin-reading installers for each consumer, and OAuth wrap-key rotation (MUNIN-440).
+## Consumer installer
+
+`scripts/install-secret-stdin.py --file ABS --format env|json --key NAME` is the install step on the
+consumer host. It reads exactly one token from stdin (refuses a terminal), checks the target is a
+regular, non-symlink, owner-only (0600) file, replaces only the named env line or JSON field, writes
+atomically (0600, fsync) and keeps the previous file once as `<file>.prev`; reversal is
+`mv <file>.prev <file>` plus a restart. It prints no secret. Copy it to the consumer host once; the
+orchestrator config then runs it over ssh, with a restart chained after it
+(`... install-secret-stdin.py ... && systemctl restart <unit>`). A missing/duplicate key or bad target is
+refused before the secret is consumed or anything is written.
+
+Still open: OAuth wrap-key rotation (MUNIN-440; design proposal in the Munin repo).
