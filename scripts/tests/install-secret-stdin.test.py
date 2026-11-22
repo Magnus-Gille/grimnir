@@ -107,6 +107,15 @@ class T(unittest.TestCase):
         self.write(self.js, json.dumps({"auth_token": {"x": 1}}))
         self.assertEqual(run(["--file", self.js, "--format", "json", "--key", "auth_token"], NEW)[0], 2)
 
+    def test_check_mode_validates_without_stdin_or_writing(self):
+        args = ["--file", self.env, "--format", "env", "--key", "MUNIN_API_KEY", "--check"]
+        before = self.read(self.env)
+        self.assertEqual(run(args, "")[0], 0)
+        self.assertEqual(self.read(self.env), before)
+        self.assertFalse(os.path.exists(self.env + ".prev"))
+        os.chmod(self.env, 0o644)
+        self.assertEqual(run(args, "")[0], 2)
+
     def test_no_temp_files_left(self):
         run(["--file", self.env, "--format", "env", "--key", "MUNIN_API_KEY"], NEW)
         self.assertEqual([f for f in os.listdir(self.d) if f.startswith(".tmp-install-")], [])

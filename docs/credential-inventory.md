@@ -39,4 +39,9 @@ orchestrator config then runs it over ssh, with a restart chained after it
 (`... install-secret-stdin.py ... && systemctl restart <unit>`). A missing/duplicate key or bad target is
 refused before the secret is consumed or anything is written.
 
+Preflight with `install-secret-stdin.py ... --check` (same target validation, no stdin, no write) so a bad target is
+caught BEFORE the issuer revokes the old credential. Verify with `scripts/munin-auth-probe.py`, which makes one
+authenticated call with the installed credential; `munin-admin principals test` only evaluates ACL rules and cannot
+prove a token works.
+
 Still open: OAuth wrap-key rotation (MUNIN-440; design proposal in the Munin repo).

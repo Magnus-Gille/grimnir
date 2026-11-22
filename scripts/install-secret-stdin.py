@@ -8,6 +8,7 @@ reversal is a single mv.
 
   install-secret-stdin.py --file /abs/path --format env  --key MUNIN_API_KEY
   install-secret-stdin.py --file /abs/path --format json --key auth_token
+  install-secret-stdin.py ... --check        # preflight: same validation, no stdin, no write
 
 Exit codes: 0 ok (also when the value is already installed), 2 invalid args or unsafe target file,
 3 bad stdin (nothing written), 4 write failed (target unchanged).
@@ -122,12 +123,17 @@ def main(argv=None):
     ap.add_argument("--file", required=True)
     ap.add_argument("--format", required=True, choices=("env", "json"))
     ap.add_argument("--key", required=True)
+    ap.add_argument("--check", action="store_true",
+                    help="validate the target and key without reading stdin or writing anything (preflight)")
     args = ap.parse_args(argv)
     if not KEY_RE.fullmatch(args.key):
         fail(EXIT_BAD_TARGET, "--key must match [A-Za-z_][A-Za-z0-9_]*")
     render = render_env if args.format == "env" else render_json
     original = read_target(args.file)
     render(original, args.key, "placeholder")  # validate the target BEFORE consuming the secret
+    if args.check:
+        print(f"{args.key} target in {os.path.basename(args.file)} is installable")
+        return 0
     secret = read_secret()
     new = render(original, args.key, secret)
     if new == original:
