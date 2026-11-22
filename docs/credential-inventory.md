@@ -28,4 +28,20 @@ owner typing the credential id, so routine agent runs stay on `plan` (a conventi
 event (with the reversal recipe) to the config's `audit_log`. Exit 3 means the credential was issued but
 the installer failed: reconcile state with the verify probe before issuing again, never retry blindly.
 
-Still open: the stdin-reading installers for each consumer, and OAuth wrap-key rotation (MUNIN-440).
+## Consumer installer
+
+`scripts/install-secret-stdin.py --file ABS --format env|json --key NAME` is the install step on the
+consumer host. It reads exactly one token from stdin (refuses a terminal), checks the target is a
+regular, non-symlink, owner-only (0600) file, replaces only the named env line or JSON field, writes
+atomically (0600, fsync, descriptor-checked: no symlink, one link, owner-only, safe parent) and keeps the previous file as `<file>.prev` (an identical rerun is a no-op and never clobbers it); reversal is
+`mv <file>.prev <file>` plus a restart. It prints no secret. Copy it to the consumer host once; the
+orchestrator config then runs it over ssh, with a restart chained after it
+(`... install-secret-stdin.py ... && systemctl restart <unit>`). A missing/duplicate key or bad target is
+refused before the secret is consumed or anything is written.
+
+Preflight with `install-secret-stdin.py ... --check` (same target validation, no stdin, no write) so a bad target is
+caught BEFORE the issuer revokes the old credential. Verify with `scripts/munin-auth-probe.py`, which makes one
+authenticated call with the installed credential; `munin-admin principals test` only evaluates ACL rules and cannot
+prove a token works.
+
+Still open: OAuth wrap-key rotation (MUNIN-440; design proposal in the Munin repo).
