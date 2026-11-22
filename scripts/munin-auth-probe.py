@@ -15,6 +15,7 @@ import stat
 import sys
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 
 EXIT_BAD_INPUT, EXIT_DENIED, EXIT_UNREACHABLE = 2, 3, 4
 
@@ -22,13 +23,17 @@ EXIT_BAD_INPUT, EXIT_DENIED, EXIT_UNREACHABLE = 2, 3, 4
 def load_token(path, fmt, key):
     if not os.path.isabs(path):
         sys.exit("--file must be absolute")
-    st = os.lstat(path)
-    if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
-        sys.exit("credential file must be a regular owner-only (0600) file")
-    with open(path, "rb") as fh:
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, "rb") as fh:
+        st = os.fstat(fh.fileno())
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+            sys.exit("credential file must be a regular owner-only (0600) file")
         raw = fh.read().decode("utf-8")
     if fmt == "json":
-        value = json.loads(raw).get(key)
+        doc = json.loads(raw)
+        if not isinstance(doc, dict):
+            sys.exit("credential file must contain a JSON object")
+        value = doc.get(key)
     else:
         hits = [l[len(key) + 1:] for l in raw.splitlines() if l.startswith(key + "=")]
         value = hits[0] if len(hits) == 1 else None
@@ -37,16 +42,30 @@ def load_token(path, fmt, key):
     return value.strip()
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None  # a redirect is never followed: the token must not leave the origin
+
+
+def plain_http_ok(url):
+    parts = urlsplit(url)
+    if parts.scheme == "https":
+        return bool(parts.hostname) and parts.username is None and parts.password is None
+    return (parts.scheme == "http" and parts.hostname in ("127.0.0.1", "localhost", "::1")
+            and parts.username is None and parts.password is None)
+
+
 def probe(url, token, timeout=15):
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).encode()
     req = urllib.request.Request(url, data=body, method="POST", headers={
         "Authorization": f"Bearer {token}", "Content-Type": "application/json",
         "Accept": "application/json, text/event-stream"})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with opener.open(req, timeout=timeout) as resp:
             return resp.status
     except urllib.error.HTTPError as exc:
-        return exc.code
+        return exc.code  # includes 3xx, which are never success
     except (urllib.error.URLError, OSError):
         return None
 
@@ -58,8 +77,8 @@ def main(argv=None):
     ap.add_argument("--format", required=True, choices=("env", "json"))
     ap.add_argument("--key", required=True)
     args = ap.parse_args(argv)
-    if not args.url.startswith(("http://127.0.0.1", "http://localhost", "https://")):
-        print("refusing to send a credential over plain http to a non-loopback host", file=sys.stderr)
+    if not plain_http_ok(args.url):
+        print("refusing: URL must be https, or plain http to exactly loopback, without userinfo", file=sys.stderr)
         return EXIT_BAD_INPUT
     try:
         token = load_token(args.file, args.format, args.key)

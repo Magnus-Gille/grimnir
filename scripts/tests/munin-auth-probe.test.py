@@ -17,6 +17,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
+class Redirector(http.server.BaseHTTPRequestHandler):
+    seen = []
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        self.send_response(302)
+        self.send_header("Location", f"http://127.0.0.1:{Target.srv.server_port}/x")
+        self.end_headers()
+    def log_message(self, *a):
+        pass
+
+
+class Target(http.server.BaseHTTPRequestHandler):
+    hits = []
+    def _h(self):
+        Target.hits.append(self.headers.get("Authorization"))
+        self.send_response(200); self.end_headers()
+    do_GET = do_POST = _h
+    def log_message(self, *a):
+        pass
+
+
 class T(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -50,6 +71,32 @@ class T(unittest.TestCase):
     def test_good_json_token_ok(self):
         f = self.mk("c.json", json.dumps({"auth_token": GOOD}))
         self.assertEqual(self.run_probe("--url", self.url, "--file", f, "--format", "json", "--key", "auth_token")[0], 0)
+
+    def test_redirect_not_followed_and_token_not_leaked(self):
+        Target.srv = http.server.HTTPServer(("127.0.0.1", 0), Target)
+        threading.Thread(target=Target.srv.serve_forever, daemon=True).start()
+        red = http.server.HTTPServer(("127.0.0.1", 0), Redirector)
+        threading.Thread(target=red.serve_forever, daemon=True).start()
+        try:
+            f = self.mk("r.env", f"MUNIN_API_KEY={GOOD}\n")
+            code, out = self.run_probe("--url", f"http://127.0.0.1:{red.server_port}/mcp", "--file", f,
+                                       "--format", "env", "--key", "MUNIN_API_KEY")
+        finally:
+            red.shutdown(); Target.srv.shutdown()
+        self.assertEqual(code, 3); self.assertIn("HTTP 302", out)
+        self.assertEqual(Target.hits, [])
+
+    def test_host_guard_rejects_lookalikes_and_userinfo(self):
+        f = self.mk("g.env", f"MUNIN_API_KEY={GOOD}\n")
+        for u in ("http://127.0.0.1.example.invalid/mcp", "http://localhost.evil.tld/mcp",
+                  "http://127.0.0.1@evil.tld/mcp", "https://user:pw@example.com/mcp"):
+            code, _ = self.run_probe("--url", u, "--file", f, "--format", "env", "--key", "MUNIN_API_KEY")
+            self.assertEqual(code, 2, u)
+
+    def test_non_object_json_is_clean_error(self):
+        f = self.mk("n.json", "[1]")
+        code, out = self.run_probe("--url", self.url, "--file", f, "--format", "json", "--key", "k")
+        self.assertEqual(code, 2); self.assertNotIn("Traceback", out)
 
     def test_wrong_token_denied(self):
         f = self.mk("b.env", "MUNIN_API_KEY=wrongTOKEN\n")

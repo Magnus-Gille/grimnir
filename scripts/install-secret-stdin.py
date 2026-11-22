@@ -3,8 +3,9 @@
 
 Runs on the consumer host as the install step of scripts/rotate-credential.py. The
 secret arrives only on stdin (never argv/env), is written atomically with mode 0600,
-and is never printed. The previous file is kept once as `<file>.prev` (0600) so the
-reversal is a single mv.
+and is never printed. The previous file is kept once as `<file>.prev` (0600) for
+inspection only: it holds a value that is already revoked, so recovery is forward-only
+(issue a new credential), never a restore from `.prev`.
 
   install-secret-stdin.py --file /abs/path --format env  --key MUNIN_API_KEY
   install-secret-stdin.py --file /abs/path --format json --key auth_token
